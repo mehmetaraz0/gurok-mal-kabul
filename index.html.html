@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Gürok Mal Kabul</title>
+<style>
+:root {
+  --primary: #1a3c5e;
+  --primary-light: #2a5a8f;
+  --accent: #e8a020;
+  --accent-light: #fdf3e0;
+  --danger: #c0392b;
+  --danger-light: #fdf0ef;
+  --success: #1e7e34;
+  --success-light: #eaf4ec;
+  --warning: #d68910;
+  --warning-light: #fef9e7;
+  --gray-50: #f8f9fa;
+  --gray-100: #f1f3f5;
+  --gray-200: #e9ecef;
+  --gray-300: #dee2e6;
+  --gray-400: #ced4da;
+  --gray-500: #adb5bd;
+  --gray-600: #6c757d;
+  --gray-700: #495057;
+  --gray-800: #343a40;
+  --gray-900: #212529;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,0.12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-100); color: var(--gray-900); min-height: 100vh; font-size: 15px; }
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: flex; flex-direction: column; }
+
+/* HEADER */
+.header { background: var(--primary); color: white; padding: 14px 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.header-back { background: rgba(255,255,255,0.15); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.header-title { flex: 1; font-size: 17px; font-weight: 600; }
+.header-badge { background: var(--accent); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; min-width: 22px; text-align: center; }
+.logo-bar { background: var(--primary); padding: 28px 20px 20px; text-align: center; color: white; }
+.logo-bar h1 { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
+.logo-bar p { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+
+/* CARDS & CONTENT */
+.content { flex: 1; padding: 16px; }
+.card { background: white; border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.card-title { font-size: 13px; font-weight: 600; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+
+/* FORM ELEMENTS */
+label { display: block; font-size: 13px; font-weight: 500; color: var(--gray-700); margin-bottom: 5px; }
+input, select, textarea { width: 100%; padding: 11px 13px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 15px; background: white; color: var(--gray-900); outline: none; transition: border-color 0.2s; font-family: inherit; }
+input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+.field { margin-bottom: 13px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+/* BUTTONS */
+.btn { padding: 13px 18px; border-radius: var(--radius-sm); font-size: 15px; font-weight: 600; cursor: pointer; border: none; width: 100%; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-light); }
+.btn-accent { background: var(--accent); color: white; }
+.btn-success { background: var(--success); color: white; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-outline { background: white; color: var(--primary); border: 1.5px solid var(--primary); }
+.btn-gray { background: var(--gray-100); color: var(--gray-700); border: 1.5px solid var(--gray-300); }
+.btn-sm { padding: 8px 14px; font-size: 13px; width: auto; }
+.btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+
+/* BADGES */
+.badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge-success { background: var(--success-light); color: var(--success); }
+.badge-danger { background: var(--danger-light); color: var(--danger); }
+.badge-warning { background: var(--warning-light); color: var(--warning); }
+.badge-gray { background: var(--gray-100); color: var(--gray-600); }
+.badge-primary { background: #e8f0fa; color: var(--primary); }
+
+/* LOGIN */
+#screen-login { background: var(--primary); justify-content: center; align-items: center; }
+.login-box { background: white; border-radius: 16px; padding: 28px 24px; width: calc(100% - 40px); max-width: 380px; box-shadow: var(--shadow-lg); }
+.login-logo { text-align: center; margin-bottom: 24px; }
+.login-logo h2 { color: var(--primary); font-size: 22px; font-weight: 700; }
+.login-logo p { color: var(--gray-500); font-size: 13px; margin-top: 3px; }
+.pin-display { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gray-400); transition: all 0.2s; }
+.pin-dot.filled { background: var(--primary); border-color: var(--primary); }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+.pin-btn { background: var(--gray-100); border: none; border-radius: 10px; padding: 16px; font-size: 20px; font-weight: 600; cursor: pointer; transition: all 0.15s; color: var(--gray-900); }
+.pin-btn:active { background: var(--primary); color: white; transform: scale(0.93); }
+.pin-btn.del { background: var(--danger-light); color: var(--danger); }
+.role-select { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.role-btn { background: var(--gray-100); border: 2px solid transparent; border-radius: var(--radius-sm); padding: 12px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.role-btn.selected { background: #e8f0fa; border-color: var(--primary); }
+.role-btn .role-icon { font-size: 24px; margin-bottom: 4px; }
+.role-btn .role-label { font-size: 13px; font-weight: 600; color: var(--gray-700); }
+
+/* DASHBOARD */
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.stat-card { background: white; border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); text-align: center; }
+.stat-num { font-size: 28px; font-weight: 700; color: var(--primary); }
+.stat-label { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+.menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.menu-btn { background: white; border-radius: var(--radius); padding: 18px 14px; box-shadow: var(--shadow); border: none; cursor: pointer; text-align: center; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.menu-btn:active { transform: scale(0.96); box-shadow: none; }
+.menu-btn .menu-icon { font-size: 28px; }
+.menu-btn .menu-label { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+.menu-btn .menu-sub { font-size: 11px; color: var(--gray-500); }
+.menu-btn.highlight { background: var(--primary); }
+.menu-btn.highlight .menu-label, .menu-btn.highlight .menu-sub { color: white; }
+
+/* PRODUCT ROWS */
+.product-row { background: white; border-radius: var(--radius); padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow); border-left: 4px solid var(--gray-300); }
+.product-row.uygun { border-left-color: var(--success); }
+.product-row.uygunsuz { border-left-color: var(--danger); }
+.product-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.product-num { background: var(--primary); color: white; font-size: 12px; font-weight: 700; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.remove-btn { background: var(--danger-light); color: var(--danger); border: none; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; font-weight: 600; }
+
+/* BARKOD SCAN */
+.scan-area { background: var(--gray-900); border-radius: var(--radius); height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; margin-bottom: 12px; position: relative; overflow: hidden; }
+.scan-frame { width: 160px; height: 120px; border: 2px solid var(--accent); border-radius: 8px; position: relative; }
+.scan-frame::before, .scan-frame::after { content: ''; position: absolute; width: 20px; height: 20px; }
+.scan-line { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); animation: scanline 2s linear infinite; }
+@keyframes scanline { 0% { top: 0; } 100% { top: 100%; } }
+.scan-label { color: white; font-size: 13px; opacity: 0.7; }
+#video-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
+
+/* LIST ITEMS */
+.list-item { background: white; border-radius: var(--radius); padding: 14px; margin-bottom: 8px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.15s; }
+.list-item:active { background: var(--gray-50); }
+.list-item-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.list-item-body { flex: 1; min-width: 0; }
+.list-item-title { font-size: 15px; font-weight: 600; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-item-sub { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+.list-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+
+/* FILTER BAR */
+.filter-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; scrollbar-width: none; }
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-chip { background: white; border: 1.5px solid var(--gray-300); border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: all 0.15s; color: var(--gray-700); }
+.filter-chip.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+/* TABS */
+.tab-bar { display: flex; background: white; border-bottom: 1px solid var(--gray-200); }
+.tab { flex: 1; padding: 12px 8px; text-align: center; font-size: 13px; font-weight: 500; color: var(--gray-500); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--gray-900); color: white; padding: 12px 20px; border-radius: 24px; font-size: 14px; font-weight: 500; z-index: 9999; box-shadow: var(--shadow-lg); opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; display: none; align-items: flex-end; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 20px 20px 0 0; padding: 24px 20px; width: 100%; max-height: 85vh; overflow-y: auto; }
+.modal-handle { width: 40px; height: 4px; background: var(--gray-300); border-radius: 2px; margin: 0 auto 16px; }
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; color: var(--gray-900); }
+
+/* TEMP INDICATOR */
+.temp-indicator { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-top: 4px; }
+.temp-ok { background: var(--success-light); color: var(--success); }
+.temp-warn { background: var(--danger-light); color: var(--danger); }
+
+/* DIVIDER */
+.divider { height: 1px; background: var(--gray-200); margin: 12px 0; }
+
+/* EMPTY STATE */
+.empty { text-align: center; padding: 48px 20px; color: var(--gray-500); }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty h3 { font-size: 16px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+.empty p { font-size: 14px; }
+
+/* SECTION HEADER */
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.section-title { font-size: 16px; font-weight: 700; color: var(--gray-900); }
+
+/* ANALYTICS */
+.analytics-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+.analytics-row:last-child { border-bottom: none; }
+.progress-bar { height: 6px; background: var(--gray-200); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; background: var(--primary); transition: width 0.5s; }
+.progress-fill.danger { background: var(--danger); }
+
+/* USER AVATAR */
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); color: white; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+input[type=file] { display: none; }
+.upload-area { border: 2px dashed var(--gray-300); border-radius: var(--radius); padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.upload-area:hover { border-color: var(--primary); background: #f0f4f9; }
+.upload-icon { font-size: 32px; margin-bottom: 8px; }
+.upload-text { font-size: 14px; color: var(--gray-600); font-weight: 500; }
+.upload-sub { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL: Barkod Kayıt -->
+<div class="modal-overlay" id="modal-barkod">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Yeni Barkod Kaydı</div>
+    <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px;">Bu barkod sistemde kayıtlı değil. Ürün bilgilerini girerek kaydedin.</p>
+    <div id="modal-barkod-val" style="background:var(--gray-100);padding:8px 12px;border-radius:6px;font-family:monospace;font-size:13px;margin-bottom:14px;"></div>
+    <div class="field">
+      <label>Tedarikçi</label>
+      <select id="mb-tedarikcisi"></select>
+    </div>
+    <div class="field">
+      <label>Malzeme Adı</label>
+      <input type="text" id="mb-ad" placeholder="Örn: Tereyağı 1kg">
+    </div>
+    <div class="field">
+      <label>LN Infor Kodu</label>
+      <input type="text" id="mb-ln" placeholder="Örn: YIY05000012">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Birim</label>
+        <select id="mb-birim">
+          <option>KG</option><option>ADET</option><option>LT</option><option>KTN</option><option>PKT</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Ürün Grubu</label>
+        <select id="mb-grup">
+          <option>YIY01</option><option>YIY02</option><option>YIY03</option><option>YIY04</option><option>YIY05</option><option>YIY06</option><option>GNL</option><option>ICA</option><option>ICB</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Sıcaklık Kriteri (°C)</label>
+      <select id="mb-sicaklik-kriter">
+        <option value="none">Ölçüm gerekmez (kuru gıda)</option>
+        <option value="4">+4°C altı (süt ürünleri)</option>
+        <option value="4et">0°C - +4°C arası (et/tavuk)</option>
+        <option value="-18">-18°C altı (dondurulmuş)</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="closeModal('modal-barkod')">İptal</button>
+      <button class="btn btn-primary" onclick="saveBarkod()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Onay Detay -->
+<div class="modal-overlay" id="modal-onay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-onay-title"></div>
+    <div id="modal-onay-content"></div>
+    <div class="field" id="modal-red-field" style="display:none;">
+      <label>Red Notu</label>
+      <textarea id="modal-red-not" rows="2" placeholder="Red sebebini yazın..."></textarea>
+    </div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-danger btn-sm" onclick="showRedField()" id="btn-red">Reddet</button>
+      <button class="btn btn-success btn-sm" onclick="onaylaForm()" id="btn-onayla">Onayla ✓</button>
+    </div>
+    <button class="btn btn-gray" style="margin-top:8px;" onclick="closeModal('modal-onay')">Kapat</button>
+  </div>
+</div>
+
+<!-- MODAL: Kullanıcı Yönetimi -->
+<div class="modal-overlay" id="modal-kullanici">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Kullanıcı Ekle</div>
+    <div class="field">
+      <label>Ad Soyad</label>
+      <input type="text" id="ku-ad" placeholder="Örn: Ahmet Yılmaz">
+    </div>
+    <div class="field">
+      <label>Rol</label>
+      <select id="ku-rol">
+        <option value="personel">Depo Personeli</option>
+        <option value="yonetici">Yönetici</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>6 Hane PIN</label>
+      <input type="number" id="ku-pin" placeholder="123456" maxlength="6">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="closeModal('modal-kullanici')">İptal</button>
+      <button class="btn btn-primary" onclick="saveKullanici()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Tedarikçi -->
+<div class="modal-overlay" id="modal-tedarikcisi">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Tedarikçi Ekle</div>
+    <div class="field">
+      <label>Firma Adı</label>
+      <input type="text" id="tt-ad" placeholder="Örn: Sütaş Gıda A.Ş.">
+    </div>
+    <div class="field">
+      <label>Kısa Kod</label>
+      <input type="text" id="tt-kod" placeholder="Örn: SUTAS" style="text-transform:uppercase;">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="closeModal('modal-tedarikcisi')">İptal</button>
+      <button class="btn btn-primary" onclick="saveTedarikcisi()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREENS ==================== -->
+
+<!-- LOGIN -->
+<div class="screen active" id="screen-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <h2>🏨 Gürok</h2>
+      <p>Mal Kabul Sistemi</p>
+    </div>
+    <div id="login-step1">
+      <label style="margin-bottom:10px;display:block;text-align:center;font-size:14px;color:var(--gray-600);">Rolünüzü seçin</label>
+      <div class="role-select">
+        <div class="role-btn selected" id="role-personel" onclick="selectRole('personel')">
+          <div class="role-icon">👷</div>
+          <div class="role-label">Personel</div>
+        </div>
+        <div class="role-btn" id="role-yonetici" onclick="selectRole('yonetici')">
+          <div class="role-icon">👔</div>
+          <div class="role-label">Yönetici</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Ad Soyad</label>
+        <input type="text" id="login-name" placeholder="Adınızı seçin veya yazın" list="users-list">
+        <datalist id="users-list"></datalist>
+      </div>
+      <button class="btn btn-primary" onclick="goToPin()">Devam →</button>
+    </div>
+    <div id="login-step2" style="display:none;">
+      <p style="text-align:center;font-size:14px;color:var(--gray-600);margin-bottom:12px;">PIN kodunuzu girin</p>
+      <div id="login-user-show" style="text-align:center;font-weight:600;color:var(--primary);margin-bottom:10px;"></div>
+      <div class="pin-display" id="pin-display">
+        <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+        <div class="pin-dot" id="pd4"></div><div class="pin-dot" id="pd5"></div>
+      </div>
+      <div class="pin-pad">
+        <button class="pin-btn" onclick="pinInput('1')">1</button>
+        <button class="pin-btn" onclick="pinInput('2')">2</button>
+        <button class="pin-btn" onclick="pinInput('3')">3</button>
+        <button class="pin-btn" onclick="pinInput('4')">4</button>
+        <button class="pin-btn" onclick="pinInput('5')">5</button>
+        <button class="pin-btn" onclick="pinInput('6')">6</button>
+        <button class="pin-btn" onclick="pinInput('7')">7</button>
+        <button class="pin-btn" onclick="pinInput('8')">8</button>
+        <button class="pin-btn" onclick="pinInput('9')">9</button>
+        <button class="pin-btn btn-gray" onclick="backStep1()">←</button>
+        <button class="pin-btn" onclick="pinInput('0')">0</button>
+        <button class="pin-btn del" onclick="pinDel()">⌫</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="screen" id="screen-dashboard">
+  <div class="logo-bar">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h1>Gürok Mal Kabul</h1>
+        <p id="dash-welcome"></p>
+      </div>
+      <button onclick="logout()" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;">Çıkış</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="dash-grid" id="dash-stats"></div>
+    <div class="menu-grid" id="dash-menu"></div>
+  </div>
+</div>
+
+<!-- MAL KABUL FORM -->
+<div class="screen" id="screen-form">
+  <div class="header">
+    <button class="header-back" onclick="showScreen('dashboard')">←</button>
+    <div class="header-title">Yeni Mal Kabul</div>
+  </div>
+  <div class="content">
+    <div class="card">
+      <div class="card-title">📋 Tedarikçi & Fatura</div>
+      <div class="field">
+        <label>Tedarikçi</label>
+        <select id="form-tedarikcisi"></select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Fatura No</label>
+          <input type="text" id="form-fatura" placeholder="001234">
+        </div>
+        <div class="field">
+          <label>İrsaliye No</label>
+          <input type="text" id="form-irsaliye" placeholder="005678">
+        </div>
+      </div>
+      <div class="field">
+        <label>Tarih</label>
+        <input type="date" id="form-tarih">
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Ürünler</div>
+      <button class="btn btn-sm btn-primary" onclick="addProductRow()">+ Ürün Ekle</button>
+    </div>
+    <div id="product-rows"></div>
+
+    <div style="margin-bottom:80px;">
+      <button class="btn btn-accent" onclick="scanBarkod()">📷 Barkod Tara</button>
+    </div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:16px;background:white;box-shadow:0 -2px 12px rgba(0,0,0,0.1);">
+      <button class="btn btn-primary" onclick="submitForm()">Onaya Gönder ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ONAY EKRANı (YÖNETİCİ) -->
+<div class="screen" id="screen-onay">
+  <div class="header">
+    <button class="header-back" onclick="showScreen('dashboard')">←</button>
+    <div class="header-title">Onay Bekleyenler</div>
+    <div class="header-badge" id="onay-badge">0</div>
+  </div>
+  <div class="content">
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchOnayTab('bekleyen',this)">Bekleyen</div>
+      <div class="tab" onclick="switchOnayTab('onaylanan',this)">Onaylanan</div>
+      <div class="tab" onclick="switchOnayTab('reddedilen',this)">Reddedilen</div>
+    </div>
+    <div style="height:12px;"></div>
+    <div id="onay-list"></div>
+  </div>
+</div>
+
+<!-- GEÇMİŞ & İZLEME -->
+<div class="screen" id="screen-gecmis">
+  <div class="header">
+    <button class="header-back" onclick="showScreen('dashboard')">←</button>
+    <div class="header-title">Geçmiş & İzleme</div>
+  </div>
+  <div class="content">
+    <div class="card">
+      <div class="card-title">🔍 Filtrele</div>
+      <div class="field">
+        <label>Dönem</label>
+        <select id="filter-donem" onchange="renderGecmis()">
+          <option value="7">Son 7 gün</option>
+          <option value="30" selected>Son 30 gün</option>
+          <option value="90">Son 3 ay</option>
+          <option value="365">Son 1 yıl</option>
+          <option value="0">Tümü</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Tedarikçi</label>
+          <select id="filter-tedarikcisi" onchange="renderGecmis()">
+            <option value="">Tümü</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Durum</label>
+          <select id="filter-durum" onchange="renderGecmis()">
+            <option value="">Tümü</option>
+            <option value="uygun">Uygun</option>
+            <option value="uygunsuz">Uygunsuz</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Ürün Ara</label>
+        <input type="text" id="filter-urun" placeholder="Malzeme adı..." oninput="renderGecmis()">
+      </div>
+    </div>
+
+    <div class="dash-grid" id="gecmis-stats"></div>
+
+    <div class="section-header">
+      <div class="section-title">Tedarikçi Analizi</div>
+    </div>
+    <div class="card" id="tedarikci-analytics"></div>
+
+    <div class="section-header" style="margin-top:12px;">
+      <div class="section-title" id="gecmis-list-title">Kayıtlar</div>
+    </div>
+    <div id="gecmis-list"></div>
+  </div>
+</div>
+
+<!-- BARKOD KÜTÜPHANESİ -->
+<div class="screen" id="screen-barkod">
+  <div class="header">
+    <button class="header-back" onclick="showScreen('dashboard')">←</button>
+    <div class="header-title">Barkod Kütüphanesi</div>
+  </div>
+  <div class="content">
+    <input type="text" id="barkod-search" placeholder="🔍 Ürün adı veya barkod ara..." style="margin-bottom:12px;" oninput="renderBarkodlar()">
+    <div id="barkod-list"></div>
+    <div style="height:80px;"></div>
+    <div style="position:fixed;bottom:0;left:0;right:0;padding:16px;background:white;box-shadow:0 -2px 12px rgba(0,0,0,0.1);">
+      <button class="btn btn-primary" onclick="manualBarkodEkle()">+ Manuel Barkod Ekle</button>
+    </div>
+  </div>
+</div>
+
+<!-- SKT TAKİP -->
+<div class="screen" id="screen-skt">
+  <div class="header">
+    <button class="header-back" onclick="showScreen('dashboard')">←</button>
+    <div class="header-title">SKT Takip</div>
+    <div class="header-badge" id="skt-kritik-badge">0</div>
+  </div>
+  <div class="content">
+    <div class="filter-bar">
+      <div class="filter-chip active" onclick="switchSKTFilter('kritik',this)">🔴 Kritik (&lt;14 gün)</div>
+      <div class="filter-chip" onclick="switchSKTFilter('uyari',this)">🟡 Uyarı (&lt;30 gün)</div>
+      <div class="filter-chip" onclick="switchSKTFilter('gecmis',this)">⛔ Süresi Geçmiş</div>
+      <div class="filter-chip" onclick="switchSKTFilter('hepsi',this)">Tümü</div>
+    </div>
+    <div id="skt-ozet" class="dash-grid" style="margin-bottom:12px;"></div>
+    <div id="skt-list"></div>
+  </div>
+</div>
+
+<!-- VERİ YÖNETİMİ -->
+<div class="screen" id="screen-veri">
+  <div class="header">
+    <button class="header-back" onclick="showScreen('dashboard')">←</button>
+    <div class="header-title">Veri Yönetimi</div>
+  </div>
+  <div class="content">
+    <div class="card">
+      <div class="card-title">📥 LN Infor Import</div>
+      <p style="font-size:13px;color:var(--gray-600);margin-bottom:12px;">LN Infor'dan export ettiğiniz Excel dosyasını yükleyerek ürün listesini güncelleyin.</p>
+      <div class="upload-area" onclick="document.getElementById('ln-file').click()">
+        <div class="upload-icon">📊</div>
+        <div class="upload-text">Excel dosyası seçin</div>
+        <div class="upload-sub">whinh2120m000 formatı</div>
+      </div>
+      <input type="file" id="ln-file" accept=".xlsx,.xls,.csv" onchange="importLNInfor(this)">
+      <div id="import-result" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 Kullanıcılar</div>
+      <div id="kullanici-list"></div>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="openModal('modal-kullanici')">+ Kullanıcı Ekle</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏭 Tedarikçiler</div>
+      <div id="tedarikcisi-list"></div>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="openModal('modal-tedarikcisi')">+ Tedarikçi Ekle</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💾 Yedekleme</div>
+      <div id="yedek-info" style="font-size:13px;color:var(--gray-600);margin-bottom:12px;"></div>
+      <button class="btn btn-primary" onclick="exportJSON()" style="margin-bottom:8px;">📥 Tüm Veriyi İndir (JSON)</button>
+      <button class="btn btn-outline" onclick="exportCSV()" style="margin-bottom:8px;">📊 Excel için CSV İndir</button>
+      <div class="upload-area" style="margin-top:4px;" onclick="document.getElementById('restore-file').click()">
+        <div class="upload-icon">📤</div>
+        <div class="upload-text">Yedekten Geri Yükle</div>
+        <div class="upload-sub">JSON dosyası seçin</div>
+      </div>
+      <input type="file" id="restore-file" accept=".json" onchange="restoreJSON(this)">
+    </div>
+  </div>
+</div>
+
+<!-- BARKOD SCAN SCREEN -->
+<div class="screen" id="screen-scan">
+  <div class="header">
+    <button class="header-back" onclick="stopScan()">←</button>
+    <div class="header-title">Barkod Tara</div>
+  </div>
+  <div class="content" style="padding:12px;">
+    <div class="scan-area">
+      <video id="video-preview" autoplay playsinline></video>
+      <div class="scan-frame"><div class="scan-line"></div></div>
+      <div class="scan-label">Barkodu çerçeve içine alın</div>
+    </div>
+    <p style="text-align:center;font-size:13px;color:var(--gray-500);margin-bottom:16px;">veya manuel girin</p>
+    <div class="field-row" style="align-items:flex-end;">
+      <div class="field" style="margin-bottom:0;">
+        <label>Barkod No</label>
+        <input type="text" id="manual-barcode" placeholder="8690000000000" inputmode="numeric">
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="processManualBarcode()" style="height:44px;white-space:nowrap;">Sorgula</button>
+    </div>
+    <canvas id="barcode-canvas" style="display:none;"></canvas>
+  </div>
+</div>
+
+<script>
+const URUN_DB = [{"kod": "YIY01000001", "ad": "DONER DANA HAZIR BATON (2", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000002", "ad": "DANA BESLI SET (201)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000003", "ad": "DANA ET KIYMALIK (202)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000004", "ad": "DANA KONTRAFILE (203)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000006", "ad": "DANA ANTRIKOT (205)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000007", "ad": "KUZU BUT (206)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000009", "ad": "KUZU KOL (213)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000012", "ad": "KUZU KANAT PIRZOLA (209)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000037", "ad": "KOFTE DANA IZGARA SOKLU (", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000038", "ad": "KOFTE DANA KASARLI SOKLU", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000039", "ad": "BURGER DANA 45 GR SOKLU (", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000040", "ad": "SUCUK DANA BATON (301)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000045", "ad": "JAMBON DANA (305)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000048", "ad": "FUME DANA BUTUN (316)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000050", "ad": "SOSIS DANA KOKTEYL (306)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000051", "ad": "SALAM DANA MACAR (308)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000052", "ad": "SALAM DANA MACAR 60 GR", "birim": "ad", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000059", "ad": "DANA TRANC (210)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000078", "ad": "SALAM DANA FISTIKLI (330)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000086", "ad": "TANTUNI ET", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000099", "ad": "DANA NUAR", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000100", "ad": "KUZU BUT TAZE", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000101", "ad": "DANA KIYMALIK ET TAZE", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000122", "ad": "KOFTE CHEDDARLI", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000135", "ad": "DANA TORNADA", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000167", "ad": "DONER DANA HAZIR PISMIS S", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000205", "ad": "PASTIRMA DANA ANTRIKOT", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000215", "ad": "DANA GERDAN SOKLU", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000015", "ad": "PILIC BUTUN BOYUNSUZ 1300", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000017", "ad": "PILIC BAGET (251)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000018", "ad": "DONER PILIC HAZIR PISMIS", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000019", "ad": "PILIC GOGUS FILETO (252)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000020", "ad": "PILIC KANAT (253)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000021", "ad": "PILIC GOGUS SIS (254)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000022", "ad": "SCHNITZEL PILIC (256)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000023", "ad": "NUGGET PILIC (255)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000024", "ad": "KADINBUDU KOFTE PILIC (25", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000025", "ad": "PILIC BABY SIS (258)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000026", "ad": "PILIC BUT FILETO(IZGR.TAV", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000027", "ad": "DONER PILIC HAZIR TAM GOG", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000028", "ad": "HINDI GOGUS FILETO (270)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000031", "ad": "HINDI BUT KEMIKLI (271)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000033", "ad": "HINDI GOGUS COP SIS (272)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000041", "ad": "SOSIS PILIC KOKTEYL (320)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000042", "ad": "SALAM PILIC SADE (303)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000043", "ad": "JAMBON TAVUK (304)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000044", "ad": "JAMBON HINDI (307)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000049", "ad": "FUME TAVUK BUTUN (317)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000055", "ad": "SALAM HINDI KARABIBERLI (", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000056", "ad": "SALAM HINDI SADE (312)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000057", "ad": "FUME HINDI BUTUN (315)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000063", "ad": "ORDEK BUTUN (278)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000064", "ad": "BILDIRCIN", "birim": "ad", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000065", "ad": "GORDON BLUE PILIC", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000084", "ad": "JAMBON PILIC SEBZELI", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000088", "ad": "FUME HINDI BUT (331)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY02000001", "ad": "MEZGIT FILETO BLOK (150)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000005", "ad": "LEVREK FILETO (199)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000008", "ad": "ALABALIK FILETO (157)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000009", "ad": "CUPRA FILETO (200)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000010", "ad": "ALABALIK PORSIYONLUK TAZE", "birim": "ad", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000013", "ad": "SOMON BUTUN 6-9 (149)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000014", "ad": "KALAMAR PANE (170)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000015", "ad": "KALAMAR TUB 305-400 (171)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000016", "ad": "SURIMI (172)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000021", "ad": "AHTAPOT (197)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000022", "ad": "HAMSI MARINAT SADE (1)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000023", "ad": "HAMSI MARINAT SOSLU (2)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000024", "ad": "HAMSI MARINAT ZEYTINLI (3", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000025", "ad": "ALABALIK FUME 2LI 100-300", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000026", "ad": "USKUMRU FUME 2LI 200-400", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000027", "ad": "SOMON FUME DILIMLI VAKUML", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000073", "ad": "SOMON FILETO KARADENIZ (T", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000035", "ad": "KARIDES KABUKLU 16- 20 (1", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000063", "ad": "IC MIDYE 80-120 (181)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000071", "ad": "KARIDES IC 50-70 (184)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY03000001", "ad": "PEYNIR BEYAZ", "birim": "tnk", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000002", "ad": "PEYNIR KASAR (33)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000004", "ad": "PEYNIR CECIL PVC (62)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000005", "ad": "PEYNIR ESKI KASAR TEKER (", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000006", "ad": "PEYNIR EZINE (55)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000007", "ad": "PEYNIR TULUM IZMIR BERGAM", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000008", "ad": "PEYNIR SEPET PAKET (36)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000009", "ad": "PEYNIR VAN OTLU", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000010", "ad": "PEYNIR PARMESAN TOZ (51)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000011", "ad": "PEYNIR KECI PAKET (4)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000012", "ad": "PEYNIR DOLGUL KIRAZ BIBER", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000013", "ad": "PEYNIR DOLGU MAKEDON BIBE", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000016", "ad": "PEYNIR ORGU PAKET (41)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000017", "ad": "PEYNIR EMMENTAL BLOK (42", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000018", "ad": "PEYNIR ROKFOR (43)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000019", "ad": "PEYNIR PIKNIK KREM 20GR", "birim": "ad", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000020", "ad": "PEYNIR ISLI PAKET (45)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000021", "ad": "PEYNIR GAUDA KIMYONLU (44", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000023", "ad": "PEYNIR HELLIM", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000024", "ad": "PEYNIR PIKNIK UCGEN", "birim": "ad", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000025", "ad": "PEYNIR MOZZARELLA RENDE", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000029", "ad": "PEYNIR TUTSULENMIS (61)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000031", "ad": "PEYNIR LABNE 750 GR", "birim": "ad", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000034", "ad": "PEYNIR CHADDAR (47)", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000040", "ad": "PEYNIR KAR TANESI", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000052", "ad": "PEYNIR PIKNIK PINAR BEYAZ", "birim": "ad", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000066", "ad": "PEYNIR BEYAZ 2750", "birim": "ad", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000071", "ad": "PEYNIR SUDA MOZZARELLA", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000075", "ad": "PEYNIR GAUDA KECI PEYNIRL", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000076", "ad": "PEYNIR GAUDA ISIRGAN OTLU", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY04000001", "ad": "CORNETTO CIKOLATALI 24 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000002", "ad": "CORNETTO KAYMAK 24 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000003", "ad": "ALGIDA MARAS CUP 24 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000004", "ad": "GOKKUSAGI KARISIK MEYVELI", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000005", "ad": "MAGNUM BADEMLI 20 LI", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000007", "ad": "MAGNUM BEYAZ 20 LI", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000009", "ad": "MAGNUM KLASIK 20 LI", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000012", "ad": "MAX ANTEP FISTIKLI 30 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000013", "ad": "MAX KAKAOLU 30 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000014", "ad": "BUZ PARMAK 30 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000015", "ad": "MAX VANILYALI 30 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000019", "ad": "TWISTER FOREST 25 LI", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000045", "ad": "ALGIDA FRIGOLA 30 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000047", "ad": "TWISTER OCEAN 30 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000084", "ad": "MAGNUM DOUBLE KARADUT 20", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000097", "ad": "GOLF SNICKERS 24 LU", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000105", "ad": "GOLF CLASSIC KAKAO 65 ML", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000162", "ad": "CORNETTO CILEK", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000174", "ad": "ICE JELLY 47 ML 56 LI", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000190", "ad": "GOLF MATRIKO VISNE LIMON", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000201", "ad": "ALGIDA VIENETTA STICK", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000208", "ad": "ALGIDA MINECRAFT 25 LI", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000212", "ad": "ALGIDA VOLCANO COOKIES 24", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000216", "ad": "ALGIDA NOGGER SANDWICH 20", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000016", "ad": "ALGIDA VANILYA 5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000020", "ad": "CARTE DOR VANILYA 5,5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000021", "ad": "CARTE DOR CIKOLATA 5,5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000022", "ad": "CARTE DOR KARAMEL 5,5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000023", "ad": "CARTE DOR CILEKLI 5,5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000024", "ad": "CARTE DOR LIMONLU 5,5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000025", "ad": "CARTE DOR ANTEP FISTKLI 5", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000026", "ad": "CARTE DOR KARISK MEYVELI", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000060", "ad": "CARTE DOR OREO 5,5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000061", "ad": "CARTE DOR BOL BADEM 5,5 L", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000065", "ad": "CARTE DOR BLUE SKY 5,5LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000066", "ad": "CARTE DOR KAVUN 5,5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000202", "ad": "CARTE DOR MANGO 5,5 LT", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000214", "ad": "CARTE DOR BELCIKA RUYASI", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY04000215", "ad": "CARTE DOR CILEK MACHA 5,5", "birim": "ktu", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY05000001", "ad": "SUT PAST. TAM YAGLI 1 LT", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000004", "ad": "SUT PAST. YARIM YAGLI 10", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000006", "ad": "SUT DIYET 1 LT", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000009", "ad": "SOYA SUTU 1 LT", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000010", "ad": "SUT LAKTOZSUZ", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000097", "ad": "KAYMAK", "birim": "kg", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000112", "ad": "SUT YULAF 1/1", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000007", "ad": "YOGURT VAKUMLU", "birim": "kg", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000008", "ad": "YOGURT SUZME", "birim": "kg", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000099", "ad": "AYRAN 1,5 LT", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000137", "ad": "MEYVELI YOGURT CILEKLI 10", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000138", "ad": "MEYVELI YOGURT KAYISI 100", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000139", "ad": "MEYVELI YOGURT ORMAN ME 1", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY05000011", "ad": "YUMURTA", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY06000001", "ad": "SOKLU PATATES BONFRIT (10", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000002", "ad": "SOKLU PATATES ELMA DILIML", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000003", "ad": "SOKLU PATATES KROKET SLND", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000004", "ad": "SOKLU SOGAN KROKET (104)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000005", "ad": "SOKLU PATATES KROKET TOP(", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000006", "ad": "SOKLU SARIMSAK SOYULMUS (", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000007", "ad": "SOKLU KARNABAHAR (105)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000008", "ad": "SOKLU ISPANAK (106)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000009", "ad": "SOKLU BEZELYE (107)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000010", "ad": "SOKLU BRUKSEL LAHANASI (1", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000011", "ad": "SOKLU ARPACIK SOGAN (121)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000012", "ad": "SOKLU KEREVIZ (119)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000013", "ad": "SOKLU BROKOLI (109)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000014", "ad": "SOKLU TAZE FASULYE (110)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000015", "ad": "SOKLU ORBIT FASULYE(126)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000016", "ad": "SOKLU BAMYA (111)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000019", "ad": "SOKLU MISIR (115)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000022", "ad": "SOKLU ENGINAR 7/9 (125)", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000023", "ad": "DOMATES", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000026", "ad": "DOMATES KOKTEYL", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000028", "ad": "TAZE FASULYE", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000029", "ad": "BAKLA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000032", "ad": "BIBER CIN", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000033", "ad": "BIBER CARLISTON", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000034", "ad": "BIBER KIRMIZI KAPYA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000035", "ad": "BIBER DOLMA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000037", "ad": "SALATALIK", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000038", "ad": "PATLICAN", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000040", "ad": "KABAK", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000042", "ad": "KABAK CICEGI", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000043", "ad": "KABAK SIYAH", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000047", "ad": "LAHANA BEYAZ", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000048", "ad": "LAHANA KIRMIZI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000050", "ad": "KARNABAHAR", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000051", "ad": "PIRASA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000052", "ad": "KEREVIZ", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000053", "ad": "KEREVIZ SAP", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000055", "ad": "POLOROSSA", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000056", "ad": "LOLOROSSO", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000057", "ad": "HAVUC", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000058", "ad": "PANCAR KIRMIZI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000060", "ad": "SOGAN KURU", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000061", "ad": "SOGAN TAZE", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000062", "ad": "SOGAN KIRMIZI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000063", "ad": "PATATES", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000064", "ad": "MARUL", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000065", "ad": "MARUL KIVIRCIK", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000067", "ad": "MARUL ICEBERG", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000068", "ad": "MARUL KIRMIZI YAPRAK", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000069", "ad": "SEMIZ OTU", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000070", "ad": "MAYDANOZ", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000071", "ad": "DEREOTU", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000072", "ad": "ROKA", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000073", "ad": "KEKIK TAZE", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000074", "ad": "NANE TAZE", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000075", "ad": "TERE", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000077", "ad": "FESLEGEN BAG", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000078", "ad": "FENCEL(REZENE)", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000079", "ad": "TURP KIRMIZI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000080", "ad": "TURP VEZIR SOSYETE", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000081", "ad": "TURP JAPON", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000083", "ad": "SARIMSAK", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000084", "ad": "MANTAR TAZE", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000085", "ad": "MANTAR ISTIRIDYE", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000119", "ad": "KUZU KULAGI", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000120", "ad": "DOMATES KURUTULMUS", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000125", "ad": "DOMATES PEMBE", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000127", "ad": "ENDIVYEN", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000131", "ad": "SOYA FILIZI TAZE", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000133", "ad": "PATATES BEYBI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000135", "ad": "SALATALIK SILOR", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000137", "ad": "BIBER UCBURUN", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000147", "ad": "BIBER CALIFORNIA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000152", "ad": "HAVUC MINI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000156", "ad": "MISIR KOCANI BABY (2,95 K", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000157", "ad": "SOKLU FASULYE EDAMAME", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000158", "ad": "ADACAYI TAZE", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000162", "ad": "ZENCEFIL TAZE", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000168", "ad": "KUSKONMAZ TAZE KG", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000181", "ad": "KABAK MINI YESIL", "birim": "pk", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000200", "ad": "ARPACIK SOGAN", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000206", "ad": "BIBER SIVRI KIL", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000274", "ad": "DOMATES SARI CHERRY", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000284", "ad": "DOMATES KOY", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000288", "ad": "FESLEGEN PAKET", "birim": "pk", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000017", "ad": "SOKLU FRAMBUAZ (112)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000054", "ad": "AVOKADO", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000087", "ad": "PORTAKAL", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000088", "ad": "PORTAKAL SIKMA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000089", "ad": "MANDALINA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000090", "ad": "GREYFURT", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000092", "ad": "LIMON DOKME", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000098", "ad": "CILEK", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000099", "ad": "AYVA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000100", "ad": "ARMUT SANTA MARIA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000105", "ad": "ELMA BEYAZ", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000106", "ad": "ELMA KIRMIZI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000107", "ad": "ELMA GRANNY SMITH", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000114", "ad": "MUZ DOKME YERLI KG", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000117", "ad": "KIVI DOKME", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000118", "ad": "ANANAS", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000210", "ad": "LIMON KAMISI (GRASS) LIMO", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000212", "ad": "YENI DUNYA", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000219", "ad": "AMMA CENNET HURMASI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000262", "ad": "MUZ DOKME CIKITA KG", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000272", "ad": "ARMUT DEVECI", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY07000002", "ad": "UN SIMITLIK 25 KG", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000004", "ad": "UN EKMEKLIK 25 KG", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000005", "ad": "UN MISIR", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000012", "ad": "NISASTA MISIR", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000018", "ad": "EKMEK", "birim": "ad", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000021", "ad": "EKMEK TOST 10 LU", "birim": "pk", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000022", "ad": "EKMEK TOST KEPEKLI 10 LU", "birim": "pk", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000023", "ad": "YUFKA EL ACMASI", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000024", "ad": "EKMEK HAMBURGER 80 LI", "birim": "ad", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000026", "ad": "EKMEK SANDWICH 64 LU", "birim": "ad", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000029", "ad": "TARHANA EV", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000030", "ad": "POGACA 80 GR", "birim": "ad", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000031", "ad": "DON.TOST EKMEK GLUTENSIZ1", "birim": "pk", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000033", "ad": "SUSAM", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000077", "ad": "ALACA CORBA", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000105", "ad": "SIMIT", "birim": "ad", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000106", "ad": "SUSAM SIMITLIK", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000175", "ad": "UN BAKLAVALIK 25 KG", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000196", "ad": "CORBA TUTMAC", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000040", "ad": "SOKLU PEYNRL MOZZARELLA C", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000043", "ad": "SOKLU RAVIOLI PEYNIRLI (5", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000044", "ad": "SOKLU CIG BOREK (505) KIY", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000046", "ad": "SOKLU PUF BOREGI 500 LU (", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000048", "ad": "SOKLU MILFOY HAMURU (510)", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000050", "ad": "KRUVASAN 25 GR", "birim": "ad", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000051", "ad": "KRUVASAN CIKOLATALI 25 G", "birim": "ad", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000052", "ad": "ICLI KOFTE KIYMALI (509)", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000054", "ad": "KURABIYE ELMA DOLGULU (5", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000055", "ad": "KURABIYE CIKOLATALI (520", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000061", "ad": "SOKLU MANTI PELMENI 515", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000108", "ad": "SOKLU RULO BOREK PEY.35GR", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000110", "ad": "SOKLU RULO BOREK ISP.35GR", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000115", "ad": "SOKLU RULO BOREK PAT.35GR", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000148", "ad": "SOKLU MANTI UCGEN", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000174", "ad": "KALEM BOREGI", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000006", "ad": "MIKS SOVITAL 25 KG", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000007", "ad": "MIKS CAVDAR 25 KG", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000008", "ad": "MIKS MISIR 25 KG", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000010", "ad": "MIKS KEPEK 25 KG", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000034", "ad": "YASMAYA 500 GR", "birim": "pk", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000035", "ad": "KABARTMA TOZU", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000037", "ad": "KARBONAT", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000038", "ad": "VANILIN", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000097", "ad": "MIKS BAVYERA MALT 25 KG", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000100", "ad": "MIKS BAVYERA RED BEET 25", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY08000050", "ad": "PIRINC LUX BALDO", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000052", "ad": "KURU FASULYE PAKET", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000053", "ad": "KURU FASULYE EKSTRA DOKME", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000054", "ad": "BORULCE PAKET", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000055", "ad": "NOHUT DOKME", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000056", "ad": "NOHUT PAKET", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000057", "ad": "MERCIMEK KIRMIZI", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000058", "ad": "MERCIMEK KIRMIZI PAKET", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000059", "ad": "BULGUR PILAVLIK", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000060", "ad": "BULGUR PILAVLIK PAKET", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000061", "ad": "BUGDAY ASURELIK PAKET 1 K", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000062", "ad": "BULGUR KOFTELIK PAKET", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000065", "ad": "BARBUNYA ALA PAKET", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000066", "ad": "MERCIMEK YESIL PAKET", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000134", "ad": "MEKSIKA FASULYESI", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000069", "ad": "MAKARNA KELEBEK FARFALLE", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000070", "ad": "MAKARNA BURGU (8)", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000071", "ad": "SEHRIYE ARPA (1)", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000072", "ad": "SEHRIYE TEL (2)", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000073", "ad": "MAKARNA FIRIN DELIKLI MEZ", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000074", "ad": "MAKARNA SPAGETTI (12)", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000075", "ad": "MAKARNA DENIZ KABUGU (14)", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000076", "ad": "MAKARNA INCE DUZ KALEM L", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000078", "ad": "MAKARNA KALEM (10)", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000079", "ad": "MAKARNA KUSKUS", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000080", "ad": "MAKARNA LAZANYA", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000081", "ad": "SOKLU KIYMALI MANTI", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000082", "ad": "MAKARNA ERISTE", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000140", "ad": "YASSI SPAGETTI", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000001", "ad": "KAYISI KURU", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000002", "ad": "KAYISI GUN KURUSU", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000003", "ad": "UZUM KURU", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000004", "ad": "UZUM KURU SIYAH", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000006", "ad": "HURMA", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000007", "ad": "INCIR KURU SUZME", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000008", "ad": "YABAN MERSINI", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000010", "ad": "FISTIK YESIL BUTUN", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000011", "ad": "FISTIK YESIL BUTUN KUSBOK", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000012", "ad": "FISTIK YESIL FILE", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000013", "ad": "FISTIK YESIL TOZ", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000014", "ad": "FINDIK ICI", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000015", "ad": "BADEM ICI BEYAZ EXTRA", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000016", "ad": "FINDIK FILE", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000017", "ad": "CEVIZ ICI YARIM", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000018", "ad": "FINDIK PIRINC", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000019", "ad": "KUS UZUMU", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000020", "ad": "FISTIK IC (GUNER ICI)", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000024", "ad": "LEBLEBI SARI (TUZSUZ)", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000025", "ad": "HINDISTAN CEVIZI YAGLI", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000027", "ad": "AYCEKIRDEK ICI", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000028", "ad": "CEVIZ KABUKLU", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000118", "ad": "ERIK KURU CEKIRDEKLI", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000137", "ad": "CEREZ KARISIK", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000030", "ad": "MISIR GEVREGI CHOCOCORN-4", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000031", "ad": "MISIR GEVREGI CHOCO RICE-", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000032", "ad": "MISIR GEVREGI CHOCO ROLL-", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000033", "ad": "MISIR GEVREGI SEKERLI-8", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000034", "ad": "MISIR GEVREGI MEYVELI MUS", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000036", "ad": "MISIR GEVREGI PILLOW-2", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000037", "ad": "MISIR GEVREGI SADE-12", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000042", "ad": "KEDI DILI BISKUVI", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000044", "ad": "BISKUVI BEBE", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000045", "ad": "BISKUVI BURCAK", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000048", "ad": "KRAKER CIZI", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000049", "ad": "YULAF EZMESI DOKME", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000198", "ad": "BISKUVI BURCAK TOZU", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000246", "ad": "LOTUS BISKUVI 250 GR", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000247", "ad": "LOTUS KIRINTI 750 GR", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000270", "ad": "GOFRET SADE", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000271", "ad": "GOFRET KAKAOLU", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000293", "ad": "BISKUVI NERO", "birim": "ad", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY09000025", "ad": "CIKOLATA PIKNIK", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000026", "ad": "CIKOLATA DOKME (FINDIK KR", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000048", "ad": "DAMLA CIKOLATA", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000056", "ad": "PRALIN BEYAZ", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000057", "ad": "KAKAO", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000079", "ad": "DROP BITTER KUVERTUR", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000080", "ad": "DROP FILDISI KUVERTUR", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000081", "ad": "SIVI GANAJ DARK 7 KG", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000082", "ad": "SIVI GANAJ WHITE 7 KG", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000083", "ad": "JELATIN TOZ", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000214", "ad": "DROP SUTLU KUVERTUR", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000215", "ad": "CIKOLATA FILDISI BUKLE", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000226", "ad": "CIKOLATA KALEM BITTER", "birim": "ktu", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000227", "ad": "CIKOLATA KALEM DESENLI", "birim": "ktu", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000247", "ad": "CIKOLATA SUTLU KONFISERI", "birim": "pk", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000248", "ad": "CIKOLATA FILDISI KONFIS 2", "birim": "pk", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000452", "ad": "TUTTU FRUTTI", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000060", "ad": "DOLGU KARAMEL (KRATER)", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000061", "ad": "DOLGU MEYVELI YABANMERSIN", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000065", "ad": "DOLGU MEYVELI EKSI ELMA", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000071", "ad": "DOLGU MEYVELI FRAMBUAZ", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000072", "ad": "DOLGU MEYVELI LIMON", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000073", "ad": "DOLGU MEYVELI PORTAKAL", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000074", "ad": "GOLDEN SOS DAG MEYVE AROM", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000084", "ad": "JOLE SOGUK KIVI", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000085", "ad": "JOLE SOGUK SADE", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000086", "ad": "JOLE SOGUK FRAMBUAZ", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000087", "ad": "JOLE SOGUK VANILYA", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000088", "ad": "JOLE SOGUK MUZ", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000089", "ad": "JOLE SOGUK KAREMEL", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000469", "ad": "TOPPING SOS LOTUS", "birim": "bot", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000002", "ad": "MELLA KREMA 10 KG", "birim": "TRB", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000004", "ad": "MIKS MELLA GOLDEN KEK 10", "birim": "TRB", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000006", "ad": "MIKS KEK CIFT CIKILOTALI", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000010", "ad": "PASTA KURU", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000011", "ad": "PANNA COTTA", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000014", "ad": "MIKS NORDLANDER 25KG", "birim": "TRB", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000018", "ad": "KREMA SIVI SEKERSIZ 1/1", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000019", "ad": "KREMA SIVI SEKERLI 1/1", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000020", "ad": "KREMA SPREY 250 GR", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000021", "ad": "KREM KARAMEL 1 KG", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000023", "ad": "SANTI TOZ 10 KG", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000090", "ad": "TIRAMISU 1 KG", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000091", "ad": "MELLA MON MACARON", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000096", "ad": "FOND CILEKLI", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000097", "ad": "FOND CIKOLATALI", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000098", "ad": "FOND KIVI", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000132", "ad": "PANKEK CARTE DOR 3 KG", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000147", "ad": "DAMLA SAKIZI", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000152", "ad": "TARTALET YUVAR37*16MM KAK", "birim": "kol", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000171", "ad": "MIKS RED VELVET KEK 10 KG", "birim": "TRB", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000195", "ad": "PASTA RESIM BASKISI (YENI", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000222", "ad": "TARTALET ELIPS SADE 8*4 8", "birim": "kol", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000223", "ad": "TARTALET KALP SADE 8*2 72", "birim": "kol", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000236", "ad": "KEK MIKSI MIMOSA 10 KG", "birim": "TRB", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000237", "ad": "PANBACK DARK VELVET 10 KG", "birim": "TRB", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000268", "ad": "KREMA SIVI 1/1 (HAYVANSAL", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000304", "ad": "KEK MIKSI MELLA VIOLETTA", "birim": "TRB", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000515", "ad": "TARTALET 8X8", "birim": "kol", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000102", "ad": "GIDA BOYASI SARI 160 GR", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000103", "ad": "GIDA BOYASI MAVI 160 GR", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000105", "ad": "GIDA BOYASI YESIL 160 GR", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000106", "ad": "GIDA BOYASI KIRMIZI 160 G", "birim": "ad", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY10000011", "ad": "SEKER TOZ 50 KG", "birim": "TRB", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000013", "ad": "SEKER KAHVERENGI TOZ", "birim": "pk", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000015", "ad": "SEKER PUDRA", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000017", "ad": "SEKER KUP DOKME (TEKLI KA", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000074", "ad": "SEKER ESMER POSET 3 GR", "birim": "pk", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000075", "ad": "SEKER TOZ POSET 3 GR", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000092", "ad": "SEKER LOLIPOP", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000141", "ad": "TAHIN PIYAZLIK", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000142", "ad": "TAHIN CIFTE KAVRULMUS", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000153", "ad": "SEKER CICEK PAPATYA 210 L", "birim": "kol", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000277", "ad": "SEKER CICEK KARANFIL", "birim": "kol", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000001", "ad": "IRMIK 500 GR 20 LI", "birim": "kol", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000006", "ad": "GULLAC", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000007", "ad": "TATLI KEMALPASA (DOKME)", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000008", "ad": "TATLI TULUMBA", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000019", "ad": "RECEL DOKME INCIR", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000020", "ad": "BAKLAVA SURUBU 25 KG", "birim": "tnk", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000025", "ad": "MARMELAT ELMA", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000026", "ad": "RECEL DOKME CILEK", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000027", "ad": "RECEL DOKME VISNE", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000028", "ad": "RECEL DOKME FRAMBUAZ", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000029", "ad": "RECEL DOKME GUL", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000032", "ad": "RECEL DOKME PORTAKAL", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000033", "ad": "RECEL PIKNIK VISNE", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000034", "ad": "RECEL PIKNIK CILEK", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000036", "ad": "RECEL PIKNIK GUL", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000037", "ad": "BAL PIKNIK", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000039", "ad": "BAL KATLA BALLA", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000040", "ad": "BAL SUZME", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000041", "ad": "BAL PETEK", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000042", "ad": "HELVA TAHIN SADE", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000043", "ad": "HELVA YAZ MEYVELI", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000045", "ad": "PEKMEZ", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000047", "ad": "RECEL DIYET BOGURTLEN", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000048", "ad": "RECEL DIYET CILEK", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000049", "ad": "RECEL DIYET VISNE", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000051", "ad": "LOKUM MEYVELI MINI KUP", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000053", "ad": "LOKUM KAKAOLU", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000054", "ad": "CEVIZLI PEKMEZ SUCUGU", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000057", "ad": "BAKLAVA", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000115", "ad": "KADAYIF TAS", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000138", "ad": "TAHIN-PEKMEZ PIKNIK", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000251", "ad": "KADAYIF BURMA 350 GR", "birim": "pk", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000253", "ad": "PEYNİR TATLISI DUBLE 225", "birim": "pk", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000285", "ad": "KADAYIF LOKMA SADE", "birim": "pk", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000063", "ad": "KOMPOSTO SEFTALI 5KG", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000064", "ad": "KOMPOSTO VISNE 5KG", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000065", "ad": "KOMPOSTO ARMUT 5KG", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000066", "ad": "KOMPOSTO KAYISI 5KG", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY11000014", "ad": "PATLICAN KOZLENMIS", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000015", "ad": "SOYA FILIZI 410 GR", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000016", "ad": "KUSKONMAZ KONSERVE 370 GR", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000017", "ad": "SALCA DOMATES 5 KG", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000018", "ad": "SALCA BIBER ACILI 5 KG", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000019", "ad": "KETCAP PVC KOVA 9 KG", "birim": "ktu", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000020", "ad": "KETCAP MINI POSET 12 GR", "birim": "kol", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000022", "ad": "KAPARI CICEGI 170 GR", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000023", "ad": "KONSERVE KOZ BIBER 3 KG", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000024", "ad": "KONSERVE TON BALIK 1,705", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000025", "ad": "MANTAR SALAMURA BUTUN 20", "birim": "bdn", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000027", "ad": "KONSERVE ANANAS 1KG", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000113", "ad": "ENGINAR KALBI 720 ML", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000180", "ad": "MANTAR SALAMURA DILIMLI 2", "birim": "bdn", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000247", "ad": "HINDI KONSERVE 120 GR", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000334", "ad": "HINDI KONSERVE 800 GR", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000061", "ad": "TURSU KORNISON 2 NO", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000062", "ad": "TURSU KORNISON 0 NO", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000063", "ad": "TURSU TURLU", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000064", "ad": "TURSU PANCAR", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000068", "ad": "TURSU BIBERIYE", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000071", "ad": "SALGAM SUYU ACISIZ 1 LT", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000152", "ad": "SALGAM SUYU ACILI 1 LT", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000165", "ad": "TURSU YAKAN BIBER 5 KG", "birim": "bdn", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000168", "ad": "TURSU DENIZ BORULCE 2 KG", "birim": "bdn", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000169", "ad": "TURSU KAYA KORUGU 1,5 KG", "birim": "bdn", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000001", "ad": "YAG CICEK 17 KG", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000002", "ad": "YAG KIZARTMALIK", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000004", "ad": "YAG ZEYTIN SIZMA 5 KG", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000005", "ad": "TEREYAG DOKME", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000006", "ad": "TEREYAG PIKNIK", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000008", "ad": "YAG ALBA 10 KG", "birim": "kol", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000011", "ad": "YAG BAKLAVALIK TEREYAGLI", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000012", "ad": "MARGARIN PIKNIK", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000013", "ad": "MARGARIN BLOK 2,5 KG*6 AD", "birim": "kol", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000074", "ad": "ZEYTIN YESIL KOKTEYL OZEL", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000080", "ad": "ZEYTIN SIYAH DILIMLI", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000081", "ad": "ZEYTIN YESIL DILIMLI 5 KG", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000082", "ad": "ZEYTIN YESIL KOKTEYL BIBE", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000119", "ad": "ZEYTIN GEMLIK SELE HIPER(", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000128", "ad": "ZEYTIN SYH GEMLIK SUPR(29", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000181", "ad": "ZEYTIN YESIL IZGARA 10 KG", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000255", "ad": "ZEYTIN SIYAH KURU SELE", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000367", "ad": "ZEYTIN YESIL KIRMA BAH 2K", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000412", "ad": "ZEYTIN YESIL KALAMATA 5 K", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000028", "ad": "TUZ RAFINE 30 LU", "birim": "kol", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000030", "ad": "TUZ RAFINE 3 KG", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000031", "ad": "LIMON TUZU", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000032", "ad": "BIBER TOZ KIRMIZI (TATLI)", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000033", "ad": "BIBER PUL HALIS", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000034", "ad": "ISOT (URFA BIBERI)", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000035", "ad": "KARABIBER TOZ", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000036", "ad": "BIBER BEYAZ TOZ", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000037", "ad": "KARABIBER TANE", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000039", "ad": "KIMYON TOZ", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000040", "ad": "TARCIN TOZ", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000041", "ad": "TARCIN KABUKLU", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000042", "ad": "KORI TOZU", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000043", "ad": "NANE KURU", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000045", "ad": "SUMAK", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000047", "ad": "KEKIK", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000053", "ad": "SAFRAN YERLI", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000055", "ad": "ESTERGON OTU & TARHUN", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000057", "ad": "BAHARAT ZERDECAL", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000058", "ad": "DEFNE YAPRAGI", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000087", "ad": "MAYONEZ 9 KG", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000088", "ad": "MAYONEZ MINI POSET 12 GR", "birim": "kol", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000090", "ad": "PATATES PURE", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000094", "ad": "ACISSO 160 ML", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000095", "ad": "ACISSO 1,9 LT", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000096", "ad": "SOS BARBEKU 2,5 LT", "birim": "bot", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000097", "ad": "HARDAL 5 KG", "birim": "ktu", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000102", "ad": "SIRKE UZUM 2 LT", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000103", "ad": "SIRKE BALZAMIK 1LT (%18)", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000105", "ad": "SIRKE ELMA", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000106", "ad": "LIMON SUYU 1 LT %100", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000108", "ad": "BULYON DANA 5 KG", "birim": "ktu", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000109", "ad": "BULYON TAVUK 5 KG", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000110", "ad": "DOMATES SOSLU FASULYE 3 K", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000111", "ad": "SOS NAPOLITEN", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000148", "ad": "SOS TATLI EKSI 2,25 KG", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000153", "ad": "ARRABIATA SOS 2,25 LT", "birim": "ktu", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000154", "ad": "SOS KREMALI MANTARLI 750", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000238", "ad": "CESNI SEBZELI 6.5 KG", "birim": "ktu", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000257", "ad": "HARDAL PIKNIK", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000365", "ad": "NAR EKSISI %100 700 GR", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000366", "ad": "SOS PEYNIR PRATIK 800G", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000368", "ad": "ENGINAR KALBI SADE CEYREK", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY12000008", "ad": "BIBER JALAPENO NACHO DILI", "birim": "ad", "grup": "YIY12", "sicaklikKriter": "none"}, {"kod": "YIY12000012", "ad": "SOS DIP GUACOMOLE 1 KG", "birim": "ad", "grup": "YIY12", "sicaklikKriter": "none"}, {"kod": "YIY12000020", "ad": "MEKSIKA SALSA SOS", "birim": "bdn", "grup": "YIY12", "sicaklikKriter": "none"}, {"kod": "GNL01000067", "ad": "MASA TENIS RAKETI", "birim": "ad", "grup": "GNL01", "sicaklikKriter": "none"}, {"kod": "GNL01000080", "ad": "OK HEDEF KAGIDI", "birim": "ad", "grup": "GNL01", "sicaklikKriter": "none"}, {"kod": "GNL01000309", "ad": "BASKUL", "birim": "ad", "grup": "GNL01", "sicaklikKriter": "none"}, {"kod": "GNL01000506", "ad": "BUBBLE KONSANTRE", "birim": "ad", "grup": "GNL01", "sicaklikKriter": "none"}, {"kod": "GNL01000073", "ad": "TAVLA", "birim": "ad", "grup": "GNL01", "sicaklikKriter": "none"}, {"kod": "GNL06000044", "ad": "NEM OLCER", "birim": "ad", "grup": "GNL06", "sicaklikKriter": "none"}, {"kod": "GNL07000002", "ad": "OKSIJENLI SU", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000004", "ad": "YARA BANTI", "birim": "pk", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000005", "ad": "FLESTER BANT", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000006", "ad": "SARGI BEZI", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000010", "ad": "BIOKADIN 100 ML", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000012", "ad": "YANIK MERHEMI", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000013", "ad": "SEKER HAPI", "birim": "ktu", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000019", "ad": "GAZLI BEZ STERIL", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000086", "ad": "ELDIVEN CERRAHI PUDRALI L", "birim": "pk", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000116", "ad": "ELDIVEN CERRAHI PUDRASIZ", "birim": "pk", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000202", "ad": "ELDIVEN CERR.PUDRASIZ 100", "birim": "pk", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000203", "ad": "ELDIVEN CERRAHI PUDRALI S", "birim": "pk", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000223", "ad": "ELDIVEN CERRAHI PUDRALI M", "birim": "pk", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000007", "ad": "PAMUK 100 GR %18", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000033", "ad": "MENDIL KOLONYALI", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000035", "ad": "KOLONYA DOKME", "birim": "l", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL07000037", "ad": "ODA PARFUMU", "birim": "ad", "grup": "GNL07", "sicaklikKriter": "none"}, {"kod": "GNL08000008", "ad": "BARDAK KARTON 7 OZ", "birim": "ad", "grup": "GNL08", "sicaklikKriter": "none"}, {"kod": "GNL08000009", "ad": "BARDAK KARTON 12 OZ", "birim": "ad", "grup": "GNL08", "sicaklikKriter": "none"}, {"kod": "GNL08000011", "ad": "KARTON KAP 100 ML CEREZ", "birim": "ad", "grup": "GNL08", "sicaklikKriter": "none"}, {"kod": "GNL09000038", "ad": "KALEM TUKENMEZ MAVI", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000041", "ad": "KALEM FOSFORLU", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000042", "ad": "KALEM KURSUN SIYAH", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000045", "ad": "KALEM KLIPSLI 0,7", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000049", "ad": "KALEM MARKER EDDING 2000", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000050", "ad": "KALEM ASETAT EDDING 142 M", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000054", "ad": "TIPEX VE INCELTICI", "birim": "tkm", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000057", "ad": "ZIMBA TELI BUYUK", "birim": "ktu", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000059", "ad": "ZIMBA TELI MINI (10 NO)", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000068", "ad": "PAKET LASTIGI 500 GR", "birim": "pk", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000069", "ad": "BLOKNOT A-4", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000074", "ad": "MAKAS (BURO TIPI)", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000076", "ad": "ATAC (3 NO)", "birim": "ktu", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000077", "ad": "BANT SEFFAF", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000078", "ad": "BANT SEFFAF KOLI", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000083", "ad": "FIYAT ETIKET MAKINASI", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000084", "ad": "FIYAT ETIKETI", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000191", "ad": "PVC KAPLAMA A-4", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000196", "ad": "PVC KAPLAMA A-3", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000012", "ad": "KAGIT (A4)", "birim": "top", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000015", "ad": "KAGIT (A5)", "birim": "top", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000024", "ad": "KLASOR MUKAVVA", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL09000202", "ad": "DOSYA SIKISTIRMALI", "birim": "ad", "grup": "GNL09", "sicaklikKriter": "none"}, {"kod": "GNL10000001", "ad": "SANDALYE (MAMA)", "birim": "ad", "grup": "GNL10", "sicaklikKriter": "none"}, {"kod": "GNL12000002", "ad": "COP SIS 25 CM", "birim": "pk", "grup": "GNL12", "sicaklikKriter": "none"}, {"kod": "GNL12000246", "ad": "PLASTIK OLCU 5 LT", "birim": "ad", "grup": "GNL12", "sicaklikKriter": "none"}, {"kod": "GNL12000118", "ad": "KASIK DONDURMA 70 MM", "birim": "ad", "grup": "GNL12", "sicaklikKriter": "none"}, {"kod": "GNL14000022", "ad": "LUNCH PAKET 5 GOZLU KAPA", "birim": "ad", "grup": "GNL14", "sicaklikKriter": "none"}, {"kod": "GNL15000237", "ad": "MELAMIN KULSAN TABLDOT", "birim": "ad", "grup": "GNL15", "sicaklikKriter": "none"}, {"kod": "GNL15000027", "ad": "YAKA KARTI", "birim": "ad", "grup": "GNL15", "sicaklikKriter": "none"}, {"kod": "GNL15000087", "ad": "TELA ONLUK TEK KULLANIMLI", "birim": "ad", "grup": "GNL15", "sicaklikKriter": "none"}, {"kod": "GNL15000315", "ad": "MUTFAK BONE", "birim": "ad", "grup": "GNL15", "sicaklikKriter": "none"}, {"kod": "GNL15000358", "ad": "SPA GOMLEK (RESEPSIYONIST", "birim": "ad", "grup": "GNL15", "sicaklikKriter": "none"}, {"kod": "GNL16000001", "ad": "DANTEL KAGIT YUVARLAK 38", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000003", "ad": "DANTEL KAGIT 32*45", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000009", "ad": "MAYTAP KUCUK 10 LU", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000010", "ad": "MUM SAMDAN", "birim": "ad", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000012", "ad": "KURDAN KILIC 1000 LI", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000046", "ad": "MUM PASTA", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000152", "ad": "KURDAN KAGIT KAPLI", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000231", "ad": "PIPET KAGIT 8*200", "birim": "ad", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000018", "ad": "KOMUR MESE", "birim": "kg", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000019", "ad": "KANDIL CAMI", "birim": "ad", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000040", "ad": "FOLYO ALUMINYUM", "birim": "ad", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000042", "ad": "FOLYO PLASTIK", "birim": "ad", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000043", "ad": "KEP AHCI 8 CM", "birim": "ad", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000047", "ad": "KAGIT YAGLI", "birim": "kg", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000048", "ad": "KAGIT JELATIN SEFFAF", "birim": "ad", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000050", "ad": "CIN CUBUGU", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000052", "ad": "KEP AHCI TELA 19 CM", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000079", "ad": "KARISTIRICI CUBUK CAY-KAH", "birim": "pk", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL16000181", "ad": "PIPET KAGIT SARGISIZ 6MM", "birim": "ad", "grup": "GNL16", "sicaklikKriter": "none"}, {"kod": "GNL17000003", "ad": "YEMEK SETI", "birim": "ad", "grup": "GNL17", "sicaklikKriter": "none"}, {"kod": "GNL18000016", "ad": "CLAX HYPO CAMASIR SUYU 20", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000275", "ad": "CLAX STAR 20 KG", "birim": "TRB", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000294", "ad": "CLAX MAGIC OXI 70E2 0,5", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000303", "ad": "CLAX 100 OB 196 KG", "birim": "vrl", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000305", "ad": "CLAX PERSNOIL CONC 230 K", "birim": "vrl", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000306", "ad": "CLAX NEUTRAPUR 217 KG", "birim": "vrl", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000454", "ad": "CLAX FLORAL 20 KG", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000038", "ad": "SUMA K1 23 KG", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000042", "ad": "SUMALIGHT D12 20 L", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000043", "ad": "SUMA D9 840 GR", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000046", "ad": "SUMA D 7 630 GR", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000047", "ad": "SUMA CHLOR D4.4 5 LT", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000254", "ad": "SUMA CRYSTAL A8.8 20L/20,", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000279", "ad": "ALL PURPOSE FOAM 1,3 LT", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000354", "ad": "TITAN EASYFOAM VF32 20L", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000355", "ad": "HD PLUSFOAM (VF1) 20L", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000357", "ad": "SUMA TEMPO L1.7 20L", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000383", "ad": "SOFT CARE STAR H100 20 LT", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000445", "ad": "SUMA DES T30", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000024", "ad": "TASKI R6 0,750 LT", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000025", "ad": "TASKI IMPECTO 20 LT", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000031", "ad": "TASKI CLONET 750 ML", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000048", "ad": "SOFT CARE ALCOPLUS H500 5", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000253", "ad": "TASKI HYPO GEL 5L", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000321", "ad": "SOFTCARE ALCOPLUS H500 1,", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000377", "ad": "SUMA CAL-X 5L/5.37 KG", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000252", "ad": "SOFT CARE ALL PURPOSE 1,3", "birim": "bdn", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000076", "ad": "PECETE BEYAZ CIFT KATLI", "birim": "kol", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000077", "ad": "PECETE DISPENSER 18 PK", "birim": "kol", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000078", "ad": "PECETE BEYAZ TEK KATLI", "birim": "kol", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000079", "ad": "KUTU MENDIL CLUB BASKILI", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000081", "ad": "MAKINA HAVLUSU( RULO )", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000187", "ad": "PECETE CIFT KATL(1/8KATLA", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000108", "ad": "COP TORBASI BATTAL (SIYAH", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000109", "ad": "COP TORBASI BATTAL( MAVI", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000110", "ad": "COP TORBASI BATTAL(SARI)", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000111", "ad": "COP TORBASI BATTAL (YESIL", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000113", "ad": "COP TORBASI BATTAL ( BEYA", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000114", "ad": "COP TORBASI MINI 40*50(R", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000116", "ad": "COP TORBASI HANTAL SARI 1", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000117", "ad": "COP TORBASI JUMBO YESIL", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000118", "ad": "COP TORBASI JUMBO (BEYAZ)", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000138", "ad": "CANTA PLASTIK", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000170", "ad": "COP TORBASI HANTAL (MAVI)", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000262", "ad": "COP TORBASI HANTAL (KAHVE", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000360", "ad": "COP TORBASI JUMBO KOYU GR", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000513", "ad": "COP TORBASI JUMBO (KAHVE)", "birim": "pk", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000084", "ad": "NEMLI BEZ (MOP)", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000093", "ad": "YER SILECEGI(CEK CEK) 35", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000096", "ad": "ALUMINYUM VIDALI SAP(CEKC", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000101", "ad": "EL SUPURGESI SAPLI %18", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000102", "ad": "SUNGER OVUCU (11*15)", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000140", "ad": "GALOS", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000210", "ad": "PASPAS MIKROFIBER", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL18000247", "ad": "BULASIK TELI TOP TEL 60 G", "birim": "ad", "grup": "GNL18", "sicaklikKriter": "none"}, {"kod": "GNL21000796", "ad": "SPA KREM KUTUSU", "birim": "ad", "grup": "GNL21", "sicaklikKriter": "none"}, {"kod": "GNL21900134", "ad": "REMEDY SERUM 30ML", "birim": "ad", "grup": "GNL21", "sicaklikKriter": "none"}, {"kod": "ICA01000001", "ad": "SU 0,50 LT 12 LI", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000002", "ad": "SU 0,33 LT 12 LI", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000004", "ad": "SU 1,5 LT 6 LI", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000005", "ad": "SU DAMACANA 19 LT", "birim": "ad", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000013", "ad": "SU 1 LT 6 LI", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000006", "ad": "SODA SADE SISE", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000008", "ad": "PREMIX SODA", "birim": "fic", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000019", "ad": "SODA CILEK-GUL 24 LU", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000020", "ad": "SODA ELMA-ADACAYI 24 LU", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000021", "ad": "SODA LIMON-LIMON CICEGI 2", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000022", "ad": "SODA GREYFURT-PORTAKAL 12", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA01000023", "ad": "SODA HIBISCUS 12 LI", "birim": "kol", "grup": "ICA01", "sicaklikKriter": "none"}, {"kod": "ICA02000001", "ad": "KOLA SISE", "birim": "kol", "grup": "ICA02", "sicaklikKriter": "none"}, {"kod": "ICA02000002", "ad": "PORTAKAL AROMALI GAZOZ SI", "birim": "kol", "grup": "ICA02", "sicaklikKriter": "none"}, {"kod": "ICA02000004", "ad": "GAZOZ SISE", "birim": "kol", "grup": "ICA02", "sicaklikKriter": "none"}, {"kod": "ICA02000007", "ad": "KOLA ZERO", "birim": "kol", "grup": "ICA02", "sicaklikKriter": "none"}, {"kod": "ICA02000008", "ad": "PREMIX KOLA", "birim": "fic", "grup": "ICA02", "sicaklikKriter": "none"}, {"kod": "ICA02000009", "ad": "PREMIX ZERO KOLA", "birim": "fic", "grup": "ICA02", "sicaklikKriter": "none"}, {"kod": "ICA02000010", "ad": "PREMIX PORTAKAL AROMALI G", "birim": "fic", "grup": "ICA02", "sicaklikKriter": "none"}, {"kod": "ICA02000011", "ad": "PREMIX GAZOZ", "birim": "fic", "grup": "ICA02", "sicaklikKriter": "none"}, {"kod": "ICA03000001", "ad": "LIMONATA PET 1LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000034", "ad": "TONIK PET SCHWEPPES 1 LT", "birim": "bot", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000035", "ad": "TONIK PET LIMON SCHWEPPES", "birim": "bot", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000048", "ad": "TONIK PET SCHWEPPES MANDA", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000049", "ad": "LIMONATA EV YAPIMI", "birim": "l", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000004", "ad": "ICE TEA LIMONLU 1LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000005", "ad": "ICE TEA SEFTALI 1 LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000006", "ad": "MEYVE SUYU ELMA 1 LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000007", "ad": "MEYVE SUYU ANANAS 1 LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000009", "ad": "MEYVE SUYU PORTAKAL NEKTA", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000010", "ad": "MEYVE SUYU SEFTALI 1 LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000011", "ad": "MEYVE SUYU VISNE 1 LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000012", "ad": "MEYVE SUYU DOMATES 1 LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000047", "ad": "ICE TEA MANGO&ANANAS 1 LT", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000050", "ad": "MEYVE SUYU GREYFURT", "birim": "l", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA03000062", "ad": "MEYVE SUYU SEFTALI KUTU 2", "birim": "ad", "grup": "ICA03", "sicaklikKriter": "none"}, {"kod": "ICA04000002", "ad": "ENERJI ICECEGI 24 LU", "birim": "kol", "grup": "ICA04", "sicaklikKriter": "none"}, {"kod": "ICA05000003", "ad": "CAY SIYAH SALLAMA 2 GR", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000004", "ad": "CAY ELMA TOZ 1/1", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000006", "ad": "CAY NANE- LIMON 2 GR-2", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000008", "ad": "CAY ADA 2 GR-4", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000009", "ad": "CAY PAPATYA 2 GR-6", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000010", "ad": "CAY IHLAMUR 2 GR-7", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000011", "ad": "CAY KUSBURNU 2 GR-8", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000012", "ad": "CAY ELMA 2 GR-9", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000013", "ad": "CAY BOGURTLENLI 2 GR-10", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000014", "ad": "CAY REZENE 2 GR-11", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000015", "ad": "CAY FORM PLUS(KARISIK) 2", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000016", "ad": "CAY YESIL 2 GR-16", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000028", "ad": "CAY SIYAH", "birim": "kg", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000029", "ad": "CAY SIYAH DEMLIK 3,2 GR", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000050", "ad": "CAY PROBIYOTIKLI VANILYAL", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000051", "ad": "CAY MARRAKESCH INT", "birim": "pk", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000055", "ad": "CAY GREEN", "birim": "pk", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000127", "ad": "CAY SIYAH DEMLIK POSET 40", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000021", "ad": "KAHVE TURK 500 GR", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000023", "ad": "KAHVE GOLD 500 GR", "birim": "ktu", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000025", "ad": "KAHVE KAFEINSIZ 100 GR", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000030", "ad": "KAHVE POSET 2 GR", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000037", "ad": "KAHVE TURK DAMLA SAKIZLI", "birim": "pk", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000047", "ad": "KAHVE CEKIRDEK EMILIO", "birim": "kg", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000001", "ad": "NESQUIK 375 GR", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000022", "ad": "CIKOLATA SICAK TOZ 1 KG", "birim": "kg", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000027", "ad": "KAHVE KREMASI 5 GR", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA05000031", "ad": "KAHVE KREMASI 1 KG", "birim": "ad", "grup": "ICA05", "sicaklikKriter": "none"}, {"kod": "ICA06000001", "ad": "TATLANDIRICI COCO 70CL", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000002", "ad": "TATLANDIRICI BANANA 70CL", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000003", "ad": "TATLANDIRICI BLU CUROCA 7", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000004", "ad": "TATLANDIRICI KIWI 70 CL", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000005", "ad": "TATLANDIRICI GRANADIN 70C", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000007", "ad": "TATLANDIRICI YESIL MUZ SU", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000009", "ad": "TATLANDIRICI SEKER SURUBU", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000011", "ad": "TATLANDIRICI CIKOLATA 70", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000016", "ad": "TATLANDIRICI VANILYA 70 C", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000030", "ad": "PURE CILEK", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000032", "ad": "PURE YESIL ELMA", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000033", "ad": "PURE MANGO", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000038", "ad": "TATLANDIRICI MURVER CICEG", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000039", "ad": "TATLANDIRICI KARAMEL 70 C", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000040", "ad": "TATLANDIRICI FINDIK 70 CL", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000041", "ad": "TATLANDIRICI CIKOLATA BEY", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000045", "ad": "KOKTEYL MIKSI TATLI EKSI", "birim": "pk", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000048", "ad": "PURE CARKIFELEK MEYVE", "birim": "bot", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000105", "ad": "KOKTEYL MIX WHITE PEACH 7", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000109", "ad": "KOKTEYL MIX TUXEDO 1000 M", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000110", "ad": "KOKTEYL MIX PETBUER&ALMON", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000111", "ad": "KOKTEYL MIX COOL LIME 700", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000114", "ad": "KOKTEYL MIX OCEAN 700 ML", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000116", "ad": "VARYASYON 1000ML", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000128", "ad": "KOKTEYL MIX GRASS 500 ML", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000129", "ad": "KOKTEYL MIX MELON 700ML", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000130", "ad": "KOKTEYL MIX PURPLE BASIL", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000131", "ad": "KOKTEYL MIX BODRUM LEMONA", "birim": "ad", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICA06000053", "ad": "ALKOLSUZ MALT ICECEK 33CL", "birim": "kol", "grup": "ICA06", "sicaklikKriter": "none"}, {"kod": "ICB01000010", "ad": "BIRA MALT 25 CL 24 LU", "birim": "kol", "grup": "ICB01", "sicaklikKriter": "none"}, {"kod": "ICB01000011", "ad": "BIRA SISE 30 CL 24 LU", "birim": "kol", "grup": "ICB01", "sicaklikKriter": "none"}, {"kod": "ICB01000005", "ad": "BIRA FICI 50 LT", "birim": "fic", "grup": "ICB01", "sicaklikKriter": "none"}, {"kod": "ICB02000005", "ad": "SOFRA SARABI KIRMIZI 75 C", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000056", "ad": "MYRINA KIRMIZI SARAP", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000083", "ad": "PUNTA KIRMIZI SARAP", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000007", "ad": "SOFRA SARABI BEYAZ 75 CL", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000057", "ad": "MYRINA BEYAZ SARAP", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000082", "ad": "PUNTA BEYAZ SARAP", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000006", "ad": "SOFRA SARABI ROSE 75 CL", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000058", "ad": "MYRINA ROZE SARAP", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000084", "ad": "PUNTA ROSE SARAP", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000063", "ad": "CHANDON GARDEN SPRITZ", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB02000078", "ad": "SAMPANYA SERENA FRIZZANTE", "birim": "bot", "grup": "ICB02", "sicaklikKriter": "none"}, {"kod": "ICB03000012", "ad": "RAKI YENI 100 CL", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000015", "ad": "RAKI TEKIRDAG 100 CL", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000019", "ad": "RAKI YAS UZUM EFE 100 CL", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000054", "ad": "RAKI BEYLERBEYI GOBEK 100", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000059", "ad": "RAKI BEYLERBEYI TERA GOLD", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000067", "ad": "RAKI EFE GOLD 100 CL", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000068", "ad": "RAKI SARI ZEYBEK ORJINAL", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000069", "ad": "RAKI SARI ZEYBEK 3 MESE 1", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000070", "ad": "RAKI SARI ZEYBEK YAS UZUM", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB03000022", "ad": "KANYAK 100 CL", "birim": "bot", "grup": "ICB03", "sicaklikKriter": "none"}, {"kod": "ICB04000008", "ad": "BIRA BOMONTI 50 CL 20 LI", "birim": "kol", "grup": "ICB04", "sicaklikKriter": "none"}, {"kod": "ICB04000001", "ad": "BIRA BECK S 24 LU", "birim": "kol", "grup": "ICB04", "sicaklikKriter": "none"}, {"kod": "ICB04000002", "ad": "BIRA MILLER 24 LU", "birim": "kol", "grup": "ICB04", "sicaklikKriter": "none"}, {"kod": "ICB04000004", "ad": "BIRA HEINEKEN SISE 24 LU", "birim": "kol", "grup": "ICB04", "sicaklikKriter": "none"}, {"kod": "ICB04000006", "ad": "BIRA CARLSBERG 24 LU", "birim": "kol", "grup": "ICB04", "sicaklikKriter": "none"}, {"kod": "ICB04000010", "ad": "BIRA BUD 33 CL (24 LU)", "birim": "kol", "grup": "ICB04", "sicaklikKriter": "none"}, {"kod": "ICB04000011", "ad": "BIRA GLUTENSIZ 33 CL 24", "birim": "kol", "grup": "ICB04", "sicaklikKriter": "none"}, {"kod": "ICB04000018", "ad": "BIRA PAULENER 33 CL 24 LU", "birim": "kol", "grup": "ICB04", "sicaklikKriter": "none"}, {"kod": "ICB05000008", "ad": "SARAFIN MERLOT 2006 75 CL", "birim": "bot", "grup": "ICB05", "sicaklikKriter": "none"}, {"kod": "ICB05000011", "ad": "MEMORO ROSSO", "birim": "bot", "grup": "ICB05", "sicaklikKriter": "none"}, {"kod": "ICB05000148", "ad": "MURIEL RIOJA CRIANZA FINC", "birim": "bot", "grup": "ICB05", "sicaklikKriter": "none"}, {"kod": "ICB05000150", "ad": "CHATEAU DE SEGUIN SAUVIGN", "birim": "bot", "grup": "ICB05", "sicaklikKriter": "none"}, {"kod": "ICB05000326", "ad": "PRINZ V HESSEN RIESLING", "birim": "bot", "grup": "ICB05", "sicaklikKriter": "none"}, {"kod": "ICB07000116", "ad": "CIN GILBEYS 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000115", "ad": "VOTKA GILBEYS 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000005", "ad": "SAFARI 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000008", "ad": "JAGERMEISTER LIKOR 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000010", "ad": "LIKOR KAHLUA 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000011", "ad": "BAILEYS 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000013", "ad": "ARCHERS 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000014", "ad": "CAMPARI 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000015", "ad": "BATIDA COCO 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000080", "ad": "LIKOR SAMBUCA BUSSONI 70", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000104", "ad": "LIKOR RAMAZZOTTI AMARO 10", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000114", "ad": "AMARETTO DISARONNO 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000141", "ad": "LIKOR TRIPLE SEC 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000178", "ad": "LIKOR SHERIDAN'S 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000206", "ad": "LIKOR BACERS FIELD 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000225", "ad": "LIKOR CHAMBORD 50 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000236", "ad": "LIKOR TRIPLE SEC 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000279", "ad": "LIKOR LILLET BLANC 75 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000280", "ad": "LIKOR LILLET ROSE 75 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000326", "ad": "LIKOR GRAND MARNIER 70CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000327", "ad": "LIKOR RAMAZOTTI CREMA 70C", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000018", "ad": "MARTINI BIANCO 75 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000021", "ad": "MARTINI EXTRA DRY 75 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000023", "ad": "MARTINI ROSSO 75 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000211", "ad": "LIMONCE 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000144", "ad": "TEQUILA EL JIMADOR 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000174", "ad": "TEQUILA OLMECA GOLD 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000176", "ad": "TEQUILA EL JIMADOR REPOSA", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000231", "ad": "TEQUILA PATRON SILVER 100", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000314", "ad": "TEQUILA OLMECA SILVER 100", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000315", "ad": "TEQUILA JOSE CUERVO SILVE", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000325", "ad": "DANGEROUS DON MEZCAL CAFE", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000001", "ad": "CANARIO CACHACA 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000031", "ad": "MALIBU 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000032", "ad": "BACARDI CARDA BLANCA 70", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000033", "ad": "HAVANA CLUB BLANCO RHUM 7", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000034", "ad": "CAPTAIN MORGEN BLACK 100", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000112", "ad": "CAPTAIN MORGEN GOLD 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000149", "ad": "CAPTAIN MORGEN WHITE 70 C", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000038", "ad": "JIM BEAM 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000039", "ad": "JAMESON 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000040", "ad": "JB RARE SCOTCH 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000041", "ad": "BALLANTINES FINES 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000042", "ad": "J.WALKER RED LABEL 100 C", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000121", "ad": "WHISKY FAMOUS GROUSE 70 C", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000145", "ad": "WHISKY FAMOUS GROUSE 100", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000278", "ad": "JAMESON BLACK BARREL 70 C", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000296", "ad": "WHIS.PIKE CREK CANADIAN10", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000302", "ad": "THE GENTLEMAN JACK 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000044", "ad": "JACK DANIELS 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000045", "ad": "J.WALKER BLACK LABEL 100", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000046", "ad": "CHIVAS REGAL 12 YILLIK 10", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000103", "ad": "THE GLENLIVET FOUNDER'S R", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000157", "ad": "WHISKY JACK DANIELS HONEY", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000200", "ad": "WHISKY LAGAVULIN 16 YO 70", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000202", "ad": "J.WALKER BLUE LABEL 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000244", "ad": "WHISKY HIBIKI HARMONY 70", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000318", "ad": "CHIWAS SMOOTH&SMOKY 70CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000319", "ad": "GLENMORANGIES TRIPLE CASK", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000342", "ad": "JACK DANILS BONDED RYE 70", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000049", "ad": "CIN BOMBAY SAPPHIRE 70 C", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000051", "ad": "CIN GORDONS DRY 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000122", "ad": "CIN HENDRICKS 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000140", "ad": "CIN BEEFEATER PINK 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000163", "ad": "CIN GORDON'S PINK 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000164", "ad": "CIN TANQUERAY LONDON DRY", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000223", "ad": "CIN MONKEY 47 50 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000237", "ad": "CIN BEEFEATER 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000281", "ad": "CIN MALFY LIMONE 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000282", "ad": "CIN MALFY ORIGINALE 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000295", "ad": "CIN GIBSON'S KAN PORTAKAL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000323", "ad": "CIN KNUT HANSEN 70CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000343", "ad": "CIN FORD'S 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000058", "ad": "VOTKA SMIRNOFF 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000124", "ad": "VOTKA GREY GOOSE 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000125", "ad": "VOTKA ABSOLUT 100 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000187", "ad": "VOTKA ABSOLUT RASPBERRY 7", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000188", "ad": "VOTKA ABSOLUT VANILLA ARO", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000189", "ad": "VOTKA ABSOLUT CITRON AROM", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000190", "ad": "VOTKA ABSOLUT LIME AROMA", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000219", "ad": "VOTKA BELUGA NOBLE 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000321", "ad": "VOTKA STOLICHNAYA 70CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000322", "ad": "VOTKA ZUBROWKA 70CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000064", "ad": "APEROL 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000065", "ad": "FERNET BRANCA 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000091", "ad": "GRAPPA CLASSICIA 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000109", "ad": "ABSINTHE 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000066", "ad": "KANYAK MARTEL VS 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000067", "ad": "KANYAK HENNESY VS 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000138", "ad": "KANYAK ST. REMY VSOP 100", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000177", "ad": "KANYAK METAXA 7 (70 CL)", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "ICB07000092", "ad": "KANYAK MARTEL XO 70 CL", "birim": "bot", "grup": "ICB07", "sicaklikKriter": "none"}, {"kod": "YIY01000005", "ad": "DANA BONFILE FITILSIZ (20", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000013", "ad": "KUZU KARACIGER (211)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000036", "ad": "KOFTE INEGOL PINAR (402)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000047", "ad": "FUME DANA DIL BUTUN (314)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000054", "ad": "SALAM TAVUK CIGER (311)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000089", "ad": "HINDI BUT KARABIBERLI", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY01000188", "ad": "PILIC KELEBEK (261)", "birim": "kg", "grup": "YIY01", "sicaklikKriter": "4et"}, {"kod": "YIY02000002", "ad": "PALAMUT FILETO DERILI (19", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000004", "ad": "PANGA FILETO (152)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000006", "ad": "KEFAL FILETO (153)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000017", "ad": "PALAMUT FILETO (185)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000034", "ad": "UCAN BALIK YUMURTASI TRNC", "birim": "ad", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000058", "ad": "FISH TENDERS (189)", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000072", "ad": "BARBUN TAVALIK", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY02000075", "ad": "SOMON STEAK KARADENIZ", "birim": "kg", "grup": "YIY02", "sicaklikKriter": "4"}, {"kod": "YIY03000022", "ad": "PEYNIR LABNE PIKNIK 20 GR", "birim": "ad", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY03000045", "ad": "PEYNIR BUKLUM BUKLUM", "birim": "kg", "grup": "YIY03", "sicaklikKriter": "4"}, {"kod": "YIY04000213", "ad": "ALGIDA VOLCANO WHITE 24 L", "birim": "kol", "grup": "YIY04", "sicaklikKriter": "-18"}, {"kod": "YIY05000016", "ad": "AYRAN 2 LT", "birim": "ad", "grup": "YIY05", "sicaklikKriter": "4"}, {"kod": "YIY06000134", "ad": "PATLICAN KURUSU (BAG)", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000154", "ad": "DOLMA BIBER KURUSU (BAG)", "birim": "ad", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY06000018", "ad": "SOKLU BOGURTLEN (123)", "birim": "kg", "grup": "YIY06", "sicaklikKriter": "none"}, {"kod": "YIY07000028", "ad": "TARHANA", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000090", "ad": "EKMEK BAGET", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000219", "ad": "EKMEK RUSTIK KARE 420GR*1", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000220", "ad": "EKMEK TAM BUGDAY UNLU", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000249", "ad": "EKMEK CAPATA", "birim": "ad", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000041", "ad": "SOKLU SU BOREGI PEYNIRLI", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000049", "ad": "SOKLU SIMIT", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000120", "ad": "GUL BOREGI ISPANAKLI 150", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000121", "ad": "GUL BOREGI PEYNIRLI 150 L", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000167", "ad": "GUL BOREGI PATATESLI 150", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000255", "ad": "DONUT STRAWJELLY JAM 48LI", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000256", "ad": "DONUT NUTZILLA 48LI", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000281", "ad": "DONUT BISCOFF COCOA 48LI", "birim": "kol", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000017", "ad": "KATKI EKMEK FORMAT SUPER", "birim": "TRB", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000036", "ad": "OVALEKS(HAMUR KATKI)", "birim": "kg", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY08000064", "ad": "BARBUNYA ALA DOKME", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000253", "ad": "MAKARNA DECECCO FETTUEC 5", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000254", "ad": "MAKARNA DECECCO MIDYE 500", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000009", "ad": "DUT KURUSU", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000026", "ad": "FINDIK TOZ", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000123", "ad": "BADEM ICI TUZLU EXTRA", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000244", "ad": "ERIK KURU CEKIRDEKSIZ", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000046", "ad": "ETIMEK", "birim": "kol", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000136", "ad": "BISKUVI PETIBOR", "birim": "kg", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY08000142", "ad": "BISKUVI OREO", "birim": "pk", "grup": "YIY08", "sicaklikKriter": "none"}, {"kod": "YIY09000037", "ad": "PARCA CIKOLATA SUTLU", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000038", "ad": "PARCA CIKOLATA BEYAZ", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000041", "ad": "GANAJ KAZIMALIK BITTER", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000042", "ad": "GANAJ KAZIMALIK FRAMBUAZ", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000043", "ad": "GANAJ KAZIMALIK FILDISI", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000224", "ad": "CIKOLATA SUTLU BUKLE", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000245", "ad": "CIKOLATA KUVERTUR FILDIS", "birim": "pk", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000246", "ad": "CIKOLATA BITTER KONFISER", "birim": "pk", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000012", "ad": "KREM BRULE", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000015", "ad": "MIKS MELLA BROWNIE KEK 1", "birim": "TRB", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000095", "ad": "FOND MUZLU", "birim": "kg", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY09000167", "ad": "ALGIDA KORNET KULAH", "birim": "kol", "grup": "YIY09", "sicaklikKriter": "none"}, {"kod": "YIY10000018", "ad": "GLIKOZ 25 KG", "birim": "tnk", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000003", "ad": "KADAYIF TEL CIG", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000004", "ad": "KADAYIF BURMA CIG", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000005", "ad": "KADAYIF EKMEK", "birim": "ad", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000021", "ad": "KIRAZ SEKERI KIRMIZI", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000022", "ad": "PORTAKAL SEKERI", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000023", "ad": "INCIR SEKERI", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000024", "ad": "KESTANE SEKERI", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000030", "ad": "RECEL DOKME AYVA", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000031", "ad": "RECEL DOKME KAYISI", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000044", "ad": "HELVA YAZ (CEVIZLI) KAKAO", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000052", "ad": "LOKUM FINDIKLI", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY10000055", "ad": "LOKUM SARMA", "birim": "kg", "grup": "YIY10", "sicaklikKriter": "none"}, {"kod": "YIY11000070", "ad": "TURSU ZENCEFIL (PEMBE) 1.", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000007", "ad": "YAG ASTA 10 KG", "birim": "kol", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000009", "ad": "YAG BISKIN 10 KG", "birim": "kol", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000075", "ad": "ZEYTIN SIYAH KALAMATA (12", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000076", "ad": "ZEYTIN YESIL HAVUCLU (161", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000077", "ad": "ZEYTIN YESIL SARIMSAKLI (", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000078", "ad": "ZEYTIN YESIL CIZIK (231-2", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000079", "ad": "ZEYTIN YSL DOMT KIR141-16", "birim": "tnk", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000084", "ad": "ZEYTIN SIYAH DIYET (231-", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000038", "ad": "MUSKAT CEVIZ", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000044", "ad": "YENI BAHAR", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000052", "ad": "KETEN TOHUMU", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000054", "ad": "COREK OTU", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000091", "ad": "SOYA SOSU DARK 1 KG", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000092", "ad": "SOYA SOSU LIGHT 750 GR", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000099", "ad": "SOS DEMI GLACE (TOZ)", "birim": "kg", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY11000258", "ad": "SOS BARBEKU PIKNIK", "birim": "ad", "grup": "YIY11", "sicaklikKriter": "none"}, {"kod": "YIY12000002", "ad": "SIRKE PIRINC 1 LT", "birim": "ad", "grup": "YIY12", "sicaklikKriter": "none"}, {"kod": "YIY12000003", "ad": "WASABI YESIL HARDAL UNU", "birim": "kg", "grup": "YIY12", "sicaklikKriter": "none"}, {"kod": "YIY12000007", "ad": "SOS ISTIRIDYE 600 GR", "birim": "ad", "grup": "YIY12", "sicaklikKriter": "none"}, {"kod": "YIY12000013", "ad": "FAJITA BAHARATI 750 GR", "birim": "ad", "grup": "YIY12", "sicaklikKriter": "none"}, {"kod": "YIY12000018", "ad": "CIN MAKARNA", "birim": "pk", "grup": "YIY12", "sicaklikKriter": "none"}, {"kod": "YIY07000015", "ad": "TOPPING MISIR 10 KG", "birim": "KG", "grup": "YIY07", "sicaklikKriter": "none"}, {"kod": "YIY07000143", "ad": "MELLA VIOLETTA MIXI IREKS", "birim": "KG", "grup": "YIY07", "sicaklikKriter": "none"}];
+
+// ============================================================
+// DATA STORE
+// ============================================================
+const DB = {
+  prefix: 'gurok_',
+  async get(key) {
+    try {
+      const r = await window.storage.get(this.prefix + key);
+      return r ? JSON.parse(r.value) : null;
+    } catch(e) { return null; }
+  },
+  async set(key, val) {
+    try {
+      await window.storage.set(this.prefix + key, JSON.stringify(val));
+    } catch(e) { console.error('DB set error', e); }
+  }
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  currentUser: null,
+  currentRole: 'personel',
+  formRows: [],
+  pendingBarkod: null,
+  pendingRowIndex: null,
+  onayTab: 'bekleyen',
+  currentOnayId: null,
+};
+
+let db = {
+  kullanicilar: [],
+  tedarikciler: [],
+  barkodlar: {},
+  urunler: [],
+  formlar: [],
+  lastBackup: null,
+};
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  const saved = await DB.get('data');
+  if (saved) {
+    db = { ...db, ...saved };
+  } else {
+    // Default data
+    db.kullanicilar = [
+      { id: 1, ad: 'Mehmet Demir', rol: 'yonetici', pin: '123456' },
+      { id: 2, ad: 'Ali Kaya', rol: 'personel', pin: '111111' },
+      { id: 3, ad: 'Fatma Yıldız', rol: 'personel', pin: '222222' },
+    ];
+    db.tedarikciler = [
+      { id: 1, ad: 'Sütaş Gıda A.Ş.', kod: 'SUTAS' },
+      { id: 2, ad: 'Metro Grossmarket', kod: 'METRO' },
+      { id: 3, ad: 'Pınar Et Süt', kod: 'PINAR' },
+      { id: 4, ad: 'Birleşik Gıda', kod: 'BIRLG' },
+    ];
+    db.barkodlar = {
+      '8690562006046_1': { ad: 'Tereyağı 1kg', ln: 'YIY05000012', birim: 'KG', grup: 'YIY05', sicaklikKriter: '4', tedarikcisi_id: 1 },
+      '8690562006046_3': { ad: 'Tereyağı 1kg', ln: 'YIY05000012', birim: 'KG', grup: 'YIY05', sicaklikKriter: '4', tedarikcisi_id: 3 },
+    };
+    db.urunler = [...URUN_DB];
+    db.formlar = [];
+    await saveDB();
+  }
+  populateUsersDatalist();
+}
+
+async function saveDB() {
+  await DB.set('data', db);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function showToast(msg, dur=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const s = document.getElementById('screen-' + name);
+  if (s) { s.classList.add('active'); s.scrollTop = 0; }
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'onay') renderOnayList();
+  if (name === 'gecmis') renderGecmis();
+  if (name === 'barkod') renderBarkodlar();
+  if (name === 'veri') renderVeriYonetimi();
+  if (name === 'skt') { renderSKTList(); }
+  if (name === 'form') initForm();
+}
+
+function fmt(d) {
+  return new Date(d).toLocaleDateString('tr-TR');
+}
+
+function genId() { return Date.now() + Math.random().toString(36).slice(2,6); }
+
+// ============================================================
+// LOGIN
+// ============================================================
+let selectedRole = 'personel';
+let pinBuffer = '';
+
+function selectRole(r) {
+  selectedRole = r;
+  document.getElementById('role-personel').classList.toggle('selected', r==='personel');
+  document.getElementById('role-yonetici').classList.toggle('selected', r==='yonetici');
+}
+
+function populateUsersDatalist() {
+  const dl = document.getElementById('users-list');
+  dl.innerHTML = db.kullanicilar.map(u => `<option value="${u.ad}">`).join('');
+}
+
+function goToPin() {
+  const name = document.getElementById('login-name').value.trim();
+  if (!name) { showToast('⚠️ Ad giriniz'); return; }
+  const user = db.kullanicilar.find(u => u.ad.toLowerCase() === name.toLowerCase() && u.rol === selectedRole);
+  if (!user) { showToast('⚠️ Kullanıcı bulunamadı'); return; }
+  state.currentUser = user;
+  state.currentRole = selectedRole;
+  document.getElementById('login-step1').style.display = 'none';
+  document.getElementById('login-step2').style.display = 'block';
+  document.getElementById('login-user-show').textContent = user.ad;
+  pinBuffer = '';
+  updatePinDisplay();
+}
+
+function backStep1() {
+  document.getElementById('login-step1').style.display = 'block';
+  document.getElementById('login-step2').style.display = 'none';
+  pinBuffer = '';
+}
+
+function pinInput(d) {
+  if (pinBuffer.length >= 6) return;
+  pinBuffer += d;
+  updatePinDisplay();
+  if (pinBuffer.length === 6) checkPin();
+}
+
+function pinDel() {
+  pinBuffer = pinBuffer.slice(0,-1);
+  updatePinDisplay();
+}
+
+function updatePinDisplay() {
+  for (let i=0;i<6;i++) {
+    const dot = document.getElementById('pd'+i);
+    dot.classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function checkPin() {
+  setTimeout(() => {
+    if (pinBuffer === state.currentUser.pin) {
+      showScreen('dashboard');
+    } else {
+      showToast('❌ Yanlış PIN');
+      pinBuffer = '';
+      updatePinDisplay();
+    }
+  }, 200);
+}
+
+function logout() {
+  state.currentUser = null;
+  pinBuffer = '';
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-step1').style.display = 'block';
+  document.getElementById('login-step2').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-login').classList.add('active');
+}
+
+// ============================================================
+// SKT TAKİP
+// ============================================================
+let sktFilter = 'kritik';
+
+function switchSKTFilter(f, el) {
+  sktFilter = f;
+  document.querySelectorAll('#screen-skt .filter-chip').forEach(c=>c.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderSKTList();
+}
+
+function getSKTKayitlar() {
+  // Tüm onaylı/bekleyen formlardaki ürünleri SKT ile birlikte getir
+  const kayitlar = [];
+  const bugun = new Date();
+  bugun.setHours(0,0,0,0);
+
+  db.formlar.forEach(f => {
+    if (f.durum === 'reddedilen') return;
+    f.urunler.forEach(r => {
+      if (!r.skt) return;
+      const sktDate = new Date(r.skt);
+      sktDate.setHours(0,0,0,0);
+      const kalanGun = Math.floor((sktDate - bugun) / 86400000);
+      kayitlar.push({
+        ...r,
+        form: f,
+        kalanGun,
+        sktDate,
+        gecmis: kalanGun < 0,
+        kritik: kalanGun >= 0 && kalanGun < 14,
+        uyari: kalanGun >= 14 && kalanGun < 30,
+      });
+    });
+  });
+
+  // Aynı ürün kodu için en yakın SKT'yi tut (dedup)
+  const dedupMap = {};
+  kayitlar.forEach(k => {
+    const key = (k.ln || k.ad) + '_' + k.form.tedarikcisi_id;
+    if (!dedupMap[key] || k.kalanGun < dedupMap[key].kalanGun) {
+      dedupMap[key] = k;
+    }
+  });
+
+  return Object.values(dedupMap).sort((a,b) => a.kalanGun - b.kalanGun);
+}
+
+function renderSKTList() {
+  const tum = getSKTKayitlar();
+  const gecmis = tum.filter(k=>k.gecmis);
+  const kritik = tum.filter(k=>k.kritik);
+  const uyari = tum.filter(k=>k.uyari);
+
+  // Özet kartlar
+  document.getElementById('skt-ozet').innerHTML = `
+    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${gecmis.length}</div><div class="stat-label">Süresi Geçmiş</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--warning)">${kritik.length}</div><div class="stat-label">Kritik (&lt;14 gün)</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#d68910">${uyari.length}</div><div class="stat-label">Uyarı (&lt;30 gün)</div></div>
+    <div class="stat-card"><div class="stat-num">${tum.length}</div><div class="stat-label">SKT Kayıtlı</div></div>
+  `;
+
+  // Kritik rozet güncelle
+  const badgeEl = document.getElementById('skt-kritik-badge');
+  if (badgeEl) badgeEl.textContent = gecmis.length + kritik.length;
+
+  // Filtrele
+  let liste;
+  if (sktFilter === 'gecmis') liste = gecmis;
+  else if (sktFilter === 'kritik') liste = kritik;
+  else if (sktFilter === 'uyari') liste = uyari;
+  else liste = tum;
+
+  const cont = document.getElementById('skt-list');
+  if (!liste.length) {
+    cont.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><h3>Bu kategoride ürün yok</h3><p>Harika, takip altındaki ürünler temiz!</p></div>';
+    return;
+  }
+
+  cont.innerHTML = liste.map(k => {
+    let renk, etiket, bg;
+    if (k.gecmis) {
+      renk = 'var(--danger)'; bg = 'var(--danger-light)';
+      etiket = '⛔ ' + Math.abs(k.kalanGun) + ' gün geçti';
+    } else if (k.kritik) {
+      renk = 'var(--warning)'; bg = 'var(--warning-light)';
+      etiket = '⚠️ ' + k.kalanGun + ' gün kaldı';
+    } else {
+      renk = '#d68910'; bg = '#fef9e7';
+      etiket = '📅 ' + k.kalanGun + ' gün kaldı';
+    }
+    return `<div style="background:white;border-radius:var(--radius);padding:14px;margin-bottom:8px;box-shadow:var(--shadow);border-left:4px solid ${renk};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:600;color:var(--gray-900);">${k.ad}</div>
+          <div style="font-size:12px;color:var(--gray-500);margin-top:2px;">${k.form.tedarikcisi_ad} • ${fmt(k.form.tarih)} • ${k.miktar||''} ${k.birim||''}</div>
+          ${k.ln ? '<div style="font-size:11px;color:var(--gray-400);margin-top:1px;">'+k.ln+'</div>' : ''}
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:12px;font-weight:700;color:${renk};background:${bg};padding:4px 10px;border-radius:20px;">${etiket}</div>
+          <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">SKT: ${k.skt}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Dashboard'da SKT uyarı sayısını güncelle
+function updateSKTMenuBadge() {
+  const tum = getSKTKayitlar();
+  const kritikSayi = tum.filter(k=>k.gecmis||k.kritik).length;
+  const sub = document.getElementById('skt-menu-sub');
+  const label = document.getElementById('skt-menu-label');
+  if (sub && kritikSayi > 0) {
+    sub.textContent = kritikSayi + ' kritik ürün';
+    sub.style.color = 'var(--danger)';
+  }
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const u = state.currentUser;
+  document.getElementById('dash-welcome').textContent = '👋 Merhaba, ' + u.ad;
+
+  const toplam = db.formlar.length;
+  const bekleyen = db.formlar.filter(f=>f.durum==='bekleyen').length;
+  const bugun = db.formlar.filter(f=>fmt(f.tarih)===fmt(Date.now())).length;
+  const uygunsuz = db.formlar.reduce((a,f)=>a+f.urunler.filter(r=>r.durum==='uygunsuz').length,0);
+
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${toplam}</div><div class="stat-label">Toplam Form</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--warning)">${bekleyen}</div><div class="stat-label">Onay Bekleyen</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--success)">${bugun}</div><div class="stat-label">Bugün Giriş</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${uygunsuz}</div><div class="stat-label">Uygunsuz Ürün</div></div>
+  `;
+
+  const isYonetici = u.rol === 'yonetici';
+  updateSKTMenuBadge();
+  document.getElementById('dash-menu').innerHTML = `
+    <button class="menu-btn highlight" onclick="showScreen('form')">
+      <div class="menu-icon">📦</div>
+      <div class="menu-label">Mal Kabul</div>
+      <div class="menu-sub" style="color:rgba(255,255,255,0.7)">Yeni form aç</div>
+    </button>
+    ${isYonetici ? `<button class="menu-btn" onclick="showScreen('onay')">
+      <div class="menu-icon">✅</div>
+      <div class="menu-label">Onay ${bekleyen>0?'('+bekleyen+')':''}</div>
+      <div class="menu-sub">Bekleyen formlar</div>
+    </button>` : `<button class="menu-btn" onclick="showScreen('gecmis')">
+      <div class="menu-icon">📊</div>
+      <div class="menu-label">Geçmişim</div>
+      <div class="menu-sub">Gönderdiğim formlar</div>
+    </button>`}
+    <button class="menu-btn" onclick="showScreen('gecmis')">
+      <div class="menu-icon">🔍</div>
+      <div class="menu-label">İzleme</div>
+      <div class="menu-sub">Analiz & raporlar</div>
+    </button>
+    <button class="menu-btn" onclick="showScreen('barkod')">
+      <div class="menu-icon">📷</div>
+      <div class="menu-label">Barkodlar</div>
+      <div class="menu-sub">Kütüphane</div>
+    </button>
+    <button class="menu-btn" onclick="showScreen('skt')">
+      <div class="menu-icon">📅</div>
+      <div class="menu-label" id="skt-menu-label">SKT Takip</div>
+      <div class="menu-sub" id="skt-menu-sub">Kritik ürünler</div>
+    </button>
+    ${isYonetici ? `<button class="menu-btn" onclick="showScreen('veri')">
+      <div class="menu-icon">⚙️</div>
+      <div class="menu-label">Yönetim</div>
+      <div class="menu-sub">Veri & ayarlar</div>
+    </button>` : ''}
+  `;
+}
+
+// ============================================================
+// MAL KABUL FORM
+// ============================================================
+function initForm() {
+  state.formRows = [];
+  document.getElementById('form-tarih').value = new Date().toISOString().split('T')[0];
+  document.getElementById('form-fatura').value = '';
+  document.getElementById('form-irsaliye').value = '';
+  populateTedarikcisiSelect('form-tedarikcisi');
+  document.getElementById('product-rows').innerHTML = '';
+  addProductRow();
+}
+
+function populateTedarikcisiSelect(id) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Tedarikçi seçin...</option>' +
+    db.tedarikciler.map(t=>`<option value="${t.id}">${t.ad}</option>`).join('');
+}
+
+function addProductRow(prefill={}) {
+  const idx = state.formRows.length;
+  const row = { id: genId(), ad: prefill.ad||'', ln: prefill.ln||'', birim: prefill.birim||'KG', miktar: prefill.miktar||'', skt: prefill.skt||'', sicaklik: prefill.sicaklik||'', durum: prefill.durum||'uygun', sebep: prefill.sebep||'', barkod: prefill.barkod||'', sicaklikKriter: prefill.sicaklikKriter||'none' };
+  state.formRows.push(row);
+  renderFormRows();
+  return idx;
+}
+
+function renderFormRows() {
+  const cont = document.getElementById('product-rows');
+  if (!state.formRows.length) { cont.innerHTML = ''; return; }
+  cont.innerHTML = state.formRows.map((row, i) => `
+    <div class="product-row ${row.durum}" id="row-${i}">
+      <div class="product-row-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="product-num">${i+1}</div>
+          <button style="background:var(--accent-light);color:var(--accent);border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-weight:600;" onclick="scanForRow(${i})">📷 Barkod</button>
+        </div>
+        <button class="remove-btn" onclick="removeRow(${i})">✕ Kaldır</button>
+      </div>
+      <div class="field" style="position:relative;">
+        <label>Malzeme Adı</label>
+        <input type="text" id="urun-input-${i}" value="${row.ad}" placeholder="Ürün adı veya LN kodu yaz..." autocomplete="off"
+          oninput="showUrunSuggestions(${i}, this.value)"
+          onblur="setTimeout(()=>hideUrunSuggestions(${i}),200)"
+          onkeydown="handleUrunKey(event,${i})">
+        <div id="urun-suggestions-${i}" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-radius:0 0 8px 8px;z-index:200;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>LN Kodu</label>
+          <input type="text" value="${row.ln}" placeholder="YIY..." onchange="updateRow(${i},'ln',this.value)">
+        </div>
+        <div class="field">
+          <label>Birim</label>
+          <select onchange="updateRow(${i},'birim',this.value)">
+            ${['KG','ADET','LT','KTN','PKT'].map(b=>`<option ${row.birim===b?'selected':''}>${b}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>SKT</label>
+          <input type="date" value="${row.skt}" 
+            min="${new Date().toISOString().split('T')[0]}"
+            onchange="validateSKT(${i}, this)"
+            style="${row.skt && row.skt < new Date().toISOString().split('T')[0] ? 'border-color:var(--danger);background:var(--danger-light);' : ''}">
+          ${row.skt && row.skt < new Date().toISOString().split('T')[0] ? '<div style="color:var(--danger);font-size:12px;font-weight:600;margin-top:3px;">⛔ SKT geçmiş — kabul edilemez</div>' : ''}
+          ${row.skt && !isSKTUyari(row.skt) && row.skt >= new Date().toISOString().split('T')[0] ? '<div style="color:var(--warning);font-size:12px;font-weight:600;margin-top:3px;">⚠️ SKT 14 günden az kaldı</div>' : ''}
+        </div>
+        <div class="field">
+          <label>Miktar</label>
+          <input type="number" value="${row.miktar}" placeholder="0" onchange="updateRow(${i},'miktar',this.value)" inputmode="decimal">
+        </div>
+      </div>
+      <div class="field">
+        <label>Sıcaklık (°C) ${getSicaklikKriterLabel(row.sicaklikKriter)}</label>
+        <input type="number" value="${row.sicaklik}" placeholder="°C değeri" onchange="updateRow(${i},'sicaklik',this.value)" inputmode="decimal" step="0.1">
+        ${row.sicaklik && row.sicaklikKriter !== 'none' ? getSicaklikIndicator(row.sicaklik, row.sicaklikKriter) : ''}
+      </div>
+      <div class="field">
+        <label>Durum</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button type="button" onclick="setDurum(${i},'uygun')" style="padding:10px;border-radius:8px;border:2px solid ${row.durum==='uygun'?'var(--success)':'var(--gray-300)'};background:${row.durum==='uygun'?'var(--success-light)':'white'};color:${row.durum==='uygun'?'var(--success)':'var(--gray-600)'};font-weight:600;cursor:pointer;font-size:14px;">✓ Uygun</button>
+          <button type="button" onclick="setDurum(${i},'uygunsuz')" style="padding:10px;border-radius:8px;border:2px solid ${row.durum==='uygunsuz'?'var(--danger)':'var(--gray-300)'};background:${row.durum==='uygunsuz'?'var(--danger-light)':'white'};color:${row.durum==='uygunsuz'?'var(--danger)':'var(--gray-600)'};font-weight:600;cursor:pointer;font-size:14px;">✗ Uygunsuz</button>
+        </div>
+      </div>
+      ${row.durum==='uygunsuz'?`
+      <div class="field">
+        <label>Uygunsuzluk Sebebi (iade edildi)</label>
+        <input type="text" value="${row.sebep}" placeholder="Kalibrasyon uygun değil, ambalaj hasarı, SKT geçmiş..." onchange="updateRow(${i},'sebep',this.value)">
+      </div>`:''}`
+  ).join('');
+}
+
+function getSicaklikKriterLabel(k) {
+  const labels = { 'none':'', '4':'(max +4°C)', '4et':'(0°C - +4°C)', '-18':'(max -18°C)' };
+  return `<span style="font-size:11px;color:var(--gray-500);">${labels[k]||''}</span>`;
+}
+
+function getSicaklikIndicator(val, kriter) {
+  const v = parseFloat(val);
+  let ok = false;
+  if (kriter==='4') ok = v <= 4;
+  else if (kriter==='4et') ok = v >= 0 && v <= 4;
+  else if (kriter==='-18') ok = v <= -18;
+  else return '';
+  return `<div class="temp-indicator ${ok?'temp-ok':'temp-warn'}">${ok?'✓ Sıcaklık uygun':'⚠️ Sıcaklık sapması!'}</div>`;
+}
+
+function updateRow(i, key, val) {
+  if (!state.formRows[i]) return;
+  state.formRows[i][key] = val;
+  if (key === 'ad') {
+    const found = db.urunler.find(u => u.ad.toLowerCase() === val.toLowerCase());
+    if (found) {
+      state.formRows[i].ln = found.kod;
+      state.formRows[i].birim = found.birim;
+      state.formRows[i].sicaklikKriter = found.sicaklikKriter || 'none';
+    }
+  }
+  renderFormRows();
+}
+
+function updateRowInline(i, key, val) {
+  if (!state.formRows[i]) return;
+  state.formRows[i][key] = val;
+}
+
+function isSKTUyari(skt) {
+  // true = güvenli (14 günden fazla), false = uyarı
+  if (!skt) return true;
+  const gun = Math.floor((new Date(skt) - new Date()) / 86400000);
+  return gun > 14;
+}
+
+function validateSKT(i, input) {
+  const val = input.value;
+  const bugun = new Date().toISOString().split('T')[0];
+  if (val && val < bugun) {
+    input.style.borderColor = 'var(--danger)';
+    input.style.background = 'var(--danger-light)';
+    showToast('⛔ SKT geçmiş tarih — kabul edilemez!', 3000);
+    setTimeout(() => { input.value = ''; state.formRows[i].skt = ''; renderFormRows(); }, 300);
+    return;
+  }
+  input.style.borderColor = '';
+  input.style.background = '';
+  updateRow(i, 'skt', val);
+}
+
+let suggestionIndex = {};
+
+function getAllUrunler() {
+  const combined = [...URUN_DB];
+  db.urunler.forEach(u => {
+    if (!combined.find(x => x.kod === u.kod)) combined.push(u);
+  });
+  return combined;
+}
+
+function showUrunSuggestions(i, q) {
+  updateRowInline(i, 'ad', q);
+  const box = document.getElementById('urun-suggestions-' + i);
+  if (!box) return;
+  if (!q || q.length < 2) { box.style.display = 'none'; return; }
+  const qU = q.toUpperCase();
+  const all = getAllUrunler();
+  const matches = all.filter(u =>
+    u.ad.toUpperCase().includes(qU) || u.kod.toUpperCase().includes(qU)
+  ).slice(0, 12);
+  if (!matches.length) { box.style.display = 'none'; return; }
+  suggestionIndex[i] = -1;
+  box.innerHTML = matches.map((u, idx) => `
+    <div class="urun-suggest-item" data-idx="${idx}"
+      onmousedown="selectUrun(${i}, '${u.ad.replace(/'/g,"\'")}', '${u.kod}', '${u.birim}', '${u.grup||''}', '${u.sicaklikKriter||'none'}')"
+      style="padding:10px 13px;cursor:pointer;border-bottom:0.5px solid var(--gray-100);display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:500;color:var(--gray-900);">${u.ad}</div>
+        <div style="font-size:11px;color:var(--gray-500);">${u.kod} • ${u.birim}</div>
+      </div>
+      <span style="font-size:10px;background:var(--gray-100);color:var(--gray-600);padding:2px 6px;border-radius:4px;">${(u.grup||u.kod.slice(0,5))}</span>
+    </div>`).join('');
+  box.style.display = 'block';
+}
+
+function hideUrunSuggestions(i) {
+  const box = document.getElementById('urun-suggestions-' + i);
+  if (box) box.style.display = 'none';
+}
+
+function selectUrun(i, ad, kod, birim, grup, kriter) {
+  if (!state.formRows[i]) return;
+  state.formRows[i].ad = ad;
+  state.formRows[i].ln = kod;
+  state.formRows[i].birim = birim;
+  state.formRows[i].grup = grup;
+  state.formRows[i].sicaklikKriter = kriter || 'none';
+  renderFormRows();
+  setTimeout(() => {
+    const inp = document.getElementById('urun-input-' + i);
+    if (inp) inp.focus();
+  }, 50);
+}
+
+function handleUrunKey(e, i) {
+  const box = document.getElementById('urun-suggestions-' + i);
+  if (!box || box.style.display === 'none') return;
+  const items = box.querySelectorAll('.urun-suggest-item');
+  let idx = suggestionIndex[i] || -1;
+  if (e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(idx+1, items.length-1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(idx-1, 0); }
+  else if (e.key === 'Enter' && idx >= 0) { e.preventDefault(); items[idx].dispatchEvent(new Event('mousedown')); return; }
+  else if (e.key === 'Escape') { box.style.display = 'none'; return; }
+  items.forEach((el,j) => el.style.background = j===idx ? 'var(--gray-100)' : 'white');
+  suggestionIndex[i] = idx;
+}
+
+function setDurum(i, durum) {
+  state.formRows[i].durum = durum;
+  renderFormRows();
+}
+
+function removeRow(i) {
+  state.formRows.splice(i,1);
+  renderFormRows();
+}
+
+async function submitForm() {
+  const tid = document.getElementById('form-tedarikcisi').value;
+  const fatura = document.getElementById('form-fatura').value.trim();
+  const irsaliye = document.getElementById('form-irsaliye').value.trim();
+  const tarih = document.getElementById('form-tarih').value;
+  if (!tid) { showToast('⚠️ Tedarikçi seçin'); return; }
+  if (!fatura) { showToast('⚠️ Fatura no giriniz'); return; }
+  if (!state.formRows.length) { showToast('⚠️ En az 1 ürün ekleyin'); return; }
+  const emptyRow = state.formRows.find(r=>!r.ad);
+  if (emptyRow) { showToast('⚠️ Tüm ürün adlarını doldurun'); return; }
+  const bugun = new Date().toISOString().split('T')[0];
+  const gecmisSKT = state.formRows.find(r=>r.skt && r.skt < bugun);
+  if (gecmisSKT) { showToast('⛔ ' + gecmisSKT.ad + ' — SKT geçmiş, düzeltin!', 3500); return; }
+
+  const ted = db.tedarikciler.find(t=>t.id==tid);
+  const form = {
+    id: genId(),
+    tedarikcisi_id: parseInt(tid),
+    tedarikcisi_ad: ted ? ted.ad : '',
+    fatura, irsaliye, tarih: tarih || new Date().toISOString().split('T')[0],
+    personel_id: state.currentUser.id,
+    personel_ad: state.currentUser.ad,
+    durum: 'bekleyen',
+    urunler: JSON.parse(JSON.stringify(state.formRows)),
+    olusturma: Date.now(),
+    onay_not: '',
+    onaylayan: '',
+    onay_tarih: null,
+  };
+  db.formlar.push(form);
+  await saveDB();
+  showToast('✅ Form onaya gönderildi!');
+  showScreen('dashboard');
+}
+
+// ============================================================
+// BARKOD
+// ============================================================
+let videoStream = null;
+let scanInterval = null;
+
+function scanBarkod() {
+  state.pendingRowIndex = null;
+  showScreen('scan');
+  startCamera();
+}
+
+function scanForRow(i) {
+  state.pendingRowIndex = i;
+  showScreen('scan');
+  startCamera();
+}
+
+function startCamera() {
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        videoStream = stream;
+        const v = document.getElementById('video-preview');
+        v.srcObject = stream;
+        startBarcodeDetection();
+      })
+      .catch(() => showToast('Kamera erişimi reddedildi — manuel girin'));
+  }
+}
+
+function startBarcodeDetection() {
+  if ('BarcodeDetector' in window) {
+    const detector = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e'] });
+    const v = document.getElementById('video-preview');
+    scanInterval = setInterval(async () => {
+      try {
+        const barcodes = await detector.detect(v);
+        if (barcodes.length > 0) {
+          clearInterval(scanInterval);
+          processBarcode(barcodes[0].rawValue);
+        }
+      } catch(e) {}
+    }, 500);
+  }
+}
+
+function stopScan() {
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  if (videoStream) { videoStream.getTracks().forEach(t=>t.stop()); videoStream = null; }
+  if (state.pendingRowIndex !== null) showScreen('form');
+  else showScreen('barkod');
+}
+
+function processManualBarcode() {
+  const val = document.getElementById('manual-barcode').value.trim();
+  if (!val) { showToast('⚠️ Barkod girin'); return; }
+  processBarcode(val);
+}
+
+function processBarcode(code) {
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  if (videoStream) { videoStream.getTracks().forEach(t=>t.stop()); videoStream = null; }
+
+  const tedId = state.pendingRowIndex !== null ?
+    (document.getElementById('form-tedarikcisi') ? document.getElementById('form-tedarikcisi').value : '') : '';
+  const key = code + '_' + (tedId || '0');
+  const found = db.barkodlar[key];
+
+  if (found) {
+    showToast('✅ ' + found.ad);
+    if (state.pendingRowIndex !== null) {
+      state.formRows[state.pendingRowIndex] = { ...state.formRows[state.pendingRowIndex], ad: found.ad, ln: found.ln, birim: found.birim, sicaklikKriter: found.sicaklikKriter||'none', barkod: code };
+      renderFormRows();
+      showScreen('form');
+    } else {
+      showScreen('barkod');
+    }
+  } else {
+    // New barcode
+    state.pendingBarkod = code;
+    document.getElementById('modal-barkod-val').textContent = '🔖 ' + code;
+    populateTedarikcisiSelect('mb-tedarikcisi');
+    if (tedId) document.getElementById('mb-tedarikcisi').value = tedId;
+    openModal('modal-barkod');
+    if (state.pendingRowIndex !== null) showScreen('form');
+    else showScreen('barkod');
+  }
+}
+
+async function saveBarkod() {
+  const ad = document.getElementById('mb-ad').value.trim();
+  const ln = document.getElementById('mb-ln').value.trim();
+  const birim = document.getElementById('mb-birim').value;
+  const grup = document.getElementById('mb-grup').value;
+  const kriter = document.getElementById('mb-sicaklik-kriter').value;
+  const tedId = document.getElementById('mb-tedarikcisi').value;
+  if (!ad) { showToast('⚠️ Ürün adı giriniz'); return; }
+  const key = state.pendingBarkod + '_' + (tedId||'0');
+  db.barkodlar[key] = { ad, ln, birim, grup, sicaklikKriter: kriter, tedarikcisi_id: parseInt(tedId)||0, barkod: state.pendingBarkod };
+  if (!db.urunler.find(u=>u.kod===ln) && ln) {
+    db.urunler.push({ kod: ln, ad, birim, grup, sicaklikKriter: kriter });
+  }
+  await saveDB();
+  showToast('✅ Barkod kaydedildi');
+  closeModal('modal-barkod');
+  if (state.pendingRowIndex !== null) {
+    state.formRows[state.pendingRowIndex] = { ...state.formRows[state.pendingRowIndex], ad, ln, birim, sicaklikKriter: kriter, barkod: state.pendingBarkod };
+    renderFormRows();
+  }
+}
+
+function manualBarkodEkle() {
+  state.pendingBarkod = 'MANUAL_' + Date.now();
+  document.getElementById('modal-barkod-val').textContent = '✏️ Manuel kayıt';
+  populateTedarikcisiSelect('mb-tedarikcisi');
+  openModal('modal-barkod');
+}
+
+function renderBarkodlar() {
+  const q = document.getElementById('barkod-search')?.value?.toLowerCase() || '';
+  const entries = Object.entries(db.barkodlar).filter(([k,v]) =>
+    !q || v.ad.toLowerCase().includes(q) || k.toLowerCase().includes(q)
+  );
+  const cont = document.getElementById('barkod-list');
+  if (!entries.length) { cont.innerHTML = '<div class="empty"><div class="empty-icon">📷</div><h3>Barkod bulunamadı</h3><p>Tara veya manuel ekle</p></div>'; return; }
+  cont.innerHTML = entries.map(([k,v]) => {
+    const ted = db.tedarikciler.find(t=>t.id===v.tedarikcisi_id);
+    return `<div class="list-item">
+      <div class="list-item-icon" style="background:#e8f0fa;">📦</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${v.ad}</div>
+        <div class="list-item-sub">${k.split('_')[0]} • ${ted?ted.ad:'Genel'}</div>
+      </div>
+      <div class="list-item-right">
+        <span class="badge badge-primary">${v.birim}</span>
+        <span style="font-size:11px;color:var(--gray-400);">${v.ln||''}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// ONAY
+// ============================================================
+function switchOnayTab(tab, el) {
+  state.onayTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderOnayList();
+}
+
+function renderOnayList() {
+  const filtered = db.formlar.filter(f=>f.durum===state.onayTab);
+  const badge = db.formlar.filter(f=>f.durum==='bekleyen').length;
+  const badgeEl = document.getElementById('onay-badge');
+  if (badgeEl) badgeEl.textContent = badge;
+  const cont = document.getElementById('onay-list');
+  if (!cont) return;
+  if (!filtered.length) { cont.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><h3>Form yok</h3></div>'; return; }
+  cont.innerHTML = filtered.sort((a,b)=>b.olusturma-a.olusturma).map(f => {
+    const uygunsuz = f.urunler.filter(r=>r.durum==='uygunsuz').length;
+    const statusColor = f.durum==='bekleyen'?'warning':f.durum==='onaylandi'?'success':'danger';
+    return `<div class="list-item" onclick="openOnayModal('${f.id}')">
+      <div class="list-item-icon" style="background:var(--${statusColor==='warning'?'warning':'success'}-light);font-size:20px;">${f.durum==='bekleyen'?'⏳':f.durum==='onaylandi'?'✅':'❌'}</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${f.tedarikcisi_ad}</div>
+        <div class="list-item-sub">${fmt(f.tarih)} • ${f.personel_ad} • ${f.urunler.length} ürün</div>
+      </div>
+      <div class="list-item-right">
+        ${uygunsuz>0?`<span class="badge badge-danger">${uygunsuz} uygunsuz</span>`:'<span class="badge badge-success">Temiz</span>'}
+        <span style="font-size:11px;color:var(--gray-400);">F:${f.fatura}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openOnayModal(id) {
+  const f = db.formlar.find(f=>f.id===id);
+  if (!f) return;
+  state.currentOnayId = id;
+  document.getElementById('modal-onay-title').textContent = f.tedarikcisi_ad + ' — ' + fmt(f.tarih);
+  document.getElementById('modal-red-field').style.display = 'none';
+  document.getElementById('modal-red-not').value = '';
+  const isBekleyen = f.durum === 'bekleyen';
+  document.getElementById('btn-onayla').style.display = isBekleyen ? '' : 'none';
+  document.getElementById('btn-red').style.display = isBekleyen ? '' : 'none';
+
+  document.getElementById('modal-onay-content').innerHTML = `
+    <div style="background:var(--gray-50);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--gray-500);">Fatura No</span><span style="font-weight:600;">${f.fatura}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--gray-500);">İrsaliye No</span><span style="font-weight:600;">${f.irsaliye||'-'}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--gray-500);">Personel</span><span style="font-weight:600;">${f.personel_ad}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--gray-500);">Tarih</span><span style="font-weight:600;">${fmt(f.tarih)}</span></div>
+      ${f.onay_not?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-200);color:var(--danger);font-size:12px;">Not: ${f.onay_not}</div>`:''}
+    </div>
+    ${f.urunler.map((r,i)=>`
+    <div style="border-left:3px solid ${r.durum==='uygun'?'var(--success)':'var(--danger)'};padding:8px 10px;margin-bottom:8px;background:white;border-radius:0 6px 6px 0;">
+      <div style="font-weight:600;font-size:14px;">${i+1}. ${r.ad}</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-top:3px;">
+        ${r.ln?r.ln+' • ':''} ${r.miktar} ${r.birim} ${r.skt?'• SKT: '+r.skt:''} ${r.sicaklik?'• '+r.sicaklik+'°C':''}
+      </div>
+      ${r.durum==='uygunsuz'?`<div style="font-size:12px;color:var(--danger);margin-top:3px;">⚠️ ${r.sebep||'Sebep belirtilmemiş'} (İade edildi)</div>`:''}
+    </div>`).join('')}
+  `;
+  openModal('modal-onay');
+}
+
+function showRedField() {
+  document.getElementById('modal-red-field').style.display = 'block';
+  document.getElementById('btn-red').textContent = 'Reddi Onayla';
+  document.getElementById('btn-red').onclick = reddetForm;
+}
+
+async function onaylaForm() {
+  const f = db.formlar.find(f=>f.id===state.currentOnayId);
+  if (!f) return;
+  f.durum = 'onaylandi';
+  f.onaylayan = state.currentUser.ad;
+  f.onay_tarih = Date.now();
+  await saveDB();
+  closeModal('modal-onay');
+  showToast('✅ Form onaylandı');
+  renderOnayList();
+}
+
+async function reddetForm() {
+  const f = db.formlar.find(f=>f.id===state.currentOnayId);
+  if (!f) return;
+  f.durum = 'reddedilen';
+  f.onay_not = document.getElementById('modal-red-not').value;
+  f.onaylayan = state.currentUser.ad;
+  f.onay_tarih = Date.now();
+  await saveDB();
+  closeModal('modal-onay');
+  showToast('❌ Form reddedildi');
+  renderOnayList();
+}
+
+// ============================================================
+// GEÇMİŞ & İZLEME
+// ============================================================
+function renderGecmis() {
+  const gun = parseInt(document.getElementById('filter-donem')?.value||30);
+  const tedId = document.getElementById('filter-tedarikcisi')?.value||'';
+  const durum = document.getElementById('filter-durum')?.value||'';
+  const urunQ = document.getElementById('filter-urun')?.value?.toLowerCase()||'';
+
+  populateTedarikcisiSelect('filter-tedarikcisi');
+  if (tedId) document.getElementById('filter-tedarikcisi').value = tedId;
+
+  const cutoff = gun > 0 ? Date.now() - gun*86400000 : 0;
+  let formlar = db.formlar.filter(f=>f.durum==='onaylandi'||f.durum==='bekleyen'||f.durum==='reddedilen');
+  if (cutoff) formlar = formlar.filter(f=>new Date(f.tarih).getTime()>=cutoff);
+  if (tedId) formlar = formlar.filter(f=>f.tedarikcisi_id==tedId);
+
+  let allRows = [];
+  formlar.forEach(f=>{
+    f.urunler.forEach(r=>{
+      if (!durum || r.durum===durum) {
+        if (!urunQ || r.ad.toLowerCase().includes(urunQ)) {
+          allRows.push({...r, form: f});
+        }
+      }
+    });
+  });
+
+  const toplam = allRows.length;
+  const uygunsuz = allRows.filter(r=>r.durum==='uygunsuz').length;
+  const oran = toplam>0 ? Math.round(uygunsuz/toplam*100) : 0;
+  const formSayisi = formlar.length;
+
+  document.getElementById('gecmis-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${formSayisi}</div><div class="stat-label">Form Sayısı</div></div>
+    <div class="stat-card"><div class="stat-num">${toplam}</div><div class="stat-label">Toplam Ürün</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${uygunsuz}</div><div class="stat-label">Uygunsuz</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:${oran>10?'var(--danger)':'var(--success)'}">%${oran}</div><div class="stat-label">Uygunsuzluk Oranı</div></div>
+  `;
+
+  // Tedarikçi analizi
+  const tedMap = {};
+  formlar.forEach(f=>{
+    if (!tedMap[f.tedarikcisi_ad]) tedMap[f.tedarikcisi_ad] = { toplam:0, uygunsuz:0 };
+    f.urunler.forEach(r=>{
+      tedMap[f.tedarikcisi_ad].toplam++;
+      if(r.durum==='uygunsuz') tedMap[f.tedarikcisi_ad].uygunsuz++;
+    });
+  });
+  const tedList = Object.entries(tedMap).sort((a,b)=>b[1].uygunsuz-a[1].uygunsuz);
+  const analitikEl = document.getElementById('tedarikci-analytics');
+  if (!tedList.length) { analitikEl.innerHTML = '<div style="font-size:13px;color:var(--gray-500);">Veri yok</div>'; }
+  else {
+    analitikEl.innerHTML = tedList.map(([ad,v])=>{
+      const o = v.toplam>0?Math.round(v.uygunsuz/v.toplam*100):0;
+      return `<div class="analytics-row">
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:500;">${ad}</div>
+          <div class="progress-bar"><div class="progress-fill ${o>15?'danger':''}" style="width:${o}%;"></div></div>
+        </div>
+        <div style="text-align:right;margin-left:12px;">
+          <div style="font-size:13px;font-weight:700;color:${o>15?'var(--danger)':'var(--success)'};">%${o}</div>
+          <div style="font-size:11px;color:var(--gray-400);">${v.uygunsuz}/${v.toplam}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const listEl = document.getElementById('gecmis-list');
+  const listTitle = document.getElementById('gecmis-list-title');
+  listTitle.textContent = `Kayıtlar (${allRows.length})`;
+  if (!allRows.length) { listEl.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><h3>Kayıt bulunamadı</h3></div>'; return; }
+  listEl.innerHTML = allRows.slice(0,50).map(r=>`
+    <div class="list-item">
+      <div class="list-item-icon" style="background:${r.durum==='uygun'?'var(--success-light)':'var(--danger-light)'};">${r.durum==='uygun'?'✅':'⚠️'}</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${r.ad}</div>
+        <div class="list-item-sub">${r.form.tedarikcisi_ad} • ${fmt(r.form.tarih)} • ${r.miktar} ${r.birim}</div>
+        ${r.durum==='uygunsuz'?`<div style="font-size:12px;color:var(--danger);margin-top:2px;">↩ ${r.sebep||'İade'}</div>`:''}
+      </div>
+      <div class="list-item-right">
+        ${r.skt?`<span style="font-size:11px;color:var(--gray-500);">SKT ${r.skt}</span>`:''}
+        ${r.sicaklik?`<span style="font-size:11px;color:var(--gray-500);">${r.sicaklik}°C</span>`:''}
+      </div>
+    </div>
+  `).join('') + (allRows.length>50?`<div style="text-align:center;font-size:13px;color:var(--gray-500);padding:12px;">+ ${allRows.length-50} daha fazla kayıt</div>`:'');
+}
+
+// ============================================================
+// VERİ YÖNETİMİ
+// ============================================================
+function renderVeriYonetimi() {
+  // Kullanıcılar
+  document.getElementById('kullanici-list').innerHTML = db.kullanicilar.map(u=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100);">
+      <div class="avatar">${u.ad.charAt(0)}</div>
+      <div style="flex:1;"><div style="font-weight:500;">${u.ad}</div><div style="font-size:12px;color:var(--gray-500);">${u.rol==='yonetici'?'Yönetici':'Depo Personeli'}</div></div>
+      <button onclick="deleteKullanici(${u.id})" style="background:var(--danger-light);color:var(--danger);border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;">Sil</button>
+    </div>
+  `).join('');
+
+  // Tedarikçiler
+  document.getElementById('tedarikcisi-list').innerHTML = db.tedarikciler.map(t=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100);">
+      <div class="list-item-icon" style="background:var(--accent-light);font-size:16px;width:36px;height:36px;border-radius:8px;">🏭</div>
+      <div style="flex:1;"><div style="font-weight:500;">${t.ad}</div><div style="font-size:12px;color:var(--gray-500);">${t.kod}</div></div>
+      <button onclick="deleteTedarikcisi(${t.id})" style="background:var(--danger-light);color:var(--danger);border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;">Sil</button>
+    </div>
+  `).join('');
+
+  // Yedek bilgisi
+  const yedekEl = document.getElementById('yedek-info');
+  yedekEl.textContent = db.lastBackup ? '✅ Son yedek: ' + fmt(db.lastBackup) : '⚠️ Henüz yedek alınmadı';
+}
+
+async function saveKullanici() {
+  const ad = document.getElementById('ku-ad').value.trim();
+  const rol = document.getElementById('ku-rol').value;
+  const pin = document.getElementById('ku-pin').value.trim();
+  if (!ad || pin.length !== 6) { showToast('⚠️ Tüm alanları doldurun (PIN 6 hane)'); return; }
+  db.kullanicilar.push({ id: Date.now(), ad, rol, pin });
+  await saveDB();
+  populateUsersDatalist();
+  closeModal('modal-kullanici');
+  showToast('✅ Kullanıcı eklendi');
+  renderVeriYonetimi();
+}
+
+async function deleteKullanici(id) {
+  if (db.kullanicilar.length <= 1) { showToast('⚠️ En az 1 kullanıcı gerekli'); return; }
+  db.kullanicilar = db.kullanicilar.filter(u=>u.id!==id);
+  await saveDB();
+  renderVeriYonetimi();
+}
+
+async function saveTedarikcisi() {
+  const ad = document.getElementById('tt-ad').value.trim();
+  const kod = document.getElementById('tt-kod').value.trim().toUpperCase();
+  if (!ad) { showToast('⚠️ Firma adı giriniz'); return; }
+  db.tedarikciler.push({ id: Date.now(), ad, kod: kod||ad.slice(0,5).toUpperCase() });
+  await saveDB();
+  closeModal('modal-tedarikcisi');
+  showToast('✅ Tedarikçi eklendi');
+  renderVeriYonetimi();
+}
+
+async function deleteTedarikcisi(id) {
+  db.tedarikciler = db.tedarikciler.filter(t=>t.id!==id);
+  await saveDB();
+  renderVeriYonetimi();
+}
+
+// LN Infor Import
+function importLNInfor(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const resultEl = document.getElementById('import-result');
+  resultEl.innerHTML = '<div style="color:var(--gray-500);font-size:13px;">⏳ Okunuyor...</div>';
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(l=>l.trim());
+      let added = 0;
+      lines.forEach((line, i) => {
+        if (i === 0) return;
+        const cols = line.split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+        if (cols.length >= 3) {
+          const kod = cols[0]?.trim();
+          const ad = cols[1]?.trim();
+          const birim = cols[2]?.trim()||'KG';
+          if (kod && ad && !db.urunler.find(u=>u.kod===kod)) {
+            db.urunler.push({ kod, ad, birim, grup: kod.slice(0,5), sicaklikKriter: 'none' });
+            added++;
+          }
+        }
+      });
+      await saveDB();
+      resultEl.innerHTML = `<div style="color:var(--success);font-size:13px;font-weight:600;">✅ ${added} ürün eklendi</div>`;
+    } catch(e) {
+      resultEl.innerHTML = '<div style="color:var(--danger);font-size:13px;">❌ Okuma hatası — CSV formatı kontrol edin</div>';
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// Export
+async function exportJSON() {
+  db.lastBackup = Date.now();
+  await saveDB();
+  const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'gurok_malkabul_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  showToast('✅ JSON indirildi');
+}
+
+function exportCSV() {
+  const rows = [['Tarih','Tedarikçi','Fatura','Personel','Malzeme','LN Kodu','Miktar','Birim','SKT','Sıcaklık','Durum','Sebep','Form Durumu']];
+  db.formlar.forEach(f=>{
+    f.urunler.forEach(r=>{
+      rows.push([f.tarih, f.tedarikcisi_ad, f.fatura, f.personel_ad, r.ad, r.ln||'', r.miktar||'', r.birim||'', r.skt||'', r.sicaklik||'', r.durum, r.sebep||'', f.durum]);
+    });
+  });
+  const csv = rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'gurok_malkabul_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  showToast('✅ CSV indirildi');
+}
+
+function restoreJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      db = { ...db, ...data };
+      await saveDB();
+      showToast('✅ Veriler geri yüklendi');
+      renderVeriYonetimi();
+    } catch(e) {
+      showToast('❌ Geçersiz dosya');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
+// START
+// ============================================================
+init();
+</script>
+</body>
+</html>
