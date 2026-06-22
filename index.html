@@ -659,7 +659,10 @@ const DB = {
   // Google Sheets'ten oku
   async sheetsGet() {
     try {
-      const r = await fetch(SHEETS_URL + '?action=load');
+      const r = await fetch(SHEETS_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'load' }),
+      });
       const j = await r.json();
       return j.status === 'ok' && j.data ? j.data : null;
     } catch(e) { console.warn('Sheets okuma hatası:', e); return null; }
@@ -723,17 +726,22 @@ function showLoadingScreen(show) {
 async function init() {
   // Önce localStorage'dan hızlı yükle
   let saved = DB.lsGet('data');
-  
-  // Yoksa Sheets'ten çek
-  if (!saved) {
-    showLoadingScreen(true);
-    saved = await DB.sheetsGet();
-    showLoadingScreen(false);
-    if (saved) {
-      // Sheets'ten geldi, localStorage'a da yaz
-      DB.lsSet('data', saved);
+
+  // Her zaman Sheets'i de kontrol et (farklı cihaz/tarayıcı desteği)
+  showLoadingScreen(true);
+  try {
+    const sheetsData = await DB.sheetsGet();
+    if (sheetsData) {
+      // Sheets'teki veri daha günceldir (form sayısına göre karşılaştır)
+      const localForms = saved?.formlar?.length || 0;
+      const sheetsForms = sheetsData?.formlar?.length || 0;
+      if (sheetsForms >= localForms) {
+        saved = sheetsData;
+        DB.lsSet('data', saved);
+      }
     }
-  }
+  } catch(e) { console.warn('Sheets yüklenemedi, localStorage kullanılıyor'); }
+  showLoadingScreen(false);
 
   if (saved) {
     db = { ...db, ...saved };
@@ -1508,16 +1516,23 @@ function processBarcode(code) {
   if (found) {
     showToast('✅ ' + found.ad);
     if (state.pendingRowIndex !== null) {
-      state.formRows[state.pendingRowIndex] = {
-        ...state.formRows[state.pendingRowIndex],
+      const i = state.pendingRowIndex;
+      state.formRows[i] = {
+        ...state.formRows[i],
         ad: found.ad,
-        ln: found.ln,
-        birim: found.birim,
+        ln: found.ln || '',
+        birim: found.birim || 'KG',
         sicaklikKriter: found.sicaklikKriter || 'none',
         barkod: code
       };
-      renderFormRows();
       showScreen('form');
+      // renderFormRows çağrısını ekrana geçişten sonra yap
+      setTimeout(() => {
+        renderFormRows();
+        // Input alanlarını da direkt güncelle (güvenlik)
+        const adInput = document.getElementById('urun-input-' + i);
+        if (adInput) adInput.value = found.ad;
+      }, 100);
     } else {
       showScreen('barkod');
       renderBarkodlar();
