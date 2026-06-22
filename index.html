@@ -759,6 +759,20 @@ async function init() {
     await saveDB();
   }
   populateUsersDatalist();
+
+  // Aktif oturum var mı kontrol et
+  const session = loadSession();
+  if (session) {
+    const user = db.kullanicilar.find(u => u.id === session.userId);
+    if (user) {
+      state.currentUser = user;
+      state.currentRole = user.rol;
+      extendSession();
+      startSessionTimer();
+      showScreen('dashboard');
+      return;
+    }
+  }
 }
 
 async function saveDB() {
@@ -870,6 +884,8 @@ function updatePinDisplay() {
 function checkPin() {
   setTimeout(() => {
     if (pinBuffer === state.currentUser.pin) {
+      saveSession(state.currentUser);
+      startSessionTimer();
       showScreen('dashboard');
     } else {
       showToast('❌ Yanlış PIN');
@@ -879,9 +895,82 @@ function checkPin() {
   }, 200);
 }
 
+// ============================================================
+// OTURUM YÖNETİMİ — 30 dakika
+// ============================================================
+const SESSION_KEY = 'gurok_session';
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 dakika
+
+function saveSession(user) {
+  const session = {
+    userId: user.id,
+    userName: user.ad,
+    userRole: user.rol,
+    loginTime: Date.now(),
+    expiry: Date.now() + SESSION_TIMEOUT
+  };
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch(e) {}
+}
+
+function loadSession() {
+  try {
+    const s = localStorage.getItem(SESSION_KEY);
+    if (!s) return null;
+    const session = JSON.parse(s);
+    if (Date.now() > session.expiry) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return session;
+  } catch(e) { return null; }
+}
+
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+function extendSession() {
+  try {
+    const s = localStorage.getItem(SESSION_KEY);
+    if (!s) return;
+    const session = JSON.parse(s);
+    session.expiry = Date.now() + SESSION_TIMEOUT;
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch(e) {}
+}
+
+// Her kullanıcı etkileşiminde oturumu uzat
+document.addEventListener('touchstart', extendSession, { passive: true });
+document.addEventListener('click', extendSession);
+
+// Oturum sayacını göster
+function startSessionTimer() {
+  if (window._sessionTimer) clearInterval(window._sessionTimer);
+  window._sessionTimer = setInterval(() => {
+    try {
+      const s = localStorage.getItem(SESSION_KEY);
+      if (!s) return;
+      const session = JSON.parse(s);
+      const kalanMs = session.expiry - Date.now();
+      if (kalanMs <= 0) {
+        clearInterval(window._sessionTimer);
+        logout();
+        showToast('⏰ Oturum süresi doldu, tekrar giriş yapın', 4000);
+        return;
+      }
+      // 5 dakika kaldıysa uyar
+      if (kalanMs < 5 * 60 * 1000 && kalanMs > 4.9 * 60 * 1000) {
+        showToast('⏰ Oturum 5 dakika sonra sona erecek', 4000);
+      }
+    } catch(e) {}
+  }, 30000); // 30 saniyede bir kontrol
+}
+
 function logout() {
+  clearSession();
   state.currentUser = null;
   pinBuffer = '';
+  if (window._sessionTimer) clearInterval(window._sessionTimer);
   document.getElementById('login-name').value = '';
   document.getElementById('login-step1').style.display = 'block';
   document.getElementById('login-step2').style.display = 'none';
@@ -1014,6 +1103,8 @@ function updateSKTMenuBadge() {
 // ============================================================
 function renderDashboard() {
   const u = state.currentUser;
+  const session = loadSession();
+  const kalanDk = session ? Math.floor((session.expiry - Date.now()) / 60000) : 0;
   document.getElementById('dash-welcome').textContent = '👋 Merhaba, ' + u.ad;
 
   const toplam = db.formlar.length;
@@ -1397,27 +1488,52 @@ function processBarcode(code) {
 
   const tedId = state.pendingRowIndex !== null ?
     (document.getElementById('form-tedarikcisi') ? document.getElementById('form-tedarikcisi').value : '') : '';
-  const key = code + '_' + (tedId || '0');
-  const found = db.barkodlar[key];
+
+  // Arama sırası:
+  // 1. barkod + tedarikçi kombinasyonu
+  // 2. barkod + '0' (genel kayıt)
+  // 3. Tüm barkodlarda sadece barkod numarasına göre ara
+  const key1 = code + '_' + (tedId || '0');
+  const key2 = code + '_0';
+  
+  let found = db.barkodlar[key1] || db.barkodlar[key2];
+
+  // Bulunamadıysa tüm kayıtlarda barkod numarasını ara
+  if (!found) {
+    const allKeys = Object.keys(db.barkodlar);
+    const matchKey = allKeys.find(k => k.startsWith(code + '_'));
+    if (matchKey) found = db.barkodlar[matchKey];
+  }
 
   if (found) {
     showToast('✅ ' + found.ad);
     if (state.pendingRowIndex !== null) {
-      state.formRows[state.pendingRowIndex] = { ...state.formRows[state.pendingRowIndex], ad: found.ad, ln: found.ln, birim: found.birim, sicaklikKriter: found.sicaklikKriter||'none', barkod: code };
+      state.formRows[state.pendingRowIndex] = {
+        ...state.formRows[state.pendingRowIndex],
+        ad: found.ad,
+        ln: found.ln,
+        birim: found.birim,
+        sicaklikKriter: found.sicaklikKriter || 'none',
+        barkod: code
+      };
       renderFormRows();
       showScreen('form');
     } else {
       showScreen('barkod');
+      renderBarkodlar();
     }
   } else {
-    // New barcode
+    // Yeni barkod — kayıt ekranı
     state.pendingBarkod = code;
     document.getElementById('modal-barkod-val').textContent = '🔖 ' + code;
     populateTedarikcisiSelect('mb-tedarikcisi');
     if (tedId) document.getElementById('mb-tedarikcisi').value = tedId;
+    if (state.pendingRowIndex !== null) {
+      showScreen('form');
+    } else {
+      showScreen('barkod');
+    }
     openModal('modal-barkod');
-    if (state.pendingRowIndex !== null) showScreen('form');
-    else showScreen('barkod');
   }
 }
 
