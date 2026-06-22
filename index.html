@@ -214,13 +214,16 @@ input[type=file] { display: none; }
       <label>Tedarikçi</label>
       <select id="mb-tedarikcisi"></select>
     </div>
-    <div class="field">
+    <div class="field" style="position:relative;">
       <label>Malzeme Adı</label>
-      <input type="text" id="mb-ad" placeholder="Örn: Tereyağı 1kg">
+      <input type="text" id="mb-ad" placeholder="Ürün adı veya LN kodu yaz..." autocomplete="off"
+        oninput="showMBSuggestions(this.value)"
+        onblur="setTimeout(()=>hideMBSuggestions(),200)">
+      <div id="mb-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-radius:0 0 8px 8px;z-index:300;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
     </div>
     <div class="field">
       <label>LN Infor Kodu</label>
-      <input type="text" id="mb-ln" placeholder="Örn: YIY05000012">
+      <input type="text" id="mb-ln" placeholder="Ürün seçince otomatik dolar">
     </div>
     <div class="field-row">
       <div class="field">
@@ -232,7 +235,7 @@ input[type=file] { display: none; }
       <div class="field">
         <label>Ürün Grubu</label>
         <select id="mb-grup">
-          <option>YIY01</option><option>YIY02</option><option>YIY03</option><option>YIY04</option><option>YIY05</option><option>YIY06</option><option>GNL</option><option>ICA</option><option>ICB</option>
+          <option>YIY01</option><option>YIY02</option><option>YIY03</option><option>YIY04</option><option>YIY05</option><option>YIY06</option><option>YIY07</option><option>YIY08</option><option>YIY09</option><option>YIY10</option><option>YIY11</option><option>YIY12</option><option>GNL07</option><option>GNL08</option><option>GNL09</option><option>GNL16</option><option>GNL18</option><option>ICA</option><option>ICB</option>
         </select>
       </div>
     </div>
@@ -1328,6 +1331,48 @@ function processBarcode(code) {
     if (state.pendingRowIndex !== null) showScreen('form');
     else showScreen('barkod');
   }
+}
+
+function showMBSuggestions(q) {
+  const box = document.getElementById('mb-suggestions');
+  if (!box) return;
+  if (!q || q.length < 2) { box.style.display = 'none'; return; }
+  const qU = q.toUpperCase();
+  const all = getAllUrunler();
+  const matches = all.filter(u =>
+    u.ad.toUpperCase().includes(qU) || u.kod.toUpperCase().includes(qU)
+  ).slice(0, 12);
+  if (!matches.length) { box.style.display = 'none'; return; }
+  box.innerHTML = matches.map(u => `
+    <div onmousedown="selectMBUrun('${u.ad.replace(/'/g,"\'")}','${u.kod}','${u.birim}','${u.grup||u.kod.slice(0,5)}','${u.sicaklikKriter||'none'}')"
+      style="padding:10px 13px;cursor:pointer;border-bottom:0.5px solid var(--gray-100);display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:500;color:var(--gray-900);">${u.ad}</div>
+        <div style="font-size:11px;color:var(--gray-500);">${u.kod} • ${u.birim}</div>
+      </div>
+      <span style="font-size:10px;background:var(--gray-100);color:var(--gray-600);padding:2px 6px;border-radius:4px;">${u.grup||u.kod.slice(0,5)}</span>
+    </div>`).join('');
+  box.style.display = 'block';
+}
+
+function hideMBSuggestions() {
+  const box = document.getElementById('mb-suggestions');
+  if (box) box.style.display = 'none';
+}
+
+function selectMBUrun(ad, kod, birim, grup, kriter) {
+  document.getElementById('mb-ad').value = ad;
+  document.getElementById('mb-ln').value = kod;
+  // Birim seç
+  const birimSel = document.getElementById('mb-birim');
+  for (let o of birimSel.options) { if (o.value === birim) { birimSel.value = birim; break; } }
+  // Grup seç
+  const grupSel = document.getElementById('mb-grup');
+  for (let o of grupSel.options) { if (o.value === grup) { grupSel.value = grup; break; } }
+  // Sıcaklık seç
+  const sic = document.getElementById('mb-sicaklik-kriter');
+  for (let o of sic.options) { if (o.value === kriter) { sic.value = kriter; break; } }
+  hideMBSuggestions();
 }
 
 async function saveBarkod() {
