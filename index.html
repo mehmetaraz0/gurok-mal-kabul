@@ -610,10 +610,15 @@ input[type=file] { display: none; }
     </div>
 
     <div class="card">
-      <div class="card-title">💾 Yedekleme</div>
+      <div class="card-title">💾 Yedekleme & Export</div>
       <div id="yedek-info" style="font-size:13px;color:var(--gray-600);margin-bottom:12px;"></div>
+      <div class="field">
+        <label>Günlük Excel Çıktısı</label>
+        <input type="date" id="export-tarih" style="margin-bottom:8px;">
+      </div>
+      <button class="btn btn-success" onclick="exportGunlukExcel()" style="margin-bottom:8px;">📋 Günlük Mal Kabul Excel</button>
       <button class="btn btn-primary" onclick="exportJSON()" style="margin-bottom:8px;">📥 Tüm Veriyi İndir (JSON)</button>
-      <button class="btn btn-outline" onclick="exportCSV()" style="margin-bottom:8px;">📊 Excel için CSV İndir</button>
+      <button class="btn btn-outline" onclick="exportCSV()" style="margin-bottom:8px;">📊 Tüm Veri CSV</button>
       <div class="upload-area" style="margin-top:4px;" onclick="document.getElementById('restore-file').click()">
         <div class="upload-icon">📤</div>
         <div class="upload-text">Yedekten Geri Yükle</div>
@@ -1088,7 +1093,7 @@ function printMalKabulForm(f) {
     <div>Yazdırma: ${new Date().toLocaleString('tr-TR')}</div>
   </div>
 
-  <scr' + 'ipt>window.onload = () => { window.print(); }</scr' + 'ipt>
+  <scr' + 'ipt>setTimeout(()=>window.print(),500)</scr' + 'ipt>
 </body>
 </html>`;
 
@@ -1706,6 +1711,737 @@ function handleUrunKey(e, i) {
 }
 
 function setDurum(i, durum) {
+  state.formRows[i].durum = durum;
+  renderFormRows();
+}
+
+function removeRow(i) {
+  state.formRows.splice(i,1);
+  renderFormRows();
+}
+
+async function submitForm() {
+  const tid = document.getElementById('form-tedarikcisi').value;
+  const tedInput = document.getElementById('form-tedarikcisi-input').value.trim();
+  const fatura = document.getElementById('form-fatura').value.trim();
+  const irsaliye = document.getElementById('form-irsaliye').value.trim();
+  const tarih = document.getElementById('form-tarih').value;
+  if (!tedInput) { showToast('⚠️ Tedarikçi adı girin'); return; }
+  if (!fatura) { showToast('⚠️ Fatura no giriniz'); return; }
+  if (!state.formRows.length) { showToast('⚠️ En az 1 ürün ekleyin'); return; }
+  const emptyRow = state.formRows.find(r=>!r.ad);
+  if (emptyRow) { showToast('⚠️ Tüm ürün adlarını doldurun'); return; }
+  const bugun = new Date().toISOString().split('T')[0];
+  const gecmisSKT = state.formRows.find(r=>r.skt && r.skt < bugun);
+  if (gecmisSKT) { showToast('⛔ ' + gecmisSKT.ad + ' — SKT geçmiş, düzeltin!', 3500); return; }
+
+  const ted = db.tedarikciler.find(t=>t.id==tid);
+  const aracHijyen = document.getElementById('form-arac-hijyen').value;
+  const aracSicaklik = document.getElementById('form-arac-sicaklik').value;
+  const form = {
+    id: genId(),
+    tedarikcisi_id: parseInt(tid) || 0,
+    tedarikcisi_ad: ted ? ted.ad : tedInput,
+    fatura, irsaliye, tarih: tarih || new Date().toISOString().split('T')[0],
+    aracHijyen, aracSicaklik,
+    personel_id: state.currentUser.id,
+    personel_ad: state.currentUser.ad,
+    durum: 'bekleyen',
+    urunler: JSON.parse(JSON.stringify(state.formRows)),
+    olusturma: Date.now(),
+    onay_not: '',
+    onaylayan: '',
+    onay_tarih: null,
+  };
+  db.formlar.push(form);
+  await saveDB();
+  showToast('✅ Form onaya gönderildi!');
+  showScreen('dashboard');
+}
+
+// ============================================================
+// BARKOD
+// ============================================================
+let videoStream = null;
+let scanInterval = null;
+
+function scanBarkod() {
+  state.pendingRowIndex = null;
+  showScreen('scan');
+  startCamera();
+}
+
+function scanForRow(i) {
+  state.pendingRowIndex = i;
+  showScreen('scan');
+  startCamera();
+}
+
+function startCamera() {
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        videoStream = stream;
+        const v = document.getElementById('video-preview');
+        v.srcObject = stream;
+        startBarcodeDetection();
+      })
+      .catch(() => showToast('Kamera erişimi reddedildi — manuel girin'));
+  }
+}
+
+function startBarcodeDetection() {
+  if ('BarcodeDetector' in window) {
+    const detector = new BarcodeDetector({ formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e'] });
+    const v = document.getElementById('video-preview');
+    scanInterval = setInterval(async () => {
+      try {
+        const barcodes = await detector.detect(v);
+        if (barcodes.length > 0) {
+          clearInterval(scanInterval);
+          processBarcode(barcodes[0].rawValue);
+        }
+      } catch(e) {}
+    }, 500);
+  }
+}
+
+function stopScan() {
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  if (videoStream) { videoStream.getTracks().forEach(t=>t.stop()); videoStream = null; }
+  if (state.pendingRowIndex !== null) showScreen('form');
+  else showScreen('barkod');
+}
+
+function processManualBarcode() {
+  const val = document.getElementById('manual-barcode').value.trim();
+  if (!val) { showToast('⚠️ Barkod girin'); return; }
+  processBarcode(val);
+}
+
+function processBarcode(code) {
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  if (videoStream) { videoStream.getTracks().forEach(t=>t.stop()); videoStream = null; }
+
+  const tedId = state.pendingRowIndex !== null ?
+    (document.getElementById('form-tedarikcisi') ? document.getElementById('form-tedarikcisi').value : '') : '';
+
+  // Arama sırası:
+  // 1. barkod + tedarikçi kombinasyonu
+  // 2. barkod + '0' (genel kayıt)
+  // 3. Tüm barkodlarda sadece barkod numarasına göre ara
+  const key1 = code + '_' + (tedId || '0');
+  const key2 = code + '_0';
+  
+  let found = db.barkodlar[key1] || db.barkodlar[key2];
+
+  // Bulunamadıysa tüm kayıtlarda barkod numarasını ara
+  if (!found) {
+    const allKeys = Object.keys(db.barkodlar);
+    const matchKey = allKeys.find(k => k.startsWith(code + '_'));
+    if (matchKey) found = db.barkodlar[matchKey];
+  }
+
+  if (found) {
+    showToast('✅ ' + found.ad);
+    if (state.pendingRowIndex !== null) {
+      const i = state.pendingRowIndex;
+      state.formRows[i] = {
+        ...state.formRows[i],
+        ad: found.ad,
+        ln: found.ln || '',
+        birim: found.birim || 'KG',
+        sicaklikKriter: found.sicaklikKriter || 'none',
+        barkod: code,
+        marka: found.marka || ''
+      };
+      showScreen('form');
+      // renderFormRows çağrısını ekrana geçişten sonra yap
+      setTimeout(() => {
+        renderFormRows();
+        // Input alanlarını da direkt güncelle (güvenlik)
+        const adInput = document.getElementById('urun-input-' + i);
+        if (adInput) adInput.value = found.ad;
+      }, 100);
+    } else {
+      showScreen('barkod');
+      renderBarkodlar();
+    }
+  } else {
+    // Yeni barkod — kayıt ekranı
+    state.pendingBarkod = code;
+    document.getElementById('modal-barkod-val').textContent = '🔖 ' + code;
+    populateTedarikcisiSelect('mb-tedarikcisi');
+    if (tedId) document.getElementById('mb-tedarikcisi').value = tedId;
+    if (state.pendingRowIndex !== null) {
+      showScreen('form');
+    } else {
+      showScreen('barkod');
+    }
+    openModal('modal-barkod');
+  }
+}
+
+function showMBSuggestions(q) {
+  const box = document.getElementById('mb-suggestions');
+  if (!box) return;
+  if (!q || q.length < 2) { box.style.display = 'none'; return; }
+  const qU = q.toUpperCase();
+  const all = getAllUrunler();
+  const matches = all.filter(u =>
+    u.ad.toUpperCase().includes(qU) || u.kod.toUpperCase().includes(qU)
+  ).slice(0, 12);
+  if (!matches.length) { box.style.display = 'none'; return; }
+  box.innerHTML = matches.map(u => `
+    <div onmousedown="selectMBUrun('${u.ad.replace(/'/g,"\'")}','${u.kod}','${u.birim}','${u.grup||u.kod.slice(0,5)}','${u.sicaklikKriter||'none'}')"
+      style="padding:10px 13px;cursor:pointer;border-bottom:0.5px solid var(--gray-100);display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:500;color:var(--gray-900);">${u.ad}</div>
+        <div style="font-size:11px;color:var(--gray-500);">${u.kod} • ${u.birim}</div>
+      </div>
+      <span style="font-size:10px;background:var(--gray-100);color:var(--gray-600);padding:2px 6px;border-radius:4px;">${u.grup||u.kod.slice(0,5)}</span>
+    </div>`).join('');
+  box.style.display = 'block';
+}
+
+function hideMBSuggestions() {
+  const box = document.getElementById('mb-suggestions');
+  if (box) box.style.display = 'none';
+}
+
+function showMBTedSuggestions(q) {
+  const box = document.getElementById('mb-ted-suggestions');
+  const hid = document.getElementById('mb-tedarikcisi');
+  if (!box) return;
+  if (!q || q.length < 2) { box.style.display = 'none'; hid.value = ''; return; }
+  const qU = q.toUpperCase();
+  const all = [...FIRMA_DB];
+  db.tedarikciler.forEach(t => { if (!all.find(f=>f.id===t.id)) all.push(t); });
+  const matches = all.filter(t => t.ad.toUpperCase().includes(qU) || (t.kod&&t.kod.toUpperCase().includes(qU))).slice(0,12);
+  if (!matches.length) {
+    hid.value = '0';
+    box.innerHTML = `<div style="padding:10px 13px;font-size:13px;color:var(--gray-500);">"${q}" listede yok — serbest metin olarak kaydedilecek</div>`;
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = matches.map(t => `
+    <div onmousedown="selectMBTed(${t.id},'${t.ad.replace(/'/g,"\'")}')"
+      style="padding:10px 13px;cursor:pointer;border-bottom:0.5px solid var(--gray-100);font-size:14px;color:var(--gray-900);">
+      ${t.ad}
+    </div>`).join('');
+  box.style.display = 'block';
+}
+
+function hideMBTedSuggestions() {
+  const box = document.getElementById('mb-ted-suggestions');
+  if (box) box.style.display = 'none';
+}
+
+function selectMBTed(id, ad) {
+  document.getElementById('mb-tedarikcisi-input').value = ad;
+  document.getElementById('mb-tedarikcisi').value = id;
+  hideMBTedSuggestions();
+}
+
+function selectMBUrun(ad, kod, birim, grup, kriter) {
+  document.getElementById('mb-ad').value = ad;
+  document.getElementById('mb-ln').value = kod;
+
+  // Birim — yoksa option olarak ekle
+  const birimSel = document.getElementById('mb-birim');
+  let birimFound = false;
+  for (let o of birimSel.options) { if (o.value === birim) { birimSel.value = birim; birimFound = true; break; } }
+  if (!birimFound && birim) {
+    const opt = document.createElement('option');
+    opt.value = birim; opt.text = birim;
+    birimSel.appendChild(opt);
+    birimSel.value = birim;
+  }
+
+  // Ürün grubu — yoksa option olarak ekle
+  const grupSel = document.getElementById('mb-grup');
+  let grupFound = false;
+  for (let o of grupSel.options) { if (o.value === grup) { grupSel.value = grup; grupFound = true; break; } }
+  if (!grupFound && grup) {
+    const opt = document.createElement('option');
+    opt.value = grup; opt.text = grup;
+    grupSel.appendChild(opt);
+    grupSel.value = grup;
+  }
+
+  // Sıcaklık kriteri
+  const sicSel = document.getElementById('mb-sicaklik-kriter');
+  for (let o of sicSel.options) { if (o.value === kriter) { sicSel.value = kriter; break; } }
+
+  hideMBSuggestions();
+}
+
+async function saveBarkod() {
+  const ad = document.getElementById('mb-ad').value.trim();
+  const ln = document.getElementById('mb-ln').value.trim();
+  const birim = document.getElementById('mb-birim').value;
+  const grup = document.getElementById('mb-grup').value;
+  const kriter = document.getElementById('mb-sicaklik-kriter').value;
+  const tedId = document.getElementById('mb-tedarikcisi').value;
+  const marka = document.getElementById('mb-marka').value.trim();
+  if (!ad) { showToast('⚠️ Ürün adı giriniz'); return; }
+  const key = state.pendingBarkod + '_' + (tedId||'0');
+  db.barkodlar[key] = { ad, ln, birim, grup, sicaklikKriter: kriter, tedarikcisi_id: parseInt(tedId)||0, barkod: state.pendingBarkod, marka };
+  if (!db.urunler.find(u=>u.kod===ln) && ln) {
+    db.urunler.push({ kod: ln, ad, birim, grup, sicaklikKriter: kriter });
+  }
+  await saveDB();
+  showToast('✅ Barkod kaydedildi');
+  closeModal('modal-barkod');
+  if (state.pendingRowIndex !== null) {
+    state.formRows[state.pendingRowIndex] = { ...state.formRows[state.pendingRowIndex], ad, ln, birim, sicaklikKriter: kriter, barkod: state.pendingBarkod };
+    renderFormRows();
+  }
+}
+
+function manualBarkodEkle() {
+  state.pendingBarkod = 'MANUAL_' + Date.now();
+  document.getElementById('modal-barkod-val').textContent = '✏️ Manuel kayıt';
+  document.getElementById('mb-tedarikcisi-input').value = '';
+  document.getElementById('mb-tedarikcisi').value = '';
+  openModal('modal-barkod');
+}
+
+function renderBarkodlar() {
+  const q = document.getElementById('barkod-search')?.value?.toLowerCase() || '';
+  const entries = Object.entries(db.barkodlar).filter(([k,v]) =>
+    !q || v.ad.toLowerCase().includes(q) || k.toLowerCase().includes(q)
+  );
+  const cont = document.getElementById('barkod-list');
+  if (!entries.length) { cont.innerHTML = '<div class="empty"><div class="empty-icon">📷</div><h3>Barkod bulunamadı</h3><p>Tara veya manuel ekle</p></div>'; return; }
+  cont.innerHTML = entries.map(([k,v]) => {
+    const ted = db.tedarikciler.find(t=>t.id===v.tedarikcisi_id);
+    return `<div class="list-item">
+      <div class="list-item-icon" style="background:#e8f0fa;">📦</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${v.ad}</div>
+        <div class="list-item-sub">${k.split('_')[0]} • ${ted?ted.ad:'Genel'}${v.marka?' • '+v.marka:''}</div>
+      </div>
+      <div class="list-item-right">
+        <span class="badge badge-primary">${v.birim}</span>
+        <span style="font-size:11px;color:var(--gray-400);">${v.ln||''}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// ONAY
+// ============================================================
+function switchOnayTab(tab, el) {
+  state.onayTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderOnayList();
+}
+
+function renderOnayList() {
+  const filtered = db.formlar.filter(f=>f.durum===state.onayTab);
+  const badge = db.formlar.filter(f=>f.durum==='bekleyen').length;
+  const badgeEl = document.getElementById('onay-badge');
+  if (badgeEl) badgeEl.textContent = badge;
+  const cont = document.getElementById('onay-list');
+  if (!cont) return;
+  if (!filtered.length) { cont.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><h3>Form yok</h3></div>'; return; }
+  cont.innerHTML = filtered.sort((a,b)=>b.olusturma-a.olusturma).map(f => {
+    const uygunsuz = f.urunler.filter(r=>r.durum==='uygunsuz').length;
+    const statusColor = f.durum==='bekleyen'?'warning':f.durum==='onaylandi'?'success':'danger';
+    return `<div class="list-item" onclick="openOnayModal('${f.id}')">
+      <div class="list-item-icon" style="background:var(--${statusColor==='warning'?'warning':'success'}-light);font-size:20px;">${f.durum==='bekleyen'?'⏳':f.durum==='onaylandi'?'✅':'❌'}</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${f.tedarikcisi_ad}</div>
+        <div class="list-item-sub">${fmt(f.tarih)} • ${f.personel_ad} • ${f.urunler.length} ürün</div>
+      </div>
+      <div class="list-item-right">
+        ${uygunsuz>0?`<span class="badge badge-danger">${uygunsuz} uygunsuz</span>`:'<span class="badge badge-success">Temiz</span>'}
+        <span style="font-size:11px;color:var(--gray-400);">F:${f.fatura}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openOnayModal(id) {
+  const f = db.formlar.find(f=>f.id===id);
+  if (!f) return;
+  state.currentOnayId = id;
+  document.getElementById('modal-onay-title').textContent = f.tedarikcisi_ad + ' — ' + fmt(f.tarih);
+  document.getElementById('modal-red-field').style.display = 'none';
+  document.getElementById('modal-red-not').value = '';
+  const isBekleyen = f.durum === 'bekleyen';
+  document.getElementById('btn-onayla').style.display = isBekleyen ? '' : 'none';
+  document.getElementById('btn-red').style.display = isBekleyen ? '' : 'none';
+
+  document.getElementById('modal-onay-content').innerHTML = `
+    <div style="background:var(--gray-50);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--gray-500);">Fatura No</span><span style="font-weight:600;">${f.fatura}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--gray-500);">İrsaliye No</span><span style="font-weight:600;">${f.irsaliye||'-'}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:var(--gray-500);">Personel</span><span style="font-weight:600;">${f.personel_ad}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:var(--gray-500);">Tarih</span><span style="font-weight:600;">${fmt(f.tarih)}</span></div>
+      ${f.onay_not?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gray-200);color:var(--danger);font-size:12px;">Not: ${f.onay_not}</div>`:''}
+    </div>
+    ${f.urunler.map((r,i)=>`
+    <div style="border-left:3px solid ${r.durum==='uygun'?'var(--success)':'var(--danger)'};padding:8px 10px;margin-bottom:8px;background:white;border-radius:0 6px 6px 0;">
+      <div style="font-weight:600;font-size:14px;">${i+1}. ${r.ad}</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-top:3px;">
+        ${r.ln?r.ln+' • ':''} ${r.miktar} ${r.birim} ${r.skt?'• SKT: '+r.skt:''} ${r.sicaklik?'• '+r.sicaklik+'°C':''}
+      </div>
+      ${r.durum==='uygunsuz'?`<div style="font-size:12px;color:var(--danger);margin-top:3px;">⚠️ ${r.sebep||'Sebep belirtilmemiş'} (İade edildi)</div>`:''}
+    </div>`).join('')}
+  `;
+  openModal('modal-onay');
+}
+
+function showRedField() {
+  document.getElementById('modal-red-field').style.display = 'block';
+  document.getElementById('btn-red').textContent = 'Reddi Onayla';
+  document.getElementById('btn-red').onclick = reddetForm;
+}
+
+async function onaylaForm() {
+  const f = db.formlar.find(f=>f.id===state.currentOnayId);
+  if (!f) return;
+  f.durum = 'onaylandi';
+  f.onaylayan = state.currentUser.ad;
+  f.onay_tarih = Date.now();
+  await saveDB();
+  closeModal('modal-onay');
+  showToast('✅ Form onaylandı');
+  renderOnayList();
+}
+
+async function reddetForm() {
+  const f = db.formlar.find(f=>f.id===state.currentOnayId);
+  if (!f) return;
+  f.durum = 'reddedilen';
+  f.onay_not = document.getElementById('modal-red-not').value;
+  f.onaylayan = state.currentUser.ad;
+  f.onay_tarih = Date.now();
+  await saveDB();
+  closeModal('modal-onay');
+  showToast('❌ Form reddedildi');
+  renderOnayList();
+}
+
+// ============================================================
+// GEÇMİŞ & İZLEME
+// ============================================================
+function renderGecmis() {
+  const gun = parseInt(document.getElementById('filter-donem')?.value||30);
+  const tedId = document.getElementById('filter-tedarikcisi')?.value||'';
+  const durum = document.getElementById('filter-durum')?.value||'';
+  const urunQ = document.getElementById('filter-urun')?.value?.toLowerCase()||'';
+
+  populateTedarikcisiSelect('filter-tedarikcisi');
+  if (tedId) document.getElementById('filter-tedarikcisi').value = tedId;
+
+  const cutoff = gun > 0 ? Date.now() - gun*86400000 : 0;
+  let formlar = db.formlar.filter(f=>f.durum==='onaylandi'||f.durum==='bekleyen'||f.durum==='reddedilen');
+  if (cutoff) formlar = formlar.filter(f=>new Date(f.tarih).getTime()>=cutoff);
+  if (tedId) formlar = formlar.filter(f=>f.tedarikcisi_id==tedId);
+
+  let allRows = [];
+  formlar.forEach(f=>{
+    f.urunler.forEach(r=>{
+      if (!durum || r.durum===durum) {
+        if (!urunQ || r.ad.toLowerCase().includes(urunQ)) {
+          allRows.push({...r, form: f});
+        }
+      }
+    });
+  });
+
+  const toplam = allRows.length;
+  const uygunsuz = allRows.filter(r=>r.durum==='uygunsuz').length;
+  const oran = toplam>0 ? Math.round(uygunsuz/toplam*100) : 0;
+  const formSayisi = formlar.length;
+
+  document.getElementById('gecmis-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${formSayisi}</div><div class="stat-label">Form Sayısı</div></div>
+    <div class="stat-card"><div class="stat-num">${toplam}</div><div class="stat-label">Toplam Ürün</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${uygunsuz}</div><div class="stat-label">Uygunsuz</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:${oran>10?'var(--danger)':'var(--success)'}">%${oran}</div><div class="stat-label">Uygunsuzluk Oranı</div></div>
+  `;
+
+  // Tedarikçi analizi
+  const tedMap = {};
+  formlar.forEach(f=>{
+    if (!tedMap[f.tedarikcisi_ad]) tedMap[f.tedarikcisi_ad] = { toplam:0, uygunsuz:0 };
+    f.urunler.forEach(r=>{
+      tedMap[f.tedarikcisi_ad].toplam++;
+      if(r.durum==='uygunsuz') tedMap[f.tedarikcisi_ad].uygunsuz++;
+    });
+  });
+  const tedList = Object.entries(tedMap).sort((a,b)=>b[1].uygunsuz-a[1].uygunsuz);
+  const analitikEl = document.getElementById('tedarikci-analytics');
+  if (!tedList.length) { analitikEl.innerHTML = '<div style="font-size:13px;color:var(--gray-500);">Veri yok</div>'; }
+  else {
+    analitikEl.innerHTML = tedList.map(([ad,v])=>{
+      const o = v.toplam>0?Math.round(v.uygunsuz/v.toplam*100):0;
+      return `<div class="analytics-row">
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:500;">${ad}</div>
+          <div class="progress-bar"><div class="progress-fill ${o>15?'danger':''}" style="width:${o}%;"></div></div>
+        </div>
+        <div style="text-align:right;margin-left:12px;">
+          <div style="font-size:13px;font-weight:700;color:${o>15?'var(--danger)':'var(--success)'};">%${o}</div>
+          <div style="font-size:11px;color:var(--gray-400);">${v.uygunsuz}/${v.toplam}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const listEl = document.getElementById('gecmis-list');
+  const listTitle = document.getElementById('gecmis-list-title');
+  listTitle.textContent = `Kayıtlar (${allRows.length})`;
+  if (!allRows.length) { listEl.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><h3>Kayıt bulunamadı</h3></div>'; return; }
+  listEl.innerHTML = allRows.slice(0,50).map(r=>`
+    <div class="list-item">
+      <div class="list-item-icon" style="background:${r.durum==='uygun'?'var(--success-light)':'var(--danger-light)'};">${r.durum==='uygun'?'✅':'⚠️'}</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${r.ad}</div>
+        <div class="list-item-sub">${r.form.tedarikcisi_ad} • ${fmt(r.form.tarih)} • ${r.miktar} ${r.birim}</div>
+        ${r.durum==='uygunsuz'?`<div style="font-size:12px;color:var(--danger);margin-top:2px;">↩ ${r.sebep||'İade'}</div>`:''}
+      </div>
+      <div class="list-item-right" style="gap:6px;">
+        ${r.skt?`<span style="font-size:11px;color:var(--gray-500);">SKT ${r.skt}</span>`:''}
+        ${r.sicaklik?`<span style="font-size:11px;color:var(--gray-500);">${r.sicaklik}°C</span>`:''}
+        <button onclick="event.stopPropagation();printMalKabulById('${r.form.id}')" style="background:var(--primary);color:white;border:none;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;">🖨️</button>
+      </div>
+    </div>
+  `).join('') + (allRows.length>50?`<div style="text-align:center;font-size:13px;color:var(--gray-500);padding:12px;">+ ${allRows.length-50} daha fazla kayıt</div>`:'');
+}
+
+// ============================================================
+// VERİ YÖNETİMİ
+// ============================================================
+function renderVeriYonetimi() {
+  // Export tarihini bugüne ayarla
+  const tarihEl = document.getElementById('export-tarih');
+  if (tarihEl && !tarihEl.value) tarihEl.value = new Date().toISOString().split('T')[0];
+  // Kullanıcılar
+  document.getElementById('kullanici-list').innerHTML = db.kullanicilar.map(u=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100);">
+      <div class="avatar">${u.ad.charAt(0)}</div>
+      <div style="flex:1;"><div style="font-weight:500;">${u.ad}</div><div style="font-size:12px;color:var(--gray-500);">${u.rol==='yonetici'?'Yönetici':'Depo Personeli'}</div></div>
+      <button onclick="deleteKullanici(${u.id})" style="background:var(--danger-light);color:var(--danger);border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;">Sil</button>
+    </div>
+  `).join('');
+
+  // Tedarikçiler
+  document.getElementById('tedarikcisi-list').innerHTML = db.tedarikciler.map(t=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-100);">
+      <div class="list-item-icon" style="background:var(--accent-light);font-size:16px;width:36px;height:36px;border-radius:8px;">🏭</div>
+      <div style="flex:1;"><div style="font-weight:500;">${t.ad}</div><div style="font-size:12px;color:var(--gray-500);">${t.kod}</div></div>
+      <button onclick="deleteTedarikcisi(${t.id})" style="background:var(--danger-light);color:var(--danger);border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;">Sil</button>
+    </div>
+  `).join('');
+
+  // Yedek bilgisi
+  const yedekEl = document.getElementById('yedek-info');
+  yedekEl.textContent = db.lastBackup ? '✅ Son yedek: ' + fmt(db.lastBackup) : '⚠️ Henüz yedek alınmadı';
+}
+
+async function saveKullanici() {
+  const ad = document.getElementById('ku-ad').value.trim();
+  const rol = document.getElementById('ku-rol').value;
+  const pin = document.getElementById('ku-pin').value.trim();
+  if (!ad || pin.length !== 6) { showToast('⚠️ Tüm alanları doldurun (PIN 6 hane)'); return; }
+  db.kullanicilar.push({ id: Date.now(), ad, rol, pin });
+  await saveDB();
+  populateUsersDatalist();
+  closeModal('modal-kullanici');
+  showToast('✅ Kullanıcı eklendi');
+  renderVeriYonetimi();
+}
+
+async function deleteKullanici(id) {
+  if (db.kullanicilar.length <= 1) { showToast('⚠️ En az 1 kullanıcı gerekli'); return; }
+  db.kullanicilar = db.kullanicilar.filter(u=>u.id!==id);
+  await saveDB();
+  renderVeriYonetimi();
+}
+
+async function saveTedarikcisi() {
+  const ad = document.getElementById('tt-ad').value.trim();
+  const kod = document.getElementById('tt-kod').value.trim().toUpperCase();
+  if (!ad) { showToast('⚠️ Firma adı giriniz'); return; }
+  db.tedarikciler.push({ id: Date.now(), ad, kod: kod||ad.slice(0,5).toUpperCase() });
+  await saveDB();
+  closeModal('modal-tedarikcisi');
+  showToast('✅ Tedarikçi eklendi');
+  renderVeriYonetimi();
+}
+
+async function deleteTedarikcisi(id) {
+  db.tedarikciler = db.tedarikciler.filter(t=>t.id!==id);
+  await saveDB();
+  renderVeriYonetimi();
+}
+
+// LN Infor Import
+function importLNInfor(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const resultEl = document.getElementById('import-result');
+  resultEl.innerHTML = '<div style="color:var(--gray-500);font-size:13px;">⏳ Okunuyor...</div>';
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(l=>l.trim());
+      let added = 0;
+      lines.forEach((line, i) => {
+        if (i === 0) return;
+        const cols = line.split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+        if (cols.length >= 3) {
+          const kod = cols[0]?.trim();
+          const ad = cols[1]?.trim();
+          const birim = cols[2]?.trim()||'KG';
+          if (kod && ad && !db.urunler.find(u=>u.kod===kod)) {
+            db.urunler.push({ kod, ad, birim, grup: kod.slice(0,5), sicaklikKriter: 'none' });
+            added++;
+          }
+        }
+      });
+      await saveDB();
+      resultEl.innerHTML = `<div style="color:var(--success);font-size:13px;font-weight:600;">✅ ${added} ürün eklendi</div>`;
+    } catch(e) {
+      resultEl.innerHTML = '<div style="color:var(--danger);font-size:13px;">❌ Okuma hatası — CSV formatı kontrol edin</div>';
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// Export
+function exportGunlukExcel() {
+  const tarih = document.getElementById('export-tarih').value;
+  if (!tarih) { showToast('⚠️ Tarih seçin'); return; }
+
+  const gunFormlar = db.formlar.filter(f => f.tarih === tarih);
+  if (!gunFormlar.length) { showToast('Bu tarihte kayıt yok'); return; }
+
+  // CSV satırları oluştur — BOM ile UTF-8
+  const headers = [
+    'Tarih','Firma Adı','Fatura No','İrsaliye No','Seri/Parti No',
+    'Araç Hijyen','Araç Sıcaklık (°C)','Malzeme Adı','LN Kodu',
+    'SKT','Yarı Ömrü Geçmiş mi?','Ürün Sıcaklığı (°C)',
+    'Kg','Adet','Marka','Durum','Açıklama/Sebep',
+    'Form Durumu','Giren Personel','Onaylayan','İmza (Teslim Eden)','İmza (Depo Sorumlusu)'
+  ];
+
+  const rows = [headers];
+
+  gunFormlar.forEach(f => {
+    f.urunler.forEach(r => {
+      const skt = r.skt || '';
+      const yariOmur = skt && skt < tarih ? 'EVET' : 'HAYIR';
+      const kg = r.birim === 'KG' ? (r.miktar || '') : '';
+      const adet = r.birim !== 'KG' ? (r.miktar || '') : '';
+      rows.push([
+        f.tarih || '',
+        f.tedarikcisi_ad || '',
+        f.fatura || '',
+        f.irsaliye || '',
+        r.seriNo || '',
+        f.aracHijyen || '',
+        f.aracSicaklik || '',
+        r.ad || '',
+        r.ln || '',
+        skt,
+        yariOmur,
+        r.sicaklik || '',
+        kg,
+        adet,
+        r.marka || '',
+        r.durum === 'uygunsuz' ? 'Uygunsuz' : 'Uygun',
+        r.sebep || '',
+        f.durum === 'onaylandi' ? 'Onaylandı' : f.durum === 'reddedilen' ? 'Reddedildi' : 'Bekliyor',
+        f.personel_ad || '',
+        f.onaylayan || '',
+        '',  // İmza - Teslim Eden (boş)
+        f.personel_ad || ''  // Depo sorumlusu adı
+      ]);
+    });
+  });
+
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Mal_Kabul_' + tarih + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ ' + tarih + ' tarihli Excel indirildi');
+}
+
+async function exportJSON() {
+  db.lastBackup = Date.now();
+  await saveDB();
+  const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'gurok_malkabul_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  showToast('✅ JSON indirildi');
+}
+
+function exportCSV() {
+  const rows = [['Tarih','Tedarikçi','Fatura','Personel','Malzeme','LN Kodu','Miktar','Birim','SKT','Sıcaklık','Durum','Sebep','Form Durumu']];
+  db.formlar.forEach(f=>{
+    f.urunler.forEach(r=>{
+      rows.push([f.tarih, f.tedarikcisi_ad, f.fatura, f.personel_ad, r.ad, r.ln||'', r.miktar||'', r.birim||'', r.skt||'', r.sicaklik||'', r.durum, r.sebep||'', f.durum]);
+    });
+  });
+  const csv = rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'gurok_malkabul_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  showToast('✅ CSV indirildi');
+}
+
+function restoreJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      db = { ...db, ...data };
+      await saveDB();
+      showToast('✅ Veriler geri yüklendi');
+      renderVeriYonetimi();
+    } catch(e) {
+      showToast('❌ Geçersiz dosya');
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+// ============================================================
+// START
+// ============================================================
+init();
+</script>
+</body>
+</html>function setDurum(i, durum) {
   state.formRows[i].durum = durum;
   renderFormRows();
 }
