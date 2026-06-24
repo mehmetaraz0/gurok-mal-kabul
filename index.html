@@ -718,11 +718,9 @@ const DB = {
     return await this.csGet(key);
   },
 
-  // Ana set — her yere yaz
+  // Ana set — Sheets + localStorage
   async set(key, val) {
     this.lsSet(key, val);
-    await this.csSet(key, val);
-    // Sadece ana 'data' anahtarı Sheets'e gider
     if (key === 'data') {
       await this.sheetsSet(val);
     }
@@ -767,23 +765,18 @@ function showLoadingScreen(show) {
 }
 
 async function init() {
-  // Önce localStorage'dan hızlı yükle
-  let saved = DB.lsGet('data');
-
-  // Her zaman Sheets'i de kontrol et (farklı cihaz/tarayıcı desteği)
+  // Her zaman önce Sheets'ten yükle — ortak veri tabanı
   showLoadingScreen(true);
+  let saved = null;
   try {
-    const sheetsData = await DB.sheetsGet();
-    if (sheetsData) {
-      // Sheets'teki veri daha günceldir (form sayısına göre karşılaştır)
-      const localForms = saved?.formlar?.length || 0;
-      const sheetsForms = sheetsData?.formlar?.length || 0;
-      if (sheetsForms >= localForms) {
-        saved = sheetsData;
-        DB.lsSet('data', saved);
-      }
+    saved = await DB.sheetsGet();
+    if (saved) {
+      DB.lsSet('data', saved); // Sheets'ten geleni localStorage'a da yaz
     }
-  } catch(e) { console.warn('Sheets yüklenemedi, localStorage kullanılıyor'); }
+  } catch(e) {
+    console.warn('Sheets yüklenemedi, localStorage'a bakılıyor');
+    saved = DB.lsGet('data');
+  }
   showLoadingScreen(false);
 
   if (saved) {
