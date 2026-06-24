@@ -465,7 +465,7 @@ input[type=file] { display: none; }
       <button class="btn btn-accent" onclick="scanBarkod()">📷 Barkod Tara</button>
     </div>
     <div style="position:fixed;bottom:0;left:0;right:0;padding:16px;background:white;box-shadow:0 -2px 12px rgba(0,0,0,0.1);">
-      <button class="btn btn-primary" onclick="submitForm()">Onaya Gönder ✓</button>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitFormOnce()">Onaya Gönder ✓</button>
     </div>
   </div>
 </div>
@@ -1718,6 +1718,18 @@ function removeRow(i) {
   renderFormRows();
 }
 
+let _submitting = false;
+async function submitFormOnce() {
+  if (_submitting) return;
+  _submitting = true;
+  const btn = document.getElementById('submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Gönderiliyor...'; }
+  try { await submitForm(); } finally {
+    _submitting = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Onaya Gönder ✓'; }
+  }
+}
+
 async function submitForm() {
   const tid = document.getElementById('form-tedarikcisi').value;
   const tedInput = document.getElementById('form-tedarikcisi-input').value.trim();
@@ -1729,6 +1741,8 @@ async function submitForm() {
   if (!state.formRows.length) { showToast('⚠️ En az 1 ürün ekleyin'); return; }
   const emptyRow = state.formRows.find(r=>!r.ad);
   if (emptyRow) { showToast('⚠️ Tüm ürün adlarını doldurun'); return; }
+  const emptyMiktar = state.formRows.find(r=>!r.miktar || parseFloat(r.miktar) <= 0);
+  if (emptyMiktar) { showToast('⚠️ ' + (emptyMiktar.ad||'Ürün') + ' — miktar giriniz'); return; }
   const bugun = new Date().toISOString().split('T')[0];
   const gecmisSKT = state.formRows.find(r=>r.skt && r.skt < bugun);
   if (gecmisSKT) { showToast('⛔ ' + gecmisSKT.ad + ' — SKT geçmiş, düzeltin!', 3500); return; }
@@ -2100,16 +2114,27 @@ function showRedField() {
   document.getElementById('btn-red').onclick = reddetForm;
 }
 
+let _onaylaniyor = false;
 async function onaylaForm() {
+  if (_onaylaniyor) return;
   const f = db.formlar.find(f=>f.id===state.currentOnayId);
   if (!f) return;
-  f.durum = 'onaylandi';
-  f.onaylayan = state.currentUser.ad;
-  f.onay_tarih = Date.now();
-  await saveDB();
-  closeModal('modal-onay');
-  showToast('✅ Form onaylandı');
-  renderOnayList();
+  if (f.durum !== 'bekleyen') { showToast('Bu form zaten işleme alındı'); closeModal('modal-onay'); return; }
+  _onaylaniyor = true;
+  const btn = document.getElementById('btn-onayla');
+  if (btn) { btn.disabled = true; btn.textContent = 'Onaylanıyor...'; }
+  try {
+    f.durum = 'onaylandi';
+    f.onaylayan = state.currentUser.ad;
+    f.onay_tarih = Date.now();
+    await saveDB();
+    closeModal('modal-onay');
+    showToast('✅ Form onaylandı');
+    renderOnayList();
+  } finally {
+    _onaylaniyor = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Onayla ✓'; }
+  }
 }
 
 async function reddetForm() {
