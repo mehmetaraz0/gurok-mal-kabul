@@ -1472,7 +1472,7 @@ function renderUrunRows() {
           <label>SKT</label>
           <input type="date" id="urun-skt-${i}" value="${r.skt}"
             min="${new Date().toISOString().split('T')[0]}"
-            onchange="updateRow(${i}, 'skt', this.value)">
+            onchange="validateSkt(${i}, this)">
         </div>
         <div class="field">
           <label>Sıcaklık (°C)</label>
@@ -1513,6 +1513,20 @@ function renderUrunRows() {
 function removeUrunRow(i) {
   state.formRows.splice(i, 1);
   renderUrunRows();
+}
+
+function validateSkt(i, el) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const val = el.value;
+  if (val && new Date(val) < today) {
+    el.style.borderColor = 'var(--danger)';
+    showToast('⚠️ SKT geçmiş tarih olamaz');
+    el.value = '';
+    state.formRows[i].skt = '';
+  } else {
+    el.style.borderColor = '';
+    updateRow(i, 'skt', val);
+  }
 }
 
 function updateRow(i, key, val) {
@@ -1689,12 +1703,23 @@ async function submitFormOnce() {
 async function submitForm() {
   if (!state.currentUser) { showToast('⚠️ Giriş yapmalısınız'); return; }
   const firmaAd = document.getElementById('firma-input').value.trim();
-  if (!firmaAd) { showToast('⚠️ Firma seçin'); return; }
-  if (state.formRows.length === 0) { showToast('⚠️ Ürün ekleyin'); return; }
+  if (!firmaAd) { showToast('⚠️ Firma adı zorunlu'); return; }
+  const faturaNo = document.getElementById('fatura-no').value.trim();
+  if (!faturaNo) { showToast('⚠️ Fatura / İrsaliye No zorunlu'); return; }
+  const aracSicaklik = document.getElementById('arac-sicaklik').value.trim();
+  if (!aracSicaklik) { showToast('⚠️ Araç sıcaklığı zorunlu'); return; }
+  if (state.formRows.length === 0) { showToast('⚠️ En az bir ürün ekleyin'); return; }
   const emptyAd = state.formRows.find(r => !r.ad);
-  if (emptyAd) { showToast('⚠️ Tüm ürün adlarını doldurun'); return; }
+  if (emptyAd) { showToast('⚠️ Ürün adı boş olamaz'); return; }
   const emptyMiktar = state.formRows.find(r => !r.miktar || parseFloat(r.miktar) <= 0);
   if (emptyMiktar) { showToast('⚠️ ' + (emptyMiktar.ad || 'Ürün') + ' — miktar giriniz'); return; }
+  // SKT geri dönük kontrolü
+  const today = new Date(); today.setHours(0,0,0,0);
+  const badSkt = state.formRows.find(r => r.skt && new Date(r.skt) < today);
+  if (badSkt) { showToast('⚠️ ' + badSkt.ad + ' — SKT geçmiş tarih olamaz'); return; }
+  // Sıcaklık zorunlu
+  const emptySicaklik = state.formRows.find(r => r.sicaklikKriter && r.sicaklikKriter !== 'none' && !r.sicaklik);
+  if (emptySicaklik) { showToast('⚠️ ' + emptySicaklik.ad + ' — ürün sıcaklığı giriniz'); return; }
 
   const form = {
     id: Date.now(),
@@ -2412,19 +2437,203 @@ function exportExcel() {
   });
   if (formlar.length === 0) { showToast('Bugün form yok'); return; }
 
-  let csv = 'No,Tarih,Firma,Fatura No,İrsaliye No,Araç Hijyen,Araç Sıcaklık,Ürün,Kod,Miktar,Birim,SKT,Ürün Sıcaklık,Uygunluk,Not,Personel,Durum\n';
-  let no = 1;
+  // SheetJS ile gerçek .xlsx oluştur
+  if (typeof XLSX === 'undefined') {
+    showToast('⏳ Excel kütüphanesi yükleniyor...');
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    s.onload = () => buildXlsx(formlar, today);
+    document.head.appendChild(s);
+  } else {
+    buildXlsx(formlar, today);
+  }
+}
+
+function buildXlsx(formlar, today) {
+  const wb = XLSX.utils.book_new();
+  const personelAdi = state.currentUser ? state.currentUser.ad : '';
+
+  // Ürün satırlarını düzleştir
+  const urunSatirlari = [];
   formlar.forEach(f => {
-    f.urunler.forEach(u => {
-      csv += `${no++},"${new Date(f.tarih).toLocaleString('tr-TR')}","${f.firma}","${f.faturaNo||''}","${f.irsaliyeNo||''}","${f.aracHijyen}","${f.aracSicaklik||''}","${u.ad}","${u.kod||''}","${u.miktar}","${u.birim}","${u.skt||''}","${u.sicaklik||''}","${u.uygun?'Uygun':'Uygunsuz'}","${u.not||''}","${f.personel}","${f.durum}"\n`;
+    const tarih = new Date(f.tarih).toLocaleDateString('tr-TR');
+    (f.urunler || []).forEach((u, idx) => {
+      let yariOmur = '';
+      if (u.skt) {
+        const sktDt = new Date(u.skt);
+        const kabulDt = new Date(f.tarih);
+        const now = new Date();
+        const toplam = (sktDt - kabulDt) / 86400000;
+        const kalan = (sktDt - now) / 86400000;
+        yariOmur = (toplam > 0 && kalan < toplam / 2) ? 'EVET' : 'HAYIR';
+      }
+      const kg   = u.birim === 'KG' ? u.miktar : '';
+      const adet = u.birim !== 'KG' ? u.miktar : '';
+      let aciklama = u.marka || '';
+      if (!u.uygun && u.not) aciklama += (aciklama ? ' — ' : '') + u.not;
+      urunSatirlari.push({
+        tarih:        idx === 0 ? tarih : '',
+        firma:        idx === 0 ? (f.firma || '') : '',
+        fatura:       idx === 0 ? (f.faturaNo || '') + (f.irsaliyeNo ? '\n' + f.irsaliyeNo : '') : '',
+        seri:         idx === 0 ? (f.seriNo || '') : '',
+        hijyen:       idx === 0 ? (f.aracHijyen === 'uygun' ? '+' : '-') : '',
+        aracSicaklik: idx === 0 ? (f.aracSicaklik || '') : '',
+        malzeme: u.ad || '', skt: u.skt || '', yariOmur,
+        urunSicaklik: u.sicaklik || '', kg, adet,
+        mkk: u.uygun ? '+' : '-', aciklama,
+      });
     });
   });
 
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `gurok_malkabul_${today}.csv`;
-  a.click();
+  // 37 satır, 16 sütun (A..P)
+  const R = Array.from({length:35}, () => Array(16).fill(null));
+  // Satır 1: MAL KABUL FORMU — A'dan P'ye birleştirilmiş tek satır
+  R[0][0]='MAL KABUL FORMU';
+  // Satır 2: başlıklar (üst)
+  R[1][0]='Tarih'; R[1][1]='Firma Adı'; R[1][2]='Fatura no'; R[1][3]='Seri no/';
+  R[1][4]='Araç'; R[1][6]='Malzeme Adı'; R[1][7]='SKT';
+  R[1][8]='Yarı\nÖmrünü\nGeçmiş mi?'; R[1][9]='Ölçülen Değer';
+  R[1][12]='MKK'; R[1][13]='Açıklama'; R[1][14]='İmzalar';
+  // Satır 3: başlıklar (alt)
+  R[2][2]='İrsaliye no'; R[2][3]='Parti no'; R[2][4]='Hijyen'; R[2][5]='Sıcaklık';
+  R[2][9]='Ürün\nSıcaklığı'; R[2][10]='Kg.'; R[2][11]='Adet';
+
+  // Veri satırları 4-16 (index 3-15)
+  for (let i = 0; i < 13; i++) {
+    const s = urunSatirlari[i] || {};
+    R[3+i][0]=s.tarih||null; R[3+i][1]=s.firma||null; R[3+i][2]=s.fatura||null;
+    R[3+i][3]=s.seri||null;  R[3+i][4]=s.hijyen||null; R[3+i][5]=s.aracSicaklik||null;
+    R[3+i][6]=s.malzeme||null; R[3+i][7]=s.skt||null; R[3+i][8]=s.yariOmur||null;
+    R[3+i][9]=s.urunSicaklik||null; R[3+i][10]=s.kg||null; R[3+i][11]=s.adet||null;
+    R[3+i][12]=s.mkk||null; R[3+i][13]=s.aciklama||null;
+  }
+  // O sütunu (index 14): her veri satırına personel adı + tik
+  for (let i = 0; i < 13; i++) {
+    if (urunSatirlari[i]) {
+      R[3+i][14] = personelAdi + ' ✅';
+      R[3+i][15] = null;
+    }
+  }
+
+  // Notlar
+  R[17][0]='Not: Denetim sırasında UYGUN görülen durumlar için ilgili kolona + yazılacaktır.';
+  R[18][0]='Denetim sırasında UYGUN OLMADIĞI görülen durumlar için - yazılacaktır. Açıklama kısmında ise uygunsuzluğun tanımı yapılacak.';
+  R[19][0]='Mal Kabul Kriterleri : Gıda malzemesinin uygunluğu için Hammadde Özellikleri Tablosu nitelikleri aranır.';
+  R[22][0]='1. Derece riskli ürünler: Tüm et ve et ürünleri, şarküteri ürünleri, balık ve deniz ürünleri, kümes hayvanları ürünleri, pasta kreması, yumurta';
+  R[23][0]='2. Derece riskli ürünler: Dondurulmuş meyve sebze, konserve, katı ve sıvı yağlar';
+  R[24][0]='3. Derece riskli ürünler: Turşular, kuruyemiş vb., kuru gıda, baharat, bal, corn flakes, marmelat, reçel, pekmez, zeytin, tahın, bakliyat';
+  R[25][0]='4. Derece riskli ürünler: Sebze, meyve';
+  R[26][0]='Alerjen gıdalar: Gluten içeren tahıllar, Kabuklular, Yumurta, Balık, Yerfıstığı, Soya fasulyesi, süt ürünleri, Sert kabuklu meyveler, Kereviz, Hardal, Susam tohumu, Kükürt dioksit, sülfitler, Acı bakla, Yumuşakçalar';
+  R[34][0]='Doküman No:F.22'; R[34][7]='Yayın Tarihi:15.02.2026'; R[34][14]='Rev.Tarihi/No:-/00';
+
+  const ws = XLSX.utils.aoa_to_sheet(R);
+
+  ws['!merges'] = [
+    // Satır 1: MAL KABUL FORMU — A1:P1 tam genişlik birleşik
+    {s:{r:0,c:0},e:{r:0,c:15}},
+    // Satır 2-3: başlık birleştirmeleri (2 yukarı kaydırıldı)
+    {s:{r:1,c:0},e:{r:2,c:0}}, {s:{r:1,c:1},e:{r:2,c:1}}, {s:{r:1,c:4},e:{r:1,c:5}},
+    {s:{r:1,c:6},e:{r:2,c:6}}, {s:{r:1,c:7},e:{r:2,c:7}}, {s:{r:1,c:8},e:{r:2,c:8}},
+    {s:{r:1,c:9},e:{r:1,c:11}}, {s:{r:1,c:12},e:{r:2,c:12}},
+    {s:{r:1,c:13},e:{r:2,c:13}}, {s:{r:1,c:14},e:{r:2,c:15}},
+    // Notlar tam genişlik
+    {s:{r:17,c:0},e:{r:17,c:15}}, {s:{r:18,c:0},e:{r:18,c:15}},
+    {s:{r:19,c:0},e:{r:19,c:15}}, {s:{r:22,c:0},e:{r:22,c:12}},
+    {s:{r:23,c:0},e:{r:23,c:12}}, {s:{r:24,c:0},e:{r:24,c:12}},
+    {s:{r:25,c:0},e:{r:25,c:12}}, {s:{r:26,c:0},e:{r:26,c:12}},
+    // Doküman no
+    {s:{r:34,c:0},e:{r:34,c:2}}, {s:{r:34,c:7},e:{r:34,c:8}},
+    {s:{r:34,c:14},e:{r:34,c:15}},
+  ];
+
+  ws['!cols'] = [
+    {wch:11.875},{wch:22.5},{wch:13.125},{wch:17.5},{wch:7.5},{wch:8.125},
+    {wch:20},{wch:16.875},{wch:11.875},{wch:9.375},{wch:8.125},{wch:8.125},
+    {wch:9},{wch:23.75},{wch:11.25},{wch:10.625}
+  ];
+
+  const rh = {1:28.5,2:16.5,3:7.5,4:21,5:31.5};
+  for(let i=6;i<=18;i++) rh[i]=33;
+  [20,21,22,23,25,26,27,28,29].forEach(r=>rh[r]=13.5);
+  [31,32,33,34,35,36].forEach(r=>rh[r]=23.25); rh[37]=16.5;
+  ws['!rows'] = Array.from({length:35},(_,i)=>rh[i+1]?{hpt:rh[i+1]}:{});
+  ws['!pageSetup'] = {orientation:'landscape', paperSize:9};
+
+  // Hücre stilleri — kalın kenarlık
+  const thin  = {style:'thin',  color:{rgb:'000000'}};
+  const med   = {style:'medium',color:{rgb:'000000'}};
+  const thick = {style:'thick', color:{rgb:'000000'}};
+  const bAll  = {top:thin, bottom:thin, left:thin, right:thin};
+  const bMed  = {top:med,  bottom:med,  left:med,  right:med};
+  const bThick= {top:thick,bottom:thick,left:thick,right:thick};
+
+  // Başlık hücresi A1: kalın dış kenarlık + ortalı bold
+  const hdrStyle = {
+    font:{bold:true, sz:13, name:'Arial'},
+    alignment:{horizontal:'center', vertical:'center'},
+    border: bThick
+  };
+  // Kolon başlıkları (satır 2-3): mavi dolgu, bold, ince kenarlık
+  const colHdrStyle = {
+    font:{bold:true, sz:9, name:'Arial'},
+    fill:{fgColor:{rgb:'DDEBF7'}, patternType:'solid'},
+    alignment:{horizontal:'center', vertical:'center', wrapText:true},
+    border: bAll
+  };
+  // Veri hücreleri: ince kenarlık
+  const dataStyle = {
+    font:{sz:10, name:'Arial'},
+    alignment:{vertical:'center', wrapText:true},
+    border: bAll
+  };
+  // Ortadaki veri hücresi (sayılar): ortala
+  const dataCenterStyle = {
+    font:{sz:10, name:'Arial'},
+    alignment:{horizontal:'center', vertical:'center'},
+    border: bAll
+  };
+  // Not satırları: ince, küçük font
+  const noteStyle = {
+    font:{sz:8, name:'Arial', bold:true},
+    border:{top:thin, bottom:thin}
+  };
+
+  function setStyle(ws, addr, style) {
+    if (!ws[addr]) ws[addr] = {t:'z', v:''};
+    ws[addr].s = style;
+  }
+  function setRangeStyle(ws, r1, c1, r2, c2, style) {
+    for (let r = r1; r <= r2; r++) {
+      for (let c = c1; c <= c2; c++) {
+        const addr = XLSX.utils.encode_cell({r, c});
+        if (!ws[addr]) ws[addr] = {t:'z', v:''};
+        ws[addr].s = style;
+      }
+    }
+  }
+
+  // Satır 1: MAL KABUL FORMU
+  setRangeStyle(ws, 0,0, 0,15, hdrStyle);
+
+  // Satır 2-3: kolon başlıkları
+  setRangeStyle(ws, 1,0, 2,15, colHdrStyle);
+
+  // Satır 4-16: veri satırları
+  const centerCols = [4,5,8,9,10,11,12,14]; // hijyen,sıcak,yarıömür,ürünsıcak,kg,adet,mkk,imza
+  for (let r = 3; r <= 15; r++) {
+    for (let c = 0; c <= 15; c++) {
+      const addr = XLSX.utils.encode_cell({r, c});
+      if (!ws[addr]) ws[addr] = {t:'z', v:''};
+      ws[addr].s = centerCols.includes(c) ? dataCenterStyle : dataStyle;
+    }
+  }
+
+  // Not satırları
+  setRangeStyle(ws, 17,0, 26,15, noteStyle);
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Mal Kabul Formu');
+  XLSX.writeFile(wb, `gurok_malkabul_${today}.xlsx`);
+  showToast('✅ Excel indirildi');
 }
 
 function exportJSON() {
