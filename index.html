@@ -878,10 +878,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           <input type="number" id="arac-sicaklik" placeholder="Örn: 4">
         </div>
       </div>
-      <div class="field">
-        <label>Seri / Lot No</label>
-        <input type="text" id="seri-no" placeholder="Opsiyonel">
-      </div>
+
     </div>
 
     <!-- Ürün Satırları -->
@@ -1255,7 +1252,8 @@ async function saveDB() {
   }
 }
 
-// Tekil form kaydet — çakışmayı önler (PATCH yerine POST-like tekil path)
+// Tekil form kaydet — her form kendi ID'siyle ayrı node'a yazılır
+// Çakışma imkansız: iki cihaz farklı ID'ye yazar
 async function saveFormTekil(form) {
   lsSave();
   if (!navigator.onLine) {
@@ -1265,39 +1263,133 @@ async function saveFormTekil(form) {
     return;
   }
   try {
-    // Önce mevcut formlar listesini Firebase'den çek
-    const getResp = await fetch(FIREBASE_URL + '/db/formlar.json');
-    let mevcutFormlar = [];
-    if (getResp.ok) {
-      const data = await getResp.json();
-      mevcutFormlar = Array.isArray(data) ? data.filter(Boolean) : [];
+    // Her form kendi node'una: /formlar/{form.id}
+    const resp = await fetch(FIREBASE_URL + '/formlar/' + form.id + '.json', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    // SKT kayıtlarını da güncelle
+    if (db.sktKayitlar.length > 0) {
+      await fetch(FIREBASE_URL + '/sktKayitlar.json', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(db.sktKayitlar)
+      });
     }
-    // Yeni formu ekle (çakışma önlenir: merge yapılır)
-    mevcutFormlar.push(form);
-    // Geri yaz
-    const putResp = await fetch(FIREBASE_URL + '/db/formlar.json', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mevcutFormlar)
-    });
-    if (!putResp.ok) throw new Error('HTTP ' + putResp.status);
-    // Lokal db'yi güncelle
-    db.formlar = mevcutFormlar;
-    // Diğer alanları da yaz (sktKayitlar, barkodlar)
-    await fetch(FIREBASE_URL + '/db/sktKayitlar.json', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(db.sktKayitlar)
-    });
     lsSave();
     showSaveIndicator(true);
   } catch(e) {
     console.warn('Tekil kayıt hatası, tam DB yazılıyor:', e);
-    await saveDB(); // fallback
+    await saveDB();
   }
 }
 
-// Arşivleme — 30 günden eski onaylı formları arsiv'e taşı
+async function loadDB() {
+  // 1. localStorage'dan anında yükle
+  const local = lsLoad();
+  if (local) {
+    db = { formlar: [], kullanicilar: [], barkodlar: {}, sktKayitlar: [], ...local };
+  }
+  hideLoading();
+
+  // 2. Firebase'den arka planda çek — /formlar/ node'undan
+  try {
+    const [formlarResp, metaResp] = await Promise.all([
+      fetch(FIREBASE_URL + '/formlar.json'),
+      fetch(FIREBASE_URL + '/meta.json')
+    ]);
+
+    // Formları çek (object → array dönüşümü)
+    let remoteFormlar = [];
+    if (formlarResp.ok) {
+      const data = await formlarResp.json();
+      if (data && typeof data === 'object') {
+        remoteFormlar = Object.values(data).filter(Boolean);
+      } else if (Array.isArray(data)) {
+        remoteFormlar = data.filter(Boolean);
+      }
+    }
+
+    // Meta (kullanıcılar, barkodlar, sktKayitlar) çek
+    let remoteMeta = {};
+    if (metaResp.ok) {
+      const data = await metaResp.json();
+      if (data) remoteMeta = data;
+    }
+
+    // Merge: local + remote formları birleştir, ID'ye göre dedupe
+    const formMap = {};
+    db.formlar.forEach(f => { if (f && f.id && f.firma) formMap[f.id] = f; });
+    remoteFormlar.forEach(f => { if (f && f.id && f.firma) formMap[f.id] = f; }); // remote kazanır
+    db.formlar = Object.values(formMap).sort((a,b) => b.tarih - a.tarih);
+
+    // Meta güncelle
+    if (remoteMeta.kullanicilar) db.kullanicilar = remoteMeta.kullanicilar;
+    if (remoteMeta.barkodlar) db.barkodlar = remoteMeta.barkodlar;
+    if (remoteMeta.sktKayitlar) db.sktKayitlar = remoteMeta.sktKayitlar;
+
+    lsSave();
+    renderAll();
+    updateBadges();
+
+  } catch(e) {
+    console.warn('Firebase yükleme hatası:', e);
+    // Eski /db.json formatından migrate et (ilk geçiş)
+    try {
+      const legacyResp = await fetch(FIREBASE_URL + '/db.json');
+      if (legacyResp.ok) {
+        const data = await legacyResp.json();
+        if (data && data.formlar && data.formlar.length > 0) {
+          // Eski formatı yeni yapıya migrate et
+          data.formlar.forEach(f => {
+            if (f && f.id) {
+              fetch(FIREBASE_URL + '/formlar/' + f.id + '.json', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(f)
+              }).catch(()=>{});
+            }
+          });
+          db = { formlar: [], kullanicilar: [], barkodlar: {}, sktKayitlar: [], ...data };
+          lsSave();
+          renderAll();
+          updateBadges();
+        }
+      }
+    } catch(e2) { console.warn('Legacy migrate hatası:', e2); }
+  }
+}
+
+// saveDB artık meta (kullanıcı, barkod, SKT) için kullanılıyor
+async function saveDB() {
+  lsSave();
+  if (!navigator.onLine) {
+    localStorage.setItem('gurok_offline_queue', JSON.stringify([Date.now()]));
+    showSaveIndicator(false);
+    showToast('📶 Çevrimdışı — bağlantı gelince aktarılacak');
+    return;
+  }
+  try {
+    // Meta verileri yaz
+    const meta = {
+      kullanicilar: db.kullanicilar,
+      barkodlar: db.barkodlar,
+      sktKayitlar: db.sktKayitlar
+    };
+    await fetch(FIREBASE_URL + '/meta.json', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(meta)
+    });
+    showSaveIndicator(true);
+  } catch(e) {
+    console.warn('Firebase meta kayıt hatası:', e);
+    localStorage.setItem('gurok_offline_queue', JSON.stringify([Date.now()]));
+    showSaveIndicator(false);
+  }
+}
 async function arsivle() {
   const sinir = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const arsivEdilecek = db.formlar.filter(f => f.durum === 'onaylandi' && f.tarih < sinir);
@@ -1503,7 +1595,7 @@ function resetForm() {
   document.getElementById('irsaliye-no').value = '';
   document.getElementById('arac-hijyen').value = 'uygun';
   document.getElementById('arac-sicaklik').value = '';
-  document.getElementById('seri-no').value = '';
+
   document.getElementById('form-notlar').value = '';
   state.formRows = [];
   state.selectedFirmaId = null;
@@ -1579,6 +1671,19 @@ function renderUrunRows() {
           <label>Barkod</label>
           <input type="text" id="urun-barkod-${i}" value="${r.barkod||''}" placeholder="Barkod"
             onchange="updateRow(${i}, 'barkod', this.value)">
+        </div>
+      </div>
+      <div class="row-fields" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div class="field" style="margin-bottom:0;">
+          <label>Seri / Lot No *</label>
+          <input type="text" id="urun-seri-${i}" value="${r.seriNo||''}" placeholder="Zorunlu"
+            style="border-color:${r.seriNo?'':'var(--danger)'}"
+            onchange="updateRow(${i}, 'seriNo', this.value);this.style.borderColor=this.value?'':'var(--danger)'">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Marka</label>
+          <input type="text" id="urun-marka2-${i}" value="${r.marka||''}" placeholder="Marka adı"
+            onchange="updateRow(${i}, 'marka', this.value)">
         </div>
       </div>
       <div class="field">
@@ -1801,6 +1906,9 @@ async function submitForm() {
   if (emptyAd) { showToast('⚠️ Ürün adı boş olamaz'); return; }
   const emptyMiktar = state.formRows.find(r => !r.miktar || parseFloat(r.miktar) <= 0);
   if (emptyMiktar) { showToast('⚠️ ' + (emptyMiktar.ad || 'Ürün') + ' — miktar giriniz'); return; }
+  const emptySeri = state.formRows.find(r => r.ad && !r.seriNo);
+  if (emptySeri) { showToast('⚠️ ' + emptySeri.ad + ' — Seri/Lot No zorunlu'); return; }
+  if (emptyMiktar) { showToast('⚠️ ' + (emptyMiktar.ad || 'Ürün') + ' — miktar giriniz'); return; }
   // SKT geri dönük kontrolü
   const today = new Date(); today.setHours(0,0,0,0);
   const badSkt = state.formRows.find(r => r.skt && new Date(r.skt) < today);
@@ -1818,7 +1926,7 @@ async function submitForm() {
     irsaliyeNo: document.getElementById('irsaliye-no').value.trim(),
     aracHijyen: document.getElementById('arac-hijyen').value,
     aracSicaklik: document.getElementById('arac-sicaklik').value,
-    seriNo: document.getElementById('seri-no').value.trim(),
+    seriNo: '',
     notlar: document.getElementById('form-notlar').value.trim(),
     personel: state.currentUser.ad,
     urunler: state.formRows.map(r => ({ ...r })),
@@ -1945,7 +2053,7 @@ async function onaylaForm(id) {
     f.durum = 'onaylandi';
     f.onaylayan = state.currentUser.ad;
     f.onayTarih = Date.now();
-    await saveDB();
+    await saveFormTekil(f); // tekil node güncelle
     closeModal('modal-onay');
     showToast('✅ Form onaylandı');
     renderOnayList();
@@ -1963,7 +2071,7 @@ async function reddetForm(id) {
   f.durum = 'reddedildi';
   f.redNot = not;
   f.reddeden = state.currentUser.ad;
-  await saveDB();
+  await saveFormTekil(f); // tekil node güncelle
   closeModal('modal-onay');
   showToast('❌ Form reddedildi');
   renderOnayList();
@@ -2723,7 +2831,7 @@ function buildXlsx(formlar, today) {
         tarih:        tarih,
         firma:        f.firma || '',
         fatura:       (f.faturaNo || '') + (f.irsaliyeNo ? '\n' + f.irsaliyeNo : ''),
-        seri:         f.seriNo || '',
+        seri:         u.seriNo || '',
         hijyen:       f.aracHijyen === 'uygun' ? '+' : '-',
         aracSicaklik: f.aracSicaklik || '',
         malzeme: u.ad || '', skt: u.skt || '', yariOmur,
