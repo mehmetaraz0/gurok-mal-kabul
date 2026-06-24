@@ -102,8 +102,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 .pin-btn:active { background: var(--primary); color: white; transform: scale(0.93); }
 .pin-btn.del { background: var(--danger-light); color: var(--danger); }
 .role-select { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-.role-btn { background: var(--gray-100); border: 2px solid transparent; border-radius: var(--radius-sm); padding: 12px 8px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.role-btn { background: var(--gray-100); border: 2px solid transparent; border-radius: var(--radius-sm); padding: 12px 8px; text-align: center; cursor: pointer; transition: all 0.2s; user-select: none; -webkit-user-select: none; position: relative; z-index: 1; }
 .role-btn.selected { background: #e8f0fa; border-color: var(--primary); }
+.role-btn:active { transform: scale(0.96); }
 .role-btn .role-icon { font-size: 24px; margin-bottom: 4px; }
 .role-btn .role-label { font-size: 13px; font-weight: 600; color: var(--gray-700); }
 
@@ -774,7 +775,7 @@ async function init() {
       DB.lsSet('data', saved); // Sheets'ten geleni localStorage'a da yaz
     }
   } catch(e) {
-    console.warn('Sheets yüklenemedi, localStorage'a bakılıyor');
+    console.warn('Sheets yuklenemedi, localStorage kullaniliyor');
     saved = DB.lsGet('data');
   }
   showLoadingScreen(false);
@@ -890,7 +891,16 @@ function goToPin() {
   const name = document.getElementById('login-name').value.trim();
   if (!name) { showToast('⚠️ Ad giriniz'); return; }
   const user = db.kullanicilar.find(u => u.ad.toLowerCase() === name.toLowerCase() && u.rol === selectedRole);
-  if (!user) { showToast('⚠️ Kullanıcı bulunamadı'); return; }
+  if (!user) {
+    // Rol eşleşmeden ara — yanlış rol seçilmiş olabilir
+    const anyUser = db.kullanicilar.find(u => u.ad.toLowerCase() === name.toLowerCase());
+    if (anyUser) {
+      showToast('⚠️ Bu kullanıcı ' + (anyUser.rol === 'yonetici' ? 'Yönetici' : 'Personel') + ' rolünde kayıtlı');
+    } else {
+      showToast('⚠️ Kullanıcı bulunamadı');
+    }
+    return;
+  }
   state.currentUser = user;
   state.currentRole = selectedRole;
   document.getElementById('login-step1').style.display = 'none';
