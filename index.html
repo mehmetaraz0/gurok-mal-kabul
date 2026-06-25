@@ -1625,18 +1625,19 @@ function resetForm() {
 }
 
 function addUrunRow(data) {
-  const idx = state.formRows.length;
   const row = {
-    ad: '', kod: '', barkod: '', miktar: '', birim: 'KG',
-    sicaklik: '', skt: '', uygun: true, not: '',
+    ad: '', kod: '', barkod: '', seriNo: '', marka: '',
+    miktar: '', birim: 'KG', sicaklik: '', sicaklikKriter: '',
+    skt: '', uygun: true, not: '',
     ...data
   };
   state.formRows.push(row);
   renderUrunRows();
-  return idx;
+  return state.formRows.length - 1;
 }
 
 function renderUrunRows() {
+  const today = new Date().toISOString().split('T')[0];
   const container = document.getElementById('urun-rows');
   container.innerHTML = state.formRows.map((r, i) => `
     <div class="urun-row" id="urun-row-${i}">
@@ -1645,83 +1646,86 @@ function renderUrunRows() {
         <div class="urun-row-name">${r.ad || 'Ürün ' + (i+1)}</div>
         <button class="urun-row-del" onclick="removeUrunRow(${i})">✕</button>
       </div>
+
       <div class="field">
         <label>Ürün Adı / Kodu *</label>
-        <div class="autocomplete-wrap input-with-btn">
-          <input type="text" id="urun-ad-${i}" value="${r.ad}" placeholder="2+ harf yazın..." autocomplete="off"
-            oninput="filterUrunDebounced(${i}, this.value)"
-            onfocus="if(this.value.length>=2)filterUrun(${i},this.value)"
-            >
+        <div style="position:relative;">
+          <input type="text" id="urun-ad-${i}" value="${r.ad.replace(/"/g,'&quot;')}"
+            placeholder="2+ harf yazın..."
+            autocomplete="off"
+            oninput="filterUrun(${i}, this.value)">
           <button class="barcode-btn" onclick="openBarkod(${i})">📷</button>
-          <div class="autocomplete-list" id="urun-dropdown-${i}" style="display:none;"></div>
+          <div id="urun-dropdown-${i}" class="autocomplete-list" style="display:none;"></div>
         </div>
       </div>
+
       <div class="row-fields">
         <div class="field">
           <label>Miktar *</label>
-          <input type="number" id="urun-miktar-${i}" value="${r.miktar}" placeholder="0"
-            onchange="updateRow(${i}, 'miktar', this.value)" min="0" step="0.01">
+          <input type="number" id="urun-miktar-${i}" value="${r.miktar}"
+            placeholder="0" min="0" step="0.01"
+            onchange="updateRow(${i},'miktar',this.value)">
         </div>
         <div class="field">
           <label>Birim</label>
-          <select id="urun-birim-${i}" onchange="updateRow(${i}, 'birim', this.value)">
-            ${['KG','AD','KOL','PKT','LT','TRB','TNK','BOT'].map(b => `<option value="${b}" ${r.birim===b?'selected':''}>${b}</option>`).join('')}
+          <select id="urun-birim-${i}" onchange="updateRow(${i},'birim',this.value)">
+            ${['KG','AD','KOL','PKT','LT','TRB','TNK','BOT'].map(b =>
+              `<option value="${b}"${r.birim===b?' selected':''}>${b}</option>`
+            ).join('')}
           </select>
         </div>
         <div class="field">
           <label>SKT</label>
           <input type="date" id="urun-skt-${i}" value="${r.skt}"
-            min="${new Date().toISOString().split('T')[0]}"
-            onchange="validateSkt(${i}, this)">
+            min="${today}"
+            onchange="validateSkt(${i},this)">
         </div>
         <div class="field">
-          <label>Sıcaklık (°C)</label>
+          <label>Sıcaklık (°C)${r.sicaklikKriter && r.sicaklikKriter!=='none' ? ' — Kriter: '+r.sicaklikKriter+'°C' : ''}</label>
           <input type="number" id="urun-sicaklik-${i}" value="${r.sicaklik}"
-            placeholder="${r.sicaklikKriter && r.sicaklikKriter !== 'none' ? 'Kriter: ' + r.sicaklikKriter + '°C' : 'Sıcaklık'}"
-            onchange="checkSicaklikUygunluk(${i}, this.value)"
-            style="${r.sicaklik && r.sicaklikKriter && r.sicaklikKriter !== 'none' ? (checkSicaklikOk(r.sicaklikKriter, r.sicaklik) ? 'border-color:var(--success)' : 'border-color:var(--danger)') : ''}">
+            placeholder="${r.sicaklikKriter && r.sicaklikKriter!=='none' ? r.sicaklikKriter+'°C' : ''}"
+            onchange="checkSicaklikUygunluk(${i},this.value)">
         </div>
-      </div>
-      <div class="row-fields" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        <div class="field" style="margin-bottom:0;">
-          <label>Marka</label>
-          <input type="text" id="urun-marka-${i}" value="${r.marka||''}" placeholder="Marka adı"
-            onchange="updateRow(${i}, 'marka', this.value)">
-        </div>
-        <div class="field" style="margin-bottom:0;">
-          <label>Barkod</label>
-          <input type="text" id="urun-barkod-${i}" value="${r.barkod||''}" placeholder="Barkod"
-            onchange="updateRow(${i}, 'barkod', this.value)">
-        </div>
-      </div>
-      <div class="row-fields" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        <div class="field" style="margin-bottom:0;">
+        <div class="field">
           <label>Seri / Lot No *</label>
-          <input type="text" id="urun-seri-${i}" value="${r.seriNo||''}" placeholder="Zorunlu"
-            style="border-color:${r.seriNo?'':'var(--danger)'}"
-            onchange="updateRow(${i}, 'seriNo', this.value);this.style.borderColor=this.value?'':'var(--danger)'">
+          <input type="text" id="urun-seri-${i}" value="${(r.seriNo||'').replace(/"/g,'&quot;')}"
+            placeholder="Zorunlu"
+            style="${r.seriNo ? '' : 'border-color:var(--danger)'}"
+            oninput="updateRow(${i},'seriNo',this.value);this.style.borderColor=this.value?'':'var(--danger)'">
         </div>
-        <div class="field" style="margin-bottom:0;">
+        <div class="field">
           <label>Marka</label>
-          <input type="text" id="urun-marka2-${i}" value="${r.marka||''}" placeholder="Marka adı"
-            onchange="updateRow(${i}, 'marka', this.value)">
+          <input type="text" id="urun-marka-${i}" value="${(r.marka||'').replace(/"/g,'&quot;')}"
+            placeholder="Marka adı"
+            oninput="updateRow(${i},'marka',this.value)">
         </div>
       </div>
+
       <div class="field">
         <label>Uygunluk</label>
         <div class="uygun-toggle">
-          <button class="uygun-btn ${r.uygun ? 'active-uygun' : ''}"
-            onclick="setUygun(${i}, true)">✅ Uygun</button>
-          <button class="uygun-btn ${!r.uygun ? 'active-uygunsuz' : ''}"
-            onclick="setUygun(${i}, false)">❌ Uygunsuz</button>
+          <button class="uygun-btn ${r.uygun?'active-uygun':''}"
+            onclick="setUygun(${i},true)">✅ Uygun</button>
+          <button class="uygun-btn ${!r.uygun?'active-uygunsuz':''}"
+            onclick="setUygun(${i},false)">❌ Uygunsuz</button>
         </div>
-        ${!r.uygun ? `
-          <input type="text" id="urun-not-${i}" value="${r.not||''}" placeholder="Uygunsuzluk nedeni..."
-            onchange="updateRow(${i}, 'not', this.value)" style="margin-top:6px;">
-        ` : ''}
+        ${!r.uygun ? `<input type="text" id="urun-not-${i}" value="${(r.not||'').replace(/"/g,'&quot;')}"
+          placeholder="Uygunsuzluk nedeni..." style="margin-top:6px;"
+          oninput="updateRow(${i},'not',this.value)">` : ''}
       </div>
     </div>
   `).join('');
+
+  // Dropdown listener'larını bağla
+  state.formRows.forEach((r, i) => {
+    const input = document.getElementById('urun-ad-' + i);
+    if (input && r.ad.length >= 2) {
+      // Odaklanınca dropdown'u yeniden aç
+      input.addEventListener('focus', () => {
+        if (input.value.length >= 2) filterUrun(i, input.value);
+      }, { once: true });
+    }
+  });
 }
 
 function removeUrunRow(i) {
@@ -1731,20 +1735,19 @@ function removeUrunRow(i) {
 
 function validateSkt(i, el) {
   const today = new Date(); today.setHours(0,0,0,0);
-  const val = el.value;
-  if (val && new Date(val) < today) {
+  if (el.value && new Date(el.value) < today) {
     el.style.borderColor = 'var(--danger)';
     showToast('⚠️ SKT geçmiş tarih olamaz');
     el.value = '';
     state.formRows[i].skt = '';
   } else {
     el.style.borderColor = '';
-    updateRow(i, 'skt', val);
+    updateRow(i, 'skt', el.value);
   }
 }
 
 function updateRow(i, key, val) {
-  state.formRows[i][key] = val;
+  if (state.formRows[i]) state.formRows[i][key] = val;
 }
 
 function setUygun(i, val) {
@@ -1762,22 +1765,19 @@ function filterFirma(val) {
   if (results.length === 0) {
     dd.innerHTML = `
       <div class="autocomplete-item" style="color:var(--gray-500);font-style:italic;">Bulunamadı</div>
-      <div class="autocomplete-item" id="yeni-tedarikcisi-btn">+ Yeni tedarikçi ekle</div>
-    `;
+      <div class="autocomplete-item" id="yeni-tedarikcisi-btn">+ Yeni tedarikçi ekle</div>`;
     dd.querySelector('#yeni-tedarikcisi-btn').addEventListener('pointerdown', e => {
-      e.preventDefault();
-      openModal('modal-tedarikcisi');
+      e.preventDefault(); openModal('modal-tedarikcisi');
     });
     dd.style.display = 'block';
     return;
   }
   dd.innerHTML = results.map(f =>
     `<div class="autocomplete-item" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">
-      ${f.ad}
-      <div class="item-sub">${f.urunler.length} ürün</div>
+      ${f.ad}<div class="item-sub">${f.urunler.length} ürün</div>
     </div>`
   ).join('');
-  dd.querySelectorAll('.autocomplete-item').forEach(el => {
+  dd.querySelectorAll('.autocomplete-item[data-id]').forEach(el => {
     el.addEventListener('pointerdown', function(e) {
       e.preventDefault();
       selectFirma(parseInt(this.dataset.id), this.dataset.ad);
@@ -1791,7 +1791,6 @@ function selectFirma(id, ad) {
   document.getElementById('firma-id').value = id;
   document.getElementById('firma-dropdown').style.display = 'none';
   state.selectedFirmaId = id;
-  // AI: geçmiş kayıtlara bak ve öneri yap
   checkAiTedarikcii(id, ad);
 }
 
@@ -1804,42 +1803,51 @@ function hideFirmaDropdown() {
 // ============================================================
 function filterUrun(i, val) {
   const dd = document.getElementById('urun-dropdown-' + i);
+  if (!dd) return;
   if (!val || val.length < 2) { dd.style.display = 'none'; return; }
-  state.formRows[i].ad = val;
-  // Firma seçiliyse o firmanın ürünleri önce gelsin
+  if (state.formRows[i]) state.formRows[i].ad = val;
+
   let results = [];
   const firma = FIRMA_DB.find(f => f.id === state.selectedFirmaId);
   if (firma) {
-    const firmaUrunler = URUN_DB.filter(u => firma.urunler.includes(u.kod) && u.ad.toLowerCase().includes(val.toLowerCase()));
-    const digerUrunler = URUN_DB.filter(u => !firma.urunler.includes(u.kod) && u.ad.toLowerCase().includes(val.toLowerCase()));
-    results = [...firmaUrunler.slice(0, 10), ...digerUrunler.slice(0, 10)];
+    const fw = URUN_DB.filter(u => firma.urunler.includes(u.kod) && u.ad.toLowerCase().includes(val.toLowerCase()));
+    const ot = URUN_DB.filter(u => !firma.urunler.includes(u.kod) && u.ad.toLowerCase().includes(val.toLowerCase()));
+    results = [...fw.slice(0,10), ...ot.slice(0,10)];
   } else {
     results = URUN_DB.filter(u => u.ad.toLowerCase().includes(val.toLowerCase())).slice(0, 20);
   }
   if (results.length === 0) { dd.style.display = 'none'; return; }
+
   dd.innerHTML = results.map(u =>
-    `<div class="autocomplete-item" 
-      data-kod="${u.kod}" 
-      data-ad="${u.ad.replace(/"/g,'&quot;')}" 
-      data-birim="${u.birim}" 
+    `<div class="autocomplete-item"
+      data-kod="${u.kod}"
+      data-ad="${u.ad.replace(/"/g,'&quot;')}"
+      data-birim="${u.birim}"
       data-sicaklik="${u.sicaklikKriter||''}"
       data-row="${i}">
       ${u.ad}
-      <div class="item-sub">${u.kod} • ${u.birim} ${u.sicaklikKriter && u.sicaklikKriter !== 'none' ? '• ' + u.sicaklikKriter + '°C' : ''}</div>
+      <div class="item-sub">${u.kod} • ${u.birim}${u.sicaklikKriter && u.sicaklikKriter!=='none' ? ' • '+u.sicaklikKriter+'°C':''}</div>
     </div>`
   ).join('');
-  // Event listener — pointerdown ile blur'dan önce yakala
+
   dd.querySelectorAll('.autocomplete-item').forEach(el => {
     el.addEventListener('pointerdown', function(e) {
       e.preventDefault();
-      const row = parseInt(this.dataset.row);
-      selectUrun(row, this.dataset.kod, this.dataset.ad, this.dataset.birim, this.dataset.sicaklik);
+      e.stopPropagation();
+      selectUrun(
+        parseInt(this.dataset.row),
+        this.dataset.kod,
+        this.dataset.ad,
+        this.dataset.birim,
+        this.dataset.sicaklik
+      );
     });
   });
   dd.style.display = 'block';
 }
 
 function selectUrun(i, kod, ad, birim, sicaklikKriter) {
+  if (!state.formRows[i]) return;
   state.formRows[i].ad = ad;
   state.formRows[i].kod = kod;
   state.formRows[i].birim = birim;
@@ -1847,8 +1855,14 @@ function selectUrun(i, kod, ad, birim, sicaklikKriter) {
   if (sicaklikKriter && sicaklikKriter !== 'none') {
     state.formRows[i].sicaklik = sicaklikKriter;
   }
-  document.getElementById('urun-dropdown-' + i).style.display = 'none';
+  const dd = document.getElementById('urun-dropdown-' + i);
+  if (dd) dd.style.display = 'none';
   renderUrunRows();
+  // Seçimden sonra seri alanına fokuslan
+  setTimeout(() => {
+    const seri = document.getElementById('urun-seri-' + i);
+    if (seri) seri.focus();
+  }, 100);
 }
 
 function hideUrunDropdown(i) {
