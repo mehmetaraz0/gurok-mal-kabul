@@ -1494,8 +1494,14 @@ function filterUsers(val) {
   );
   if (!val || users.length === 0) { dd.style.display = 'none'; return; }
   dd.innerHTML = users.map(u =>
-    `<div class="autocomplete-item" onpointerdown="event.preventDefault();selectUser('${u.ad}')">${u.ad}</div>`
+    `<div class="autocomplete-item" data-name="${u.ad.replace(/"/g,'&quot;')}">${u.ad}</div>`
   ).join('');
+  dd.querySelectorAll('.autocomplete-item').forEach(el => {
+    el.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      selectUser(this.dataset.name);
+    });
+  });
   dd.style.display = 'block';
 }
 
@@ -1756,17 +1762,27 @@ function filterFirma(val) {
   if (results.length === 0) {
     dd.innerHTML = `
       <div class="autocomplete-item" style="color:var(--gray-500);font-style:italic;">Bulunamadı</div>
-      <div class="autocomplete-item" onpointerdown="event.preventDefault();openModal('modal-tedarikcisi')">+ Yeni tedarikçi ekle</div>
+      <div class="autocomplete-item" id="yeni-tedarikcisi-btn">+ Yeni tedarikçi ekle</div>
     `;
+    dd.querySelector('#yeni-tedarikcisi-btn').addEventListener('pointerdown', e => {
+      e.preventDefault();
+      openModal('modal-tedarikcisi');
+    });
     dd.style.display = 'block';
     return;
   }
   dd.innerHTML = results.map(f =>
-    `<div class="autocomplete-item" onpointerdown="event.preventDefault();selectFirma(${f.id}, '${f.ad.replace(/'/g,"\\'")}')">
+    `<div class="autocomplete-item" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">
       ${f.ad}
       <div class="item-sub">${f.urunler.length} ürün</div>
     </div>`
   ).join('');
+  dd.querySelectorAll('.autocomplete-item').forEach(el => {
+    el.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      selectFirma(parseInt(this.dataset.id), this.dataset.ad);
+    });
+  });
   dd.style.display = 'block';
 }
 
@@ -1802,11 +1818,24 @@ function filterUrun(i, val) {
   }
   if (results.length === 0) { dd.style.display = 'none'; return; }
   dd.innerHTML = results.map(u =>
-    `<div class="autocomplete-item" onpointerdown="event.preventDefault();selectUrun(${i}, '${u.kod}', '${u.ad.replace(/'/g,"\\'")}', '${u.birim}', '${u.sicaklikKriter||''}')">
+    `<div class="autocomplete-item" 
+      data-kod="${u.kod}" 
+      data-ad="${u.ad.replace(/"/g,'&quot;')}" 
+      data-birim="${u.birim}" 
+      data-sicaklik="${u.sicaklikKriter||''}"
+      data-row="${i}">
       ${u.ad}
       <div class="item-sub">${u.kod} • ${u.birim} ${u.sicaklikKriter && u.sicaklikKriter !== 'none' ? '• ' + u.sicaklikKriter + '°C' : ''}</div>
     </div>`
   ).join('');
+  // Event listener — pointerdown ile blur'dan önce yakala
+  dd.querySelectorAll('.autocomplete-item').forEach(el => {
+    el.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      const row = parseInt(this.dataset.row);
+      selectUrun(row, this.dataset.kod, this.dataset.ad, this.dataset.birim, this.dataset.sicaklik);
+    });
+  });
   dd.style.display = 'block';
 }
 
