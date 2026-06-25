@@ -1877,13 +1877,57 @@ function startCamera() {
 
 let _zxingReader = null;
 let _qrScanActive = false;
+let _barcodeDetector = null;
 
 function startQRScan() {
   if (_qrScanActive) return;
   _qrScanActive = true;
   const video = document.getElementById('barkod-video');
 
-  // ZXing varsa onu kullan — daha güçlü
+  // Önce BarcodeDetector dene (Chrome Android — yerleşik, çok hızlı)
+  if ('BarcodeDetector' in window) {
+    try {
+      _barcodeDetector = new BarcodeDetector({
+        formats: ['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e','itf','codabar']
+      });
+      document.getElementById('barkod-status').textContent = '🟢 Barkodu yeşil çerçeveye tutun';
+      document.getElementById('barkod-status').style.color = 'var(--success)';
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      function detectLoop() {
+        if (!_qrScanActive) return;
+        if (!document.getElementById('modal-barkod').classList.contains('open')) { _qrScanActive = false; return; }
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          _barcodeDetector.detect(canvas).then(codes => {
+            if (!_qrScanActive) return;
+            if (codes.length > 0) {
+              _qrScanActive = false;
+              const val = codes[0].rawValue;
+              document.getElementById('barkod-status').textContent = '✅ ' + val;
+              document.getElementById('barkod-status').style.color = 'var(--success)';
+              if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+              setTimeout(() => applyBarkod(val), 200);
+            } else {
+              requestAnimationFrame(detectLoop);
+            }
+          }).catch(() => requestAnimationFrame(detectLoop));
+        } else {
+          requestAnimationFrame(detectLoop);
+        }
+      }
+      requestAnimationFrame(detectLoop);
+      return;
+    } catch(e) {
+      console.warn('BarcodeDetector hata, ZXing fallback:', e);
+    }
+  }
+
+  // ZXing fallback (iOS, Firefox, diğerleri)
+  document.getElementById('barkod-status').textContent = '🟡 Barkodu çerçeveye tutun (ZXing)';
   if (typeof ZXing !== 'undefined') {
     try {
       if (_zxingReader) { try { _zxingReader.reset(); } catch(e) {} }
@@ -1893,42 +1937,18 @@ function startQRScan() {
         if (result) {
           _qrScanActive = false;
           const val = result.getText();
-          document.getElementById('barkod-status').textContent = '✅ Bulundu: ' + val;
+          document.getElementById('barkod-status').textContent = '✅ ' + val;
           document.getElementById('barkod-status').style.color = 'var(--success)';
           if (navigator.vibrate) navigator.vibrate(100);
           setTimeout(() => applyBarkod(val), 300);
         }
       });
-      return;
     } catch(e) {
-      console.warn('ZXing hata, jsQR fallback:', e);
+      document.getElementById('barkod-status').textContent = '⚠️ Okuma hatası — Manuel girin';
     }
+  } else {
+    document.getElementById('barkod-status').textContent = '⚠️ Kütüphane yüklenemedi — Manuel girin';
   }
-
-  // jsQR fallback
-  if (typeof jsQR === 'undefined') return;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  function scan() {
-    if (!_qrScanActive) return;
-    if (!document.getElementById('modal-barkod').classList.contains('open')) { _qrScanActive = false; return; }
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-      if (code && code.data) {
-        _qrScanActive = false;
-        document.getElementById('barkod-status').textContent = '✅ Bulundu: ' + code.data;
-        document.getElementById('barkod-status').style.color = 'var(--success)';
-        if (navigator.vibrate) navigator.vibrate(100);
-        setTimeout(() => applyBarkod(code.data), 300);
-        return;
-      }
-    }
-    requestAnimationFrame(scan);
-  }
-  requestAnimationFrame(scan);
 }
 
 function closeBarkod() {
