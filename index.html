@@ -852,7 +852,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           <input type="text" id="firma-input" placeholder="2+ harf yazın..." autocomplete="off"
             oninput="filterFirmaDebounced(this.value)"
             onfocus="if(this.value.length>=2)filterFirma(this.value)"
-            onblur="setTimeout(()=>hideFirmaDropdown(),400)">
+            >
           <div class="autocomplete-list" id="firma-dropdown" style="display:none;"></div>
         </div>
         <input type="hidden" id="firma-id">
@@ -1651,7 +1651,7 @@ function renderUrunRows() {
           <input type="text" id="urun-ad-${i}" value="${r.ad}" placeholder="2+ harf yazın..." autocomplete="off"
             oninput="filterUrunDebounced(${i}, this.value)"
             onfocus="if(this.value.length>=2)filterUrun(${i},this.value)"
-            onblur="setTimeout(()=>hideUrunDropdown(${i}),400)">
+            >
           <button class="barcode-btn" onclick="openBarkod(${i})">📷</button>
           <div class="autocomplete-list" id="urun-dropdown-${i}" style="display:none;"></div>
         </div>
@@ -3133,6 +3133,24 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
 // ============================================================
 // BAŞLANGIÇ
 // ============================================================
+// Dropdown dışına tıklanınca kapat
+document.addEventListener('pointerdown', function(e) {
+  // Firma dropdown
+  const firmaInput = document.getElementById('firma-input');
+  const firmaDd = document.getElementById('firma-dropdown');
+  if (firmaDd && !firmaDd.contains(e.target) && e.target !== firmaInput) {
+    firmaDd.style.display = 'none';
+  }
+  // Ürün dropdownları
+  document.querySelectorAll('[id^="urun-dropdown-"]').forEach(dd => {
+    const i = dd.id.replace('urun-dropdown-', '');
+    const inp = document.getElementById('urun-ad-' + i);
+    if (!dd.contains(e.target) && e.target !== inp) {
+      dd.style.display = 'none';
+    }
+  });
+});
+
 (async function init() {
   await loadDB();
   if (checkSession()) {
