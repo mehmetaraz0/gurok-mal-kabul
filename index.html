@@ -1151,12 +1151,21 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       📷 Barkod Tara
       <button class="modal-close" onclick="closeBarkod()">✕</button>
     </div>
-    <video id="barkod-video" style="width:100%;border-radius:8px;background:#000;max-height:300px;object-fit:cover;"></video>
-    <p style="font-size:12px;color:var(--gray-500);text-align:center;margin:8px 0;">Barkodu kamera çerçevesine tutun</p>
-    <div class="field" style="margin-top:8px;">
+    <div style="position:relative;border-radius:8px;overflow:hidden;background:#000;">
+      <video id="barkod-video" style="width:100%;display:block;max-height:280px;object-fit:cover;" playsinline autoplay muted></video>
+      <!-- Tarama çerçevesi -->
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="width:220px;height:120px;border:3px solid #00ff88;border-radius:8px;box-shadow:0 0 0 2000px rgba(0,0,0,0.4);"></div>
+      </div>
+    </div>
+    <div id="barkod-status" style="text-align:center;font-size:12px;color:var(--gray-500);padding:8px 0;">
+      📷 Kamera başlatılıyor...
+    </div>
+    <div class="field" style="margin-top:4px;">
       <label>Veya Manuel Gir</label>
       <div style="display:flex;gap:8px;">
-        <input type="text" id="barkod-manual" placeholder="Barkod numarası" style="flex:1;">
+        <input type="text" id="barkod-manual" placeholder="Barkod numarası" style="flex:1;"
+          onkeydown="if(event.key==='Enter')lookupBarkodManual()">
         <button class="btn btn-primary btn-sm" onclick="lookupBarkodManual()">Ara</button>
       </div>
     </div>
@@ -1823,29 +1832,98 @@ function hideUrunDropdown(i) {
 // ============================================================
 function openBarkod(rowIdx) {
   state.barkodRowIdx = rowIdx;
+  document.getElementById('barkod-manual').value = '';
+  document.getElementById('barkod-status').textContent = '📷 Kamera başlatılıyor...';
+  document.getElementById('barkod-status').style.color = 'var(--gray-500)';
   openModal('modal-barkod');
-  startCamera();
+  // jsQR kütüphanesini yükle, sonra kamerayı başlat
+  if (typeof jsQR === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+    s.onload = () => startCamera();
+    s.onerror = () => {
+      document.getElementById('barkod-status').textContent = '⚠️ Kütüphane yüklenemedi — Manuel girin';
+      startCamera(); // Kütüphane olmadan da video açılsın
+    };
+    document.head.appendChild(s);
+  } else {
+    startCamera();
+  }
 }
 
 function startCamera() {
   const video = document.getElementById('barkod-video');
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      .then(stream => {
-        state.barkodStream = stream;
-        video.srcObject = stream;
-        video.play();
-      }).catch(() => {
-        showToast('Kamera erişimi reddedildi, manuel girin');
-      });
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    document.getElementById('barkod-status').textContent = '⚠️ Kamera desteklenmiyor — Manuel girin';
+    return;
   }
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+  }).then(stream => {
+    state.barkodStream = stream;
+    video.srcObject = stream;
+    video.play();
+    video.onloadedmetadata = () => {
+      document.getElementById('barkod-status').textContent = '🟢 Barkodu yeşil çerçeveye tutun';
+      document.getElementById('barkod-status').style.color = 'var(--success)';
+      startQRScan();
+    };
+  }).catch(err => {
+    console.warn('Kamera hatası:', err);
+    document.getElementById('barkod-status').textContent = '⚠️ Kamera erişimi reddedildi — Manuel girin';
+    document.getElementById('barkod-status').style.color = 'var(--danger)';
+  });
+}
+
+let _qrScanActive = false;
+function startQRScan() {
+  if (_qrScanActive) return;
+  _qrScanActive = true;
+  const video = document.getElementById('barkod-video');
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function scan() {
+    if (!_qrScanActive) return;
+    if (!document.getElementById('modal-barkod').classList.contains('open')) {
+      _qrScanActive = false;
+      return;
+    }
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      // jsQR ile QR/barkod tara
+      if (typeof jsQR !== 'undefined') {
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert'
+        });
+        if (code && code.data) {
+          _qrScanActive = false;
+          document.getElementById('barkod-status').textContent = '✅ Bulundu: ' + code.data;
+          document.getElementById('barkod-status').style.color = 'var(--success)';
+          // Kısa titreşim
+          if (navigator.vibrate) navigator.vibrate(100);
+          setTimeout(() => applyBarkod(code.data), 300);
+          return;
+        }
+      }
+    }
+    requestAnimationFrame(scan);
+  }
+  requestAnimationFrame(scan);
 }
 
 function closeBarkod() {
+  _qrScanActive = false;
   if (state.barkodStream) {
     state.barkodStream.getTracks().forEach(t => t.stop());
     state.barkodStream = null;
   }
+  const video = document.getElementById('barkod-video');
+  if (video) { video.srcObject = null; }
   closeModal('modal-barkod');
 }
 
