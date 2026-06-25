@@ -852,7 +852,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           <input type="text" id="firma-input" placeholder="2+ harf yazın..." autocomplete="off"
             oninput="filterFirmaDebounced(this.value)"
             onfocus="if(this.value.length>=2)filterFirma(this.value)"
-            onblur="setTimeout(()=>hideFirmaDropdown(),250)">
+            onblur="setTimeout(()=>hideFirmaDropdown(),400)">
           <div class="autocomplete-list" id="firma-dropdown" style="display:none;"></div>
         </div>
         <input type="hidden" id="firma-id">
@@ -1494,7 +1494,7 @@ function filterUsers(val) {
   );
   if (!val || users.length === 0) { dd.style.display = 'none'; return; }
   dd.innerHTML = users.map(u =>
-    `<div class="autocomplete-item" onmousedown="selectUser('${u.ad}')">${u.ad}</div>`
+    `<div class="autocomplete-item" onpointerdown="event.preventDefault();selectUser('${u.ad}')">${u.ad}</div>`
   ).join('');
   dd.style.display = 'block';
 }
@@ -1645,7 +1645,7 @@ function renderUrunRows() {
           <input type="text" id="urun-ad-${i}" value="${r.ad}" placeholder="2+ harf yazın..." autocomplete="off"
             oninput="filterUrunDebounced(${i}, this.value)"
             onfocus="if(this.value.length>=2)filterUrun(${i},this.value)"
-            onblur="setTimeout(()=>hideUrunDropdown(${i}),250)">
+            onblur="setTimeout(()=>hideUrunDropdown(${i}),400)">
           <button class="barcode-btn" onclick="openBarkod(${i})">📷</button>
           <div class="autocomplete-list" id="urun-dropdown-${i}" style="display:none;"></div>
         </div>
@@ -1756,13 +1756,13 @@ function filterFirma(val) {
   if (results.length === 0) {
     dd.innerHTML = `
       <div class="autocomplete-item" style="color:var(--gray-500);font-style:italic;">Bulunamadı</div>
-      <div class="autocomplete-item" onmousedown="openModal('modal-tedarikcisi')">+ Yeni tedarikçi ekle</div>
+      <div class="autocomplete-item" onpointerdown="event.preventDefault();openModal('modal-tedarikcisi')">+ Yeni tedarikçi ekle</div>
     `;
     dd.style.display = 'block';
     return;
   }
   dd.innerHTML = results.map(f =>
-    `<div class="autocomplete-item" onmousedown="selectFirma(${f.id}, '${f.ad.replace(/'/g,"\\'")}')">
+    `<div class="autocomplete-item" onpointerdown="event.preventDefault();selectFirma(${f.id}, '${f.ad.replace(/'/g,"\\'")}')">
       ${f.ad}
       <div class="item-sub">${f.urunler.length} ürün</div>
     </div>`
@@ -1802,7 +1802,7 @@ function filterUrun(i, val) {
   }
   if (results.length === 0) { dd.style.display = 'none'; return; }
   dd.innerHTML = results.map(u =>
-    `<div class="autocomplete-item" onmousedown="selectUrun(${i}, '${u.kod}', '${u.ad.replace(/'/g,"\\'")}', '${u.birim}', '${u.sicaklikKriter||''}')">
+    `<div class="autocomplete-item" onpointerdown="event.preventDefault();selectUrun(${i}, '${u.kod}', '${u.ad.replace(/'/g,"\\'")}', '${u.birim}', '${u.sicaklikKriter||''}')">
       ${u.ad}
       <div class="item-sub">${u.kod} • ${u.birim} ${u.sicaklikKriter && u.sicaklikKriter !== 'none' ? '• ' + u.sicaklikKriter + '°C' : ''}</div>
     </div>`
