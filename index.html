@@ -859,7 +859,11 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       </div>
       <div class="row-fields">
         <div class="field">
-          <label>Fatura No</label>
+          <label>Tarih *</label>
+          <input type="date" id="form-tarih">
+        </div>
+        <div class="field">
+          <label>Fatura No *</label>
           <input type="text" id="fatura-no" placeholder="Fatura numarası">
         </div>
         <div class="field">
@@ -874,7 +878,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           </select>
         </div>
         <div class="field">
-          <label>Araç Sıcaklığı (°C)</label>
+          <label>Araç Sıcaklığı (°C) *</label>
           <input type="number" id="arac-sicaklik" placeholder="Örn: 4">
         </div>
       </div>
@@ -1591,6 +1595,7 @@ function switchTab(tab) {
 function resetForm() {
   document.getElementById('firma-input').value = '';
   document.getElementById('firma-id').value = '';
+  document.getElementById('form-tarih').value = new Date().toISOString().split('T')[0];
   document.getElementById('fatura-no').value = '';
   document.getElementById('irsaliye-no').value = '';
   document.getElementById('arac-hijyen').value = 'uygun';
@@ -1657,8 +1662,9 @@ function renderUrunRows() {
         <div class="field">
           <label>Sıcaklık (°C)</label>
           <input type="number" id="urun-sicaklik-${i}" value="${r.sicaklik}"
-            placeholder="${r.sicaklikKriter || ''}"
-            onchange="updateRow(${i}, 'sicaklik', this.value)">
+            placeholder="${r.sicaklikKriter && r.sicaklikKriter !== 'none' ? 'Kriter: ' + r.sicaklikKriter + '°C' : 'Sıcaklık'}"
+            onchange="checkSicaklikUygunluk(${i}, this.value)"
+            style="${r.sicaklik && r.sicaklikKriter && r.sicaklikKriter !== 'none' ? (checkSicaklikOk(r.sicaklikKriter, r.sicaklik) ? 'border-color:var(--success)' : 'border-color:var(--danger)') : ''}">
         </div>
       </div>
       <div class="row-fields" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -1852,29 +1858,86 @@ function lookupBarkodManual() {
 function applyBarkod(barkodNo) {
   const i = state.barkodRowIdx;
   if (i === null || i === undefined) return;
-  // Barkod kütüphanesi: firma+barkod → ürün
   const firmaId = state.selectedFirmaId || 0;
   const key1 = `${firmaId}_${barkodNo}`;
   const key2 = `0_${barkodNo}`;
   let urun = null;
   if (db.barkodlar[key1]) {
-    const kod = db.barkodlar[key1];
-    urun = URUN_DB.find(u => u.kod === kod);
+    urun = URUN_DB.find(u => u.kod === db.barkodlar[key1]);
   } else if (db.barkodlar[key2]) {
-    const kod = db.barkodlar[key2];
-    urun = URUN_DB.find(u => u.kod === kod);
+    urun = URUN_DB.find(u => u.kod === db.barkodlar[key2]);
   } else {
-    // Ürün kodunda ara
     urun = URUN_DB.find(u => u.barkod === barkodNo || u.kod.includes(barkodNo));
   }
   if (urun) {
     selectUrun(i, urun.kod, urun.ad, urun.birim, urun.sicaklikKriter || '');
     showToast('✅ Ürün bulundu: ' + urun.ad);
+    closeBarkod();
   } else {
-    state.formRows[i].barkod = barkodNo;
-    showToast('⚠️ Barkod bulunamadı, ürünü seçin');
+    // Bilinmeyen barkod → kayıt formu aç
+    state.yeniBarkodNo = barkodNo;
+    closeBarkod();
+    openYeniBarkodModal(barkodNo, i);
   }
-  closeBarkod();
+}
+
+function openYeniBarkodModal(barkodNo, rowIdx) {
+  document.getElementById('yeni-barkod-no').value = barkodNo;
+  document.getElementById('yeni-barkod-no-display').textContent = barkodNo;
+  document.getElementById('yeni-barkod-rowIdx').value = rowIdx;
+  document.getElementById('yeni-barkod-ad').value = '';
+  document.getElementById('yeni-barkod-birim').value = 'KG';
+  document.getElementById('yeni-barkod-sicaklik').value = '';
+  openModal('modal-yeni-barkod');
+}
+
+function filterYeniBarkodUrun(val) {
+  const dd = document.getElementById('yeni-barkod-dropdown');
+  if (!val || val.length < 2) { dd.style.display = 'none'; return; }
+  const results = URUN_DB.filter(u => u.ad.toLowerCase().includes(val.toLowerCase())).slice(0, 15);
+  if (results.length === 0) { dd.style.display = 'none'; return; }
+  dd.innerHTML = results.map(u =>
+    `<div class="autocomplete-item" onmousedown="selectYeniBarkodUrun('${u.kod}','${u.ad.replace(/'/g,"\\'")}','${u.birim}','${u.sicaklikKriter||''}')">
+      ${u.ad}<div class="item-sub">${u.kod} • ${u.birim}</div>
+    </div>`
+  ).join('');
+  dd.style.display = 'block';
+}
+
+function selectYeniBarkodUrun(kod, ad, birim, sicaklik) {
+  document.getElementById('yeni-barkod-ad').value = ad;
+  document.getElementById('yeni-barkod-birim').value = birim;
+  document.getElementById('yeni-barkod-sicaklik').value = sicaklik !== 'none' ? sicaklik : '';
+  document.getElementById('yeni-barkod-dropdown').style.display = 'none';
+  // Mevcut ürünü barkoda bağla
+  const barkodNo = document.getElementById('yeni-barkod-no').value;
+  const rowIdx   = parseInt(document.getElementById('yeni-barkod-rowIdx').value);
+  const firmaId  = state.selectedFirmaId || 0;
+  db.barkodlar[`${firmaId}_${barkodNo}`] = kod;
+  saveDB();
+  selectUrun(rowIdx, kod, ad, birim, sicaklik || 'none');
+  closeModal('modal-yeni-barkod');
+  showToast('✅ Barkod mevcut ürüne bağlandı: ' + ad);
+}
+
+async function saveYeniBarkod() {
+  const barkodNo = document.getElementById('yeni-barkod-no').value;
+  const rowIdx   = parseInt(document.getElementById('yeni-barkod-rowIdx').value);
+  const ad       = document.getElementById('yeni-barkod-ad').value.trim();
+  const birim    = document.getElementById('yeni-barkod-birim').value;
+  const sicaklik = document.getElementById('yeni-barkod-sicaklik').value.trim();
+  if (!ad) { showToast('⚠️ Ürün adı zorunlu'); return; }
+  const firmaId = state.selectedFirmaId || 0;
+  const key = `${firmaId}_${barkodNo}`;
+  // Yeni ürün kodu oluştur (geçici)
+  const yeniKod = 'BRKD' + Date.now().toString().slice(-6);
+  db.barkodlar[key] = yeniKod;
+  // Dinamik ürün listesine ekle
+  URUN_DB.push({ kod: yeniKod, ad, birim, grup: 'BRKD', sicaklikKriter: sicaklik || 'none' });
+  await saveDB();
+  selectUrun(rowIdx, yeniKod, ad, birim, sicaklik || 'none');
+  closeModal('modal-yeni-barkod');
+  showToast('✅ Barkod kaydedildi: ' + ad);
 }
 
 // ============================================================
@@ -1895,6 +1958,8 @@ async function submitFormOnce() {
 
 async function submitForm() {
   if (!state.currentUser) { showToast('⚠️ Giriş yapmalısınız'); return; }
+  const formTarih = document.getElementById('form-tarih').value;
+  if (!formTarih) { showToast('⚠️ Tarih zorunlu'); return; }
   const firmaAd = document.getElementById('firma-input').value.trim();
   if (!firmaAd) { showToast('⚠️ Firma adı zorunlu'); return; }
   const faturaNo = document.getElementById('fatura-no').value.trim();
@@ -1919,6 +1984,7 @@ async function submitForm() {
 
   const form = {
     id: Date.now(),
+    formTarih: document.getElementById('form-tarih').value,
     tarih: Date.now(),
     firma: firmaAd,
     firmaId: state.selectedFirmaId,
@@ -2424,7 +2490,7 @@ async function renderIzleme() {
             <div class="analytics-row" onclick="openOnayDetail('${f.id}')" style="cursor:pointer;">
               <div style="flex:1;min-width:0;">
                 <div style="font-size:13px;font-weight:600;">${f.firma}</div>
-                <div style="font-size:11px;color:var(--gray-500);">${new Date(f.tarih).toLocaleDateString('tr-TR')} • ${f.personel} • ${(f.urunler||[]).length} ürün</div>
+                <div style="font-size:11px;color:var(--gray-500);">${(f.formTarih || new Date(f.tarih).toLocaleDateString('tr-TR'))} • ${f.personel} • ${(f.urunler||[]).length} ürün</div>
                 ${uygunsuzlar.length>0 ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;">⚠️ ${uygunsuzlar.map(u=>u.ad).join(', ')}</div>` : ''}
               </div>
               ${chip}
@@ -2816,7 +2882,7 @@ function buildXlsx(formlar, today) {
   // Ürün satırlarını düzleştir
   const urunSatirlari = [];
   formlar.forEach(f => {
-    const tarih = new Date(f.tarih).toLocaleDateString('tr-TR');
+    const tarih = f.formTarih ? new Date(f.formTarih).toLocaleDateString('tr-TR') : new Date(f.tarih).toLocaleDateString('tr-TR');
     (f.urunler || []).forEach((u, idx) => {
       let yariOmur = '';
       if (u.skt) {
