@@ -1061,13 +1061,18 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <div class="settings-group">
       <div class="settings-group-title">Veri Yönetimi</div>
-      <div class="settings-item" onclick="exportExcel()" style="cursor:pointer;">
-        <div class="settings-item-icon">📊</div>
-        <div class="settings-item-info">
-          <div class="settings-item-title">Excel Dışa Aktar</div>
-          <div class="settings-item-sub">Günlük mal kabul formu</div>
+      <div class="settings-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="settings-item-icon">📊</div>
+          <div class="settings-item-info">
+            <div class="settings-item-title">Excel Dışa Aktar</div>
+            <div class="settings-item-sub">Tarih seçerek mal kabul formu</div>
+          </div>
         </div>
-        <div class="settings-item-action">›</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" id="export-tarih" style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;">
+          <button class="btn btn-primary btn-sm" onclick="exportExcel()">İndir</button>
+        </div>
       </div>
       <div class="settings-item" onclick="exportJSON()" style="cursor:pointer;">
         <div class="settings-item-icon">💾</div>
@@ -1869,6 +1874,11 @@ function logout() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // Ayarlar açılınca export tarihini bugün yap
+  if (id === 'screen-settings') {
+    const el = document.getElementById('export-tarih');
+    if (el && !el.value) el.value = new Date().toISOString().split('T')[0];
+  }
 }
 
 function switchTab(tab) {
@@ -2394,7 +2404,7 @@ async function submitForm() {
   if (badSkt) { showToast('⚠️ ' + badSkt.ad + ' — SKT geçmiş tarih olamaz'); return; }
   // Sıcaklık zorunlu
   const emptySicaklik = state.formRows.find(r => r.sicaklikKriter && r.sicaklikKriter !== 'none' && !r.sicaklik);
-  if (emptySicaklik) { showToast('⚠️ ' + emptySicaklik.ad + ' — ürün sıcaklığı giriniz'); return; }
+  if (emptySicaklik) showToast('⚠️ ' + emptySicaklik.ad + ' — sıcaklık girilmedi, devam ediliyor', 3000);
 
   const form = {
     id: Date.now(),
@@ -3769,29 +3779,42 @@ async function deleteUser(id) {
 // EXPORT
 // ============================================================
 function exportExcel() {
-  const today = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
-  const formlar = db.formlar.filter(f => {
-    const d = new Date(f.tarih);
-    const t = new Date();
-    return d.toDateString() === t.toDateString();
-  });
-  if (formlar.length === 0) { showToast('Bugün form yok'); return; }
+  const exportTarihEl = document.getElementById('export-tarih');
+  const seciliTarih = exportTarihEl ? exportTarihEl.value : '';
+  const hedefTarih = seciliTarih ? new Date(seciliTarih) : new Date();
+  hedefTarih.setHours(0,0,0,0);
+  const hedefStr = hedefTarih.toLocaleDateString('tr-TR').replace(/\./g,'-');
 
-  // 13 satır limiti uyarısı
-  const toplamUrun = formlar.reduce((t, f) => t + (f.urunler||[]).length, 0);
-  if (toplamUrun > 13) {
-    showToast(`⚠️ ${toplamUrun} ürün var, Excel'e ilk 13 satır sığar. Geri kalanlar kesilir.`, 4000);
+  // Aktif formlardan filtrele
+  let formlar = db.formlar.filter(f => {
+    const d = new Date(f.tarih); d.setHours(0,0,0,0);
+    return d.getTime() === hedefTarih.getTime();
+  });
+
+  // Arşivde de ara (30 günden eski olabilir)
+  if ((db.arsiv||[]).length > 0) {
+    const arsivFormlar = db.arsiv.filter(f => {
+      const d = new Date(f.tarih); d.setHours(0,0,0,0);
+      return d.getTime() === hedefTarih.getTime();
+    });
+    formlar = [...formlar, ...arsivFormlar];
   }
 
-  // SheetJS ile gerçek .xlsx oluştur
+  if (formlar.length === 0) {
+    showToast(`⚠️ ${hedefStr} tarihinde form bulunamadı`);
+    return;
+  }
+
+  const toplamUrun = formlar.reduce((t, f) => t + (f.urunler||[]).length, 0);
+
   if (typeof XLSX === 'undefined') {
     showToast('⏳ Excel kütüphanesi yükleniyor...');
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
-    s.onload = () => buildXlsx(formlar, today);
+    s.onload = () => buildXlsx(formlar, hedefStr);
     document.head.appendChild(s);
   } else {
-    buildXlsx(formlar, today);
+    buildXlsx(formlar, hedefStr);
   }
 }
 
