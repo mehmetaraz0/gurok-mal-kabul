@@ -1734,8 +1734,18 @@ const DEFAULT_USERS = [
 ];
 
 function getUsers() {
-  if (db.kullanicilar && db.kullanicilar.length > 0) return db.kullanicilar;
-  return DEFAULT_USERS;
+  let users = (db.kullanicilar && db.kullanicilar.length > 0)
+    ? db.kullanicilar : DEFAULT_USERS;
+
+  // Eski format migrasyonu: 'personel' → 'depo', eski roller güncelle
+  const rolMap = { 'personel': 'depo', 'yonetici': 'yonetici' };
+  users = users.map(u => ({
+    ...u,
+    rol: rolMap[u.rol] || u.rol, // bilinmeyen rol olduğu gibi kalır
+    departman: u.departman || ({ depo:'Depo', satinalma:'Satınalma', kalite:'Kalite', yonetici:'Yönetim' }[rolMap[u.rol]||u.rol] || '')
+  }));
+
+  return users;
 }
 
 // ============================================================
