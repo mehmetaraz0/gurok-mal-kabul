@@ -1923,15 +1923,67 @@ function showScreen(id) {
 }
 
 function switchTab(tab) {
+  // Mal kabul formunu geçici kaydet
+  if (state.currentTab === 'malkabul' && tab !== 'malkabul') {
+    saveFormDraft();
+  }
   state.currentTab = tab;
   ['malkabul','skt','onay','siparisler','izleme'].forEach(t => {
     document.getElementById('tab-' + t).style.display = t === tab ? 'flex' : 'none';
     document.getElementById('nav-' + t).classList.toggle('active', t === tab);
   });
+  // Mal kabul'e dönünce taslağı geri yükle
+  if (tab === 'malkabul') restoreFormDraft();
   if (tab === 'skt') renderSkt();
   if (tab === 'onay') renderOnayList();
   if (tab === 'siparisler') renderSiparisler();
   if (tab === 'izleme') renderIzleme();
+}
+
+// Form taslağını localStorage'a kaydet
+function saveFormDraft() {
+  const draft = {
+    firma: document.getElementById('firma-input')?.value || '',
+    firmaId: state.selectedFirmaId,
+    faturaNo: document.getElementById('fatura-no')?.value || '',
+    irsaliyeNo: document.getElementById('irsaliye-no')?.value || '',
+    formTarih: document.getElementById('form-tarih')?.value || '',
+    aracHijyen: document.getElementById('arac-hijyen')?.value || 'uygun',
+    aracSicaklik: document.getElementById('arac-sicaklik')?.value || '',
+    notlar: document.getElementById('form-notlar')?.value || '',
+    formRows: state.formRows
+  };
+  // Sadece dolu formları kaydet
+  if (draft.firma || draft.formRows.some(r => r.ad)) {
+    localStorage.setItem('gurok_form_draft', JSON.stringify(draft));
+  }
+}
+
+// Taslağı geri yükle
+function restoreFormDraft() {
+  const raw = localStorage.getItem('gurok_form_draft');
+  if (!raw) return;
+  try {
+    const draft = JSON.parse(raw);
+    if (!draft.firma && !draft.formRows?.some(r => r.ad)) return;
+    // Firma dolu ise geri yükle
+    if (draft.firma) {
+      document.getElementById('firma-input').value = draft.firma;
+      document.getElementById('firma-id').value = draft.firmaId || '';
+      state.selectedFirmaId = draft.firmaId;
+    }
+    if (draft.faturaNo) document.getElementById('fatura-no').value = draft.faturaNo;
+    if (draft.irsaliyeNo) document.getElementById('irsaliye-no').value = draft.irsaliyeNo;
+    if (draft.formTarih) document.getElementById('form-tarih').value = draft.formTarih;
+    if (draft.aracHijyen) document.getElementById('arac-hijyen').value = draft.aracHijyen;
+    if (draft.aracSicaklik) document.getElementById('arac-sicaklik').value = draft.aracSicaklik;
+    if (draft.notlar) document.getElementById('form-notlar').value = draft.notlar;
+    if (draft.formRows?.length) {
+      state.formRows = draft.formRows;
+      renderUrunRows();
+    }
+    showToast('📋 Yarım kalan form geri yüklendi', 3000);
+  } catch(e) {}
 }
 
 // ============================================================
@@ -2495,6 +2547,7 @@ async function submitForm() {
   await saveFormTekil(form);
   hideLoading();
   showToast('✅ Form onaya gönderildi!');
+  localStorage.removeItem('gurok_form_draft');
   resetForm();
   updateBadges();
 }
@@ -3949,27 +4002,27 @@ async function deleteUser(id) {
 function exportExcel() {
   const exportTarihEl = document.getElementById('export-tarih');
   const seciliTarih = exportTarihEl ? exportTarihEl.value : '';
-  const hedefTarih = seciliTarih ? new Date(seciliTarih) : new Date();
-  hedefTarih.setHours(0,0,0,0);
-  const hedefStr = hedefTarih.toLocaleDateString('tr-TR').replace(/\./g,'-');
+  // Timezone hatası önlemi: string olarak karşılaştır
+  const hedefStr = seciliTarih || new Date().toISOString().split('T')[0];
+  const hedefGosterim = hedefStr.split('-').reverse().join('-'); // yyyy-mm-dd → dd-mm-yyyy
 
-  // Aktif formlardan filtrele
+  // Aktif formlardan filtrele — formTarih string karşılaştırması
   let formlar = db.formlar.filter(f => {
-    const d = new Date(f.tarih); d.setHours(0,0,0,0);
-    return d.getTime() === hedefTarih.getTime();
+    const fTarih = f.formTarih || new Date(f.tarih).toISOString().split('T')[0];
+    return fTarih === hedefStr;
   });
 
-  // Arşivde de ara (30 günden eski olabilir)
+  // Arşivde de ara
   if ((db.arsiv||[]).length > 0) {
     const arsivFormlar = db.arsiv.filter(f => {
-      const d = new Date(f.tarih); d.setHours(0,0,0,0);
-      return d.getTime() === hedefTarih.getTime();
+      const fTarih = f.formTarih || new Date(f.tarih).toISOString().split('T')[0];
+      return fTarih === hedefStr;
     });
     formlar = [...formlar, ...arsivFormlar];
   }
 
   if (formlar.length === 0) {
-    showToast(`⚠️ ${hedefStr} tarihinde form bulunamadı`);
+    showToast(`⚠️ ${hedefGosterim} tarihinde form bulunamadı`);
     return;
   }
 
