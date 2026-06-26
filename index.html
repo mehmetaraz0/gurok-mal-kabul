@@ -1094,6 +1094,29 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     </div>
 
     <div class="settings-group">
+      <div class="settings-group-title">LN Infor Güncelle</div>
+      <div class="settings-item" onclick="document.getElementById('ln-urun-input').click()" style="cursor:pointer;">
+        <div class="settings-item-icon">📦</div>
+        <div class="settings-item-info">
+          <div class="settings-item-title">Ürün Listesi Güncelle</div>
+          <div class="settings-item-sub" id="ln-urun-sub">LN Infor'dan CSV/Excel yükle</div>
+        </div>
+        <div class="settings-item-action">›</div>
+      </div>
+      <input type="file" id="ln-urun-input" accept=".csv,.xlsx,.xls" style="display:none;" onchange="importLNUrun(event)">
+
+      <div class="settings-item" onclick="document.getElementById('ln-firma-input').click()" style="cursor:pointer;">
+        <div class="settings-item-icon">🏢</div>
+        <div class="settings-item-info">
+          <div class="settings-item-title">Tedarikçi Listesi Güncelle</div>
+          <div class="settings-item-sub" id="ln-firma-sub">LN Infor'dan CSV/Excel yükle</div>
+        </div>
+        <div class="settings-item-action">›</div>
+      </div>
+      <input type="file" id="ln-firma-input" accept=".csv,.xlsx,.xls" style="display:none;" onchange="importLNFirma(event)">
+    </div>
+
+    <div class="settings-group">
       <div class="settings-group-title">Kullanıcı Yönetimi (Yönetici)</div>
       <div class="settings-item" id="user-mgmt-item" onclick="openModal('modal-users')" style="cursor:pointer;">
         <div class="settings-item-icon">👥</div>
@@ -1459,6 +1482,24 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <button class="btn btn-gray" onclick="closeModal('modal-uygunsuzluk')">İptal</button>
       <button class="btn btn-warning" onclick="printUygunsuzluk()">🖨️ Yazdır</button>
       <button class="btn btn-primary" onclick="saveUygunsuzluk()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LN INFOR KOLON EŞLEŞTİRME ===== -->
+<div class="modal-overlay" id="modal-ln-kolon">
+  <div class="modal-box">
+    <div class="modal-title">
+      <span id="ln-kolon-title">LN Kolon Eşleştir</span>
+      <button class="modal-close" onclick="closeModal('modal-ln-kolon')">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px;">
+      Dosyadaki kolonları sistem alanlarıyla eşleştirin. Örnek veriler seçici içinde gösterilmektedir.
+    </p>
+    <div id="ln-kolon-form"></div>
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn btn-gray" onclick="closeModal('modal-ln-kolon')">İptal</button>
+      <button class="btn btn-primary" onclick="applyLNImport()">✅ Uygula</button>
     </div>
   </div>
 </div>
@@ -3738,6 +3779,133 @@ function printUygunsuzluk() {
 }
 
 
+// ============================================================
+// LN INFOR IMPORT
+// ============================================================
+async function importLNUrun(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  showLoading('Ürün listesi okunuyor...');
+  if (typeof XLSX === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    document.head.appendChild(s);
+    await new Promise(r => s.onload = r);
+  }
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', raw: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+      hideLoading();
+      openLNKolonModal('urun', rows);
+    } catch(err) { hideLoading(); showToast('❌ Dosya okunamadı: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function importLNFirma(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  showLoading('Tedarikçi listesi okunuyor...');
+  if (typeof XLSX === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    document.head.appendChild(s);
+    await new Promise(r => s.onload = r);
+  }
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', raw: false });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
+      hideLoading();
+      openLNKolonModal('firma', rows);
+    } catch(err) { hideLoading(); showToast('❌ Dosya okunamadı: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+let _lnImportData = { tip: '', rows: [] };
+
+function openLNKolonModal(tip, rows) {
+  _lnImportData = { tip, rows };
+  const headers = rows[0] || [];
+  const ornek = rows[1] || [];
+  const opts = headers.map((h, i) =>
+    `<option value="${i}">${h || 'Kolon '+(i+1)} — ${String(ornek[i]||'').slice(0,20)}</option>`
+  ).join('');
+  const isUrun = tip === 'urun';
+  document.getElementById('ln-kolon-title').textContent = isUrun ? '📦 Ürün Listesi Kolon Eşleştir' : '🏢 Tedarikçi Listesi Kolon Eşleştir';
+  document.getElementById('ln-kolon-form').innerHTML = isUrun ? `
+    <div class="field"><label>Ürün Kodu (LN Kodu)</label><select id="lnk-kod">${opts}</select></div>
+    <div class="field"><label>Ürün Adı</label><select id="lnk-ad">${opts}</select></div>
+    <div class="field"><label>Birim</label><select id="lnk-birim">${opts}</select></div>
+    <div class="field"><label>Sıcaklık Kriteri (opsiyonel)</label><select id="lnk-sicaklik"><option value="-1">— Yok —</option>${opts}</select></div>
+    <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">${rows.length-1} satır okundu</div>
+  ` : `
+    <div class="field"><label>Tedarikçi Kodu</label><select id="lnk-firmakod">${opts}</select></div>
+    <div class="field"><label>Tedarikçi Adı</label><select id="lnk-firmaad">${opts}</select></div>
+    <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">${rows.length-1} satır okundu</div>
+  `;
+  openModal('modal-ln-kolon');
+}
+
+async function applyLNImport() {
+  const { tip, rows } = _lnImportData;
+  if (tip === 'urun') {
+    const kodIdx   = parseInt(document.getElementById('lnk-kod').value);
+    const adIdx    = parseInt(document.getElementById('lnk-ad').value);
+    const birimIdx = parseInt(document.getElementById('lnk-birim').value);
+    const sicakIdx = parseInt(document.getElementById('lnk-sicaklik').value);
+    let eklenen = 0, guncellenen = 0;
+    rows.slice(1).forEach(row => {
+      const kod = (row[kodIdx]||'').trim();
+      const ad  = (row[adIdx] ||'').trim();
+      const birim = (row[birimIdx]||'').trim();
+      if (!kod || !ad) return;
+      const sicaklik = sicakIdx >= 0 ? (row[sicakIdx]||'none').trim() : 'none';
+      const idx = URUN_DB.findIndex(u => u.kod === kod);
+      if (idx >= 0) { URUN_DB[idx] = { ...URUN_DB[idx], ad, birim, sicaklikKriter: sicaklik }; guncellenen++; }
+      else { URUN_DB.push({ kod, ad, birim, sicaklikKriter: sicaklik, grup: kod.slice(0,5)||'YIY' }); eklenen++; }
+    });
+    try {
+      await fetch(FIREBASE_URL + '/urunListesi.json', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(URUN_DB) });
+      showSaveIndicator(true);
+    } catch(e) { showSaveIndicator(false); }
+    closeModal('modal-ln-kolon');
+    const sub = document.getElementById('ln-urun-sub');
+    if (sub) sub.textContent = `Son güncelleme: ${new Date().toLocaleDateString('tr-TR')} • ${eklenen} yeni, ${guncellenen} güncellendi`;
+    showToast(`✅ ${eklenen} yeni ürün, ${guncellenen} güncellendi`);
+  } else {
+    const kodIdx = parseInt(document.getElementById('lnk-firmakod').value);
+    const adIdx  = parseInt(document.getElementById('lnk-firmaad').value);
+    let eklenen = 0;
+    rows.slice(1).forEach(row => {
+      const kod = (row[kodIdx]||'').trim();
+      const ad  = (row[adIdx] ||'').trim();
+      if (!ad) return;
+      if (!FIRMA_DB.find(f => f.ad === ad)) {
+        FIRMA_DB.push({ id: Date.now()+Math.random(), kod, ad, urunler:[] });
+        eklenen++;
+      }
+    });
+    try {
+      await fetch(FIREBASE_URL + '/firmaListesi.json', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(FIRMA_DB) });
+      showSaveIndicator(true);
+    } catch(e) { showSaveIndicator(false); }
+    closeModal('modal-ln-kolon');
+    const sub = document.getElementById('ln-firma-sub');
+    if (sub) sub.textContent = `Son güncelleme: ${new Date().toLocaleDateString('tr-TR')} • ${eklenen} yeni tedarikçi`;
+    showToast(`✅ ${eklenen} yeni tedarikçi eklendi`);
+  }
+}
+
+// ============================================================
 function renderUsersList() {
   const users = getUsers();
   const rolIkon = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍' };
