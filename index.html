@@ -1625,250 +1625,223 @@ function resetForm() {
 }
 
 function addUrunRow(data) {
-  const row = {
-    ad: '', kod: '', barkod: '', seriNo: '', marka: '',
-    miktar: '', birim: 'KG', sicaklik: '', sicaklikKriter: '',
-    skt: '', uygun: true, not: '',
-    ...data
-  };
-  state.formRows.push(row);
+  state.formRows.push({
+    ad:'', kod:'', barkod:'', seriNo:'', marka:'',
+    miktar:'', birim:'KG', sicaklik:'', sicaklikKriter:'',
+    skt:'', uygun:true, not:'',
+    ...(data||{})
+  });
   renderUrunRows();
-  return state.formRows.length - 1;
+}
+
+function removeUrunRow(i) {
+  state.formRows.splice(i,1);
+  renderUrunRows();
+}
+
+function updateRow(i,key,val) {
+  if(state.formRows[i]) state.formRows[i][key]=val;
+}
+
+function setUygun(i,val) {
+  state.formRows[i].uygun=val;
+  renderUrunRows();
+}
+
+function validateSkt(i,el) {
+  const today=new Date(); today.setHours(0,0,0,0);
+  if(el.value && new Date(el.value)<today){
+    el.style.borderColor='var(--danger)';
+    showToast('\u26a0\ufe0f SKT ge\u00e7mi\u015f tarih olamaz');
+    el.value=''; state.formRows[i].skt='';
+  } else {
+    el.style.borderColor='';
+    updateRow(i,'skt',el.value);
+  }
 }
 
 function renderUrunRows() {
   const today = new Date().toISOString().split('T')[0];
   const container = document.getElementById('urun-rows');
-  container.innerHTML = state.formRows.map((r, i) => `
-    <div class="urun-row" id="urun-row-${i}">
+  container.innerHTML = state.formRows.map((r,i) => {
+    const birimOpts = ['KG','AD','KOL','PKT','LT','TRB','TNK','BOT']
+      .map(b=>`<option value="${b}"${r.birim===b?' selected':''}>${b}</option>`).join('');
+    const kriterLabel = r.sicaklikKriter && r.sicaklikKriter!=='none'
+      ? `<span style="color:var(--gray-500);font-size:11px;margin-left:4px;">(Kriter: ${r.sicaklikKriter}\u00b0C)</span>` : '';
+    return `<div class="urun-row" id="urun-row-${i}">
       <div class="urun-row-header">
         <div class="urun-row-num">${i+1}</div>
-        <div class="urun-row-name">${r.ad || 'Ürün ' + (i+1)}</div>
-        <button class="urun-row-del" onclick="removeUrunRow(${i})">✕</button>
+        <div class="urun-row-name">${r.ad||('\u00dcrün '+(i+1))}</div>
+        <button class="urun-row-del" onclick="removeUrunRow(${i})">\u2715</button>
       </div>
-
       <div class="field">
-        <label>Ürün Adı / Kodu *</label>
+        <label>\u00dcrün Ad\u0131 *</label>
         <div style="position:relative;">
-          <input type="text" id="urun-ad-${i}" value="${r.ad.replace(/"/g,'&quot;')}"
-            placeholder="2+ harf yazın..."
+          <input type="text" id="urun-ad-${i}"
+            value="${r.ad.replace(/"/g,'&quot;')}"
+            placeholder="2+ harf yaz\u0131n..."
             autocomplete="off"
-            oninput="filterUrun(${i}, this.value)">
-          <button class="barcode-btn" onclick="openBarkod(${i})">📷</button>
-          <div id="urun-dropdown-${i}" class="autocomplete-list" style="display:none;"></div>
+            oninput="onUrunInput(${i},this.value)">
+          <button class="barcode-btn" onclick="openBarkod(${i})">\ud83d\udcf7</button>
+          <div id="dd-${i}" style="display:none;position:absolute;top:100%;left:0;right:0;
+            background:white;border:1.5px solid var(--primary);border-top:none;
+            border-radius:0 0 8px 8px;max-height:220px;overflow-y:auto;z-index:9999;
+            box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
         </div>
       </div>
-
       <div class="row-fields">
         <div class="field">
           <label>Miktar *</label>
           <input type="number" id="urun-miktar-${i}" value="${r.miktar}"
             placeholder="0" min="0" step="0.01"
-            onchange="updateRow(${i},'miktar',this.value)">
+            oninput="updateRow(${i},'miktar',this.value)">
         </div>
         <div class="field">
           <label>Birim</label>
-          <select id="urun-birim-${i}" onchange="updateRow(${i},'birim',this.value)">
-            ${['KG','AD','KOL','PKT','LT','TRB','TNK','BOT'].map(b =>
-              `<option value="${b}"${r.birim===b?' selected':''}>${b}</option>`
-            ).join('')}
-          </select>
+          <select id="urun-birim-${i}" onchange="updateRow(${i},'birim',this.value)">${birimOpts}</select>
         </div>
         <div class="field">
           <label>SKT</label>
           <input type="date" id="urun-skt-${i}" value="${r.skt}"
-            min="${today}"
-            onchange="validateSkt(${i},this)">
+            min="${today}" onchange="validateSkt(${i},this)">
         </div>
         <div class="field">
-          <label>Sıcaklık (°C)${r.sicaklikKriter && r.sicaklikKriter!=='none' ? ' — Kriter: '+r.sicaklikKriter+'°C' : ''}</label>
+          <label>S\u0131cakl\u0131k (\u00b0C) ${kriterLabel}</label>
           <input type="number" id="urun-sicaklik-${i}" value="${r.sicaklik}"
-            placeholder="${r.sicaklikKriter && r.sicaklikKriter!=='none' ? r.sicaklikKriter+'°C' : ''}"
-            onchange="checkSicaklikUygunluk(${i},this.value)">
+            placeholder="${r.sicaklikKriter&&r.sicaklikKriter!=='none'?r.sicaklikKriter+'\u00b0C':''}"
+            oninput="checkSicaklikUygunluk(${i},this.value)">
         </div>
         <div class="field">
           <label>Seri / Lot No *</label>
-          <input type="text" id="urun-seri-${i}" value="${(r.seriNo||'').replace(/"/g,'&quot;')}"
+          <input type="text" id="urun-seri-${i}"
+            value="${(r.seriNo||'').replace(/"/g,'&quot;')}"
             placeholder="Zorunlu"
-            style="${r.seriNo ? '' : 'border-color:var(--danger)'}"
+            style="${r.seriNo?'':'border-color:var(--danger);'}"
             oninput="updateRow(${i},'seriNo',this.value);this.style.borderColor=this.value?'':'var(--danger)'">
         </div>
         <div class="field">
           <label>Marka</label>
-          <input type="text" id="urun-marka-${i}" value="${(r.marka||'').replace(/"/g,'&quot;')}"
-            placeholder="Marka adı"
+          <input type="text" id="urun-marka-${i}"
+            value="${(r.marka||'').replace(/"/g,'&quot;')}"
+            placeholder="Opsiyonel"
             oninput="updateRow(${i},'marka',this.value)">
         </div>
       </div>
-
       <div class="field">
         <label>Uygunluk</label>
         <div class="uygun-toggle">
-          <button class="uygun-btn ${r.uygun?'active-uygun':''}"
-            onclick="setUygun(${i},true)">✅ Uygun</button>
-          <button class="uygun-btn ${!r.uygun?'active-uygunsuz':''}"
-            onclick="setUygun(${i},false)">❌ Uygunsuz</button>
+          <button class="uygun-btn ${r.uygun?'active-uygun':''}" onclick="setUygun(${i},true)">\u2705 Uygun</button>
+          <button class="uygun-btn ${!r.uygun?'active-uygunsuz':''}" onclick="setUygun(${i},false)">\u274c Uygunsuz</button>
         </div>
-        ${!r.uygun ? `<input type="text" id="urun-not-${i}" value="${(r.not||'').replace(/"/g,'&quot;')}"
+        ${!r.uygun?`<input type="text" id="urun-not-${i}"
+          value="${(r.not||'').replace(/"/g,'&quot;')}"
           placeholder="Uygunsuzluk nedeni..." style="margin-top:6px;"
-          oninput="updateRow(${i},'not',this.value)">` : ''}
+          oninput="updateRow(${i},'not',this.value)">`:''
+        }
       </div>
-    </div>
-  `).join('');
-
-  // Dropdown listener'larını bağla
-  state.formRows.forEach((r, i) => {
-    const input = document.getElementById('urun-ad-' + i);
-    if (input && r.ad.length >= 2) {
-      // Odaklanınca dropdown'u yeniden aç
-      input.addEventListener('focus', () => {
-        if (input.value.length >= 2) filterUrun(i, input.value);
-      }, { once: true });
-    }
-  });
+    </div>`;
+  }).join('');
 }
 
-function removeUrunRow(i) {
-  state.formRows.splice(i, 1);
-  renderUrunRows();
-}
-
-function validateSkt(i, el) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  if (el.value && new Date(el.value) < today) {
-    el.style.borderColor = 'var(--danger)';
-    showToast('⚠️ SKT geçmiş tarih olamaz');
-    el.value = '';
-    state.formRows[i].skt = '';
+// Ürün arama
+function onUrunInput(i, val) {
+  updateRow(i,'ad',val);
+  const dd = document.getElementById('dd-'+i);
+  if(!dd) return;
+  if(!val || val.length < 2){ dd.style.display='none'; return; }
+  const firma = FIRMA_DB.find(f=>f.id===state.selectedFirmaId);
+  let results=[];
+  if(firma){
+    const fw=URUN_DB.filter(u=>firma.urunler.includes(u.kod)&&u.ad.toLowerCase().includes(val.toLowerCase()));
+    const ot=URUN_DB.filter(u=>!firma.urunler.includes(u.kod)&&u.ad.toLowerCase().includes(val.toLowerCase()));
+    results=[...fw.slice(0,10),...ot.slice(0,10)];
   } else {
-    el.style.borderColor = '';
-    updateRow(i, 'skt', el.value);
+    results=URUN_DB.filter(u=>u.ad.toLowerCase().includes(val.toLowerCase())).slice(0,20);
   }
-}
-
-function updateRow(i, key, val) {
-  if (state.formRows[i]) state.formRows[i][key] = val;
-}
-
-function setUygun(i, val) {
-  state.formRows[i].uygun = val;
-  renderUrunRows();
-}
-
-// ============================================================
-// FIRMA AUTOCOMPLETE
-// ============================================================
-function filterFirma(val) {
-  const dd = document.getElementById('firma-dropdown');
-  if (!val || val.length < 2) { dd.style.display = 'none'; return; }
-  const results = FIRMA_DB.filter(f => f.ad.toLowerCase().includes(val.toLowerCase())).slice(0, 20);
-  if (results.length === 0) {
-    dd.innerHTML = `
-      <div class="autocomplete-item" style="color:var(--gray-500);font-style:italic;">Bulunamadı</div>
-      <div class="autocomplete-item" id="yeni-tedarikcisi-btn">+ Yeni tedarikçi ekle</div>`;
-    dd.querySelector('#yeni-tedarikcisi-btn').addEventListener('pointerdown', e => {
-      e.preventDefault(); openModal('modal-tedarikcisi');
-    });
-    dd.style.display = 'block';
-    return;
-  }
-  dd.innerHTML = results.map(f =>
-    `<div class="autocomplete-item" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">
-      ${f.ad}<div class="item-sub">${f.urunler.length} ürün</div>
-    </div>`
-  ).join('');
-  dd.querySelectorAll('.autocomplete-item[data-id]').forEach(el => {
-    el.addEventListener('pointerdown', function(e) {
-      e.preventDefault();
-      selectFirma(parseInt(this.dataset.id), this.dataset.ad);
-    });
-  });
-  dd.style.display = 'block';
-}
-
-function selectFirma(id, ad) {
-  document.getElementById('firma-input').value = ad;
-  document.getElementById('firma-id').value = id;
-  document.getElementById('firma-dropdown').style.display = 'none';
-  state.selectedFirmaId = id;
-  checkAiTedarikcii(id, ad);
-}
-
-function hideFirmaDropdown() {
-  document.getElementById('firma-dropdown').style.display = 'none';
-}
-
-// ============================================================
-// ÜRÜN AUTOCOMPLETE
-// ============================================================
-function filterUrun(i, val) {
-  const dd = document.getElementById('urun-dropdown-' + i);
-  if (!dd) return;
-  if (!val || val.length < 2) { dd.style.display = 'none'; return; }
-  if (state.formRows[i]) state.formRows[i].ad = val;
-
-  let results = [];
-  const firma = FIRMA_DB.find(f => f.id === state.selectedFirmaId);
-  if (firma) {
-    const fw = URUN_DB.filter(u => firma.urunler.includes(u.kod) && u.ad.toLowerCase().includes(val.toLowerCase()));
-    const ot = URUN_DB.filter(u => !firma.urunler.includes(u.kod) && u.ad.toLowerCase().includes(val.toLowerCase()));
-    results = [...fw.slice(0,10), ...ot.slice(0,10)];
-  } else {
-    results = URUN_DB.filter(u => u.ad.toLowerCase().includes(val.toLowerCase())).slice(0, 20);
-  }
-  if (results.length === 0) { dd.style.display = 'none'; return; }
-
-  dd.innerHTML = results.map(u =>
-    `<div class="autocomplete-item"
-      data-kod="${u.kod}"
+  if(!results.length){ dd.style.display='none'; return; }
+  dd.innerHTML=results.map((u,idx)=>`
+    <div id="dd-item-${i}-${idx}"
+      style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:13px;user-select:none;"
+      data-i="${i}" data-kod="${u.kod.replace(/"/g,'&quot;')}"
       data-ad="${u.ad.replace(/"/g,'&quot;')}"
       data-birim="${u.birim}"
-      data-sicaklik="${u.sicaklikKriter||''}"
-      data-row="${i}">
+      data-sicaklik="${u.sicaklikKriter||''}">
       ${u.ad}
-      <div class="item-sub">${u.kod} • ${u.birim}${u.sicaklikKriter && u.sicaklikKriter!=='none' ? ' • '+u.sicaklikKriter+'°C':''}</div>
-    </div>`
-  ).join('');
-
-  dd.querySelectorAll('.autocomplete-item').forEach(el => {
-    el.addEventListener('pointerdown', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      selectUrun(
-        parseInt(this.dataset.row),
-        this.dataset.kod,
-        this.dataset.ad,
-        this.dataset.birim,
-        this.dataset.sicaklik
-      );
+      <div style="font-size:11px;color:#adb5bd;">${u.kod} \u2022 ${u.birim}${u.sicaklikKriter&&u.sicaklikKriter!=='none'?' \u2022 '+u.sicaklikKriter+'\u00b0C':''}</div>
+    </div>`).join('');
+  // Her item'a listener ekle
+  dd.querySelectorAll('[data-kod]').forEach(el=>{
+    el.addEventListener('pointerdown', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      const ri=parseInt(this.dataset.i);
+      if(!state.formRows[ri]) return;
+      state.formRows[ri].ad=this.dataset.ad;
+      state.formRows[ri].kod=this.dataset.kod;
+      state.formRows[ri].birim=this.dataset.birim;
+      state.formRows[ri].sicaklikKriter=this.dataset.sicaklik;
+      if(this.dataset.sicaklik&&this.dataset.sicaklik!=='none')
+        state.formRows[ri].sicaklik=this.dataset.sicaklik;
+      dd.style.display='none';
+      renderUrunRows();
+      setTimeout(()=>{ const s=document.getElementById('urun-seri-'+ri); if(s) s.focus(); },80);
     });
   });
-  dd.style.display = 'block';
+  dd.style.display='block';
 }
 
-function selectUrun(i, kod, ad, birim, sicaklikKriter) {
-  if (!state.formRows[i]) return;
-  state.formRows[i].ad = ad;
-  state.formRows[i].kod = kod;
-  state.formRows[i].birim = birim;
-  state.formRows[i].sicaklikKriter = sicaklikKriter;
-  if (sicaklikKriter && sicaklikKriter !== 'none') {
-    state.formRows[i].sicaklik = sicaklikKriter;
+// Firma autocomplete
+function filterFirma(val) {
+  const dd=document.getElementById('firma-dropdown');
+  if(!val||val.length<2){ dd.style.display='none'; return; }
+  const results=FIRMA_DB.filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,20);
+  if(!results.length){
+    dd.innerHTML=`<div class="autocomplete-item" style="color:var(--gray-500);font-style:italic;">Bulunamad\u0131</div>
+      <div class="autocomplete-item" id="ytt">+ Yeni tedarik\u00e7i ekle</div>`;
+    dd.querySelector('#ytt').addEventListener('pointerdown',e=>{e.preventDefault();openModal('modal-tedarikcisi');});
+    dd.style.display='block'; return;
   }
-  const dd = document.getElementById('urun-dropdown-' + i);
-  if (dd) dd.style.display = 'none';
-  renderUrunRows();
-  // Seçimden sonra seri alanına fokuslan
-  setTimeout(() => {
-    const seri = document.getElementById('urun-seri-' + i);
-    if (seri) seri.focus();
-  }, 100);
+  dd.innerHTML=results.map(f=>`<div class="autocomplete-item" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">
+    ${f.ad}<div class="item-sub">${f.urunler.length} ürün</div></div>`).join('');
+  dd.querySelectorAll('[data-id]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      selectFirma(parseInt(this.dataset.id),this.dataset.ad);
+    });
+  });
+  dd.style.display='block';
 }
 
-function hideUrunDropdown(i) {
-  const dd = document.getElementById('urun-dropdown-' + i);
-  if (dd) dd.style.display = 'none';
+function selectFirma(id,ad){
+  document.getElementById('firma-input').value=ad;
+  document.getElementById('firma-id').value=id;
+  document.getElementById('firma-dropdown').style.display='none';
+  state.selectedFirmaId=id;
+  checkAiTedarikcii(id,ad);
 }
+
+function hideFirmaDropdown(){ document.getElementById('firma-dropdown').style.display='none'; }
+function filterUrun(i,val){ onUrunInput(i,val); }
+function selectUrun(i,kod,ad,birim,sk){
+  if(!state.formRows[i]) return;
+  state.formRows[i]={...state.formRows[i],ad,kod,birim,sicaklikKriter:sk};
+  if(sk&&sk!=='none') state.formRows[i].sicaklik=sk;
+  renderUrunRows();
+}
+function hideUrunDropdown(i){ const d=document.getElementById('dd-'+i); if(d) d.style.display='none'; }
+
+// Dışarı tıklanınca kapat
+document.addEventListener('pointerdown',function(e){
+  state.formRows.forEach((_,i)=>{
+    const dd=document.getElementById('dd-'+i);
+    const inp=document.getElementById('urun-ad-'+i);
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp) dd.style.display='none';
+  });
+  const fd=document.getElementById('firma-dropdown');
+  const fi=document.getElementById('firma-input');
+  if(fd&&fi&&!fd.contains(e.target)&&e.target!==fi) fd.style.display='none';
+});
+
 
 // ============================================================
 // BARKOD
