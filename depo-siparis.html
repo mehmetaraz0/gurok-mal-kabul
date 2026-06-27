@@ -276,7 +276,7 @@ const DEFAULT_USERS = [
 ];
 
 let currentUser = null;
-let db = { siparisler:{}, kullanicilar:[], stok:{} };
+let db = { siparisler:{}, kullanicilar:[], stok:{}, urunler:[] };
 let urunSatirlari = [];
 let gelenFilter = 'bekleyen';
 let talepFilter = 'tumu';
@@ -326,16 +326,32 @@ function checkSession(){
 async function loadDB(){
   showLoading();
   try{
-    const [sipR,kulR,stokR]=await Promise.all([
+    const [sipR,kulR,stokR,urunR]=await Promise.all([
       fetch(FIREBASE_URL+'/siparisler.json'),
       fetch(FIREBASE_URL+'/kullanicilar.json'),
       fetch(FIREBASE_URL+'/stok/ANA_DEPO.json'),
+      fetch(FIREBASE_URL+'/urunListesi.json'),
     ]);
     if(sipR.ok){const d=await sipR.json();if(d&&typeof d==='object')db.siparisler=d;}
     if(kulR.ok){const d=await kulR.json();if(Array.isArray(d)&&d.length)db.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol}));}
     if(stokR.ok){const d=await stokR.json();if(d)db.stok=d;}
+    if(urunR.ok){const d=await urunR.json();if(Array.isArray(d)&&d.length)db.urunler=d;}
   }catch(e){console.warn(e);}
   if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
+  // Ürün listesi Firebase'de yoksa gurok_veritabani.js'den çek
+  if(!db.urunler||!db.urunler.length){
+    try{
+      const r=await fetch('gurok_veritabani.js');
+      // Script olarak yükle
+      if(!window.URUN_DB){
+        const s=document.createElement('script');
+        s.src='gurok_veritabani.js';
+        document.head.appendChild(s);
+        await new Promise(r=>s.onload=r);
+      }
+      if(window.URUN_DB)db.urunler=window.URUN_DB;
+    }catch(e){}
+  }
   hideLoading();
 }
 
@@ -483,12 +499,38 @@ function filterUrunSatir(i,val){
   urunSatirlari[i].ad=val;
   const dd=document.getElementById('us-dd-'+i);
   if(!val||val.length<2){dd.style.display='none';return;}
-  // Stok listesinden ara
-  const stokItems=Object.values(db.stok).filter(s=>s.urunAd?.toLowerCase().includes(val.toLowerCase())||s.lnKod?.toLowerCase().includes(val.toLowerCase())).slice(0,15);
-  if(!stokItems.length){dd.style.display='none';return;}
-  dd.innerHTML=stokItems.map(s=>
-    `<div class="urun-dd-item" data-idx="${i}" data-kod="${s.lnKod}" data-ad="${(s.urunAd||'').replace(/"/g,'&quot;')}" data-birim="${s.birim||'KG'}" data-stok="${s.miktar||0}">
-      ${s.urunAd} <span style="font-size:10px;color:var(--gray-500);">Stok: ${s.miktar} ${s.birim}</span>
+
+  // Önce stokta ara, sonra genel ürün listesinde
+  const stokItems=Object.values(db.stok).filter(s=>
+    s.urunAd?.toLowerCase().includes(val.toLowerCase())||
+    s.lnKod?.toLowerCase().includes(val.toLowerCase())
+  );
+  const stokKodlar=new Set(stokItems.map(s=>s.lnKod));
+
+  // Genel ürün listesinden ara (db.urunler varsa, yoksa stok)
+  let genel=[];
+  if(db.urunler&&db.urunler.length>0){
+    genel=db.urunler.filter(u=>
+      !stokKodlar.has(u.kod)&&(
+        u.ad?.toLowerCase().includes(val.toLowerCase())||
+        u.kod?.toLowerCase().includes(val.toLowerCase())
+      )
+    ).slice(0,10);
+  }
+
+  const tumSonuclar=[
+    ...stokItems.slice(0,10).map(s=>({kod:s.lnKod,ad:s.urunAd,birim:s.birim,stok:s.miktar,stokVar:true})),
+    ...genel.map(u=>({kod:u.kod,ad:u.ad,birim:u.birim,stok:0,stokVar:false}))
+  ];
+
+  if(!tumSonuclar.length){dd.style.display='none';return;}
+
+  dd.innerHTML=tumSonuclar.map(s=>
+    `<div class="urun-dd-item" data-idx="${i}" data-kod="${s.kod}" data-ad="${(s.ad||'').replace(/"/g,'&quot;')}" data-birim="${s.birim||'KG'}">
+      ${s.ad}
+      <span style="font-size:10px;color:${s.stokVar?'var(--success)':'var(--gray-400)'};">
+        ${s.stokVar?'Stok: '+s.stok+' '+s.birim:'—'}
+      </span>
     </div>`
   ).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
@@ -498,7 +540,6 @@ function filterUrunSatir(i,val){
       urunSatirlari[idx].ad=this.dataset.ad;
       urunSatirlari[idx].kod=this.dataset.kod;
       urunSatirlari[idx].birim=this.dataset.birim;
-      urunSatirlari[idx].stokMiktar=parseFloat(this.dataset.stok||0);
       dd.style.display='none';
       renderUrunSatirlari();
     });
