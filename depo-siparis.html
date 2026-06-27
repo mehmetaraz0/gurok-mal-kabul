@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Depo Siparişleri</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root {
+  --primary:#1a2744;--primary-light:#2d4080;--accent:#e8a020;
+  --success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;
+  --gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;
+  --gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;
+  --white:#fff;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;box-shadow:var(--shadow);min-height:56px}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.header-btn:active{background:rgba(255,255,255,.3)}
+.bottom-nav{background:white;display:flex;border-top:1px solid var(--gray-200);flex-shrink:0}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border:none;background:none;cursor:pointer;gap:3px;position:relative;min-height:56px}
+.nav-btn .nav-icon{font-size:20px}
+.nav-btn .nav-label{font-size:10px;color:var(--gray-500);font-weight:500}
+.nav-btn.active .nav-label{color:var(--primary);font-weight:700}
+.nav-btn.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:3px;background:var(--primary);border-radius:3px 3px 0 0}
+.nav-badge{position:absolute;top:6px;right:calc(50% - 18px);background:var(--danger);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;min-width:16px;text-align:center}
+.scroll-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.scroll-content::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.row-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row-fields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5}
+.btn-primary{background:var(--primary);color:white}
+.btn-success{background:var(--success);color:white}
+.btn-danger{background:var(--danger);color:white}
+.btn-warning{background:var(--warning);color:white}
+.btn-gray{background:var(--gray-200);color:var(--gray-700)}
+.btn-info{background:var(--info);color:white}
+.btn-block{width:100%}
+.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-danger{background:#fde8e8;color:#9b1c1c}
+.chip-warning{background:#fff3cd;color:#856404}
+.chip-success{background:#d4edda;color:#155724}
+.chip-info{background:#d1ecf1;color:#0c5460}
+.chip-gray{background:var(--gray-200);color:var(--gray-700)}
+.filter-tabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.filter-tab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.filter-tab.active{background:var(--primary);border-color:var(--primary);color:white}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.modal-overlay.open{display:flex}
+.modal-box{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:90vh;overflow-y:auto;animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-title{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.modal-close{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.empty-state{text-align:center;padding:40px 20px;color:var(--gray-400)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-text{font-size:14px}
+/* Sipariş kartı */
+.siparis-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-300)}
+.siparis-kart.bekleyen{border-left-color:var(--warning)}
+.siparis-kart.onaylandi{border-left-color:var(--success)}
+.siparis-kart.reddedildi{border-left-color:var(--danger)}
+.siparis-kart.kismi{border-left-color:var(--info)}
+/* Ürün satırı */
+.urun-satir{background:var(--gray-100);border-radius:var(--radius-sm);padding:10px;margin-bottom:6px}
+.urun-satir-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.urun-satir-num{background:var(--primary);color:white;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.urun-satir-ad{font-size:13px;font-weight:600;flex:1}
+.urun-satir-del{background:none;border:none;color:var(--gray-400);font-size:16px;cursor:pointer}
+/* Login */
+#screen-login{position:fixed;inset:0;background:linear-gradient(160deg,var(--primary),var(--primary-light));display:none;align-items:center;justify-content:center;z-index:9999}
+#screen-login.visible{display:flex}
+.login-box{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;margin:20px}
+.pin-display{display:flex;justify-content:center;gap:10px;margin:12px 0 6px}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--gray-400);transition:all .15s}
+.pin-dot.filled{background:var(--primary);border-color:var(--primary)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.pin-btn{height:52px;border:none;border-radius:var(--radius-sm);font-size:20px;font-weight:600;cursor:pointer;background:var(--gray-100);color:var(--primary)}
+.pin-btn:active{background:var(--gray-300);transform:scale(.95)}
+.pin-btn.empty{background:transparent;cursor:default}
+/* Dropdown */
+.urun-dd{display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.urun-dd-item{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:13px}
+.urun-dd-item:active{background:var(--gray-100)}
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#loading{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#loading.show{display:flex}
+.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Onay düzenleme */
+.onay-miktar{width:80px;padding:6px 8px;border:1.5px solid var(--primary);border-radius:6px;font-size:13px;font-weight:600;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="screen-login">
+  <div class="login-box">
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 10px;">📤</div>
+      <div style="font-size:20px;font-weight:800;color:var(--primary);">Depo Siparişleri</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">Gürok Turizm Grubu</div>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--gray-600);margin-bottom:4px;">PIN kodunuzu girin</p>
+    <div style="text-align:center;font-size:13px;font-weight:700;color:var(--primary);min-height:20px;" id="pin-user-show"></div>
+    <div class="pin-display">
+      <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
+      <div class="pin-dot" id="pd4"></div><div class="pin-dot" id="pd5"></div>
+    </div>
+    <div style="text-align:center;font-size:12px;color:var(--danger);min-height:18px;margin-bottom:6px;" id="pin-error"></div>
+    <div class="pin-pad">
+      <button class="pin-btn" onclick="pinInput('1')">1</button>
+      <button class="pin-btn" onclick="pinInput('2')">2</button>
+      <button class="pin-btn" onclick="pinInput('3')">3</button>
+      <button class="pin-btn" onclick="pinInput('4')">4</button>
+      <button class="pin-btn" onclick="pinInput('5')">5</button>
+      <button class="pin-btn" onclick="pinInput('6')">6</button>
+      <button class="pin-btn" onclick="pinInput('7')">7</button>
+      <button class="pin-btn" onclick="pinInput('8')">8</button>
+      <button class="pin-btn" onclick="pinInput('9')">9</button>
+      <button class="pin-btn empty"></button>
+      <button class="pin-btn" onclick="pinInput('0')">0</button>
+      <button class="pin-btn" onclick="pinDelete()" style="font-size:16px;">⌫</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="header">
+    <button class="header-btn" onclick="gotoPortal()">🏠</button>
+    <div style="flex:1;">
+      <h1 id="header-title">Depo Siparişleri</h1>
+      <span class="sub" id="header-sub"></span>
+    </div>
+    <button class="header-btn" id="btn-yeni-siparis" onclick="openModal('modal-yeni')" title="Yeni Sipariş" style="display:none;">➕</button>
+  </div>
+
+  <!-- MUTFAK/BAR: Sipariş Ver -->
+  <div class="scroll-content" id="tab-ver" style="display:none;flex-direction:column;">
+    <div class="card">
+      <div class="card-title">📤 Yeni Malzeme Talebi</div>
+      <div class="field">
+        <label>Talep Eden Departman</label>
+        <input type="text" id="ver-departman" readonly style="background:var(--gray-100);">
+      </div>
+      <div class="field">
+        <label>Talep Tarihi</label>
+        <input type="date" id="ver-tarih">
+      </div>
+      <div class="field">
+        <label>Not</label>
+        <input type="text" id="ver-not" placeholder="Opsiyonel not...">
+      </div>
+    </div>
+
+    <!-- Ürün satırları -->
+    <div class="card">
+      <div class="card-title">
+        📦 Ürünler
+        <button class="btn btn-sm" style="margin-left:auto;background:var(--accent);color:var(--primary);padding:4px 10px;min-height:28px;" onclick="addUrunSatir()">+ Ekle</button>
+      </div>
+      <div id="urun-satirlar"></div>
+    </div>
+
+    <button class="btn btn-primary btn-block" onclick="submitSiparis()" style="margin-bottom:16px;">📤 Talep Gönder</button>
+  </div>
+
+  <!-- MUTFAK/BAR: Taleplerim -->
+  <div class="scroll-content" id="tab-taleplerim" style="display:none;flex-direction:column;">
+    <div class="filter-tabs">
+      <button class="filter-tab active" onclick="filterTalepler('tumu',this)">Tümü</button>
+      <button class="filter-tab" onclick="filterTalepler('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="filter-tab" onclick="filterTalepler('onaylandi',this)">✅ Onaylanan</button>
+      <button class="filter-tab" onclick="filterTalepler('reddedildi',this)">❌ Reddedilen</button>
+    </div>
+    <div id="taleplerim-liste"></div>
+  </div>
+
+  <!-- DEPO: Gelen Talepler -->
+  <div class="scroll-content" id="tab-gelen" style="display:none;flex-direction:column;">
+    <div class="filter-tabs">
+      <button class="filter-tab active" onclick="filterGelen('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="filter-tab" onclick="filterGelen('onaylandi',this)">✅ Onaylanan</button>
+      <button class="filter-tab" onclick="filterGelen('reddedildi',this)">❌ Reddedilen</button>
+      <button class="filter-tab" onclick="filterGelen('tumu',this)">Tümü</button>
+    </div>
+    <div id="gelen-liste"></div>
+  </div>
+
+  <!-- DEPO: Bugün Teslim -->
+  <div class="scroll-content" id="tab-bugun" style="display:none;flex-direction:column;">
+    <div id="bugun-liste"></div>
+  </div>
+
+  <nav class="bottom-nav" id="bottom-nav"></nav>
+</div>
+
+<!-- MODAL: Onay/Düzenleme (Depo için) -->
+<div class="modal-overlay" id="modal-onay">
+  <div class="modal-box">
+    <div class="modal-title">
+      📋 Talep Detayı
+      <button class="modal-close" onclick="closeModal('modal-onay')">✕</button>
+    </div>
+    <div id="modal-onay-content"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni Sipariş (Depo için manuel) -->
+<div class="modal-overlay" id="modal-yeni">
+  <div class="modal-box">
+    <div class="modal-title">➕ Yeni Talep Oluştur
+      <button class="modal-close" onclick="closeModal('modal-yeni')">✕</button>
+    </div>
+    <div class="field">
+      <label>Departman</label>
+      <select id="yeni-dept">
+        <option value="ANA_MUTFAK">🍳 Ana Mutfak</option>
+        <option value="PARK_MUTFAK">🌿 Park Mutfak</option>
+        <option value="AQUA_MUTFAK">🌊 Aqua Mutfak</option>
+        <option value="SAHIL_MUTFAK">🏖️ Sahil Mutfak</option>
+        <option value="BAR">🍹 Bar</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Tarih</label>
+      <input type="date" id="yeni-tarih">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="openYeniSiparisForm()">Devam →</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="loading"><div class="spinner"></div><div style="font-size:13px;">Yükleniyor...</div></div>
+
+<script>
+const FIREBASE_URL = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+
+const DEPOLAR = {
+  ANA_DEPO:     { ad:'Ana Depo',      ikon:'🏭' },
+  ANA_MUTFAK:   { ad:'Ana Mutfak',    ikon:'🍳' },
+  PARK_MUTFAK:  { ad:'Park Mutfak',   ikon:'🌿' },
+  AQUA_MUTFAK:  { ad:'Aqua Mutfak',   ikon:'🌊' },
+  SAHIL_MUTFAK: { ad:'Sahil Mutfak',  ikon:'🏖️' },
+  BAR:          { ad:'Bar',           ikon:'🍹' },
+};
+
+const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹' };
+const ROL_AD   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite', mutfak:'Mutfak', bar:'Bar' };
+
+const DEFAULT_USERS = [
+  {id:1,ad:'Mehmet Araz',    rol:'yonetici', pin:'123456'},
+  {id:2,ad:'Depo Sorumlu',   rol:'depo',     pin:'111111'},
+  {id:3,ad:'Depo Personel',  rol:'depo',     pin:'222222'},
+  {id:4,ad:'Satinalma',      rol:'satinalma',pin:'333333'},
+  {id:5,ad:'Kalite Kontrol', rol:'kalite',   pin:'444444'},
+  {id:6,ad:'Ana Mutfak Sefi',rol:'mutfak',   pin:'555555', depoId:'ANA_MUTFAK'},
+  {id:7,ad:'Bar Sefi',       rol:'bar',      pin:'666666', depoId:'BAR'},
+];
+
+let currentUser = null;
+let db = { siparisler:{}, kullanicilar:[], stok:{} };
+let urunSatirlari = [];
+let gelenFilter = 'bekleyen';
+let talepFilter = 'tumu';
+
+// ============================================================
+// LOGIN
+// ============================================================
+let pinValue = '';
+function pinInput(d){
+  if(pinValue.length>=6)return;
+  pinValue+=d; updateDots();
+  const match=db.kullanicilar.filter(u=>u.pin.startsWith(pinValue));
+  document.getElementById('pin-user-show').textContent=match.length===1&&pinValue.length>=3?(ROL_IKON[match[0].rol]||'👤')+' '+match[0].ad:'';
+  document.getElementById('pin-error').textContent='';
+  if(pinValue.length===6)setTimeout(checkPin,200);
+}
+function pinDelete(){pinValue=pinValue.slice(0,-1);updateDots();if(!pinValue)document.getElementById('pin-user-show').textContent='';}
+function updateDots(){for(let i=0;i<6;i++)document.getElementById('pd'+i).classList.toggle('filled',i<pinValue.length);}
+function checkPin(){
+  const user=db.kullanicilar.find(u=>u.pin===pinValue);
+  if(!user){
+    document.getElementById('pin-error').textContent='❌ Hatalı PIN';
+    setTimeout(()=>document.getElementById('pin-error').textContent='',2000);
+    pinValue='';updateDots();return;
+  }
+  currentUser=user;
+  sessionStorage.setItem('gurok_siparis_session',JSON.stringify({user,expiry:Date.now()+30*60*1000}));
+  document.getElementById('screen-login').classList.remove('visible');
+  initUI();
+}
+function checkSession(){
+  for(const key of['gurok_portal_session','gurok_siparis_session']){
+    const s=sessionStorage.getItem(key);
+    if(s){try{const{user,expiry}=JSON.parse(s);if(Date.now()<expiry){currentUser={...user,rol:user.rol==='personel'?'depo':user.rol};return true;}}catch(e){}}
+  }
+  return false;
+}
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadDB(){
+  showLoading();
+  try{
+    const [sipR,kulR,stokR]=await Promise.all([
+      fetch(FIREBASE_URL+'/siparisler.json'),
+      fetch(FIREBASE_URL+'/kullanicilar.json'),
+      fetch(FIREBASE_URL+'/stok/ANA_DEPO.json'),
+    ]);
+    if(sipR.ok){const d=await sipR.json();if(d&&typeof d==='object')db.siparisler=d;}
+    if(kulR.ok){const d=await kulR.json();if(Array.isArray(d)&&d.length)db.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol}));}
+    if(stokR.ok){const d=await stokR.json();if(d)db.stok=d;}
+  }catch(e){console.warn(e);}
+  if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
+  hideLoading();
+}
+
+async function saveSiparis(s){
+  try{
+    await fetch(FIREBASE_URL+'/siparisler/'+s.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)});
+  }catch(e){console.warn(e);}
+}
+
+async function saveStokAnaDepo(){
+  try{
+    await fetch(FIREBASE_URL+'/stok/ANA_DEPO.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(db.stok)});
+  }catch(e){console.warn(e);}
+}
+
+async function saveStokHedef(depoId, stok){
+  try{
+    await fetch(FIREBASE_URL+'/stok/'+depoId+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(stok)});
+  }catch(e){console.warn(e);}
+}
+
+async function saveHareket(h){
+  try{
+    await fetch(FIREBASE_URL+'/hareketler/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});
+  }catch(e){console.warn(e);}
+}
+
+// ============================================================
+// UI INIT
+// ============================================================
+function initUI(){
+  const rol=currentUser.rol;
+  const ikon=ROL_IKON[rol]||'👤';
+  const dept=currentUser.departman||(ROL_AD[rol]||rol);
+  document.getElementById('header-sub').textContent=ikon+' '+currentUser.ad+' • '+dept;
+
+  const nav=document.getElementById('bottom-nav');
+
+  if(rol==='mutfak'||rol==='bar'){
+    // Mutfak/Bar: Talep Ver + Taleplerim
+    nav.innerHTML=`
+      <button class="nav-btn active" id="nav-ver" onclick="switchTab('ver')">
+        <span class="nav-icon">📤</span><span class="nav-label">Talep Ver</span>
+      </button>
+      <button class="nav-btn" id="nav-taleplerim" onclick="switchTab('taleplerim')">
+        <span class="nav-icon">📋</span><span class="nav-label">Taleplerim</span>
+        <span class="nav-badge" id="talep-badge" style="display:none;"></span>
+      </button>`;
+    // Departman ve tarih doldur
+    document.getElementById('ver-departman').value=dept;
+    document.getElementById('ver-tarih').value=new Date().toISOString().split('T')[0];
+    addUrunSatir();
+    switchTab('ver');
+  } else {
+    // Depo/Yönetici: Gelen Talepler + Bugün Teslim
+    document.getElementById('btn-yeni-siparis').style.display='flex';
+    document.getElementById('yeni-tarih').value=new Date().toISOString().split('T')[0];
+    nav.innerHTML=`
+      <button class="nav-btn active" id="nav-gelen" onclick="switchTab('gelen')">
+        <span class="nav-icon">📥</span><span class="nav-label">Gelen Talepler</span>
+        <span class="nav-badge" id="bekleyen-badge" style="display:none;"></span>
+      </button>
+      <button class="nav-btn" id="nav-bugun" onclick="switchTab('bugun')">
+        <span class="nav-icon">📦</span><span class="nav-label">Bugün Teslim</span>
+      </button>`;
+    switchTab('gelen');
+  }
+  renderAll();
+}
+
+function switchTab(tab){
+  ['ver','taleplerim','gelen','bugun'].forEach(t=>{
+    const el=document.getElementById('tab-'+t);
+    if(el)el.style.display=t===tab?'flex':'none';
+    const nav=document.getElementById('nav-'+t);
+    if(nav)nav.classList.toggle('active',t===tab);
+  });
+  if(tab==='taleplerim')renderTaleplerim();
+  if(tab==='gelen')renderGelen();
+  if(tab==='bugun')renderBugun();
+}
+
+function renderAll(){
+  const rol=currentUser?.rol;
+  if(rol==='mutfak'||rol==='bar'){renderTaleplerim();}
+  else{renderGelen();renderBugun();}
+}
+
+// ============================================================
+// TALEP VER (MUTFAK/BAR)
+// ============================================================
+function addUrunSatir(data){
+  urunSatirlari.push({ad:'',kod:'',miktar:'',birim:'KG',not:'',...(data||{})});
+  renderUrunSatirlari();
+}
+
+function renderUrunSatirlari(){
+  const container=document.getElementById('urun-satirlar');
+  if(!container)return;
+  container.innerHTML=urunSatirlari.map((u,i)=>`
+    <div class="urun-satir">
+      <div class="urun-satir-header">
+        <div class="urun-satir-num">${i+1}</div>
+        <div class="urun-satir-ad">${u.ad||'Ürün '+(i+1)}</div>
+        <button class="urun-satir-del" onclick="removeUrunSatir(${i})">✕</button>
+      </div>
+      <div style="position:relative;margin-bottom:8px;">
+        <input type="text" id="us-ad-${i}" value="${u.ad}" placeholder="2+ harf yazın..."
+          autocomplete="off" oninput="filterUrunSatir(${i},this.value)"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none;">
+        <div id="us-dd-${i}" class="urun-dd"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--gray-600);">MİKTAR *</label>
+          <input type="number" id="us-miktar-${i}" value="${u.miktar}" placeholder="0" min="0" step="0.01"
+            oninput="urunSatirlari[${i}].miktar=this.value"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--gray-600);">BİRİM</label>
+          <select id="us-birim-${i}" onchange="urunSatirlari[${i}].birim=this.value"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none;-webkit-appearance:none;">
+            ${['KG','AD','KOL','LT','PKT','TRB'].map(b=>`<option value="${b}"${u.birim===b?' selected':''}>${b}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <input type="text" id="us-not-${i}" value="${u.not||''}" placeholder="Not (opsiyonel)"
+        oninput="urunSatirlari[${i}].not=this.value"
+        style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:12px;margin-top:6px;outline:none;">
+    </div>`).join('');
+  // Dropdown listener
+  urunSatirlari.forEach((_,i)=>{
+    document.addEventListener('pointerdown',e=>{
+      const dd=document.getElementById('us-dd-'+i);
+      const inp=document.getElementById('us-ad-'+i);
+      if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+    },{once:true});
+  });
+}
+
+function removeUrunSatir(i){urunSatirlari.splice(i,1);renderUrunSatirlari();}
+
+function filterUrunSatir(i,val){
+  urunSatirlari[i].ad=val;
+  const dd=document.getElementById('us-dd-'+i);
+  if(!val||val.length<2){dd.style.display='none';return;}
+  // Stok listesinden ara
+  const stokItems=Object.values(db.stok).filter(s=>s.urunAd?.toLowerCase().includes(val.toLowerCase())||s.lnKod?.toLowerCase().includes(val.toLowerCase())).slice(0,15);
+  if(!stokItems.length){dd.style.display='none';return;}
+  dd.innerHTML=stokItems.map(s=>
+    `<div class="urun-dd-item" data-idx="${i}" data-kod="${s.lnKod}" data-ad="${(s.urunAd||'').replace(/"/g,'&quot;')}" data-birim="${s.birim||'KG'}" data-stok="${s.miktar||0}">
+      ${s.urunAd} <span style="font-size:10px;color:var(--gray-500);">Stok: ${s.miktar} ${s.birim}</span>
+    </div>`
+  ).join('');
+  dd.querySelectorAll('[data-kod]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      const idx=parseInt(this.dataset.idx);
+      urunSatirlari[idx].ad=this.dataset.ad;
+      urunSatirlari[idx].kod=this.dataset.kod;
+      urunSatirlari[idx].birim=this.dataset.birim;
+      urunSatirlari[idx].stokMiktar=parseFloat(this.dataset.stok||0);
+      dd.style.display='none';
+      renderUrunSatirlari();
+    });
+  });
+  dd.style.display='block';
+}
+
+async function submitSiparis(){
+  if(!currentUser)return;
+  if(urunSatirlari.length===0){showToast('⚠️ En az bir ürün ekleyin');return;}
+  const eksikAd=urunSatirlari.find(u=>!u.ad);
+  if(eksikAd){showToast('⚠️ Tüm ürün adlarını doldurun');return;}
+  const eksikMiktar=urunSatirlari.find(u=>!u.miktar||parseFloat(u.miktar)<=0);
+  if(eksikMiktar){showToast('⚠️ '+eksikMiktar.ad+' — miktar girin');return;}
+
+  const tarih=document.getElementById('ver-tarih').value;
+  const not=document.getElementById('ver-not').value;
+
+  const siparis={
+    id:'SIP_'+Date.now(),
+    tarih,
+    olusturmaTarih:Date.now(),
+    departman:currentUser.departman||currentUser.rol,
+    departmanId:currentUser.depoId||currentUser.rol.toUpperCase(),
+    personel:currentUser.ad,
+    personelRol:currentUser.rol,
+    urunler:urunSatirlari.map(u=>({
+      ad:u.ad,kod:u.kod||'',miktar:parseFloat(u.miktar),
+      talepMiktar:parseFloat(u.miktar), // orijinal talep
+      birim:u.birim,not:u.not||''
+    })),
+    not,
+    durum:'bekleyen',
+    onaylayanMiktar:null // depo onayında düzenlenecek
+  };
+
+  showLoading();
+  db.siparisler[siparis.id]=siparis;
+  await saveSiparis(siparis);
+  hideLoading();
+
+  // Formu sıfırla
+  urunSatirlari=[];
+  document.getElementById('ver-not').value='';
+  renderUrunSatirlari();
+  addUrunSatir();
+  showToast('✅ Talep gönderildi!');
+  renderTaleplerim();
+}
+
+// ============================================================
+// TALEPLERIM (MUTFAK/BAR)
+// ============================================================
+function filterTalepler(f,el){
+  talepFilter=f;
+  document.querySelectorAll('#tab-taleplerim .filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderTaleplerim();
+}
+
+function renderTaleplerim(){
+  const container=document.getElementById('taleplerim-liste');
+  if(!container)return;
+  const dept=currentUser.departman||currentUser.rol;
+  let liste=Object.values(db.siparisler)
+    .filter(s=>s.personel===currentUser.ad||s.departman===dept)
+    .filter(s=>talepFilter==='tumu'||s.durum===talepFilter)
+    .sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+
+  // Bekleyen badge
+  const bekleyen=Object.values(db.siparisler).filter(s=>(s.personel===currentUser.ad||s.departman===dept)&&s.durum==='bekleyen').length;
+  const badge=document.getElementById('talep-badge');
+  if(badge){if(bekleyen>0){badge.textContent=bekleyen;badge.style.display='block';}else badge.style.display='none';}
+
+  if(!liste.length){container.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Talep bulunamadı</div></div>`;return;}
+
+  container.innerHTML=liste.map(s=>{
+    const chipMap={bekleyen:'<span class="chip chip-warning">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-success">✅ Onaylandı</span>',reddedildi:'<span class="chip chip-danger">❌ Reddedildi</span>',kismi:'<span class="chip chip-info">🔶 Kısmen</span>'};
+    return`<div class="siparis-kart ${s.durum}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">${s.departman} Talebi</div>
+          <div style="font-size:11px;color:var(--gray-500);">${s.tarih} • ${s.personel}</div>
+        </div>
+        ${chipMap[s.durum]||''}
+      </div>
+      <div style="font-size:12px;color:var(--gray-700);">
+        ${s.urunler.map(u=>`<div style="padding:3px 0;border-bottom:1px solid var(--gray-100);">
+          • ${u.ad} — <strong>${u.miktar} ${u.birim}</strong>
+          ${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?`<span style="color:var(--warning);font-size:11px;"> (Onaylanan: ${u.onaylananMiktar})</span>`:''}
+        </div>`).join('')}
+      </div>
+      ${s.not?`<div style="font-size:11px;color:var(--gray-500);margin-top:6px;">Not: ${s.not}</div>`:''}
+      ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px;">Red: ${s.redNot}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// GELEN TALEPLER (DEPO)
+// ============================================================
+function filterGelen(f,el){
+  gelenFilter=f;
+  document.querySelectorAll('#tab-gelen .filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderGelen();
+}
+
+function renderGelen(){
+  const container=document.getElementById('gelen-liste');
+  if(!container)return;
+  let liste=Object.values(db.siparisler)
+    .filter(s=>gelenFilter==='tumu'||s.durum===gelenFilter)
+    .sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+
+  // Bekleyen badge
+  const bek=Object.values(db.siparisler).filter(s=>s.durum==='bekleyen').length;
+  const badge=document.getElementById('bekleyen-badge');
+  if(badge){if(bek>0){badge.textContent=bek;badge.style.display='block';}else badge.style.display='none';}
+
+  if(!liste.length){container.innerHTML=`<div class="empty-state"><div class="empty-icon">📥</div><div class="empty-text">${gelenFilter==='bekleyen'?'Bekleyen talep yok':'Kayıt yok'}</div></div>`;return;}
+
+  const chipMap={bekleyen:'<span class="chip chip-warning">⏳</span>',onaylandi:'<span class="chip chip-success">✅</span>',reddedildi:'<span class="chip chip-danger">❌</span>',kismi:'<span class="chip chip-info">🔶</span>'};
+
+  container.innerHTML=liste.map(s=>`
+    <div class="siparis-kart ${s.durum}" onclick="openOnayModal('${s.id}')" style="cursor:pointer;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">${s.departman}</div>
+          <div style="font-size:11px;color:var(--gray-500);">${s.tarih} • ${s.personel} • ${s.urunler.length} ürün</div>
+        </div>
+        ${chipMap[s.durum]||''}
+      </div>
+      <div style="font-size:12px;color:var(--gray-600);">
+        ${s.urunler.slice(0,3).map(u=>`${u.ad} ${u.miktar} ${u.birim}`).join(' • ')}${s.urunler.length>3?` +${s.urunler.length-3} daha`:''}
+      </div>
+    </div>`).join('');
+}
+
+// ============================================================
+// ONAY MODALI (DEPO — miktar düzenlenebilir)
+// ============================================================
+function openOnayModal(id){
+  const s=db.siparisler[id];
+  if(!s)return;
+  const content=document.getElementById('modal-onay-content');
+
+  content.innerHTML=`
+    <div style="margin-bottom:12px;">
+      <div style="font-size:15px;font-weight:700;color:var(--primary);">${s.departman}</div>
+      <div style="font-size:12px;color:var(--gray-500);">${s.tarih} • ${s.personel}</div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;text-transform:uppercase;">Ürünler — Miktarları Düzenleyebilirsiniz</div>
+    ${s.urunler.map((u,i)=>{
+      const stokMiktar=parseFloat(db.stok[u.kod]?.miktar||0);
+      const yeterli=stokMiktar>=u.miktar;
+      return`<div style="background:var(--gray-100);border-radius:8px;padding:10px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;">${u.ad}</div>
+            <div style="font-size:11px;color:var(--gray-500);">Talep: ${u.talepMiktar||u.miktar} ${u.birim} • Stok: <span style="color:${yeterli?'var(--success)':'var(--danger)'};">${stokMiktar} ${u.birim}</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:var(--gray-600);">Onaylanan:</label>
+          <input type="number" class="onay-miktar" id="onay-miktar-${i}"
+            value="${u.onaylananMiktar!==undefined?u.onaylananMiktar:u.miktar}"
+            min="0" step="0.01" max="${stokMiktar}">
+          <span style="font-size:13px;color:var(--gray-600);">${u.birim}</span>
+          ${!yeterli?'<span class="chip chip-danger">Stok az!</span>':''}
+        </div>
+        ${u.not?`<div style="font-size:11px;color:var(--gray-500);margin-top:4px;">Not: ${u.not}</div>`:''}
+      </div>`;
+    }).join('')}
+    ${s.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">Talep Notu: ${s.not}</div>`:''}
+    ${s.durum==='bekleyen'?`
+      <div class="field"><label>Red Notu (opsiyonel)</label><input type="text" id="onay-red-not" placeholder="Neden reddedildi?"></div>
+      <div class="btn-row">
+        <button class="btn btn-danger btn-sm" onclick="reddetSiparis('${id}')">❌ Reddet</button>
+        <button class="btn btn-success" onclick="onayla('${id}')">✅ Onayla ve Gönder</button>
+      </div>`
+    :`<button class="btn btn-gray btn-block" onclick="closeModal('modal-onay')">Kapat</button>`}
+  `;
+  openModal('modal-onay');
+}
+
+async function onayla(id){
+  const s=db.siparisler[id];
+  if(!s)return;
+
+  // Onaylanan miktarları al
+  s.urunler.forEach((u,i)=>{
+    const inp=document.getElementById('onay-miktar-'+i);
+    u.onaylananMiktar=inp?parseFloat(inp.value)||0:u.miktar;
+    u.miktar=u.onaylananMiktar; // güncel miktar
+  });
+
+  // Stok kontrolü ve transfer
+  showLoading();
+
+  // Hedef depo stoğunu çek
+  let hedefStok={};
+  try{
+    const r=await fetch(FIREBASE_URL+'/stok/'+s.departmanId+'.json');
+    if(r.ok){const d=await r.json();if(d)hedefStok=d;}
+  }catch(e){}
+
+  const hareketler=[];
+  s.urunler.forEach(u=>{
+    if(!u.kod||u.onaylananMiktar<=0)return;
+    // Ana depodan düş
+    if(db.stok[u.kod]){
+      db.stok[u.kod].miktar=Math.max(0,(parseFloat(db.stok[u.kod].miktar)||0)-u.onaylananMiktar);
+      db.stok[u.kod].sonGuncelleme=Date.now();
+    }
+    // Hedef depoya ekle
+    if(!hedefStok[u.kod])hedefStok[u.kod]={lnKod:u.kod,urunAd:u.ad,miktar:0,birim:u.birim,sonGuncelleme:Date.now()};
+    hedefStok[u.kod].miktar=(parseFloat(hedefStok[u.kod].miktar)||0)+u.onaylananMiktar;
+    hedefStok[u.kod].sonGuncelleme=Date.now();
+    // Hareket kaydı
+    hareketler.push({
+      id:'HAR_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+      tip:'transfer',
+      kaynakDepoId:'ANA_DEPO',kaynakDepoAd:'Ana Depo',
+      hedefDepoId:s.departmanId,hedefDepoAd:s.departman,
+      lnKod:u.kod,urunAd:u.ad,
+      miktar:u.onaylananMiktar,birim:u.birim,
+      tarih:Date.now(),
+      personel:currentUser.ad,
+      siparisId:id
+    });
+  });
+
+  s.durum='onaylandi';
+  s.onaylayanAd=currentUser.ad;
+  s.onayTarih=Date.now();
+
+  await saveStokAnaDepo();
+  await saveStokHedef(s.departmanId,hedefStok);
+  for(const h of hareketler)await saveHareket(h);
+  await saveSiparis(s);
+
+  hideLoading();
+  closeModal('modal-onay');
+  showToast('✅ Onaylandı ve stok transferi yapıldı');
+  renderGelen();
+  renderBugun();
+}
+
+async function reddetSiparis(id){
+  const s=db.siparisler[id];
+  if(!s)return;
+  const not=document.getElementById('onay-red-not')?.value||'';
+  s.durum='reddedildi';
+  s.redNot=not;
+  s.reddeden=currentUser.ad;
+  s.redTarih=Date.now();
+  showLoading();
+  await saveSiparis(s);
+  hideLoading();
+  closeModal('modal-onay');
+  showToast('❌ Talep reddedildi');
+  renderGelen();
+}
+
+// ============================================================
+// BUGÜN TESLİM
+// ============================================================
+function renderBugun(){
+  const container=document.getElementById('bugun-liste');
+  if(!container)return;
+  const today=new Date().toISOString().split('T')[0];
+  const bugunOnaylanan=Object.values(db.siparisler)
+    .filter(s=>s.durum==='onaylandi'&&s.tarih===today)
+    .sort((a,b)=>b.onayTarih-a.onayTarih);
+
+  if(!bugunOnaylanan.length){
+    container.innerHTML=`<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">Bugün teslim edilecek sipariş yok</div></div>`;
+    return;
+  }
+  container.innerHTML=`
+    <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase;">📅 ${today} — ${bugunOnaylanan.length} teslimat</div>
+    ${bugunOnaylanan.map(s=>`
+      <div class="siparis-kart onaylandi">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:13px;font-weight:700;">${s.departman}</div>
+          <span class="chip chip-success">✅ Teslim Edildi</span>
+        </div>
+        <div style="font-size:12px;color:var(--gray-600);">
+          ${s.urunler.map(u=>`<div>• ${u.ad} — ${u.onaylananMiktar||u.miktar} ${u.birim}</div>`).join('')}
+        </div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:6px;">Onaylayan: ${s.onaylayanAd||'—'}</div>
+      </div>`).join('')}`;
+}
+
+// ============================================================
+// DEPO MANUEL SİPARİŞ
+// ============================================================
+function openYeniSiparisForm(){
+  const dept=document.getElementById('yeni-dept').value;
+  const tarih=document.getElementById('yeni-tarih').value;
+  closeModal('modal-yeni');
+  // Talep Ver ekranına yönlendir
+  currentUser.depoId=dept;
+  currentUser.departman=DEPOLAR[dept]?.ad||dept;
+  document.getElementById('ver-departman').value=currentUser.departman;
+  document.getElementById('ver-tarih').value=tarih;
+  urunSatirlari=[];
+  addUrunSatir();
+  // Tab'ı açık değilse ekle
+  const verTab=document.getElementById('tab-ver');
+  if(verTab)verTab.style.display='flex';
+  switchTab('ver');
+}
+
+// ============================================================
+// YARDIMCI
+// ============================================================
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.addEventListener('click',e=>{
+  document.querySelectorAll('.modal-overlay').forEach(m=>{if(e.target===m)m.classList.remove('open');});
+});
+function gotoPortal(){window.location.href='index.html';}
+function showToast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+function showLoading(){document.getElementById('loading').classList.add('show');}
+function hideLoading(){document.getElementById('loading').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function init(){
+  await loadDB();
+  if(checkSession()){
+    document.getElementById('screen-login').classList.remove('visible');
+    initUI();
+  }else{
+    document.getElementById('screen-login').classList.add('visible');
+  }
+})();
+</script>
+</body>
+</html>
