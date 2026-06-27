@@ -378,7 +378,7 @@ function rTaleplerim(){
     const cm={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">✅ Onaylandı</span>',reddedildi:'<span class="chip chip-err">❌ Reddedildi</span>'};
     return`<div class="skart ${s.durum}">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">${cm[s.durum]||''}<div style="text-align:right;font-size:11px;color:var(--gray-500)">${s.tarih}</div></div>
-      ${s.urunler.map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${u.ad} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
+      ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${u.ad||u.urunAd||""} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
       ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px">Red: ${s.redNot}</div>`:''}
     </div>`;
   }).join(''));
@@ -387,7 +387,7 @@ function rTaleplerim(){
 // ====== GELEN TALEPLER ======
 function rGelen(){
   const c=document.getElementById('tGelen');if(!c)return;
-  let liste=Object.values(DB.siparisler||{}).filter(Boolean);
+  let liste=Object.values(DB.siparisler||{}).filter(s=>s&&(s.urunler||s.kalemler)&&(s.departman||s.firma));
   const bek=liste.filter(s=>s.durum==='bekleyen').length;
   const b=document.getElementById('gbadge');if(b){b.textContent=bek;b.style.display=bek>0?'block':'none';}
   if(GF!=='tumu')liste=liste.filter(s=>s.durum===GF);
@@ -400,10 +400,10 @@ function rGelen(){
   </div>`+(liste.length===0?'<div class="es"><div class="ei">📥</div><div class="et">'+(GF==='bekleyen'?'Bekleyen talep yok':'Kayıt yok')+'</div></div>':
   liste.map(s=>`<div class="skart ${s.durum}" onclick="aOnay('${s.id}')">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div><div style="font-size:13px;font-weight:700">${s.departman}</div><div style="font-size:11px;color:var(--gray-500)">${s.tarih} • ${s.personel} • ${s.urunler.length} ürün</div></div>
+      <div><div style="font-size:13px;font-weight:700">${s.departman||s.firma||"—"}</div><div style="font-size:11px;color:var(--gray-500)">${s.tarih||""} • ${s.personel||""} • ${(s.urunler||s.kalemler||[]).length} ürün</div></div>
       <span class="chip ${s.durum==='bekleyen'?'chip-warn':s.durum==='onaylandi'?'chip-ok':'chip-err'}">${s.durum==='bekleyen'?'⏳':s.durum==='onaylandi'?'✅':'❌'}</span>
     </div>
-    <div style="font-size:12px;color:var(--gray-600)">${s.urunler.slice(0,3).map(u=>`${u.ad} ${u.miktar} ${u.birim}`).join(' • ')}${s.urunler.length>3?` +${s.urunler.length-3} daha`:''}</div>
+    <div style="font-size:12px;color:var(--gray-600)">${(s.urunler||s.kalemler||[]).slice(0,3).map(u=>`${u.ad||u.urunAd||''} ${u.miktar||''} ${u.birim||''}`).join(' • ')}${(s.urunler||s.kalemler||[]).length>3?` +${(s.urunler||s.kalemler||[]).length-3} daha`:''}</div>
   </div>`).join(''));
 }
 
@@ -413,7 +413,7 @@ function aOnay(id){
   document.getElementById('mOnayIc').innerHTML=`
     <div style="margin-bottom:12px"><div style="font-size:15px;font-weight:700;color:var(--primary)">${s.departman}</div><div style="font-size:12px;color:var(--gray-500)">${s.tarih} • ${s.personel}</div></div>
     <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;text-transform:uppercase">Ürünler — Miktarları Düzenleyebilirsiniz</div>
-    ${s.urunler.map((u,i)=>{
+    ${(s.urunler||s.kalemler||[]).map((u,i)=>{
       const stokM=parseFloat((DB.stok[u.kod]||{}).miktar||0);
       const ok=stokM>=u.miktar;
       return`<div style="background:var(--gray-100);border-radius:8px;padding:10px;margin-bottom:8px">
@@ -474,7 +474,7 @@ function rBugun(){
     `<div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase">📅 ${today} — ${liste.length} teslimat</div>`+
     liste.map(s=>`<div class="skart onaylandi">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${s.departman}</div><span class="chip chip-ok">✅ Teslim</span></div>
-      ${s.urunler.map(u=>`<div style="font-size:12px;padding:3px 0">• ${u.ad} — ${u.onaylananMiktar||u.miktar} ${u.birim}</div>`).join('')}
+      ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0">• ${u.ad||u.urunAd||""} — ${u.onaylananMiktar||u.miktar} ${u.birim}</div>`).join('')}
       <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Onaylayan: ${s.onaylayanAd||'—'}</div>
     </div>`).join('');
 }
