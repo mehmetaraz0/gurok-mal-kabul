@@ -1175,6 +1175,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           <option value="depo">📦 Depo</option>
           <option value="satinalma">🛒 Satınalma</option>
           <option value="kalite">🔍 Kalite Kontrol</option>
+          <option value="mutfak">🍳 Mutfak</option>
+          <option value="bar">🍹 Bar</option>
           <option value="yonetici">👔 Yönetici</option>
         </select>
       </div>
@@ -1771,13 +1773,15 @@ async function loadDB() {
 // ============================================================
 // KULLANICILAR (varsayılan)
 // ============================================================
-// Roller: yonetici | depo | satinalma | kalite
+// Roller: yonetici | depo | satinalma | kalite | mutfak | bar
 const DEFAULT_USERS = [
-  { id: 1, ad: 'Mehmet Araz',    rol: 'yonetici',  departman: 'Yönetim',    pin: '123456' },
-  { id: 2, ad: 'Depo Sorumlu',   rol: 'depo',      departman: 'Depo',       pin: '111111' },
-  { id: 3, ad: 'Depo Personel',  rol: 'depo',      departman: 'Depo',       pin: '222222' },
-  { id: 4, ad: 'Satınalma',      rol: 'satinalma', departman: 'Satınalma',  pin: '333333' },
-  { id: 5, ad: 'Kalite Kontrol', rol: 'kalite',    departman: 'Kalite',     pin: '444444' }
+  { id: 1, ad: 'Mehmet Araz',     rol: 'yonetici',  departman: 'Yönetim',    pin: '123456' },
+  { id: 2, ad: 'Depo Sorumlu',    rol: 'depo',      departman: 'Depo',       pin: '111111' },
+  { id: 3, ad: 'Depo Personel',   rol: 'depo',      departman: 'Depo',       pin: '222222' },
+  { id: 4, ad: 'Satinalma',       rol: 'satinalma', departman: 'Satinalma',  pin: '333333' },
+  { id: 5, ad: 'Kalite Kontrol',  rol: 'kalite',    departman: 'Kalite',     pin: '444444' },
+  { id: 6, ad: 'Ana Mutfak Sefi', rol: 'mutfak',    departman: 'Ana Mutfak', pin: '555555', depoId: 'ANA_MUTFAK' },
+  { id: 7, ad: 'Bar Sefi',        rol: 'bar',        departman: 'Bar',       pin: '666666', depoId: 'BAR' }
 ];
 
 function getUsers() {
@@ -1871,9 +1875,11 @@ function applyRoleRestrictions(rol) {
   // Tab erişim haritası
   const access = {
     yonetici:  ['malkabul','skt','onay','siparisler','izleme'],
-    depo:      ['malkabul','skt','onay','izleme'],
+    depo:      ['malkabul','skt','onay','siparisler','izleme'],
     satinalma: ['siparisler','izleme'],
-    kalite:    ['skt','onay','izleme']
+    kalite:    ['skt','onay','izleme'],
+    mutfak:    ['siparisler'],
+    bar:       ['siparisler']
   };
   const allowed = access[rol] || ['malkabul'];
 
@@ -3980,8 +3986,8 @@ async function applyLNImport() {
 // ============================================================
 function renderUsersList() {
   const users = getUsers();
-  const rolIkon = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍' };
-  const rolAd   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite' };
+  const rolIkon = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹' };
+  const rolAd   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite', mutfak:'Mutfak', bar:'Bar' };
   document.getElementById('users-list-content').innerHTML = users.map(u => `
     <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-100);">
       <span style="font-size:20px;">${rolIkon[u.rol]||'👤'}</span>
