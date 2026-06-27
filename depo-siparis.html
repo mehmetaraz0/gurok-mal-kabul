@@ -288,7 +288,8 @@ let pinValue = '';
 function pinInput(d){
   if(pinValue.length>=6)return;
   pinValue+=d; updateDots();
-  const match=db.kullanicilar.filter(u=>u.pin.startsWith(pinValue));
+  const tumKullanicilar=[...db.kullanicilar,...DEFAULT_USERS];
+  const match=tumKullanicilar.filter(u=>String(u.pin).startsWith(pinValue));
   document.getElementById('pin-user-show').textContent=match.length===1&&pinValue.length>=3?(ROL_IKON[match[0].rol]||'👤')+' '+match[0].ad:'';
   document.getElementById('pin-error').textContent='';
   if(pinValue.length===6)setTimeout(checkPin,200);
@@ -296,11 +297,15 @@ function pinInput(d){
 function pinDelete(){pinValue=pinValue.slice(0,-1);updateDots();if(!pinValue)document.getElementById('pin-user-show').textContent='';}
 function updateDots(){for(let i=0;i<6;i++)document.getElementById('pd'+i).classList.toggle('filled',i<pinValue.length);}
 function checkPin(){
-  const user=db.kullanicilar.find(u=>u.pin===pinValue);
+  // Her ihtimale karşı hem db.kullanicilar hem DEFAULT_USERS'a bak
+  const tumKullanicilar=[...db.kullanicilar,...DEFAULT_USERS];
+  const user=tumKullanicilar.find(u=>String(u.pin)===String(pinValue));
   if(!user){
     document.getElementById('pin-error').textContent='❌ Hatalı PIN';
     setTimeout(()=>document.getElementById('pin-error').textContent='',2000);
-    pinValue='';updateDots();return;
+    pinValue='';updateDots();
+    document.getElementById('pin-user-show').textContent='';
+    return;
   }
   currentUser=user;
   sessionStorage.setItem('gurok_siparis_session',JSON.stringify({user,expiry:Date.now()+30*60*1000}));
