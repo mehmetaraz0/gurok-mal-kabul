@@ -422,11 +422,13 @@ const MODULLER = [
 // KULLANICILAR
 // ============================================================
 const DEFAULT_USERS = [
-  { id:1, ad:'Mehmet Araz',    rol:'yonetici',  departman:'Yönetim',   pin:'123456' },
-  { id:2, ad:'Depo Sorumlu',   rol:'depo',      departman:'Depo',      pin:'111111' },
-  { id:3, ad:'Depo Personel',  rol:'depo',      departman:'Depo',      pin:'222222' },
-  { id:4, ad:'Satinalma',      rol:'satinalma', departman:'Satınalma', pin:'333333' },
-  { id:5, ad:'Kalite Kontrol', rol:'kalite',    departman:'Kalite',    pin:'444444' }
+  { id:1, ad:'Mehmet Araz',     rol:'yonetici',  departman:'Yönetim',    pin:'123456' },
+  { id:2, ad:'Depo Sorumlu',    rol:'depo',      departman:'Depo',       pin:'111111' },
+  { id:3, ad:'Depo Personel',   rol:'depo',      departman:'Depo',       pin:'222222' },
+  { id:4, ad:'Satinalma',       rol:'satinalma', departman:'Satinalma',  pin:'333333' },
+  { id:5, ad:'Kalite Kontrol',  rol:'kalite',    departman:'Kalite',     pin:'444444' },
+  { id:6, ad:'Ana Mutfak Sefi', rol:'mutfak',    departman:'Ana Mutfak', pin:'555555', depoId:'ANA_MUTFAK' },
+  { id:7, ad:'Bar Sefi',        rol:'bar',       departman:'Bar',        pin:'666666', depoId:'BAR' }
 ];
 
 const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹' };
@@ -460,7 +462,8 @@ function pinInput(d) {
   pinValue += d;
   updateDots();
   // Tahmin
-  const match = users.filter(u => u.pin.startsWith(pinValue));
+  const tumKullanicilar = users.length > 0 ? users : DEFAULT_USERS;
+  const match = tumKullanicilar.filter(u => String(u.pin).startsWith(pinValue));
   const el = document.getElementById('pin-user-show');
   const errEl = document.getElementById('pin-error');
   errEl.textContent = '';
@@ -485,7 +488,9 @@ function updateDots() {
 }
 
 function checkPin() {
-  const user = users.find(u => u.pin === pinValue);
+  // Firebase'den yüklenen + DEFAULT_USERS her ikisine bak
+  const tumKullanicilar = users.length > 0 ? users : DEFAULT_USERS;
+  const user = tumKullanicilar.find(u => String(u.pin) === String(pinValue));
   if (!user) {
     const errEl = document.getElementById('pin-error');
     errEl.textContent = '❌ Hatalı PIN';
