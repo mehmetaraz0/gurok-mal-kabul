@@ -197,7 +197,7 @@ async function loadDB(){
       fetch(FB+'/kullanicilar.json'),
       fetch(FB+'/stok/ANA_DEPO.json'),
     ]);
-    if(sR.ok){const d=await sR.json();if(d&&typeof d==='object'&&!Array.isArray(d))DB.siparisler=d;}
+    if(sR.ok){const d=await sR.json();if(d){if(typeof d==='object'&&!Array.isArray(d))DB.siparisler=d;else if(Array.isArray(d))d.filter(Boolean).forEach(s=>{if(s&&s.id)DB.siparisler[s.id]=s;});}}
     if(kR.ok){const d=await kR.json();if(Array.isArray(d)&&d.length)DB.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol}));}
     if(stR.ok){const d=await stR.json();if(d)DB.stok=d;}
   }catch(e){console.warn(e);}
@@ -363,7 +363,7 @@ async function gondер(){
 function rTaleplerim(){
   const c=document.getElementById('tTaleplerim');if(!c)return;
   const dept=CU.departman||RADLAR[CU.rol]||CU.rol;
-  let liste=Object.values(DB.siparisler).filter(s=>s.personel===CU.ad||s.departman===dept);
+  let liste=Object.values(DB.siparisler||{}).filter(Boolean).filter(s=>s.personel===CU.ad||s.departman===dept);
   const bek=liste.filter(s=>s.durum==='bekleyen').length;
   const b=document.getElementById('tbadge');if(b){b.textContent=bek;b.style.display=bek>0?'block':'none';}
   if(TF!=='tumu')liste=liste.filter(s=>s.durum===TF);
@@ -387,7 +387,7 @@ function rTaleplerim(){
 // ====== GELEN TALEPLER ======
 function rGelen(){
   const c=document.getElementById('tGelen');if(!c)return;
-  let liste=Object.values(DB.siparisler);
+  let liste=Object.values(DB.siparisler||{}).filter(Boolean);
   const bek=liste.filter(s=>s.durum==='bekleyen').length;
   const b=document.getElementById('gbadge');if(b){b.textContent=bek;b.style.display=bek>0?'block':'none';}
   if(GF!=='tumu')liste=liste.filter(s=>s.durum===GF);
@@ -469,7 +469,7 @@ async function reddet(id){
 function rBugun(){
   const c=document.getElementById('tBugun');if(!c)return;
   const today=new Date().toISOString().split('T')[0];
-  const liste=Object.values(DB.siparisler).filter(s=>s.durum==='onaylandi'&&s.tarih===today).sort((a,b)=>b.onayTarih-a.onayTarih);
+  const liste=Object.values(DB.siparisler||{}).filter(Boolean).filter(s=>s.durum==='onaylandi'&&s.tarih===today).sort((a,b)=>b.onayTarih-a.onayTarih);
   c.innerHTML=liste.length===0?'<div class="es"><div class="ei">✅</div><div class="et">Bugün teslim edilecek sipariş yok</div></div>':
     `<div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase">📅 ${today} — ${liste.length} teslimat</div>`+
     liste.map(s=>`<div class="skart onaylandi">
