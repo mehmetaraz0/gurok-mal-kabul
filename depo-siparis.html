@@ -381,15 +381,18 @@ async function saveHareket(h){
 // UI INIT
 // ============================================================
 function initUI(){
-  const rol=currentUser.rol;
+  const rol=currentUser?.rol;
+  if(!rol){console.warn('currentUser yok');return;}
   const ikon=ROL_IKON[rol]||'👤';
   const dept=currentUser.departman||(ROL_AD[rol]||rol);
-  document.getElementById('header-sub').textContent=ikon+' '+currentUser.ad+' • '+dept;
+
+  const headerSub=document.getElementById('header-sub');
+  if(headerSub)headerSub.textContent=ikon+' '+currentUser.ad+' • '+dept;
 
   const nav=document.getElementById('bottom-nav');
+  if(!nav)return;
 
   if(rol==='mutfak'||rol==='bar'){
-    // Mutfak/Bar: Talep Ver + Taleplerim
     nav.innerHTML=`
       <button class="nav-btn active" id="nav-ver" onclick="switchTab('ver')">
         <span class="nav-icon">📤</span><span class="nav-label">Talep Ver</span>
@@ -398,15 +401,22 @@ function initUI(){
         <span class="nav-icon">📋</span><span class="nav-label">Taleplerim</span>
         <span class="nav-badge" id="talep-badge" style="display:none;"></span>
       </button>`;
-    // Departman ve tarih doldur
-    document.getElementById('ver-departman').value=dept;
-    document.getElementById('ver-tarih').value=new Date().toISOString().split('T')[0];
-    addUrunSatir();
-    switchTab('ver');
+
+    setTimeout(()=>{
+      const deptEl=document.getElementById('ver-departman');
+      const tarihEl=document.getElementById('ver-tarih');
+      if(deptEl)deptEl.value=dept;
+      if(tarihEl)tarihEl.value=new Date().toISOString().split('T')[0];
+      if(urunSatirlari.length===0)addUrunSatir();
+      switchTab('ver');
+      renderAll();
+    },50);
+
   } else {
-    // Depo/Yönetici: Gelen Talepler + Bugün Teslim
-    document.getElementById('btn-yeni-siparis').style.display='flex';
-    document.getElementById('yeni-tarih').value=new Date().toISOString().split('T')[0];
+    const yeniSipBtn=document.getElementById('btn-yeni-siparis');
+    if(yeniSipBtn)yeniSipBtn.style.display='flex';
+    const yeniTarih=document.getElementById('yeni-tarih');
+    if(yeniTarih)yeniTarih.value=new Date().toISOString().split('T')[0];
     nav.innerHTML=`
       <button class="nav-btn active" id="nav-gelen" onclick="switchTab('gelen')">
         <span class="nav-icon">📥</span><span class="nav-label">Gelen Talepler</span>
@@ -415,9 +425,8 @@ function initUI(){
       <button class="nav-btn" id="nav-bugun" onclick="switchTab('bugun')">
         <span class="nav-icon">📦</span><span class="nav-label">Bugün Teslim</span>
       </button>`;
-    switchTab('gelen');
+    setTimeout(()=>{switchTab('gelen');renderAll();},50);
   }
-  renderAll();
 }
 
 function switchTab(tab){
