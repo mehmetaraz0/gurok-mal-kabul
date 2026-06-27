@@ -326,33 +326,31 @@ function checkSession(){
 async function loadDB(){
   showLoading();
   try{
-    const [sipR,kulR,stokR,urunR]=await Promise.all([
+    const [sipR,kulR,stokR]=await Promise.all([
       fetch(FIREBASE_URL+'/siparisler.json'),
       fetch(FIREBASE_URL+'/kullanicilar.json'),
       fetch(FIREBASE_URL+'/stok/ANA_DEPO.json'),
-      fetch(FIREBASE_URL+'/urunListesi.json'),
     ]);
     if(sipR.ok){const d=await sipR.json();if(d&&typeof d==='object')db.siparisler=d;}
     if(kulR.ok){const d=await kulR.json();if(Array.isArray(d)&&d.length)db.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol}));}
     if(stokR.ok){const d=await stokR.json();if(d)db.stok=d;}
-    if(urunR.ok){const d=await urunR.json();if(Array.isArray(d)&&d.length)db.urunler=d;}
   }catch(e){console.warn(e);}
   if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
-  // Ürün listesi Firebase'de yoksa gurok_veritabani.js'den çek
-  if(!db.urunler||!db.urunler.length){
-    try{
-      const r=await fetch('gurok_veritabani.js');
-      // Script olarak yükle
-      if(!window.URUN_DB){
-        const s=document.createElement('script');
-        s.src='gurok_veritabani.js';
-        document.head.appendChild(s);
-        await new Promise(r=>s.onload=r);
-      }
-      if(window.URUN_DB)db.urunler=window.URUN_DB;
-    }catch(e){}
+  hideLoading(); // Önce loading kapat
+
+  // Ürün listesini arka planda yükle — loading göstermeden
+  try{
+    const urunR=await fetch(FIREBASE_URL+'/urunListesi.json');
+    if(urunR.ok){const d=await urunR.json();if(Array.isArray(d)&&d.length){db.urunler=d;return;}}
+  }catch(e){}
+  // Firebase'de yoksa gurok_veritabani.js'den yükle
+  if(!window.URUN_DB){
+    const s=document.createElement('script');
+    s.src='gurok_veritabani.js';
+    document.head.appendChild(s);
+    await new Promise((r,j)=>{s.onload=r;s.onerror=j;setTimeout(r,5000);}); // 5sn timeout
   }
-  hideLoading();
+  if(window.URUN_DB)db.urunler=window.URUN_DB;
 }
 
 async function saveSiparis(s){
