@@ -105,6 +105,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="bnav" id="bnav"></div>
 </div>
 
+<div class="mo" id="mOzet"><div class="mbox">
+  <div class="mtitle">Onay Özeti <button class="mclose" onclick="kModal('mOzet')">✕</button></div>
+  <div id="mOzetIc"></div>
+</div></div>
+
 <!-- Onay Modal -->
 <div class="mo" id="mOnay"><div class="mbox"><div class="mtitle">📋 Talep Detayı <button class="mclose" onclick="kModal('mOnay')">✕</button></div><div id="mOnayIc"></div></div></div>
 <!-- Yeni Modal (Depo) -->
@@ -430,8 +435,8 @@ function aOnay(id){
     ${s.durum==='bekleyen'?`
       <div class="field"><label>Red Notu</label><input type="text" id="rednot" placeholder="Neden reddedildi?"></div>
       <div class="brow">
-        <button class="btn btn-danger btn-sm" onclick="reddet('${id}')">❌ Reddet</button>
-        <button class="btn btn-success" onclick="onayla('${id}')">✅ Onayla</button>
+        <button class="btn btn-danger btn-sm" onclick="kModal('mOnay');onayOzetGoster('${id}','red')">❌ Reddet</button>
+        <button class="btn btn-success" onclick="kModal('mOnay');onayOzetGoster('${id}','onayla')">✅ Onayla</button>
       </div>`:`<button class="btn btn-gray btn-block" onclick="kModal('mOnay')">Kapat</button>`}`;
   aModal('mOnay');
 }
@@ -506,7 +511,61 @@ function depoYeniSiparis(){
   gTab('ver');
 }
 
-// ====== YARDIMCI ======
+// ====== 2. ONAY SİSTEMİ ======
+function onayOzetGoster(id, tip){
+  const s=DB.siparisler[id];if(!s)return;
+  const urunler=s.urunler||s.kalemler||[];
+
+  // Onaylanan miktarları topla
+  const onaylananlar=urunler.map((u,i)=>({
+    ...u,
+    onaylananMiktar: parseFloat(document.getElementById('om'+i)?.value||u.miktar)||0
+  }));
+
+  let icerik='';
+  if(tip==='onayla'){
+    const dept=s.departman||'—';
+    icerik=`
+      <div style="background:#d4edda;border-radius:8px;padding:12px;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;color:#155724;margin-bottom:4px;">✅ Onaylanacak Transfer</div>
+        <div style="font-size:12px;color:#155724;">Ana Depo → ${dept}</div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;">Gönderilecek Ürünler:</div>
+      ${onaylananlar.map(u=>{
+        const stok=parseFloat((DB.stok[u.kod]||{}).miktar||0);
+        const yeterli=stok>=u.onaylananMiktar;
+        return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:${yeterli?'var(--gray-100)':'#fff8f8'};border-radius:6px;margin-bottom:4px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;">${u.ad||u.urunAd||'—'}</div>
+            <div style="font-size:11px;color:var(--gray-500);">Stok: ${stok} ${u.birim}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:15px;font-weight:800;color:${yeterli?'var(--success)':'var(--danger)'};">${u.onaylananMiktar} ${u.birim}</div>
+            ${!yeterli?'<div style="font-size:10px;color:var(--danger);">⚠️ Stok yetersiz</div>':''}
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="brow" style="margin-top:14px;">
+        <button class="btn btn-gray" onclick="kModal('mOzet')">← Geri</button>
+        <button class="btn btn-success" onclick="kModal('mOzet');onayla('${id}')">✅ Evet, Onayla</button>
+      </div>`;
+  } else {
+    icerik=`
+      <div style="background:#fde8e8;border-radius:8px;padding:12px;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;color:#9b1c1c;">❌ Talep Reddedilecek</div>
+        <div style="font-size:12px;color:#9b1c1c;margin-top:4px;">${s.departman} • ${s.personel}</div>
+      </div>
+      <div class="field"><label>Red Nedeni</label><input type="text" id="rednot2" placeholder="Neden reddedildi?"></div>
+      <div class="brow">
+        <button class="btn btn-gray" onclick="kModal('mOzet')">← Geri</button>
+        <button class="btn btn-danger" onclick="document.getElementById('rednot').value=document.getElementById('rednot2')?.value||'';kModal('mOzet');reddet('${id}')">❌ Evet, Reddet</button>
+      </div>`;
+  }
+
+  document.getElementById('mOzetIc').innerHTML=icerik;
+  aModal('mOzet');
+}
+
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
