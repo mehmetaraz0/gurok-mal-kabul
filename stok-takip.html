@@ -7,195 +7,129 @@
 <meta name="theme-color" content="#1a2744">
 <style>
 :root {
-  --primary: #1a2744;
-  --primary-light: #2d4080;
-  --accent: #e8a020;
-  --success: #27ae60;
-  --warning: #f39c12;
-  --danger: #e74c3c;
-  --gray-50: #f8f9fa;
-  --gray-100: #f1f3f5;
-  --gray-200: #e9ecef;
-  --gray-300: #dee2e6;
-  --gray-500: #adb5bd;
-  --gray-600: #6c757d;
-  --gray-700: #495057;
-  --white: #ffffff;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 2px 12px rgba(0,0,0,0.1);
+  --primary:#1a2744; --primary-light:#2d4080; --accent:#e8a020;
+  --success:#27ae60; --warning:#f39c12; --danger:#e74c3c;
+  --gray-100:#f1f3f5; --gray-200:#e9ecef; --gray-300:#dee2e6;
+  --gray-400:#ced4da; --gray-500:#adb5bd; --gray-600:#6c757d;
+  --gray-700:#495057; --white:#fff;
+  --radius:12px; --radius-sm:8px; --shadow:0 2px 12px rgba(0,0,0,0.1);
 }
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-100); }
-
-/* LAYOUT */
-#app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-
-/* HEADER */
-.header {
-  background: var(--primary); color: white;
-  padding: 12px 16px; display: flex; align-items: center; gap: 10px;
-  flex-shrink: 0; box-shadow: var(--shadow); min-height: 56px;
-}
-.header h1 { font-size: 16px; font-weight: 700; flex: 1; }
-.header .sub { font-size: 11px; opacity: 0.7; display: block; margin-top: 1px; }
-.header-btn {
-  background: rgba(255,255,255,0.15); border: none; color: white;
-  width: 36px; height: 36px; border-radius: 50%; font-size: 18px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-}
-.header-btn:active { background: rgba(255,255,255,0.3); }
-
-/* NAV */
-.bottom-nav { background: white; display: flex; border-top: 1px solid var(--gray-200); flex-shrink: 0; }
-.nav-btn {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 8px 4px; border: none; background: none;
-  cursor: pointer; gap: 3px; position: relative; min-height: 56px;
-}
-.nav-btn .nav-icon { font-size: 20px; }
-.nav-btn .nav-label { font-size: 10px; color: var(--gray-500); font-weight: 500; }
-.nav-btn.active .nav-label { color: var(--primary); font-weight: 700; }
-.nav-btn.active::after {
-  content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
-  height: 3px; background: var(--primary); border-radius: 3px 3px 0 0;
-}
-.nav-badge {
-  position: absolute; top: 6px; right: calc(50% - 18px);
-  background: var(--danger); color: white; font-size: 9px; font-weight: 700;
-  padding: 1px 5px; border-radius: 8px; min-width: 16px; text-align: center;
-}
-
-/* SCROLL */
-.scroll-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px; }
-.scroll-content::-webkit-scrollbar { display: none; }
-
-/* CARDS */
-.card { background: white; border-radius: var(--radius); padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
-.card-title { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-
-/* STATS */
-.stats-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 12px; }
-.stat-card { background: white; border-radius: var(--radius-sm); padding: 12px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-.stat-num { font-size: 24px; font-weight: 800; color: var(--primary); }
-.stat-label { font-size: 10px; color: var(--gray-500); margin-top: 2px; }
-
-/* FILTER */
-.filter-tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
-.filter-tab { padding: 6px 14px; border: 1.5px solid var(--gray-300); border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; background: white; color: var(--gray-600); flex-shrink: 0; }
-.filter-tab.active { background: var(--primary); border-color: var(--primary); color: white; }
-
-/* SEARCH */
-.search-bar { position: relative; margin-bottom: 10px; }
-.search-bar input { width: 100%; padding: 10px 40px 10px 14px; border: 1.5px solid var(--gray-300); border-radius: 24px; font-size: 14px; outline: none; background: white; }
-.search-bar input:focus { border-color: var(--primary); }
-.search-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--gray-500); font-size: 16px; }
-
-/* STOK ITEM */
-.stok-item {
-  background: white; border-radius: var(--radius-sm); padding: 12px;
-  margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  border-left: 4px solid var(--gray-200);
-}
-.stok-item.kritik { border-left-color: var(--danger); background: #fff8f8; }
-.stok-item.uyari { border-left-color: var(--warning); }
-.stok-item.normal { border-left-color: var(--success); }
-.stok-urun { font-size: 13px; font-weight: 700; color: var(--primary); }
-.stok-kod { font-size: 10px; color: var(--gray-400); font-family: monospace; margin-top: 1px; }
-.stok-miktar { font-size: 18px; font-weight: 800; }
-.stok-miktar.kritik { color: var(--danger); }
-.stok-miktar.uyari { color: var(--warning); }
-.stok-miktar.normal { color: var(--success); }
-.stok-meta { font-size: 11px; color: var(--gray-500); margin-top: 4px; }
-.progress-bar { height: 5px; background: var(--gray-200); border-radius: 3px; margin-top: 8px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
-.progress-fill.danger { background: var(--danger); }
-.progress-fill.warning { background: var(--warning); }
-.progress-fill.success { background: var(--success); }
-
-/* HAREKET */
-.hareket-item { padding: 10px 0; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 10px; }
-.hareket-item:last-child { border-bottom: none; }
-.hareket-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
-.hareket-icon.giris { background: #d1fae5; }
-.hareket-icon.cikis { background: #fee2e2; }
-.hareket-icon.duzeltme { background: #e0f2fe; }
-.hareket-bilgi { flex: 1; min-width: 0; }
-.hareket-urun { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hareket-detay { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
-.hareket-miktar { font-size: 13px; font-weight: 700; flex-shrink: 0; }
-.hareket-miktar.giris { color: var(--success); }
-.hareket-miktar.cikis { color: var(--danger); }
-
-/* FORM */
-.field { margin-bottom: 12px; }
-.field label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px; }
-.field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 14px; background: white; outline: none; -webkit-appearance: none; }
-.field input:focus, .field select:focus { border-color: var(--primary); }
-.row-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.row-fields .field { margin-bottom: 0; }
-
-/* BTNS */
-.btn { padding: 11px 18px; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
-.btn:active { transform: scale(0.97); }
-.btn:disabled { opacity: 0.5; }
-.btn-primary { background: var(--primary); color: white; }
-.btn-success { background: var(--success); color: white; }
-.btn-danger { background: var(--danger); color: white; }
-.btn-warning { background: var(--warning); color: white; }
-.btn-gray { background: var(--gray-200); color: var(--gray-700); }
-.btn-block { width: 100%; }
-.btn-sm { padding: 7px 12px; font-size: 12px; min-height: 34px; }
-.btn-row { display: flex; gap: 8px; }
-.btn-row .btn { flex: 1; }
-
-/* CHIP */
-.chip { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-.chip-danger { background: #fde8e8; color: #9b1c1c; }
-.chip-warning { background: #fff3cd; color: #856404; }
-.chip-success { background: #d4edda; color: #155724; }
-.chip-info { background: #d1ecf1; color: #0c5460; }
-
-/* MODAL */
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; align-items: flex-end; }
-.modal-overlay.open { display: flex; }
-.modal-box { background: white; border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-height: 85vh; overflow-y: auto; animation: slideUp 0.25s ease; }
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.modal-title { font-size: 16px; font-weight: 700; color: var(--primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-.modal-close { margin-left: auto; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--gray-500); }
-
-/* EMPTY */
-.empty-state { text-align: center; padding: 40px 20px; color: var(--gray-400); }
-.empty-icon { font-size: 48px; margin-bottom: 12px; }
-.empty-text { font-size: 14px; }
-
-/* TOAST */
-#toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--primary); color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 9999; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; max-width: 90vw; text-align: center; }
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* LOADING */
-#loading { display: none; position: fixed; inset: 0; background: rgba(26,39,68,0.85); z-index: 9998; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: white; }
-#loading.show { display: flex; }
-.spinner { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* LOGIN */
-#screen-login { position: fixed; inset: 0; background: linear-gradient(160deg, var(--primary), var(--primary-light)); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-#screen-login.hidden { display: none; }
-.login-box { background: white; border-radius: 20px; padding: 28px 24px; width: 100%; max-width: 340px; margin: 20px; }
-.login-logo { text-align: center; margin-bottom: 20px; }
-.login-logo h2 { font-size: 20px; color: var(--primary); font-weight: 800; }
-.login-logo p { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
-.pin-display { display: flex; justify-content: center; gap: 10px; margin: 12px 0 6px; }
-.pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--gray-400); transition: all 0.15s; }
-.pin-dot.filled { background: var(--primary); border-color: var(--primary); }
-.pin-pad { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 8px; }
-.pin-btn { height: 52px; border: none; border-radius: var(--radius-sm); font-size: 20px; font-weight: 600; cursor: pointer; background: var(--gray-100); color: var(--primary); transition: all 0.1s; }
-.pin-btn:active { background: var(--gray-300); transform: scale(0.95); }
-.pin-btn.empty { background: transparent; cursor: default; }
-
-/* KATEGORI BADGE */
-.kat-badge { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; background: var(--gray-100); color: var(--gray-600); }
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;box-shadow:var(--shadow);min-height:56px}
+.header h1{font-size:15px;font-weight:700}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.header-btn:active{background:rgba(255,255,255,.3)}
+/* Depo seçici */
+.depo-selector{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:white;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;outline:none;-webkit-appearance:none;flex-shrink:0}
+.depo-selector option{color:#000;background:white}
+/* Nav */
+.bottom-nav{background:white;display:flex;border-top:1px solid var(--gray-200);flex-shrink:0}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border:none;background:none;cursor:pointer;gap:3px;position:relative;min-height:56px}
+.nav-btn .nav-icon{font-size:20px}
+.nav-btn .nav-label{font-size:10px;color:var(--gray-500);font-weight:500}
+.nav-btn.active .nav-label{color:var(--primary);font-weight:700}
+.nav-btn.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:3px;background:var(--primary);border-radius:3px 3px 0 0}
+.nav-badge{position:absolute;top:6px;right:calc(50% - 18px);background:var(--danger);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;min-width:16px;text-align:center}
+/* Scroll */
+.scroll-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.scroll-content::-webkit-scrollbar{display:none}
+/* Cards */
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.stat-card{background:white;border-radius:var(--radius-sm);padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:22px;font-weight:800;color:var(--primary)}
+.stat-label{font-size:10px;color:var(--gray-500);margin-top:2px}
+/* Filter */
+.filter-tabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.filter-tab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.filter-tab.active{background:var(--primary);border-color:var(--primary);color:white}
+/* Search */
+.search-bar{position:relative;margin-bottom:10px}
+.search-bar input{width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--gray-300);border-radius:24px;font-size:14px;outline:none;background:white}
+.search-bar input:focus{border-color:var(--primary)}
+.search-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gray-500);font-size:16px}
+/* Stok item */
+.stok-item{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-200);cursor:pointer}
+.stok-item.kritik{border-left-color:var(--danger);background:#fff8f8}
+.stok-item.uyari{border-left-color:var(--warning)}
+.stok-item.normal{border-left-color:var(--success)}
+.progress-bar{height:5px;background:var(--gray-200);border-radius:3px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+.progress-fill.danger{background:var(--danger)}
+.progress-fill.warning{background:var(--warning)}
+.progress-fill.success{background:var(--success)}
+/* Hareket */
+.har-item{padding:10px 0;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px}
+.har-item:last-child{border-bottom:none}
+.har-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.har-icon.giris{background:#d1fae5}
+.har-icon.cikis{background:#fee2e2}
+.har-icon.transfer{background:#dbeafe}
+/* Field */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.row-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row-fields .field{margin-bottom:0}
+/* Buttons */
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5}
+.btn-primary{background:var(--primary);color:white}
+.btn-success{background:var(--success);color:white}
+.btn-danger{background:var(--danger);color:white}
+.btn-warning{background:var(--warning);color:white}
+.btn-gray{background:var(--gray-200);color:var(--gray-700)}
+.btn-info{background:#0284c7;color:white}
+.btn-block{width:100%}
+.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{flex:1}
+/* Chip */
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-danger{background:#fde8e8;color:#9b1c1c}
+.chip-warning{background:#fff3cd;color:#856404}
+.chip-success{background:#d4edda;color:#155724}
+.chip-info{background:#d1ecf1;color:#0c5460}
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.modal-overlay.open{display:flex}
+.modal-box{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:85vh;overflow-y:auto;animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-title{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.modal-close{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+/* Empty */
+.empty-state{text-align:center;padding:40px 20px;color:var(--gray-400)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-text{font-size:14px}
+/* Toast */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* Loading */
+#loading{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#loading.show{display:flex}
+.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Login */
+#screen-login{position:fixed;inset:0;background:linear-gradient(160deg,var(--primary),var(--primary-light));display:flex;align-items:center;justify-content:center;z-index:9999}
+#screen-login.hidden{display:none}
+.login-box{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;margin:20px}
+.pin-display{display:flex;justify-content:center;gap:10px;margin:12px 0 6px}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--gray-400);transition:all .15s}
+.pin-dot.filled{background:var(--primary);border-color:var(--primary)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.pin-btn{height:52px;border:none;border-radius:var(--radius-sm);font-size:20px;font-weight:600;cursor:pointer;background:var(--gray-100);color:var(--primary);transition:all .1s}
+.pin-btn:active{background:var(--gray-300);transform:scale(.95)}
+.pin-btn.empty{background:transparent;cursor:default}
+/* Transfer badge */
+.transfer-tag{font-size:10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:6px;font-weight:600}
+.kat-badge{display:inline-block;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;background:var(--gray-100);color:var(--gray-600)}
 </style>
 </head>
 <body>
@@ -203,9 +137,10 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 <!-- LOGIN -->
 <div id="screen-login">
   <div class="login-box">
-    <div class="login-logo">
-      <h2>📦 Stok Takip</h2>
-      <p>Gürok Turizm Grubu</p>
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 10px;">📦</div>
+      <div style="font-size:20px;font-weight:800;color:var(--primary);">Stok Takip</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">Gürok Turizm Grubu</div>
     </div>
     <p style="text-align:center;font-size:12px;color:var(--gray-600);margin-bottom:4px;">PIN kodunuzu girin</p>
     <div style="text-align:center;font-size:13px;font-weight:700;color:var(--primary);min-height:20px;" id="pin-user-show"></div>
@@ -232,86 +167,80 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   </div>
 </div>
 
-<!-- ANA UYGULAMA -->
+<!-- APP -->
 <div id="app">
-  <!-- HEADER -->
   <div class="header">
-    <button class="header-btn" onclick="gotoPortal()" title="Ana Menü">🏠</button>
+    <button class="header-btn" onclick="gotoPortal()">🏠</button>
     <div style="flex:1;">
       <h1>Stok Takip</h1>
-      <span class="sub" id="header-depo">Ana Depo</span>
+      <span class="sub" id="header-depo-label">Ana Depo</span>
     </div>
-    <button class="header-btn" onclick="openModal('modal-cikis')" title="Çıkış Ekle">➖</button>
-    <button class="header-btn" onclick="openModal('modal-min')" title="Min. Seviye">⚙️</button>
+    <select class="depo-selector" id="depo-selector" onchange="onDepoChange(this.value)">
+      <!-- JS ile doldurulur -->
+    </select>
+    <button class="header-btn" onclick="openModal('modal-transfer')" title="Transfer">🔄</button>
+    <button class="header-btn" onclick="openModal('modal-cikis')" title="Çıkış">➖</button>
   </div>
 
-  <!-- TAB: STOK LİSTESİ -->
+  <!-- STOK TAB -->
   <div class="scroll-content" id="tab-stok" style="display:flex;flex-direction:column;">
     <div class="stats-grid" id="stok-stats"></div>
     <div class="search-bar">
-      <input type="text" id="stok-search" placeholder="Ürün adı veya LN kodu ara..." oninput="renderStokListe()">
+      <input type="text" id="stok-search" placeholder="Ürün adı veya LN kodu ara..." oninput="renderStok()">
       <span class="search-icon">🔍</span>
     </div>
     <div class="filter-tabs">
-      <button class="filter-tab active" id="ft-tumu" onclick="filterStok('tumu',this)">Tümü</button>
-      <button class="filter-tab" id="ft-kritik" onclick="filterStok('kritik',this)">🔴 Kritik</button>
-      <button class="filter-tab" id="ft-uyari" onclick="filterStok('uyari',this)">🟡 Uyarı</button>
-      <button class="filter-tab" id="ft-normal" onclick="filterStok('normal',this)">✅ Normal</button>
+      <button class="filter-tab active" onclick="filterStok('tumu',this)">Tümü</button>
+      <button class="filter-tab" onclick="filterStok('kritik',this)">🔴 Kritik</button>
+      <button class="filter-tab" onclick="filterStok('uyari',this)">🟡 Uyarı</button>
+      <button class="filter-tab" onclick="filterStok('normal',this)">✅ Normal</button>
     </div>
-    <!-- Kategori filtreleri -->
-    <div class="filter-tabs" id="kat-tabs" style="margin-bottom:10px;"></div>
+    <div class="filter-tabs" id="kat-tabs"></div>
     <div id="stok-liste"></div>
   </div>
 
-  <!-- TAB: HAREKETler -->
+  <!-- HAREKET TAB -->
   <div class="scroll-content" id="tab-hareketler" style="display:none;flex-direction:column;">
-    <div class="card" style="margin-bottom:10px;">
+    <div class="card">
       <div class="row-fields" style="margin-bottom:8px;">
-        <div class="field">
-          <label>Başlangıç</label>
-          <input type="date" id="har-start" onchange="renderHareketler()">
-        </div>
-        <div class="field">
-          <label>Bitiş</label>
-          <input type="date" id="har-end" onchange="renderHareketler()">
-        </div>
+        <div class="field"><label>Başlangıç</label><input type="date" id="har-start" onchange="renderHareketler()"></div>
+        <div class="field"><label>Bitiş</label><input type="date" id="har-end" onchange="renderHareketler()"></div>
       </div>
-      <div class="field" style="margin:0;">
-        <input type="text" id="har-search" placeholder="Ürün ara..." oninput="renderHareketler()" style="border-radius:20px;">
+      <div class="filter-tabs" style="margin-bottom:0;">
+        <button class="filter-tab active" onclick="filterHar('tumu',this)">Tümü</button>
+        <button class="filter-tab" onclick="filterHar('giris',this)">⬆️ Giriş</button>
+        <button class="filter-tab" onclick="filterHar('cikis',this)">⬇️ Çıkış</button>
+        <button class="filter-tab" onclick="filterHar('transfer',this)">🔄 Transfer</button>
       </div>
     </div>
     <div id="hareketler-liste"></div>
   </div>
 
-  <!-- TAB: LN RAPORU -->
+  <!-- LN TAB -->
   <div class="scroll-content" id="tab-ln" style="display:none;flex-direction:column;">
     <div class="card">
       <div class="card-title">📂 LN Infor Tüketim Raporu</div>
-      <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">
-        LN Infor'dan alınan tüketim raporunu yükleyin. Stok çıkışları otomatik işlenir.
-      </p>
-      <button class="btn btn-primary btn-block" onclick="document.getElementById('ln-rapor-input').click()">
-        ⬆️ Excel / CSV Yükle
-      </button>
-      <input type="file" id="ln-rapor-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importLNRapor(event)">
+      <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">LN Infor tüketim raporunu yükleyin. Seçili depodan otomatik stok çıkışı yapılır.</p>
+      <div class="field">
+        <label>Hangi Depodan</label>
+        <select id="ln-depo-sec"><!-- JS doldurur --></select>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="document.getElementById('ln-input').click()">⬆️ Excel / CSV Yükle</button>
+      <input type="file" id="ln-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importLNRapor(event)">
     </div>
     <div id="ln-sonuc"></div>
   </div>
 
-  <!-- BOTTOM NAV -->
   <nav class="bottom-nav">
     <button class="nav-btn active" id="nav-stok" onclick="switchTab('stok')">
-      <span class="nav-icon">📦</span>
-      <span class="nav-label">Stok</span>
+      <span class="nav-icon">📦</span><span class="nav-label">Stok</span>
       <span class="nav-badge" id="kritik-badge" style="display:none;"></span>
     </button>
     <button class="nav-btn" id="nav-hareketler" onclick="switchTab('hareketler')">
-      <span class="nav-icon">📋</span>
-      <span class="nav-label">Hareketler</span>
+      <span class="nav-icon">📋</span><span class="nav-label">Hareketler</span>
     </button>
     <button class="nav-btn" id="nav-ln" onclick="switchTab('ln')">
-      <span class="nav-icon">📂</span>
-      <span class="nav-label">LN Raporu</span>
+      <span class="nav-icon">📂</span><span class="nav-label">LN Raporu</span>
     </button>
   </nav>
 </div>
@@ -319,173 +248,174 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 <!-- MODAL: Manuel Çıkış -->
 <div class="modal-overlay" id="modal-cikis">
   <div class="modal-box">
-    <div class="modal-title">➖ Manuel Stok Çıkışı
-      <button class="modal-close" onclick="closeModal('modal-cikis')">✕</button>
+    <div class="modal-title">➖ Manuel Çıkış <button class="modal-close" onclick="closeModal('modal-cikis')">✕</button></div>
+    <div class="field">
+      <label>Depo</label>
+      <select id="cikis-depo"><!-- JS doldurur --></select>
     </div>
     <div class="field">
-      <label>Ürün Ara *</label>
+      <label>Ürün *</label>
       <div style="position:relative;">
-        <input type="text" id="cikis-urun-input" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterCikisUrun(this.value)">
-        <div id="cikis-urun-dd" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-top:none;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div>
+        <input type="text" id="cikis-urun-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterUrunDD('cikis-urun-inp','cikis-urun-dd','cikis-urun-kod','cikis-birim',this.value)">
+        <div id="cikis-urun-dd" class="urun-dd"></div>
       </div>
       <input type="hidden" id="cikis-urun-kod">
     </div>
     <div class="row-fields">
-      <div class="field">
-        <label>Miktar *</label>
-        <input type="number" id="cikis-miktar" placeholder="0" min="0" step="0.01">
-      </div>
-      <div class="field">
-        <label>Birim</label>
-        <select id="cikis-birim">
-          <option>KG</option><option>AD</option><option>KOL</option><option>LT</option><option>PKT</option>
-        </select>
-      </div>
+      <div class="field"><label>Miktar *</label><input type="number" id="cikis-miktar" placeholder="0" min="0" step="0.01"></div>
+      <div class="field"><label>Birim</label><select id="cikis-birim"><option>KG</option><option>AD</option><option>KOL</option><option>LT</option><option>PKT</option></select></div>
     </div>
     <div class="field">
-      <label>Çıkış Nedeni</label>
+      <label>Neden</label>
       <select id="cikis-neden">
         <option value="tuketim">Tüketim</option>
         <option value="fire">Fire/Bozulma</option>
         <option value="iade">İade</option>
-        <option value="transfer">Transfer</option>
         <option value="diger">Diğer</option>
       </select>
     </div>
-    <div class="field">
-      <label>Not</label>
-      <input type="text" id="cikis-not" placeholder="Opsiyonel">
-    </div>
+    <div class="field"><label>Not</label><input type="text" id="cikis-not" placeholder="Opsiyonel"></div>
     <div class="btn-row">
       <button class="btn btn-gray" onclick="closeModal('modal-cikis')">İptal</button>
-      <button class="btn btn-danger" onclick="saveCikis()">➖ Çıkış Kaydet</button>
+      <button class="btn btn-danger" onclick="saveCikis()">➖ Kaydet</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: Minimum Seviye -->
-<div class="modal-overlay" id="modal-min">
+<!-- MODAL: Transfer -->
+<div class="modal-overlay" id="modal-transfer">
   <div class="modal-box">
-    <div class="modal-title">⚙️ Minimum Stok Seviyeleri
-      <button class="modal-close" onclick="closeModal('modal-min')">✕</button>
-    </div>
-    <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">
-      Kritik stok uyarısı için minimum seviyeler belirleyin.
-    </p>
-    <div class="field">
-      <label>Ürün Ara</label>
-      <input type="text" id="min-urun-input" placeholder="2+ harf yazın..." oninput="filterMinUrun(this.value)">
-      <input type="hidden" id="min-urun-kod">
+    <div class="modal-title">🔄 Depo Transfer <button class="modal-close" onclick="closeModal('modal-transfer')">✕</button></div>
+    <div class="row-fields">
+      <div class="field"><label>Kaynak Depo *</label><select id="tr-kaynak"><!-- JS --></select></div>
+      <div class="field"><label>Hedef Depo *</label><select id="tr-hedef"><!-- JS --></select></div>
     </div>
     <div class="field">
-      <label>Minimum Miktar</label>
-      <input type="number" id="min-miktar" placeholder="0" min="0">
+      <label>Ürün *</label>
+      <div style="position:relative;">
+        <input type="text" id="tr-urun-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterUrunDD('tr-urun-inp','tr-urun-dd','tr-urun-kod','tr-birim',this.value,'tr-kaynak')">
+        <div id="tr-urun-dd" class="urun-dd"></div>
+      </div>
+      <input type="hidden" id="tr-urun-kod">
     </div>
-    <div class="btn-row" style="margin-bottom:16px;">
-      <button class="btn btn-gray" onclick="closeModal('modal-min')">İptal</button>
-      <button class="btn btn-primary" onclick="saveMinimum()">💾 Kaydet</button>
+    <div class="row-fields">
+      <div class="field"><label>Miktar *</label><input type="number" id="tr-miktar" placeholder="0" min="0" step="0.01"></div>
+      <div class="field"><label>Birim</label><select id="tr-birim"><option>KG</option><option>AD</option><option>KOL</option><option>LT</option><option>PKT</option></select></div>
     </div>
-    <div class="card-title" style="margin-bottom:8px;">Mevcut Minimumlar</div>
-    <div id="min-liste"></div>
+    <div class="field"><label>Not</label><input type="text" id="tr-not" placeholder="Opsiyonel"></div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="closeModal('modal-transfer')">İptal</button>
+      <button class="btn btn-info" onclick="saveTransfer()">🔄 Transfer Et</button>
+    </div>
   </div>
 </div>
 
 <!-- MODAL: Stok Detay -->
-<div class="modal-overlay" id="modal-stok-detay">
+<div class="modal-overlay" id="modal-detay">
   <div class="modal-box">
-    <div class="modal-title" id="detay-baslik">Stok Detayı
-      <button class="modal-close" onclick="closeModal('modal-stok-detay')">✕</button>
-    </div>
+    <div class="modal-title" id="detay-title">Detay <button class="modal-close" onclick="closeModal('modal-detay')">✕</button></div>
     <div id="detay-content"></div>
   </div>
 </div>
+
+<!-- MODAL: LN Kolon -->
+<div class="modal-overlay" id="modal-ln-kolon">
+  <div class="modal-box">
+    <div class="modal-title">📂 Kolon Eşleştir <button class="modal-close" onclick="closeModal('modal-ln-kolon')">✕</button></div>
+    <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;" id="ln-satir-bilgi"></p>
+    <div class="field"><label>LN Ürün Kodu</label><select id="lnk-kod"></select></div>
+    <div class="field"><label>Ürün Adı</label><select id="lnk-ad"></select></div>
+    <div class="field"><label>Tüketim Miktarı</label><select id="lnk-miktar"></select></div>
+    <div class="field"><label>Birim (opsiyonel)</label><select id="lnk-birim"></select></div>
+    <div class="btn-row">
+      <button class="btn btn-gray" onclick="closeModal('modal-ln-kolon')">İptal</button>
+      <button class="btn btn-primary" onclick="applyLNRapor()">✅ Uygula</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.urun-dd{display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.urun-dd-item{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:13px}
+.urun-dd-item:hover{background:var(--gray-100)}
+</style>
 
 <div id="toast"></div>
 <div id="loading"><div class="spinner"></div><div style="font-size:13px;">Yükleniyor...</div></div>
 
 <script>
 // ============================================================
-// CONFIG
+// CONFIG & DEPOLAR
 // ============================================================
 const FIREBASE_URL = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
-const DEPO_ID = 'ANA_DEPO';
+
+// Depo listesi — ileride Firebase'den çekilebilir, şimdi sabit
+const DEPOLAR = [
+  { id:'ANA_DEPO',     ad:'Ana Depo',      ikon:'🏭' },
+  { id:'ANA_MUTFAK',   ad:'Ana Mutfak',    ikon:'🍳' },
+  { id:'PARK_MUTFAK',  ad:'Park Mutfak',   ikon:'🌿' },
+  { id:'AQUA_MUTFAK',  ad:'Aqua Mutfak',   ikon:'🌊' },
+  { id:'SAHIL_MUTFAK', ad:'Sahil Mutfak',  ikon:'🏖️' },
+  { id:'BAR',          ad:'Bar',           ikon:'🍹' },
+];
 
 // ============================================================
 // STATE
 // ============================================================
-let currentUser = null;
-let stokFilter = 'tumu';
-let katFilter = 'tumu';
-let db = { stok: {}, hareketler: {}, minimumlar: {}, kullanicilar: [] };
+let currentUser  = null;
+let aktifDepoId  = 'ANA_DEPO';
+let stokFilter   = 'tumu';
+let katFilter    = 'tumu';
+let harFilter    = 'tumu';
+let _lnRows      = [];
+let _lnDepoId    = 'ANA_DEPO';
 
-// DEFAULT USERS
+let db = {
+  stok:       {},   // { [depoId]: { [lnKod]: {lnKod,urunAd,miktar,birim,...} } }
+  hareketler: {},   // { [id]: hareket }
+  minimumlar: {},   // { [lnKod]: min }
+  kullanicilar: []
+};
+
 const DEFAULT_USERS = [
-  { id:1, ad:'Mehmet Araz',    rol:'yonetici',  pin:'123456' },
-  { id:2, ad:'Depo Sorumlu',   rol:'depo',      pin:'111111' },
-  { id:3, ad:'Depo Personel',  rol:'depo',      pin:'222222' },
-  { id:4, ad:'Satinalma',      rol:'satinalma', pin:'333333' },
-  { id:5, ad:'Kalite Kontrol', rol:'kalite',    pin:'444444' }
+  {id:1,ad:'Mehmet Araz',   rol:'yonetici', pin:'123456'},
+  {id:2,ad:'Depo Sorumlu',  rol:'depo',     pin:'111111'},
+  {id:3,ad:'Depo Personel', rol:'depo',     pin:'222222'},
+  {id:4,ad:'Satinalma',     rol:'satinalma',pin:'333333'},
+  {id:5,ad:'Kalite Kontrol',rol:'kalite',   pin:'444444'},
 ];
-const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍' };
+const ROL_IKON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍'};
 
 // ============================================================
 // LOGIN
 // ============================================================
-let pinValue = '';
-
-function pinInput(d) {
-  if (pinValue.length >= 6) return;
-  pinValue += d;
-  updatePinDots();
-  const match = db.kullanicilar.filter(u => u.pin.startsWith(pinValue));
-  const el = document.getElementById('pin-user-show');
-  if (match.length === 1 && pinValue.length >= 3) {
-    el.textContent = (ROL_IKON[match[0].rol]||'👤') + ' ' + match[0].ad;
-  } else { el.textContent = ''; }
-  document.getElementById('pin-error').textContent = '';
-  if (pinValue.length === 6) setTimeout(checkPin, 200);
+let pinValue='';
+function pinInput(d){
+  if(pinValue.length>=6)return;
+  pinValue+=d; updatePinDots();
+  const match=db.kullanicilar.filter(u=>u.pin.startsWith(pinValue));
+  const el=document.getElementById('pin-user-show');
+  el.textContent=match.length===1&&pinValue.length>=3?(ROL_IKON[match[0].rol]||'👤')+' '+match[0].ad:'';
+  document.getElementById('pin-error').textContent='';
+  if(pinValue.length===6)setTimeout(checkPin,200);
 }
-
-function pinDelete() {
-  pinValue = pinValue.slice(0,-1);
-  updatePinDots();
-  if (!pinValue) document.getElementById('pin-user-show').textContent = '';
-}
-
-function updatePinDots() {
-  for (let i=0;i<6;i++) document.getElementById('pd'+i).classList.toggle('filled', i<pinValue.length);
-}
-
-function checkPin() {
-  const user = db.kullanicilar.find(u => u.pin === pinValue);
-  if (!user) {
-    document.getElementById('pin-error').textContent = '❌ Hatalı PIN';
-    setTimeout(() => document.getElementById('pin-error').textContent = '', 2000);
-    pinValue = ''; updatePinDots();
-    document.getElementById('pin-user-show').textContent = '';
-    return;
+function pinDelete(){pinValue=pinValue.slice(0,-1);updatePinDots();if(!pinValue)document.getElementById('pin-user-show').textContent='';}
+function updatePinDots(){for(let i=0;i<6;i++)document.getElementById('pd'+i).classList.toggle('filled',i<pinValue.length);}
+function checkPin(){
+  const user=db.kullanicilar.find(u=>u.pin===pinValue);
+  if(!user){
+    document.getElementById('pin-error').textContent='❌ Hatalı PIN';
+    setTimeout(()=>document.getElementById('pin-error').textContent='',2000);
+    pinValue='';updatePinDots();document.getElementById('pin-user-show').textContent='';return;
   }
-  currentUser = user;
-  sessionStorage.setItem('gurok_stok_session', JSON.stringify({ user, expiry: Date.now()+30*60*1000 }));
+  currentUser=user;
+  sessionStorage.setItem('gurok_stok_session',JSON.stringify({user,expiry:Date.now()+30*60*1000}));
   document.getElementById('screen-login').classList.add('hidden');
 }
-
-function checkSession() {
-  // Portal session
-  const ps = sessionStorage.getItem('gurok_portal_session');
-  if (ps) {
-    try {
-      const { user, expiry } = JSON.parse(ps);
-      if (Date.now() < expiry) { currentUser = user; return true; }
-    } catch(e) {}
-  }
-  // Kendi session
-  const s = sessionStorage.getItem('gurok_stok_session');
-  if (s) {
-    try {
-      const { user, expiry } = JSON.parse(s);
-      if (Date.now() < expiry) { currentUser = user; return true; }
-    } catch(e) {}
+function checkSession(){
+  for(const key of['gurok_portal_session','gurok_stok_session']){
+    const s=sessionStorage.getItem(key);
+    if(s){try{const{user,expiry}=JSON.parse(s);if(Date.now()<expiry){currentUser={...user,rol:user.rol==='personel'?'depo':user.rol};return true;}}catch(e){}}
   }
   return false;
 }
@@ -493,589 +423,539 @@ function checkSession() {
 // ============================================================
 // FIREBASE
 // ============================================================
-async function loadDB() {
+async function loadDB(){
   showLoading();
-  try {
-    const [stokR, harR, minR, kulR] = await Promise.all([
-      fetch(FIREBASE_URL + '/stok/' + DEPO_ID + '.json'),
-      fetch(FIREBASE_URL + '/hareketler.json'),
-      fetch(FIREBASE_URL + '/minimumlar.json'),
-      fetch(FIREBASE_URL + '/kullanicilar.json')
+  try{
+    const [stokR,harR,minR,kulR]=await Promise.all([
+      fetch(FIREBASE_URL+'/stok.json'),
+      fetch(FIREBASE_URL+'/hareketler.json'),
+      fetch(FIREBASE_URL+'/minimumlar.json'),
+      fetch(FIREBASE_URL+'/kullanicilar.json'),
     ]);
-    if (stokR.ok) { const d = await stokR.json(); if (d) db.stok = d; }
-    if (harR.ok)  { const d = await harR.json();  if (d) db.hareketler = typeof d === 'object' && !Array.isArray(d) ? d : {}; }
-    if (minR.ok)  { const d = await minR.json();  if (d) db.minimumlar = d; }
-    if (kulR.ok)  { const d = await kulR.json();  if (Array.isArray(d) && d.length) db.kullanicilar = d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol})); }
-  } catch(e) { console.warn('Firebase yükleme hatası:', e); }
-  if (!db.kullanicilar.length) db.kullanicilar = [...DEFAULT_USERS];
+    if(stokR.ok){const d=await stokR.json();if(d&&typeof d==='object')db.stok=d;}
+    if(harR.ok){const d=await harR.json();if(d&&typeof d==='object'&&!Array.isArray(d))db.hareketler=d;}
+    if(minR.ok){const d=await minR.json();if(d)db.minimumlar=d;}
+    if(kulR.ok){const d=await kulR.json();if(Array.isArray(d)&&d.length)db.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol}));}
+  }catch(e){console.warn('Firebase yükleme:',e);}
+  if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
   hideLoading();
 }
 
-async function saveStok() {
-  try {
-    await fetch(FIREBASE_URL + '/stok/' + DEPO_ID + '.json', {
-      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(db.stok)
-    });
-  } catch(e) { console.warn('Stok kayıt hatası:', e); }
+async function saveStok(){
+  try{await fetch(FIREBASE_URL+'/stok.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(db.stok)});}
+  catch(e){console.warn(e);}
 }
-
-async function saveHareket(hareket) {
-  try {
-    await fetch(FIREBASE_URL + '/hareketler/' + hareket.id + '.json', {
-      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(hareket)
-    });
-  } catch(e) { console.warn('Hareket kayıt hatası:', e); }
+async function saveHareket(h){
+  try{await fetch(FIREBASE_URL+'/hareketler/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}
+  catch(e){console.warn(e);}
 }
 
 // ============================================================
 // STOK İŞLEMLERİ
 // ============================================================
-function stokGiris(lnKod, urunAd, miktar, birim, kaynak, kaynakId) {
-  if (!db.stok[lnKod]) {
-    db.stok[lnKod] = { lnKod, urunAd, miktar: 0, birim, sonGuncelleme: Date.now() };
-  }
-  db.stok[lnKod].miktar = (parseFloat(db.stok[lnKod].miktar)||0) + parseFloat(miktar);
-  db.stok[lnKod].sonGuncelleme = Date.now();
-  db.stok[lnKod].urunAd = urunAd;
+function ensureDepoStok(depoId){if(!db.stok[depoId])db.stok[depoId]={};}
 
-  const har = {
-    id: Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    tip: 'giris', lnKod, urunAd, miktar: parseFloat(miktar), birim,
-    tarih: Date.now(), kaynak, kaynakId,
-    personel: currentUser ? currentUser.ad : '—', depo: DEPO_ID
-  };
-  db.hareketler[har.id] = har;
-  return har;
+function giris(depoId,lnKod,urunAd,miktar,birim,kaynak,kaynakId){
+  ensureDepoStok(depoId);
+  const s=db.stok[depoId];
+  if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
+  s[lnKod].miktar=(parseFloat(s[lnKod].miktar)||0)+parseFloat(miktar);
+  s[lnKod].sonGuncelleme=Date.now();
+  s[lnKod].urunAd=urunAd;
+  return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'giris',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),kaynak,kaynakId,personel:currentUser?.ad||'—'};
 }
 
-function stokCikis(lnKod, urunAd, miktar, birim, neden, not) {
-  if (!db.stok[lnKod]) {
-    db.stok[lnKod] = { lnKod, urunAd, miktar: 0, birim, sonGuncelleme: Date.now() };
-  }
-  db.stok[lnKod].miktar = Math.max(0, (parseFloat(db.stok[lnKod].miktar)||0) - parseFloat(miktar));
-  db.stok[lnKod].sonGuncelleme = Date.now();
-
-  const har = {
-    id: Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    tip: 'cikis', lnKod, urunAd, miktar: parseFloat(miktar), birim,
-    tarih: Date.now(), neden, not: not||'',
-    personel: currentUser ? currentUser.ad : '—', depo: DEPO_ID
-  };
-  db.hareketler[har.id] = har;
-  return har;
+function cikis(depoId,lnKod,urunAd,miktar,birim,neden,not){
+  ensureDepoStok(depoId);
+  const s=db.stok[depoId];
+  if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
+  s[lnKod].miktar=Math.max(0,(parseFloat(s[lnKod].miktar)||0)-parseFloat(miktar));
+  s[lnKod].sonGuncelleme=Date.now();
+  return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'cikis',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),neden,not:not||'',personel:currentUser?.ad||'—'};
 }
 
-// ============================================================
-// MAL KABUL ENTEGRASYONU
-// Onaylanan mal kabul formlarını stoka işle
-// ============================================================
-async function malKabulOnayGiris(form) {
-  if (!form || !form.urunler) return;
-  const hareketler = [];
-  for (const u of form.urunler) {
-    if (!u.kod || !u.miktar) continue;
-    const har = stokGiris(u.kod, u.ad, u.miktar, u.birim, 'malkabul', form.id);
-    hareketler.push(har);
+function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
+  // Kaynaktan çıkar
+  ensureDepoStok(kaynakDepoId);
+  const ks=db.stok[kaynakDepoId];
+  if(!ks[lnKod])ks[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
+  ks[lnKod].miktar=Math.max(0,(parseFloat(ks[lnKod].miktar)||0)-parseFloat(miktar));
+  ks[lnKod].sonGuncelleme=Date.now();
+  // Hedefe ekle
+  ensureDepoStok(hedefDepoId);
+  const hs=db.stok[hedefDepoId];
+  if(!hs[lnKod])hs[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
+  hs[lnKod].miktar=(parseFloat(hs[lnKod].miktar)||0)+parseFloat(miktar);
+  hs[lnKod].sonGuncelleme=Date.now();
+  const baseId=Date.now()+'_'+Math.random().toString(36).slice(2,5);
+  const kaynakDepoAd=DEPOLAR.find(d=>d.id===kaynakDepoId)?.ad||kaynakDepoId;
+  const hedefDepoAd=DEPOLAR.find(d=>d.id===hedefDepoId)?.ad||hedefDepoId;
+  return {
+    id:baseId,tip:'transfer',
+    kaynakDepoId,kaynakDepoAd,hedefDepoId,hedefDepoAd,
+    lnKod,urunAd,miktar:parseFloat(miktar),birim,
+    tarih:Date.now(),not:not||'',personel:currentUser?.ad||'—'
+  };
+}
+
+// Mal kabul onayı → Ana Depo girişi
+async function malKabulOnayGiris(form){
+  if(!form?.urunler)return 0;
+  const hareketler=[];
+  for(const u of form.urunler){
+    if(!u.kod||!u.miktar)continue;
+    const h=giris('ANA_DEPO',u.kod,u.ad,u.miktar,u.birim,'malkabul',form.id);
+    hareketler.push(h);
   }
   await saveStok();
-  for (const h of hareketler) await saveHareket(h);
+  for(const h of hareketler)await saveHareket(h);
   return hareketler.length;
 }
 
 // ============================================================
 // RENDER STOK
 // ============================================================
-function getStokDurum(lnKod, miktar) {
-  const min = db.minimumlar[lnKod];
-  if (!min) return 'normal';
-  if (miktar <= 0) return 'kritik';
-  if (miktar <= min * 0.5) return 'kritik';
-  if (miktar <= min) return 'uyari';
-  return 'normal';
+function getStokDurum(lnKod,miktar){
+  const min=db.minimumlar[lnKod];
+  if(!min||min<=0)return'normal';
+  if(miktar<=0||miktar<=min*.5)return'kritik';
+  if(miktar<=min)return'uyari';
+  return'normal';
 }
 
-function renderStokListe() {
-  const search = (document.getElementById('stok-search').value||'').toLowerCase();
-  const items = Object.values(db.stok);
+function renderStok(){
+  const depoStok=db.stok[aktifDepoId]||{};
+  const items=Object.values(depoStok);
+  const search=(document.getElementById('stok-search')?.value||'').toLowerCase();
 
-  // Kategori filtreleri oluştur
-  const katSet = new Set();
-  items.forEach(s => { if (s.lnKod) katSet.add(s.lnKod.slice(0,5)); });
-  const katTabsEl = document.getElementById('kat-tabs');
-  katTabsEl.innerHTML = `<button class="filter-tab ${katFilter==='tumu'?'active':''}" onclick="filterKat('tumu',this)">Tümü</button>` +
-    [...katSet].sort().map(k => `<button class="filter-tab ${katFilter===k?'active':''}" onclick="filterKat('${k}',this)">${k}</button>`).join('');
+  // Kategori tabs
+  const katSet=new Set();
+  items.forEach(s=>{if(s.lnKod)katSet.add(s.lnKod.slice(0,5));});
+  document.getElementById('kat-tabs').innerHTML=
+    `<button class="filter-tab ${katFilter==='tumu'?'active':''}" onclick="filterKat('tumu',this)">Tümü</button>`+
+    [...katSet].sort().map(k=>`<button class="filter-tab ${katFilter===k?'active':''}" onclick="filterKat('${k}',this)">${k}</button>`).join('');
 
   // Filtrele
-  let filtered = items.filter(s => {
-    if (search && !s.urunAd?.toLowerCase().includes(search) && !s.lnKod?.toLowerCase().includes(search)) return false;
-    if (katFilter !== 'tumu' && !s.lnKod?.startsWith(katFilter)) return false;
-    const durum = getStokDurum(s.lnKod, s.miktar);
-    if (stokFilter === 'kritik' && durum !== 'kritik') return false;
-    if (stokFilter === 'uyari' && durum !== 'uyari') return false;
-    if (stokFilter === 'normal' && durum !== 'normal') return false;
+  let filtered=items.filter(s=>{
+    if(search&&!s.urunAd?.toLowerCase().includes(search)&&!s.lnKod?.toLowerCase().includes(search))return false;
+    if(katFilter!=='tumu'&&!s.lnKod?.startsWith(katFilter))return false;
+    const d=getStokDurum(s.lnKod,s.miktar);
+    if(stokFilter==='kritik'&&d!=='kritik')return false;
+    if(stokFilter==='uyari'&&d!=='uyari')return false;
+    if(stokFilter==='normal'&&d!=='normal')return false;
     return true;
   });
-
-  filtered.sort((a,b) => {
-    const da = getStokDurum(a.lnKod, a.miktar);
-    const db_ = getStokDurum(b.lnKod, b.miktar);
-    const order = { kritik:0, uyari:1, normal:2 };
-    return (order[da]||2) - (order[db_]||2) || (a.urunAd||'').localeCompare(b.urunAd||'');
+  filtered.sort((a,b)=>{
+    const order={kritik:0,uyari:1,normal:2};
+    return(order[getStokDurum(a.lnKod,a.miktar)]||2)-(order[getStokDurum(b.lnKod,b.miktar)]||2)||(a.urunAd||'').localeCompare(b.urunAd||'','tr');
   });
 
   // Stats
-  const kritikSayi = items.filter(s => getStokDurum(s.lnKod,s.miktar)==='kritik').length;
-  const uyariSayi  = items.filter(s => getStokDurum(s.lnKod,s.miktar)==='uyari').length;
-  document.getElementById('stok-stats').innerHTML = `
+  const krit=items.filter(s=>getStokDurum(s.lnKod,s.miktar)==='kritik').length;
+  const uya=items.filter(s=>getStokDurum(s.lnKod,s.miktar)==='uyari').length;
+  document.getElementById('stok-stats').innerHTML=`
     <div class="stat-card"><div class="stat-num">${items.length}</div><div class="stat-label">Toplam Ürün</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${kritikSayi}</div><div class="stat-label">🔴 Kritik</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--warning)">${uyariSayi}</div><div class="stat-label">🟡 Uyarı</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--success)">${items.length-kritikSayi-uyariSayi}</div><div class="stat-label">✅ Normal</div></div>
-  `;
-  // Badge
-  const badge = document.getElementById('kritik-badge');
-  if (kritikSayi > 0) { badge.textContent = kritikSayi; badge.style.display = 'block'; }
-  else badge.style.display = 'none';
+    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${krit}</div><div class="stat-label">🔴 Kritik</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--warning)">${uya}</div><div class="stat-label">🟡 Uyarı</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--success)">${items.length-krit-uya}</div><div class="stat-label">✅ Normal</div></div>`;
 
-  const container = document.getElementById('stok-liste');
-  if (!filtered.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Stok kaydı bulunamadı</div></div>`;
+  const badge=document.getElementById('kritik-badge');
+  if(krit>0){badge.textContent=krit;badge.style.display='block';}else badge.style.display='none';
+
+  const container=document.getElementById('stok-liste');
+  if(!filtered.length){
+    container.innerHTML=`<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">${items.length===0?'Bu depoda stok kaydı yok':'Sonuç bulunamadı'}</div></div>`;
     return;
   }
-
-  container.innerHTML = filtered.map(s => {
-    const durum = getStokDurum(s.lnKod, s.miktar);
-    const min = db.minimumlar[s.lnKod] || 0;
-    const pct = min > 0 ? Math.min(100, Math.round((s.miktar/min)*100)) : 100;
-    const kat = s.lnKod?.slice(0,5) || '';
-    return `
-      <div class="stok-item ${durum}" onclick="openStokDetay('${s.lnKod}')">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-          <div style="flex:1;min-width:0;">
-            <div class="stok-urun">${s.urunAd||'—'}</div>
-            <div class="stok-kod">${s.lnKod} <span class="kat-badge">${kat}</span></div>
-          </div>
-          <div style="text-align:right;flex-shrink:0;">
-            <div class="stok-miktar ${durum}">${s.miktar||0} <span style="font-size:12px;font-weight:400;">${s.birim||''}</span></div>
-            ${min > 0 ? `<div style="font-size:10px;color:var(--gray-400);">Min: ${min}</div>` : ''}
-          </div>
+  container.innerHTML=filtered.map(s=>{
+    const d=getStokDurum(s.lnKod,s.miktar);
+    const min=db.minimumlar[s.lnKod]||0;
+    const pct=min>0?Math.min(100,Math.round((s.miktar/min)*100)):100;
+    return`<div class="stok-item ${d}" onclick="openDetay('${aktifDepoId}','${s.lnKod}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--primary);">${s.urunAd||'—'}</div>
+          <div style="font-size:10px;color:var(--gray-400);font-family:monospace;">${s.lnKod} <span class="kat-badge">${s.lnKod?.slice(0,5)||''}</span></div>
         </div>
-        ${min > 0 ? `
-          <div class="progress-bar">
-            <div class="progress-fill ${durum==='kritik'?'danger':durum==='uyari'?'warning':'success'}" style="width:${pct}%"></div>
-          </div>` : ''}
-        <div class="stok-meta">Son güncelleme: ${s.sonGuncelleme ? new Date(s.sonGuncelleme).toLocaleString('tr-TR') : '—'}</div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:18px;font-weight:800;color:${d==='kritik'?'var(--danger)':d==='uyari'?'var(--warning)':'var(--success)'};">${s.miktar||0} <span style="font-size:12px;font-weight:400;">${s.birim||''}</span></div>
+          ${min>0?`<div style="font-size:10px;color:var(--gray-400);">Min: ${min}</div>`:''}
+        </div>
       </div>
-    `;
+      ${min>0?`<div class="progress-bar"><div class="progress-fill ${d==='kritik'?'danger':d==='uyari'?'warning':'success'}" style="width:${pct}%"></div></div>`:''}
+      <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">Son güncelleme: ${s.sonGuncelleme?new Date(s.sonGuncelleme).toLocaleString('tr-TR'):'—'}</div>
+    </div>`;
   }).join('');
 }
 
-function filterStok(f, el) {
-  stokFilter = f;
-  document.querySelectorAll('#tab-stok .filter-tab').forEach(t => t.classList.remove('active'));
+function filterStok(f,el){
+  stokFilter=f;
+  document.querySelectorAll('#tab-stok .filter-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  renderStokListe();
+  renderStok();
 }
+function filterKat(k,el){katFilter=k;renderStok();}
 
-function filterKat(k, el) {
-  katFilter = k;
-  renderStokListe();
-}
+// ============================================================
+// STOK DETAY
+// ============================================================
+function openDetay(depoId,lnKod){
+  const s=(db.stok[depoId]||{})[lnKod];
+  if(!s)return;
+  const d=getStokDurum(lnKod,s.miktar);
+  const min=db.minimumlar[lnKod]||0;
+  const depoAd=DEPOLAR.find(x=>x.id===depoId)?.ad||depoId;
 
-function openStokDetay(lnKod) {
-  const s = db.stok[lnKod];
-  if (!s) return;
-  const harlar = Object.values(db.hareketler)
-    .filter(h => h.lnKod === lnKod)
-    .sort((a,b) => b.tarih - a.tarih)
-    .slice(0, 20);
+  // Hareketler — bu depo + bu ürün
+  const harlar=Object.values(db.hareketler)
+    .filter(h=>h.lnKod===lnKod&&(h.depoId===depoId||h.kaynakDepoId===depoId||h.hedefDepoId===depoId))
+    .sort((a,b)=>b.tarih-a.tarih).slice(0,15);
 
-  document.getElementById('detay-baslik').textContent = s.urunAd;
-  const durum = getStokDurum(lnKod, s.miktar);
-  document.getElementById('detay-content').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:12px;background:var(--gray-50);border-radius:8px;">
-      <div>
-        <div style="font-size:11px;color:var(--gray-500);">${lnKod}</div>
-        <div style="font-size:28px;font-weight:800;color:${durum==='kritik'?'var(--danger)':durum==='uyari'?'var(--warning)':'var(--success)'}">
-          ${s.miktar||0} ${s.birim||''}
-        </div>
-        ${db.minimumlar[lnKod] ? `<div style="font-size:11px;color:var(--gray-500);">Min: ${db.minimumlar[lnKod]} ${s.birim||''}</div>` : ''}
-      </div>
-      <span class="chip ${durum==='kritik'?'chip-danger':durum==='uyari'?'chip-warning':'chip-success'}">
-        ${durum==='kritik'?'🔴 Kritik':durum==='uyari'?'🟡 Uyarı':'✅ Normal'}
-      </span>
+  document.getElementById('detay-title').textContent=s.urunAd;
+  document.getElementById('detay-content').innerHTML=`
+    <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--gray-500);">${lnKod} • ${depoAd}</div>
+      <div style="font-size:28px;font-weight:800;color:${d==='kritik'?'var(--danger)':d==='uyari'?'var(--warning)':'var(--success)'};">${s.miktar||0} ${s.birim||''}</div>
+      ${min>0?`<div style="font-size:11px;color:var(--gray-500);">Minimum: ${min} ${s.birim||''}</div>`:''}
     </div>
-    <div style="font-weight:700;font-size:13px;margin-bottom:8px;">Son Hareketler</div>
-    ${harlar.length === 0 ? '<div style="color:var(--gray-400);font-size:13px;text-align:center;padding:20px;">Hareket kaydı yok</div>' :
-      harlar.map(h => `
-        <div class="hareket-item">
-          <div class="hareket-icon ${h.tip}">${h.tip==='giris'?'⬆️':h.tip==='cikis'?'⬇️':'🔄'}</div>
-          <div class="hareket-bilgi">
-            <div class="hareket-urun">${h.tip==='giris'?'Giriş':'Çıkış'} — ${h.kaynak||h.neden||'—'}</div>
-            <div class="hareket-detay">${new Date(h.tarih).toLocaleString('tr-TR')} • ${h.personel||'—'}</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Son 15 Hareket</div>
+    ${harlar.length===0?'<div style="text-align:center;color:var(--gray-400);padding:16px;">Hareket kaydı yok</div>':
+      harlar.map(h=>{
+        let ikon,renk,etiket;
+        if(h.tip==='transfer'){
+          const giden=h.kaynakDepoId===depoId;
+          ikon=giden?'⬆️🔄':'⬇️🔄';
+          renk=giden?'var(--danger)':'var(--success)';
+          etiket=giden?`→ ${h.hedefDepoAd||h.hedefDepoId}`:`← ${h.kaynakDepoAd||h.kaynakDepoId}`;
+        }else if(h.tip==='giris'){ikon='⬆️';renk='var(--success)';etiket=h.kaynak||'Giriş';}
+        else{ikon='⬇️';renk='var(--danger)';etiket=h.neden||'Çıkış';}
+        return`<div class="har-item">
+          <div class="har-icon ${h.tip}">${ikon}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:600;">${etiket}</div>
+            <div style="font-size:11px;color:var(--gray-500);">${new Date(h.tarih).toLocaleString('tr-TR')} • ${h.personel||'—'}</div>
           </div>
-          <div class="hareket-miktar ${h.tip}">${h.tip==='giris'?'+':'-'}${h.miktar} ${h.birim||''}</div>
-        </div>
-      `).join('')
-    }
+          <div style="font-size:13px;font-weight:700;color:${renk};flex-shrink:0;">${h.tip==='cikis'||(h.tip==='transfer'&&h.kaynakDepoId===depoId)?'-':'+'} ${h.miktar} ${h.birim||''}</div>
+        </div>`;
+      }).join('')}
     <div class="btn-row" style="margin-top:12px;">
-      <button class="btn btn-gray btn-sm" onclick="closeModal('modal-stok-detay')">Kapat</button>
-      <button class="btn btn-danger btn-sm" onclick="closeModal('modal-stok-detay');document.getElementById('cikis-urun-input').value='${(s.urunAd||'').replace(/'/g,"\\'")}';document.getElementById('cikis-urun-kod').value='${lnKod}';document.getElementById('cikis-birim').value='${s.birim||'KG'}';openModal('modal-cikis')">➖ Çıkış Ekle</button>
-    </div>
-  `;
-  openModal('modal-stok-detay');
+      <button class="btn btn-gray btn-sm" onclick="closeModal('modal-detay')">Kapat</button>
+      <button class="btn btn-info btn-sm" onclick="closeModal('modal-detay');prefillTransfer('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">🔄 Transfer</button>
+      <button class="btn btn-danger btn-sm" onclick="closeModal('modal-detay');prefillCikis('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">➖ Çıkış</button>
+    </div>`;
+  openModal('modal-detay');
+}
+
+function prefillCikis(kod,ad,birim,depoId){
+  document.getElementById('cikis-urun-inp').value=ad;
+  document.getElementById('cikis-urun-kod').value=kod;
+  document.getElementById('cikis-birim').value=birim;
+  document.getElementById('cikis-depo').value=depoId||aktifDepoId;
+  openModal('modal-cikis');
+}
+
+function prefillTransfer(kod,ad,birim,kaynakDepoId){
+  document.getElementById('tr-urun-inp').value=ad;
+  document.getElementById('tr-urun-kod').value=kod;
+  document.getElementById('tr-birim').value=birim;
+  document.getElementById('tr-kaynak').value=kaynakDepoId||aktifDepoId;
+  openModal('modal-transfer');
 }
 
 // ============================================================
 // HAREKETLER
 // ============================================================
-function renderHareketler() {
-  const search = (document.getElementById('har-search').value||'').toLowerCase();
-  const startV = document.getElementById('har-start').value;
-  const endV   = document.getElementById('har-end').value;
-  const start  = startV ? new Date(startV).getTime() : 0;
-  const end    = endV   ? new Date(endV+'T23:59:59').getTime() : Date.now()+86400000;
+function renderHareketler(){
+  const startV=document.getElementById('har-start').value;
+  const endV=document.getElementById('har-end').value;
+  const start=startV?new Date(startV).getTime():0;
+  const end=endV?new Date(endV+'T23:59:59').getTime():Date.now()+86400000;
 
-  const harlar = Object.values(db.hareketler)
-    .filter(h => {
-      if (h.tarih < start || h.tarih > end) return false;
-      if (search && !h.urunAd?.toLowerCase().includes(search) && !h.lnKod?.includes(search)) return false;
-      return true;
-    })
-    .sort((a,b) => b.tarih - a.tarih);
+  let harlar=Object.values(db.hareketler).filter(h=>{
+    if(h.tarih<start||h.tarih>end)return false;
+    // Aktif depo filtresi
+    if(h.depoId&&h.depoId!==aktifDepoId&&h.kaynakDepoId!==aktifDepoId&&h.hedefDepoId!==aktifDepoId)return false;
+    if(harFilter!=='tumu'&&h.tip!==harFilter)return false;
+    return true;
+  }).sort((a,b)=>b.tarih-a.tarih);
 
-  const container = document.getElementById('hareketler-liste');
-  if (!harlar.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Hareket kaydı bulunamadı</div></div>`;
+  const container=document.getElementById('hareketler-liste');
+  if(!harlar.length){
+    container.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Hareket kaydı bulunamadı</div></div>`;
     return;
   }
 
   // Gün bazlı grupla
-  const gruplar = {};
-  harlar.forEach(h => {
-    const gun = new Date(h.tarih).toLocaleDateString('tr-TR');
-    if (!gruplar[gun]) gruplar[gun] = [];
-    gruplar[gun].push(h);
-  });
+  const gruplar={};
+  harlar.forEach(h=>{const g=new Date(h.tarih).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(h);});
 
-  container.innerHTML = Object.entries(gruplar).map(([gun, harlar]) => `
+  container.innerHTML=Object.entries(gruplar).map(([gun,liste])=>`
     <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin:10px 0 6px;text-transform:uppercase;">${gun}</div>
     <div class="card" style="padding:8px;">
-      ${harlar.map(h => `
-        <div class="hareket-item">
-          <div class="hareket-icon ${h.tip}">${h.tip==='giris'?'⬆️':h.tip==='cikis'?'⬇️':'🔄'}</div>
-          <div class="hareket-bilgi">
-            <div class="hareket-urun">${h.urunAd||h.lnKod||'—'}</div>
-            <div class="hareket-detay">${new Date(h.tarih).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} • ${h.kaynak||h.neden||'—'} • ${h.personel||'—'}</div>
+      ${liste.map(h=>{
+        let ikon,renk,etiket,miktar_str;
+        const depoAd=DEPOLAR.find(x=>x.id===aktifDepoId)?.ad||aktifDepoId;
+        if(h.tip==='transfer'){
+          const giden=h.kaynakDepoId===aktifDepoId;
+          ikon='🔄';renk=giden?'var(--danger)':'var(--success)';
+          etiket=giden?`${depoAd} → ${h.hedefDepoAd||h.hedefDepoId}`:`${h.kaynakDepoAd||h.kaynakDepoId} → ${depoAd}`;
+          miktar_str=(giden?'-':'+')+h.miktar+' '+(h.birim||'');
+        }else if(h.tip==='giris'){
+          ikon='⬆️';renk='var(--success)';
+          etiket=`Giriş — ${h.kaynak||'—'}`;
+          miktar_str='+'+h.miktar+' '+(h.birim||'');
+        }else{
+          ikon='⬇️';renk='var(--danger)';
+          etiket=`Çıkış — ${h.neden||'—'}`;
+          miktar_str='-'+h.miktar+' '+(h.birim||'');
+        }
+        return`<div class="har-item">
+          <div class="har-icon ${h.tip}">${ikon}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${h.urunAd||h.lnKod||'—'}</div>
+            <div style="font-size:11px;color:var(--gray-500);">${etiket}</div>
+            <div style="font-size:10px;color:var(--gray-400);">${new Date(h.tarih).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} • ${h.personel||'—'}</div>
           </div>
-          <div class="hareket-miktar ${h.tip}">${h.tip==='giris'?'+':'-'}${h.miktar} ${h.birim||''}</div>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
+          <div style="font-size:13px;font-weight:700;color:${renk};flex-shrink:0;">${miktar_str}</div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
 }
+
+function filterHar(f,el){
+  harFilter=f;
+  document.querySelectorAll('#tab-hareketler .filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderHareketler();
+}
+
+// ============================================================
+// ÜRÜN DROPDOWN (ortak)
+// ============================================================
+function filterUrunDD(inputId,ddId,kodId,birimId,val,depoSelectId){
+  const dd=document.getElementById(ddId);
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const depoId=depoSelectId?document.getElementById(depoSelectId)?.value:aktifDepoId;
+  const depoStok=db.stok[depoId||aktifDepoId]||{};
+  let results=Object.values(depoStok)
+    .filter(s=>s.urunAd?.toLowerCase().includes(val.toLowerCase())||s.lnKod?.toLowerCase().includes(val.toLowerCase()))
+    .slice(0,15);
+  if(!results.length){dd.style.display='none';return;}
+  dd.innerHTML=results.map(s=>
+    `<div class="urun-dd-item" data-kod="${s.lnKod}" data-ad="${(s.urunAd||'').replace(/"/g,'&quot;')}" data-birim="${s.birim||'KG'}">
+      ${s.urunAd} <span style="font-size:10px;color:var(--gray-500);">${s.miktar} ${s.birim}</span>
+    </div>`
+  ).join('');
+  dd.querySelectorAll('[data-kod]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      document.getElementById(inputId).value=this.dataset.ad;
+      document.getElementById(kodId).value=this.dataset.kod;
+      document.getElementById(birimId).value=this.dataset.birim;
+      dd.style.display='none';
+    });
+  });
+  dd.style.display='block';
+}
+document.addEventListener('pointerdown',e=>{
+  ['cikis-urun-dd','tr-urun-dd'].forEach(id=>{
+    const dd=document.getElementById(id);
+    const inp=document.getElementById(id.replace('-dd','-inp'));
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+  });
+});
 
 // ============================================================
 // MANUEL ÇIKIŞ
 // ============================================================
-function filterCikisUrun(val) {
-  const dd = document.getElementById('cikis-urun-dd');
-  if (!val || val.length < 2) { dd.style.display='none'; return; }
-  const results = Object.values(db.stok)
-    .filter(s => s.urunAd?.toLowerCase().includes(val.toLowerCase()) || s.lnKod?.includes(val))
-    .slice(0, 15);
-  if (!results.length) { dd.style.display='none'; return; }
-  dd.innerHTML = results.map(s =>
-    `<div style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:13px;"
-      data-kod="${s.lnKod}" data-ad="${(s.urunAd||'').replace(/"/g,'&quot;')}" data-birim="${s.birim||'KG'}">
-      ${s.urunAd} <span style="font-size:10px;color:var(--gray-500);">${s.miktar} ${s.birim}</span>
-    </div>`
-  ).join('');
-  dd.querySelectorAll('[data-kod]').forEach(el => {
-    el.addEventListener('pointerdown', function(e) {
-      e.preventDefault();
-      document.getElementById('cikis-urun-input').value = this.dataset.ad;
-      document.getElementById('cikis-urun-kod').value = this.dataset.kod;
-      document.getElementById('cikis-birim').value = this.dataset.birim;
-      dd.style.display = 'none';
-    });
-  });
-  dd.style.display = 'block';
-}
-
-document.addEventListener('pointerdown', e => {
-  const dd = document.getElementById('cikis-urun-dd');
-  const inp = document.getElementById('cikis-urun-input');
-  if (dd && inp && !dd.contains(e.target) && e.target !== inp) dd.style.display='none';
-});
-
-async function saveCikis() {
-  const kod    = document.getElementById('cikis-urun-kod').value;
-  const urunAd = document.getElementById('cikis-urun-input').value;
-  const miktar = parseFloat(document.getElementById('cikis-miktar').value);
-  const birim  = document.getElementById('cikis-birim').value;
-  const neden  = document.getElementById('cikis-neden').value;
-  const not    = document.getElementById('cikis-not').value;
-
-  if (!kod) { showToast('⚠️ Ürün seçin'); return; }
-  if (!miktar || miktar <= 0) { showToast('⚠️ Miktar girin'); return; }
-
-  const mevcutStok = parseFloat(db.stok[kod]?.miktar||0);
-  if (miktar > mevcutStok) {
-    showToast(`⚠️ Stok yetersiz (mevcut: ${mevcutStok} ${birim})`);
-    return;
-  }
-
+async function saveCikis(){
+  const depoId=document.getElementById('cikis-depo').value;
+  const kod=document.getElementById('cikis-urun-kod').value;
+  const ad=document.getElementById('cikis-urun-inp').value;
+  const miktar=parseFloat(document.getElementById('cikis-miktar').value);
+  const birim=document.getElementById('cikis-birim').value;
+  const neden=document.getElementById('cikis-neden').value;
+  const not=document.getElementById('cikis-not').value;
+  if(!kod){showToast('⚠️ Ürün seçin');return;}
+  if(!miktar||miktar<=0){showToast('⚠️ Miktar girin');return;}
+  const mevcutMiktar=parseFloat((db.stok[depoId]||{})[kod]?.miktar||0);
+  if(miktar>mevcutMiktar){showToast(`⚠️ Stok yetersiz (mevcut: ${mevcutMiktar} ${birim})`);return;}
   showLoading();
-  const har = stokCikis(kod, urunAd, miktar, birim, neden, not);
-  await saveStok();
-  await saveHareket(har);
+  const h=cikis(depoId,kod,ad,miktar,birim,neden,not);
+  await saveStok();await saveHareket(h);
   hideLoading();
-
   closeModal('modal-cikis');
-  document.getElementById('cikis-urun-input').value = '';
-  document.getElementById('cikis-urun-kod').value = '';
-  document.getElementById('cikis-miktar').value = '';
-  document.getElementById('cikis-not').value = '';
-  renderStokListe();
-  showToast(`✅ Çıkış kaydedildi — ${miktar} ${birim}`);
+  document.getElementById('cikis-urun-inp').value='';
+  document.getElementById('cikis-urun-kod').value='';
+  document.getElementById('cikis-miktar').value='';
+  renderStok();showToast(`✅ Çıkış kaydedildi — ${miktar} ${birim}`);
 }
 
 // ============================================================
-// LN INFOR RAPORU IMPORT
+// TRANSFER
 // ============================================================
-async function importLNRapor(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  event.target.value = '';
+async function saveTransfer(){
+  const kaynakDepoId=document.getElementById('tr-kaynak').value;
+  const hedefDepoId=document.getElementById('tr-hedef').value;
+  const kod=document.getElementById('tr-urun-kod').value;
+  const ad=document.getElementById('tr-urun-inp').value;
+  const miktar=parseFloat(document.getElementById('tr-miktar').value);
+  const birim=document.getElementById('tr-birim').value;
+  const not=document.getElementById('tr-not').value;
+  if(kaynakDepoId===hedefDepoId){showToast('⚠️ Kaynak ve hedef depo aynı olamaz');return;}
+  if(!kod){showToast('⚠️ Ürün seçin');return;}
+  if(!miktar||miktar<=0){showToast('⚠️ Miktar girin');return;}
+  const mevcutMiktar=parseFloat((db.stok[kaynakDepoId]||{})[kod]?.miktar||0);
+  if(miktar>mevcutMiktar){
+    const kaynakAd=DEPOLAR.find(d=>d.id===kaynakDepoId)?.ad||kaynakDepoId;
+    showToast(`⚠️ ${kaynakAd}'de stok yetersiz (${mevcutMiktar} ${birim})`);return;
+  }
+  showLoading();
+  const h=transfer(kaynakDepoId,hedefDepoId,kod,ad,miktar,birim,not);
+  await saveStok();await saveHareket(h);
+  hideLoading();
+  closeModal('modal-transfer');
+  document.getElementById('tr-urun-inp').value='';
+  document.getElementById('tr-urun-kod').value='';
+  document.getElementById('tr-miktar').value='';
+  document.getElementById('tr-not').value='';
+  renderStok();
+  const kAd=DEPOLAR.find(d=>d.id===kaynakDepoId)?.ad||kaynakDepoId;
+  const hAd=DEPOLAR.find(d=>d.id===hedefDepoId)?.ad||hedefDepoId;
+  showToast(`✅ ${miktar} ${birim} → ${kAd} → ${hAd}`);
+}
 
-  if (typeof XLSX === 'undefined') {
+// ============================================================
+// LN RAPORU
+// ============================================================
+async function importLNRapor(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  _lnDepoId=document.getElementById('ln-depo-sec').value;
+  if(typeof XLSX==='undefined'){
     showLoading();
-    await new Promise(resolve => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
-      s.onload = resolve; document.head.appendChild(s);
-    });
+    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
     hideLoading();
   }
-
   showLoading();
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const wb = XLSX.read(e.target.result, { type:'array', raw:false });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false });
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',raw:false});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      _lnRows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});
       hideLoading();
-      // Kolon eşleştirme modalı — format bilinmiyor
-      openLNRaporKolonModal(rows);
-    } catch(err) {
-      hideLoading();
-      showToast('❌ Dosya okunamadı: ' + err.message);
-    }
+      const headers=_lnRows[0]||[];const ornek=_lnRows[1]||[];
+      const opts=headers.map((h,i)=>`<option value="${i}">${h||'Kolon '+(i+1)} — ${String(ornek[i]||'').slice(0,20)}</option>`).join('');
+      document.getElementById('lnk-kod').innerHTML=opts;
+      document.getElementById('lnk-ad').innerHTML=opts;
+      document.getElementById('lnk-miktar').innerHTML=opts;
+      document.getElementById('lnk-birim').innerHTML=`<option value="-1">— Sabit KG —</option>`+opts;
+      document.getElementById('ln-satir-bilgi').textContent=`${_lnRows.length-1} satır okundu. Kolonları eşleştirin:`;
+      openModal('modal-ln-kolon');
+    }catch(err){hideLoading();showToast('❌ Dosya okunamadı: '+err.message);}
   };
   reader.readAsArrayBuffer(file);
 }
 
-let _lnRaporRows = [];
-function openLNRaporKolonModal(rows) {
-  _lnRaporRows = rows;
-  const headers = rows[0] || [];
-  const ornek   = rows[1] || [];
-  const opts = headers.map((h,i) =>
-    `<option value="${i}">${h||'Kolon '+(i+1)} — ${String(ornek[i]||'').slice(0,25)}</option>`
-  ).join('');
-
-  // Basit modal oluştur
-  let modal = document.getElementById('modal-ln-rapor');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'modal-ln-rapor';
-    modal.className = 'modal-overlay';
-    document.body.appendChild(modal);
-  }
-  modal.innerHTML = `
-    <div class="modal-box">
-      <div class="modal-title">📂 LN Raporu Kolon Eşleştir
-        <button class="modal-close" onclick="document.getElementById('modal-ln-rapor').classList.remove('open')">✕</button>
-      </div>
-      <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">${rows.length-1} satır okundu. Kolonları eşleştirin:</p>
-      <div class="field"><label>LN Ürün Kodu</label><select id="lnr-kod">${opts}</select></div>
-      <div class="field"><label>Ürün Adı</label><select id="lnr-ad">${opts}</select></div>
-      <div class="field"><label>Tüketim Miktarı</label><select id="lnr-miktar">${opts}</select></div>
-      <div class="field"><label>Birim</label><select id="lnr-birim"><option value="-1">— Sabit KG —</option>${opts}</select></div>
-      <div class="btn-row">
-        <button class="btn btn-gray" onclick="document.getElementById('modal-ln-rapor').classList.remove('open')">İptal</button>
-        <button class="btn btn-primary" onclick="applyLNRapor()">✅ Uygula</button>
-      </div>
-    </div>`;
-  modal.classList.add('open');
-}
-
-async function applyLNRapor() {
-  const kodIdx    = parseInt(document.getElementById('lnr-kod').value);
-  const adIdx     = parseInt(document.getElementById('lnr-ad').value);
-  const miktarIdx = parseInt(document.getElementById('lnr-miktar').value);
-  const birimIdx  = parseInt(document.getElementById('lnr-birim').value);
-
-  showLoading();
-  document.getElementById('modal-ln-rapor').classList.remove('open');
-
-  let islem = 0;
-  const hareketler = [];
-
-  _lnRaporRows.slice(1).forEach(row => {
-    const kod    = (row[kodIdx]||'').trim();
-    const ad     = (row[adIdx] ||'').trim();
-    const miktar = parseFloat((row[miktarIdx]||'0').toString().replace(',','.'));
-    const birim  = birimIdx >= 0 ? (row[birimIdx]||'KG').trim() : 'KG';
-    if (!kod || !miktar || miktar <= 0) return;
-    const har = stokCikis(kod, ad||kod, miktar, birim, 'ln_tuketim', '');
-    hareketler.push(har);
-    islem++;
+async function applyLNRapor(){
+  const kodIdx=parseInt(document.getElementById('lnk-kod').value);
+  const adIdx=parseInt(document.getElementById('lnk-ad').value);
+  const miktarIdx=parseInt(document.getElementById('lnk-miktar').value);
+  const birimIdx=parseInt(document.getElementById('lnk-birim').value);
+  closeModal('modal-ln-kolon');showLoading();
+  let islem=0;const harlar=[];
+  _lnRows.slice(1).forEach(row=>{
+    const kod=(row[kodIdx]||'').trim();
+    const ad=(row[adIdx]||'').trim();
+    const miktar=parseFloat((row[miktarIdx]||'0').toString().replace(',','.'));
+    const birim=birimIdx>=0?(row[birimIdx]||'KG').trim():'KG';
+    if(!kod||!miktar||miktar<=0)return;
+    const h=cikis(_lnDepoId,kod,ad||kod,miktar,birim,'ln_tuketim','');
+    harlar.push(h);islem++;
   });
-
-  await saveStok();
-  for (const h of hareketler) await saveHareket(h);
+  await saveStok();for(const h of harlar)await saveHareket(h);
   hideLoading();
-
-  document.getElementById('ln-sonuc').innerHTML = `
-    <div class="card" style="border-left:4px solid var(--success);">
-      <div class="card-title">✅ LN Raporu İşlendi</div>
-      <div style="font-size:13px;">${islem} tüketim hareketi stoka işlendi.</div>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:6px;">${new Date().toLocaleString('tr-TR')}</div>
-    </div>`;
-  renderStokListe();
-  showToast(`✅ ${islem} tüketim işlendi`);
+  const depoAd=DEPOLAR.find(d=>d.id===_lnDepoId)?.ad||_lnDepoId;
+  document.getElementById('ln-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
+    <div class="card-title">✅ LN Raporu İşlendi</div>
+    <div style="font-size:13px;">${islem} tüketim hareketi <strong>${depoAd}</strong>'dan düşüldü.</div>
+    <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">${new Date().toLocaleString('tr-TR')}</div>
+  </div>`;
+  renderStok();showToast(`✅ ${islem} tüketim — ${depoAd}`);
 }
 
 // ============================================================
-// MİNİMUM SEVİYE
+// DEPO SEÇICI
 // ============================================================
-function filterMinUrun(val) {
-  // Stok listesinden filtrele
+function buildDepoSelectors(){
+  const opts=DEPOLAR.map(d=>`<option value="${d.id}">${d.ikon} ${d.ad}</option>`).join('');
+  document.getElementById('depo-selector').innerHTML=opts;
+  document.getElementById('cikis-depo').innerHTML=opts;
+  document.getElementById('tr-kaynak').innerHTML=opts;
+  document.getElementById('tr-hedef').innerHTML=opts;
+  document.getElementById('ln-depo-sec').innerHTML=opts;
 }
 
-async function saveMinimum() {
-  const kod    = document.getElementById('min-urun-kod').value || document.getElementById('min-urun-input').value;
-  const miktar = parseFloat(document.getElementById('min-miktar').value);
-  if (!kod || !miktar) { showToast('⚠️ Ürün kodu ve miktar girin'); return; }
-
-  // LN kodunu ara
-  const stokItem = Object.values(db.stok).find(s => s.lnKod === kod || s.urunAd?.toLowerCase().includes(kod.toLowerCase()));
-  const lnKod = stokItem?.lnKod || kod;
-
-  db.minimumlar[lnKod] = miktar;
-  try {
-    await fetch(FIREBASE_URL + '/minimumlar.json', {
-      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(db.minimumlar)
-    });
-  } catch(e) {}
-
-  renderMinListe();
-  document.getElementById('min-urun-input').value = '';
-  document.getElementById('min-miktar').value = '';
-  showToast('✅ Minimum seviye kaydedildi');
-  renderStokListe();
-}
-
-function renderMinListe() {
-  const container = document.getElementById('min-liste');
-  const entries = Object.entries(db.minimumlar);
-  if (!entries.length) { container.innerHTML = '<div style="color:var(--gray-400);font-size:13px;text-align:center;padding:12px;">Minimum seviye tanımlanmamış</div>'; return; }
-  container.innerHTML = entries.map(([kod, min]) => {
-    const s = db.stok[kod];
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100);">
-      <div>
-        <div style="font-size:13px;font-weight:600;">${s?.urunAd||kod}</div>
-        <div style="font-size:11px;color:var(--gray-400);">${kod}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:13px;">Min: ${min}</span>
-        <button class="btn btn-sm btn-danger" onclick="deleteMinimum('${kod}')">Sil</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-async function deleteMinimum(kod) {
-  delete db.minimumlar[kod];
-  try {
-    await fetch(FIREBASE_URL + '/minimumlar.json', {
-      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(db.minimumlar)
-    });
-  } catch(e) {}
-  renderMinListe();
-  renderStokListe();
+function onDepoChange(depoId){
+  aktifDepoId=depoId;
+  const depo=DEPOLAR.find(d=>d.id===depoId);
+  document.getElementById('header-depo-label').textContent=(depo?.ikon||'')+' '+(depo?.ad||depoId);
+  katFilter='tumu';stokFilter='tumu';
+  renderStok();
 }
 
 // ============================================================
 // TAB & YARDIMCI
 // ============================================================
-function switchTab(tab) {
-  ['stok','hareketler','ln'].forEach(t => {
-    document.getElementById('tab-'+t).style.display = t===tab?'flex':'none';
-    document.getElementById('nav-'+t).classList.toggle('active', t===tab);
+function switchTab(tab){
+  ['stok','hareketler','ln'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===tab?'flex':'none';
+    document.getElementById('nav-'+t).classList.toggle('active',t===tab);
   });
-  if (tab==='hareketler') renderHareketler();
+  if(tab==='hareketler')renderHareketler();
 }
-
-function openModal(id) { document.getElementById(id).classList.add('open'); if(id==='modal-min') renderMinListe(); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
-
-function gotoPortal() { window.location.href = 'index.html'; }
-function showToast(msg, dur=2500) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),dur); }
-function showLoading() { document.getElementById('loading').classList.add('show'); }
-function hideLoading() { document.getElementById('loading').classList.remove('show'); }
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function gotoPortal(){window.location.href='index.html';}
+function showToast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+function showLoading(){document.getElementById('loading').classList.add('show');}
+function hideLoading(){document.getElementById('loading').classList.remove('show');}
 
 // ============================================================
 // INIT
 // ============================================================
-(async function init() {
-  showLoading();
+(async function init(){
+  buildDepoSelectors();
   await loadDB();
-  hideLoading();
+  if(checkSession())document.getElementById('screen-login').classList.add('hidden');
 
-  if (checkSession()) {
-    document.getElementById('screen-login').classList.add('hidden');
-  }
+  const today=new Date().toISOString().split('T')[0];
+  const weekAgo=new Date(Date.now()-7*86400000).toISOString().split('T')[0];
+  document.getElementById('har-start').value=weekAgo;
+  document.getElementById('har-end').value=today;
 
-  // Tarih filtreleri
-  const today   = new Date().toISOString().split('T')[0];
-  const weekAgo = new Date(Date.now()-7*86400000).toISOString().split('T')[0];
-  document.getElementById('har-start').value = weekAgo;
-  document.getElementById('har-end').value   = today;
+  renderStok();
 
-  renderStokListe();
-
-  // Mal kabul onay events — Firebase'den onaylanan formları dinle
-  // Her 30 saniyede bir kontrol et
-  setInterval(async () => {
-    try {
-      const r = await fetch(FIREBASE_URL + '/formlar.json');
-      if (!r.ok) return;
-      const data = await r.json();
-      if (!data) return;
-      const formlar = typeof data === 'object' ? Object.values(data).filter(Boolean) : [];
-      // İşlenmemiş onaylı formları bul
-      const islenmisKey = 'gurok_stok_islenmis';
-      const islenmis = new Set(JSON.parse(localStorage.getItem(islenmisKey)||'[]'));
-      let yeniIslem = false;
-      for (const f of formlar) {
-        if (f.durum === 'onaylandi' && !islenmis.has(String(f.id))) {
+  // Mal kabul onay kontrolü — 30sn
+  const islenmisKey='gurok_stok_islenmis';
+  setInterval(async()=>{
+    try{
+      const r=await fetch(FIREBASE_URL+'/formlar.json');
+      if(!r.ok)return;
+      const data=await r.json();if(!data)return;
+      const formlar=typeof data==='object'?Object.values(data).filter(Boolean):[];
+      const islenmis=new Set(JSON.parse(localStorage.getItem(islenmisKey)||'[]'));
+      let yeni=false;
+      for(const f of formlar){
+        if(f.durum==='onaylandi'&&!islenmis.has(String(f.id))){
           await malKabulOnayGiris(f);
-          islenmis.add(String(f.id));
-          yeniIslem = true;
+          islenmis.add(String(f.id));yeni=true;
         }
       }
-      if (yeniIslem) {
-        localStorage.setItem(islenmisKey, JSON.stringify([...islenmis]));
-        renderStokListe();
-        showToast('📦 Mal kabul onayı stoka işlendi');
-      }
-    } catch(e) {}
-  }, 30000);
+      if(yeni){localStorage.setItem(islenmisKey,JSON.stringify([...islenmis]));renderStok();showToast('📦 Mal kabul stoka işlendi');}
+    }catch(e){}
+  },30000);
 })();
 </script>
 </body>
