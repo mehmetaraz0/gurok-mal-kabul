@@ -434,10 +434,18 @@ function aOnay(id){
     ${s.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${s.not}</div>`:''}
     ${s.durum==='bekleyen'?`
       <div class="field"><label>Red Notu</label><input type="text" id="rednot" placeholder="Neden reddedildi?"></div>
-      <div class="brow">
+      <div class="brow" style="margin-top:8px;">
+        <button class="btn btn-gray btn-sm" onclick="kModal('mOnay')">Kapat</button>
+        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">🖨️ PDF Çıktı</button>
+      </div>
+      <div class="brow" style="margin-top:6px;">
         <button class="btn btn-danger btn-sm" onclick="kModal('mOnay');onayOzetGoster('${id}','red')">❌ Reddet</button>
         <button class="btn btn-success" onclick="kModal('mOnay');onayOzetGoster('${id}','onayla')">✅ Onayla</button>
-      </div>`:`<button class="btn btn-gray btn-block" onclick="kModal('mOnay')">Kapat</button>`}`;
+      </div>`:`
+      <div class="brow">
+        <button class="btn btn-gray btn-sm" onclick="kModal('mOnay')">Kapat</button>
+        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">🖨️ PDF Çıktı</button>
+      </div>`}`;
   aModal('mOnay');
 }
 
@@ -564,6 +572,78 @@ function onayOzetGoster(id, tip){
 
   document.getElementById('mOzetIc').innerHTML=icerik;
   aModal('mOzet');
+}
+
+function pdfCikti(id){
+  const s=DB.siparisler[id];if(!s)return;
+  const urunler=s.urunler||s.kalemler||[];
+  const tarih=s.tarih||new Date().toLocaleDateString('tr-TR');
+  const dept=s.departman||'—';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Depo Transfer Formu</title>
+  <style>
+    @page{size:A4;margin:15mm}
+    body{font-family:Arial,sans-serif;font-size:11px;color:#000}
+    h2{text-align:center;font-size:15px;margin:0 0 4px}
+    .sub{text-align:center;font-size:11px;color:#555;margin-bottom:16px}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;border:1px solid #ccc;padding:10px}
+    .info-item label{font-size:10px;font-weight:bold;color:#555;display:block}
+    .info-item span{font-size:12px;font-weight:bold}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    th{background:#1a2744;color:white;padding:7px;text-align:left;font-size:11px}
+    td{padding:7px;border-bottom:1px solid #eee;font-size:11px}
+    tr:nth-child(even) td{background:#f9f9f9}
+    .imza-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px}
+    .imza-box{border:1px solid #999;padding:14px;min-height:100px}
+    .imza-title{font-size:11px;font-weight:bold;margin-bottom:10px;color:#1a2744}
+    .imza-alan{border-bottom:1px solid #999;height:50px;margin-bottom:10px}
+    .imza-label{font-size:10px;color:#555;margin-bottom:4px}
+    .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:8px}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+  <h2>Gürok Turizm Grubu</h2>
+  <div class="sub">Depo Transfer / Talep Formu</div>
+  <div class="info-grid">
+    <div class="info-item"><label>Form No</label><span>${id}</span></div>
+    <div class="info-item"><label>Tarih</label><span>${tarih}</span></div>
+    <div class="info-item"><label>Talep Eden</label><span>${dept}</span></div>
+    <div class="info-item"><label>Kaynak Depo</label><span>Ana Depo</span></div>
+    <div class="info-item"><label>Personel</label><span>${s.personel||'—'}</span></div>
+    <div class="info-item"><label>Durum</label><span>${s.durum==='onaylandi'?'ONAYLANDI':'BEKLIYOR'}</span></div>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>Ürün Adı</th><th>LN Kodu</th><th>Talep</th><th>Onaylanan</th><th>Birim</th><th>Not</th></tr></thead>
+    <tbody>${urunler.map((u,i)=>`<tr>
+      <td>${i+1}</td><td><b>${u.ad||u.urunAd||'—'}</b></td>
+      <td style="font-family:monospace;font-size:10px">${u.kod||'—'}</td>
+      <td style="text-align:center">${u.talepMiktar||u.miktar||0}</td>
+      <td style="text-align:center;font-weight:bold">${u.onaylananMiktar!==undefined?u.onaylananMiktar:u.miktar||0}</td>
+      <td style="text-align:center">${u.birim||'KG'}</td>
+      <td style="font-size:10px;color:#555">${u.not||''}</td>
+    </tr>`).join('')}</tbody>
+  </table>
+  ${s.not?`<div style="background:#f9f9f9;border:1px solid #eee;padding:8px;margin-bottom:12px"><b>Not:</b> ${s.not}</div>`:''}
+  <div class="imza-grid">
+    <div class="imza-box">
+      <div class="imza-title">TEDARİK EDEN / TESLİM EDEN (DEPO)</div>
+      <div class="imza-alan"></div>
+      <div class="imza-label">Ad Soyad: ${s.onaylayanAd||'........................................'}</div>
+      <div class="imza-label">İmza:</div>
+      <div class="imza-label">Tarih: ${s.onayTarih?new Date(s.onayTarih).toLocaleDateString('tr-TR'):'....../.........../.........'}</div>
+    </div>
+    <div class="imza-box">
+      <div class="imza-title">TESLİM ALAN (${dept.toUpperCase()})</div>
+      <div class="imza-alan"></div>
+      <div class="imza-label">Ad Soyad: ${s.personel||'........................................'}</div>
+      <div class="imza-label">İmza:</div>
+      <div class="imza-label">Tarih: ....../.........../.........</div>
+    </div>
+  </div>
+  <div class="footer">Gürok Turizm Grubu — Depo Yönetim Sistemi • ${new Date().toLocaleString('tr-TR')}</div>
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+  const w=window.open('','_blank','width=800,height=1100');
+  if(w){w.document.write(html);w.document.close();}
+  else toast('⚠️ Popup engellendi, tarayıcı iznini kontrol edin');
 }
 
 function aModal(id){document.getElementById(id).classList.add('open');}
