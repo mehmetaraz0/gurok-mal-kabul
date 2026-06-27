@@ -363,8 +363,8 @@ const MODULLER = [
     ikon: '📤',
     renk: 'icon-orange',
     url: 'depo-siparis.html',
-    roller: ['yonetici','depo'],
-    durum: 'yapiyor'
+    roller: ['yonetici','depo','mutfak','bar'],
+    durum: 'aktif'
   },
   {
     id: 'satinalma',
@@ -429,8 +429,8 @@ const DEFAULT_USERS = [
   { id:5, ad:'Kalite Kontrol', rol:'kalite',    departman:'Kalite',    pin:'444444' }
 ];
 
-const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍' };
-const ROL_AD   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite' };
+const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹' };
+const ROL_AD   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite', mutfak:'Mutfak', bar:'Bar' };
 
 let users = [...DEFAULT_USERS];
 let currentUser = null;
