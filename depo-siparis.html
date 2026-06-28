@@ -392,7 +392,8 @@ function rTaleplerim(){
     return`<div class="skart ${s.durum}">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">${cm[s.durum]||''}<div style="text-align:right;font-size:11px;color:var(--gray-500)">${s.tarih}</div></div>
       ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${u.ad||u.urunAd||""} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
-      ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px">Red: ${s.redNot}</div>`:''}
+      ${s.durum==='bekleyen'?`<button class="btn btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="iptalEt('${s.id}')">✕ Talebi İptal Et</button>`:''}
+    ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px">Red: ${s.redNot}</div>`:''}
     </div>`;
   }).join(''));
 }
@@ -525,10 +526,21 @@ async function onayla(id){
   hLD();toast('✅ Onaylandı, stok transferi yapıldı');rGelen();rBugun();
 }
 
+async function iptalEt(id){
+  const s=DB.siparisler[id];
+  if(!s||s.durum!=='bekleyen'){toast('⚠️ Sadece bekleyen talepler iptal edilebilir');return;}
+  s.durum='reddedildi';
+  s.redNot='Talep eden tarafından iptal edildi';
+  s.reddeden=CU.ad;
+  s.redTarih=Date.now();
+  sLD();await saveSip(s);hLD();
+  toast('✅ Talep iptal edildi');
+  rTaleplerim();
+}
+
+
 async function reddet(id){
   const s=DB.siparisler[id];if(!s)return;
-  s.durum='reddedildi';s.redNot=document.getElementById('rednot')?.value||'';s.reddeden=CU.ad;s.redTarih=Date.now();
-  sLD();await saveSip(s);hLD();kModal('mOnay');toast('❌ Talep reddedildi');rGelen();
 }
 
 // ====== BUGÜN ======
