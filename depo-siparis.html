@@ -329,7 +329,15 @@ function fUS(i,val){
       e.preventDefault();
       const idx=parseInt(this.dataset.i);
       US[idx]={...US[idx],ad:this.dataset.ad,kod:this.dataset.kod,birim:this.dataset.birim};
-      dd.style.display='none';rUS();
+      dd.style.display='none';
+      // Sadece başlık ve birim alanını güncelle — tüm render yerine
+      const adInp=document.getElementById('ua'+idx);
+      if(adInp)adInp.value=this.dataset.ad;
+      const birimSel=document.getElementById('ub'+idx);
+      if(birimSel)birimSel.value=this.dataset.birim||'KG';
+      // Satır başlığını güncelle
+      const baslik=document.querySelector('#usatirlar .usatir:nth-child('+(idx+1)+') div[style*="font-weight:600"]');
+      if(baslik)baslik.textContent=this.dataset.ad;
     });
   });
   dd.style.display='block';
@@ -451,25 +459,70 @@ function aOnay(id){
 
 async function onayla(id){
   const s=DB.siparisler[id];if(!s)return;
-  s.urunler.forEach((u,i)=>{u.onaylananMiktar=parseFloat(document.getElementById('om'+i)?.value||u.miktar);u.miktar=u.onaylananMiktar;});
+
+  // ENGEL 1: Zaten onaylanmış
+  if(s.durum==='onaylandi'){toast('⚠️ Bu talep zaten onaylandı');return;}
+
+  // Onaylanan miktarları al
+  const urunler=s.urunler||s.kalemler||[];
+  urunler.forEach((u,i)=>{
+    u.onaylananMiktar=parseFloat(document.getElementById('om'+i)?.value||u.miktar)||0;
+    u.miktar=u.onaylananMiktar;
+  });
+
+  // ENGEL 2: LN kodu boş olan ürünler
+  const kodsuz=urunler.filter(u=>u.onaylananMiktar>0&&!u.kod);
+  if(kodsuz.length>0){
+    toast('⚠️ '+kodsuz[0].ad+' — LN kodu eksik, stok takibi yapılamaz');
+    return;
+  }
+
+  // ENGEL 3: Stok yetersiz kontrolü
+  const yetersiz=urunler.filter(u=>{
+    if(!u.kod||u.onaylananMiktar<=0)return false;
+    const mevcutStok=parseFloat((DB.stok[u.kod]||{}).miktar||0);
+    return u.onaylananMiktar>mevcutStok;
+  });
+  if(yetersiz.length>0){
+    const u=yetersiz[0];
+    const stok=parseFloat((DB.stok[u.kod]||{}).miktar||0);
+    toast(`⚠️ ${u.ad} — Stok yetersiz! Mevcut: ${stok} ${u.birim}, İstenen: ${u.onaylananMiktar} ${u.birim}`);
+    return;
+  }
+
   sLD();
   let hStok={};
   try{const r=await fetch(FB+'/stok/'+s.departmanId+'.json');if(r.ok){const d=await r.json();if(d)hStok=d;}}catch(e){}
   const harlar=[];
-  s.urunler.forEach(u=>{
+  urunler.forEach(u=>{
     if(!u.kod||u.onaylananMiktar<=0)return;
-    if(DB.stok[u.kod]){DB.stok[u.kod].miktar=Math.max(0,(parseFloat(DB.stok[u.kod].miktar)||0)-u.onaylananMiktar);DB.stok[u.kod].sonGuncelleme=Date.now();}
+    // Ana depodan düş
+    if(DB.stok[u.kod]){
+      DB.stok[u.kod].miktar=Math.max(0,(parseFloat(DB.stok[u.kod].miktar)||0)-u.onaylananMiktar);
+      DB.stok[u.kod].sonGuncelleme=Date.now();
+    }
+    // Hedef depoya ekle
     if(!hStok[u.kod])hStok[u.kod]={lnKod:u.kod,urunAd:u.ad,miktar:0,birim:u.birim,sonGuncelleme:Date.now()};
     hStok[u.kod].miktar=(parseFloat(hStok[u.kod].miktar)||0)+u.onaylananMiktar;
     hStok[u.kod].sonGuncelleme=Date.now();
-    harlar.push({id:'HAR_'+Date.now()+'_'+Math.random().toString(36).slice(2,4),tip:'transfer',kaynakDepoId:'ANA_DEPO',kaynakDepoAd:'Ana Depo',hedefDepoId:s.departmanId,hedefDepoAd:s.departman,lnKod:u.kod,urunAd:u.ad,miktar:u.onaylananMiktar,birim:u.birim,tarih:Date.now(),personel:CU.ad,siparisId:id});
+    harlar.push({
+      id:'HAR_'+Date.now()+'_'+Math.random().toString(36).slice(2,4),
+      tip:'transfer',kaynakDepoId:'ANA_DEPO',kaynakDepoAd:'Ana Depo',
+      hedefDepoId:s.departmanId,hedefDepoAd:s.departman,
+      lnKod:u.kod,urunAd:u.ad,miktar:u.onaylananMiktar,birim:u.birim,
+      tarih:Date.now(),personel:CU.ad,siparisId:id
+    });
   });
+
   s.durum='onaylandi';s.onaylayanAd=CU.ad;s.onayTarih=Date.now();
+  // Talebi kilitle — tekrar işlenemez
+  s.kilitli=true;
+
   await saveStok('ANA_DEPO',DB.stok);
   await saveStok(s.departmanId,hStok);
   for(const h of harlar)await saveHar(h);
   await saveSip(s);
-  hLD();kModal('mOnay');toast('✅ Onaylandı, stok transferi yapıldı');rGelen();rBugun();
+  hLD();toast('✅ Onaylandı, stok transferi yapıldı');rGelen();rBugun();
 }
 
 async function reddet(id){
@@ -522,6 +575,7 @@ function depoYeniSiparis(){
 // ====== 2. ONAY SİSTEMİ ======
 function onayOzetGoster(id, tip){
   const s=DB.siparisler[id];if(!s)return;
+  _onayId=id;
   const urunler=s.urunler||s.kalemler||[];
 
   // Onaylanan miktarları topla
@@ -533,6 +587,7 @@ function onayOzetGoster(id, tip){
   let icerik='';
   if(tip==='onayla'){
     const dept=s.departman||'—';
+    const stokYetersiz=onaylananlar.some(u=>u.kod&&u.onaylananMiktar>parseFloat((DB.stok[u.kod]||{}).miktar||0));
     icerik=`
       <div style="background:#d4edda;border-radius:8px;padding:12px;margin-bottom:12px;">
         <div style="font-size:13px;font-weight:700;color:#155724;margin-bottom:4px;">✅ Onaylanacak Transfer</div>
@@ -541,21 +596,22 @@ function onayOzetGoster(id, tip){
       <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;">Gönderilecek Ürünler:</div>
       ${onaylananlar.map(u=>{
         const stok=parseFloat((DB.stok[u.kod]||{}).miktar||0);
-        const yeterli=stok>=u.onaylananMiktar;
-        return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:${yeterli?'var(--gray-100)':'#fff8f8'};border-radius:6px;margin-bottom:4px;">
+        const yeterli=!u.kod||stok>=u.onaylananMiktar;
+        return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:${yeterli?'var(--gray-100)':'#fff8f8'};border-radius:6px;margin-bottom:4px;border-left:3px solid ${yeterli?'var(--success)':'var(--danger)'}">
           <div>
-            <div style="font-size:13px;font-weight:600;">${u.ad||u.urunAd||'—'}</div>
-            <div style="font-size:11px;color:var(--gray-500);">Stok: ${stok} ${u.birim}</div>
+            <div style="font-size:13px;font-weight:600">${u.ad||u.urunAd||'—'}</div>
+            <div style="font-size:11px;color:var(--gray-500)">${u.kod?'Stok: '+stok+' '+u.birim:'⚠️ LN kodu yok'}</div>
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:15px;font-weight:800;color:${yeterli?'var(--success)':'var(--danger)'};">${u.onaylananMiktar} ${u.birim}</div>
-            ${!yeterli?'<div style="font-size:10px;color:var(--danger);">⚠️ Stok yetersiz</div>':''}
+          <div style="text-align:right">
+            <div style="font-size:15px;font-weight:800;color:${yeterli?'var(--success)':'var(--danger)'}">${u.onaylananMiktar} ${u.birim}</div>
+            ${!yeterli&&u.kod?'<div style="font-size:10px;color:var(--danger)">⚠️ Yetersiz</div>':''}
           </div>
         </div>`;
       }).join('')}
-      <div class="brow" style="margin-top:14px;">
+      ${stokYetersiz?'<div style="background:#fde8e8;border-radius:6px;padding:8px;margin-top:8px;font-size:12px;color:var(--danger)">⚠️ Stok yetersiz ürünler var. Geri dönüp miktarları azaltın.</div>':''}
+      <div class="brow" style="margin-top:14px">
         <button class="btn btn-gray" onclick="kModal('mOzet')">← Geri</button>
-        <button class="btn btn-success" onclick="kModal('mOzet');onayla('${id}')">✅ Evet, Onayla</button>
+        <button class="btn btn-success" id="btnOnay" ${stokYetersiz?'disabled style="opacity:0.5;cursor:not-allowed"':''} onclick="evetOnayla()">✅ Evet, Onayla</button>
       </div>`;
   } else {
     icerik=`
@@ -632,6 +688,13 @@ function pdfCikti(id){
   const w=window.open('','_blank','width=800,height=1100');
   if(w){w.document.write(html);w.document.close();}
   else toast('⚠️ Popup engellendi, tarayıcı iznini kontrol edin');
+}
+
+let _onayId = null;
+function evetOnayla(){
+  if(!_onayId)return;
+  kModal('mOzet');
+  onayla(_onayId);
 }
 
 function aModal(id){document.getElementById(id).classList.add('open');}
