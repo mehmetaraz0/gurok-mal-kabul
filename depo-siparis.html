@@ -622,18 +622,12 @@ function pdfCikti(id){
   ${s.not?`<div style="background:#f9f9f9;border:1px solid #eee;padding:8px;margin-bottom:12px"><b>Not:</b> ${s.not}</div>`:''}
   <div class="imza-grid">
     <div class="imza-box">
-      <div class="imza-title">TEDARİK EDEN / TESLİM EDEN (DEPO)</div>
+      <div class="imza-title">TESLİM EDEN</div>
       <div class="imza-alan"></div>
-      <div class="imza-label">Ad Soyad: ${s.onaylayanAd||'........................................'}</div>
-      <div class="imza-label">İmza:</div>
-      <div class="imza-label">Tarih: ${s.onayTarih?new Date(s.onayTarih).toLocaleDateString('tr-TR'):'....../.........../.........'}</div>
     </div>
     <div class="imza-box">
-      <div class="imza-title">TESLİM ALAN (${dept.toUpperCase()})</div>
+      <div class="imza-title">TESLİM ALAN</div>
       <div class="imza-alan"></div>
-      <div class="imza-label">Ad Soyad: ${s.personel||'........................................'}</div>
-      <div class="imza-label">İmza:</div>
-      <div class="imza-label">Tarih: ....../.........../.........</div>
     </div>
   </div>
   <div class="footer">Gürok Turizm Grubu — Depo Yönetim Sistemi • ${new Date().toLocaleString('tr-TR')}</div>
