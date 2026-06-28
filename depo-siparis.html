@@ -592,11 +592,9 @@ function pdfCikti(id){
     th{background:#1a2744;color:white;padding:7px;text-align:left;font-size:11px}
     td{padding:7px;border-bottom:1px solid #eee;font-size:11px}
     tr:nth-child(even) td{background:#f9f9f9}
-    .imza-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px}
-    .imza-box{border:1px solid #999;padding:14px;min-height:100px}
-    .imza-title{font-size:11px;font-weight:bold;margin-bottom:10px;color:#1a2744}
-    .imza-alan{border-bottom:1px solid #999;height:50px;margin-bottom:10px}
-    .imza-label{font-size:10px;color:#555;margin-bottom:4px}
+    .imza-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px}
+    .imza-box{border-top:none;border-bottom:1px solid #000;padding-bottom:4px}
+    .imza-title{font-size:11px;font-weight:bold;margin-top:6px}
     .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:8px}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style></head><body>
@@ -623,11 +621,9 @@ function pdfCikti(id){
   <div class="imza-grid">
     <div class="imza-box">
       <div class="imza-title">TESLİM EDEN</div>
-      <div class="imza-alan"></div>
     </div>
     <div class="imza-box">
       <div class="imza-title">TESLİM ALAN</div>
-      <div class="imza-alan"></div>
     </div>
   </div>
   <div class="footer">Gürok Turizm Grubu — Depo Yönetim Sistemi • ${new Date().toLocaleString('tr-TR')}</div>
