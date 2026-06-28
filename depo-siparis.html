@@ -297,7 +297,7 @@ function rUS(){
         <div><label style="font-size:11px;font-weight:600;color:var(--gray-600)">BİRİM</label>
           <select id="ub${i}" onchange="US[${i}].birim=this.value"
             style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none;-webkit-appearance:none">
-            ${['KG','AD','KOL','LT','PKT','TRB'].map(b=>`<option${u.birim===b?' selected':''}>${b}</option>`).join('')}
+            ${['KG','AD','KOL','LT','PKT','TRB','TNK','BOT','GR','ML'].map(b=>`<option${u.birim===b?' selected':''}>${b}</option>`).join('')}
           </select></div>
       </div>
       <input type="text" value="${u.not||''}" placeholder="Not (opsiyonel)"
