@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Hesap Planı</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-blue{background:#dbeafe;color:#1e40af}.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-purple{background:#ede9fe;color:#5b21b6}.chip-orange{background:#fed7aa;color:#92400e}.chip-teal{background:#ccfbf1;color:#065f46}
+.ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.ftab.active{background:var(--primary);border-color:var(--primary);color:white}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.mo.open{display:flex}
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:90vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+/* Hesap ağacı */
+.hesap-item{border-left:3px solid transparent;margin-bottom:2px;border-radius:var(--radius-sm);background:white;cursor:pointer;transition:all .15s}
+.hesap-item:active{background:var(--gray-100)}
+.hesap-row{display:flex;align-items:center;gap:8px;padding:8px 12px}
+.hesap-kod{font-family:monospace;font-weight:700;flex-shrink:0}
+.hesap-ad{flex:1;font-size:13px}
+.hesap-tip{flex-shrink:0}
+.hesap-chevron{flex-shrink:0;transition:transform .2s;color:var(--gray-400);font-size:12px}
+.hesap-chevron.open{transform:rotate(90deg)}
+.hesap-children{display:none;padding-left:20px}
+.hesap-children.open{display:block}
+/* Seviye renkleri */
+.lv1{border-left-color:var(--primary)}.lv1 .hesap-kod{font-size:15px;color:var(--primary)}
+.lv2{border-left-color:var(--info)}.lv2 .hesap-kod{font-size:13px;color:var(--info)}
+.lv3{border-left-color:var(--success)}.lv3 .hesap-kod{font-size:12px;color:var(--success)}
+.lv4{border-left-color:var(--gray-400)}.lv4 .hesap-kod{font-size:11px;color:var(--gray-600)}
+.lv5{border-left-color:var(--gray-300)}.lv5 .hesap-kod{font-size:11px;color:var(--gray-500)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.search-bar{position:relative;margin-bottom:10px}
+.search-bar input{width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--gray-300);border-radius:24px;font-size:14px;outline:none;background:white}
+.search-bar input:focus{border-color:var(--primary)}
+.search-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gray-500)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Hesap Planı</h1><span class="sub" id="hsub">Tekdüzen Hesap Planı</span></div>
+    <button class="hbtn" onclick="openYeniHesap()" title="Yeni Hesap">➕</button>
+    <button class="hbtn" onclick="thpYukle()" title="THP Yükle">📥</button>
+  </div>
+
+  <div class="sc">
+    <div class="search-bar">
+      <input type="text" id="ara-inp" placeholder="Hesap kodu veya adı ara..." oninput="araHesap(this.value)">
+      <span class="search-icon">🔍</span>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterSinif('tumu',this)">Tümü</button>
+      <button class="ftab" onclick="filterSinif('1',this)">1-Dönen V.</button>
+      <button class="ftab" onclick="filterSinif('2',this)">2-Duran V.</button>
+      <button class="ftab" onclick="filterSinif('3',this)">3-KV Yab.K.</button>
+      <button class="ftab" onclick="filterSinif('4',this)">4-UV Yab.K.</button>
+      <button class="ftab" onclick="filterSinif('5',this)">5-Özkaynaklar</button>
+      <button class="ftab" onclick="filterSinif('6',this)">6-Gelir</button>
+      <button class="ftab" onclick="filterSinif('7',this)">7-Maliyet</button>
+    </div>
+    <div id="hesap-agaci"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni/Düzenle Hesap -->
+<div class="mo" id="mHesap">
+  <div class="mbox">
+    <div class="mtitle" id="mHesapTitle">➕ Yeni Hesap <button class="mclose" onclick="kModal('mHesap')">✕</button></div>
+    <input type="hidden" id="h-id">
+    <div class="rfields" style="margin-bottom:12px">
+      <div class="field"><label>Hesap Kodu *</label><input type="text" id="h-kod" placeholder="Örn: 100.01"></div>
+      <div class="field"><label>Üst Hesap</label><input type="text" id="h-ust" placeholder="Otomatik"></div>
+    </div>
+    <div class="field"><label>Hesap Adı *</label><input type="text" id="h-ad" placeholder="Hesap adı"></div>
+    <div class="rfields">
+      <div class="field"><label>Hesap Tipi *</label>
+        <select id="h-tip">
+          <option value="aktif">Aktif (Varlık)</option>
+          <option value="pasif">Pasif (Kaynak)</option>
+          <option value="gelir">Gelir</option>
+          <option value="gider">Gider</option>
+          <option value="maliyet">Maliyet</option>
+        </select>
+      </div>
+      <div class="field"><label>Çalışma Yönü</label>
+        <select id="h-yon">
+          <option value="borc">Borç</option>
+          <option value="alacak">Alacak</option>
+        </select>
+      </div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Kur Birimi</label>
+        <select id="h-kur">
+          <option value="TRY">TRY</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+        </select>
+      </div>
+      <div class="field"><label>Özellik</label>
+        <select id="h-ozellik">
+          <option value="">—</option>
+          <option value="kasa">Kasa</option>
+          <option value="banka">Banka</option>
+          <option value="cari">Cari Hesap</option>
+          <option value="stok">Stok</option>
+          <option value="kdv">KDV</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Açıklama</label><input type="text" id="h-aciklama" placeholder="Opsiyonel"></div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mHesap')">İptal</button>
+      <button class="btn btn-danger btn-sm" id="h-sil-btn" onclick="hesapSil()" style="display:none">🗑️</button>
+      <button class="btn btn-primary" onclick="hesapKaydet()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Hesap Detay -->
+<div class="mo" id="mDetay">
+  <div class="mbox">
+    <div class="mtitle" id="mDetayTitle">Hesap Detayı <button class="mclose" onclick="kModal('mDetay')">✕</button></div>
+    <div id="mDetayIc"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let hesaplar = {}; // { kod: hesap }
+let araFilter = '';
+let sinifFilter = 'tumu';
+
+// ============================================================
+// TEKDÜZENi HESAP PLANI — Türkiye THP (zorunlu 3 basamak)
+// ============================================================
+const THP_STANDART = [
+  // 1 - DÖNEN VARLIKLAR
+  {kod:'1',ad:'DÖNEN VARLIKLAR',tip:'aktif',yon:'borc'},
+  {kod:'10',ad:'HAZIR DEĞERLER',tip:'aktif',yon:'borc'},
+  {kod:'100',ad:'KASA',tip:'aktif',yon:'borc',ozellik:'kasa'},
+  {kod:'101',ad:'ALINAN ÇEKLER',tip:'aktif',yon:'borc'},
+  {kod:'102',ad:'BANKALAR',tip:'aktif',yon:'borc',ozellik:'banka'},
+  {kod:'103',ad:'VERİLEN ÇEKLER VE ÖDEME EMİRLERİ',tip:'aktif',yon:'alacak'},
+  {kod:'108',ad:'DİĞER HAZIR DEĞERLER',tip:'aktif',yon:'borc'},
+  {kod:'11',ad:'MENKUL KIYMETLER',tip:'aktif',yon:'borc'},
+  {kod:'110',ad:'HİSSE SENETLERİ',tip:'aktif',yon:'borc'},
+  {kod:'111',ad:'ÖZEL KESİM TAHVİL, SENET VE BONOLARI',tip:'aktif',yon:'borc'},
+  {kod:'112',ad:'KAMU KESİMİ TAHVİL, SENET VE BONOLARI',tip:'aktif',yon:'borc'},
+  {kod:'118',ad:'DİĞER MENKUL KIYMETLER',tip:'aktif',yon:'borc'},
+  {kod:'119',ad:'MENKUL KIYMETLER DEĞER DÜŞÜKLÜĞÜ KARŞILIĞI',tip:'aktif',yon:'alacak'},
+  {kod:'12',ad:'TİCARİ ALACAKLAR',tip:'aktif',yon:'borc',ozellik:'cari'},
+  {kod:'120',ad:'ALICILAR',tip:'aktif',yon:'borc',ozellik:'cari'},
+  {kod:'121',ad:'ALACAK SENETLERİ',tip:'aktif',yon:'borc'},
+  {kod:'122',ad:'ALACAK SENETLERİ REESKONTU',tip:'aktif',yon:'alacak'},
+  {kod:'126',ad:'VERİLEN DEPOZİTO VE TEMİNATLAR',tip:'aktif',yon:'borc'},
+  {kod:'127',ad:'DİĞER TİCARİ ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'128',ad:'ŞÜPHELİ TİCARİ ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'129',ad:'ŞÜPHELİ TİCARİ ALACAKLAR KARŞILIĞI',tip:'aktif',yon:'alacak'},
+  {kod:'13',ad:'DİĞER ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'131',ad:'ORTAKLARDAN ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'132',ad:'İŞTİRAKLERDEN ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'133',ad:'BAĞLI ORTAKLIKLARDAN ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'135',ad:'PERSONELDEN ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'136',ad:'DİĞER ÇEŞİTLİ ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'137',ad:'DİĞER ALACAK SENETLERİ REESKONTU',tip:'aktif',yon:'alacak'},
+  {kod:'138',ad:'ŞÜPHELİ DİĞER ALACAKLAR',tip:'aktif',yon:'borc'},
+  {kod:'139',ad:'ŞÜPHELİ DİĞER ALACAKLAR KARŞILIĞI',tip:'aktif',yon:'alacak'},
+  {kod:'15',ad:'STOKLAR',tip:'aktif',yon:'borc',ozellik:'stok'},
+  {kod:'150',ad:'İLK MADDE VE MALZEME',tip:'aktif',yon:'borc',ozellik:'stok'},
+  {kod:'151',ad:'YARI MAMÜLLER ÜRETİM',tip:'aktif',yon:'borc'},
+  {kod:'152',ad:'MAMÜLLER',tip:'aktif',yon:'borc'},
+  {kod:'153',ad:'TİCARİ MALLAR',tip:'aktif',yon:'borc',ozellik:'stok'},
+  {kod:'157',ad:'DİĞER STOKLAR',tip:'aktif',yon:'borc'},
+  {kod:'158',ad:'STOK DEĞER DÜŞÜKLÜĞÜ KARŞILIĞI',tip:'aktif',yon:'alacak'},
+  {kod:'159',ad:'VERİLEN SİPARİŞ AVANSLARI',tip:'aktif',yon:'borc'},
+  {kod:'18',ad:'GELECEK AYLARA AİT GİDERLER VE GELİR TAHAKKUKLARI',tip:'aktif',yon:'borc'},
+  {kod:'180',ad:'GELECEK AYLARA AİT GİDERLER',tip:'aktif',yon:'borc'},
+  {kod:'181',ad:'GELİR TAHAKKUKLARI',tip:'aktif',yon:'borc'},
+  {kod:'19',ad:'DİĞER DÖNEN VARLIKLAR',tip:'aktif',yon:'borc'},
+  {kod:'190',ad:'DEVREDEN KDV',tip:'aktif',yon:'borc',ozellik:'kdv'},
+  {kod:'191',ad:'İNDİRİLECEK KDV',tip:'aktif',yon:'borc',ozellik:'kdv'},
+  {kod:'192',ad:'DİĞER KDV',tip:'aktif',yon:'borc',ozellik:'kdv'},
+  {kod:'193',ad:'PEŞİN ÖDENEN VERGİLER VE FONLAR',tip:'aktif',yon:'borc'},
+  {kod:'195',ad:'İŞ AVANSLARI',tip:'aktif',yon:'borc'},
+  {kod:'196',ad:'PERSONEL AVANSLARI',tip:'aktif',yon:'borc'},
+  {kod:'197',ad:'SAYIM VE TESELLÜM NOKSANLIKLARI',tip:'aktif',yon:'borc'},
+  {kod:'198',ad:'DİĞER ÇEŞİTLİ DÖNEN VARLIKLAR',tip:'aktif',yon:'borc'},
+  {kod:'199',ad:'DİĞER DÖNEN VARLIKLAR KARŞILIĞI',tip:'aktif',yon:'alacak'},
+  // 2 - DURAN VARLIKLAR
+  {kod:'2',ad:'DURAN VARLIKLAR',tip:'aktif',yon:'borc'},
+  {kod:'25',ad:'MADDİ DURAN VARLIKLAR',tip:'aktif',yon:'borc'},
+  {kod:'250',ad:'ARAZİ VE ARSALAR',tip:'aktif',yon:'borc'},
+  {kod:'251',ad:'YER ALTI VE YER ÜSTÜ DÜZENLEMELERİ',tip:'aktif',yon:'borc'},
+  {kod:'252',ad:'BİNALAR',tip:'aktif',yon:'borc'},
+  {kod:'253',ad:'TESİS MAKİNE VE CİHAZLAR',tip:'aktif',yon:'borc'},
+  {kod:'254',ad:'TAŞITLAR',tip:'aktif',yon:'borc'},
+  {kod:'255',ad:'DEMİRBAŞLAR',tip:'aktif',yon:'borc'},
+  {kod:'257',ad:'BİRİKMİŞ AMORTİSMANLAR',tip:'aktif',yon:'alacak'},
+  {kod:'258',ad:'YAPILMAKTA OLAN YATIRIMLAR',tip:'aktif',yon:'borc'},
+  // 3 - KISA VADELİ YABANCI KAYNAKLAR
+  {kod:'3',ad:'KISA VADELİ YABANCI KAYNAKLAR',tip:'pasif',yon:'alacak'},
+  {kod:'32',ad:'TİCARİ BORÇLAR',tip:'pasif',yon:'alacak',ozellik:'cari'},
+  {kod:'320',ad:'SATICILAR',tip:'pasif',yon:'alacak',ozellik:'cari'},
+  {kod:'321',ad:'BORÇ SENETLERİ',tip:'pasif',yon:'alacak'},
+  {kod:'322',ad:'BORÇ SENETLERİ REESKONTU',tip:'pasif',yon:'borc'},
+  {kod:'326',ad:'ALINAN DEPOZİTO VE TEMİNATLAR',tip:'pasif',yon:'alacak'},
+  {kod:'329',ad:'DİĞER TİCARİ BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'33',ad:'DİĞER BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'331',ad:'ORTAKLARA BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'332',ad:'İŞTİRAKLERE BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'333',ad:'BAĞLI ORTAKLIKLARA BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'335',ad:'PERSONELE BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'336',ad:'DİĞER ÇEŞİTLİ BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'34',ad:'ALINAN AVANSLAR',tip:'pasif',yon:'alacak'},
+  {kod:'340',ad:'ALINAN SİPARİŞ AVANSLARI',tip:'pasif',yon:'alacak'},
+  {kod:'349',ad:'ALINAN DİĞER AVANSLAR',tip:'pasif',yon:'alacak'},
+  {kod:'36',ad:'ÖDENECEK VERGİ VE DİĞER YÜKÜMLÜLÜKLER',tip:'pasif',yon:'alacak'},
+  {kod:'360',ad:'ÖDENECEK VERGİ VE FONLAR',tip:'pasif',yon:'alacak'},
+  {kod:'361',ad:'ÖDENECEK SOSYAL GÜVENLİK KESİNTİLERİ',tip:'pasif',yon:'alacak'},
+  {kod:'368',ad:'VADESİ GEÇMİŞ ERTELENMİŞ VEYA TAKSİTLENDİRİLMİŞ VERGİ',tip:'pasif',yon:'alacak'},
+  {kod:'369',ad:'DİĞER YÜKÜMLÜLÜKLER',tip:'pasif',yon:'alacak'},
+  {kod:'39',ad:'DİĞER KISA VADELİ YABANCI KAYNAKLAR',tip:'pasif',yon:'alacak'},
+  {kod:'391',ad:'HESAPLANAN KDV',tip:'pasif',yon:'alacak',ozellik:'kdv'},
+  {kod:'392',ad:'DİĞER KDV',tip:'pasif',yon:'alacak',ozellik:'kdv'},
+  {kod:'397',ad:'SAYIM VE TESELLÜM FAZLALIKLARI',tip:'pasif',yon:'alacak'},
+  {kod:'399',ad:'DİĞER ÇEŞİTLİ KISA VADELİ YABANCI KAYNAKLAR',tip:'pasif',yon:'alacak'},
+  // 4 - UZUN VADELİ YABANCI KAYNAKLAR
+  {kod:'4',ad:'UZUN VADELİ YABANCI KAYNAKLAR',tip:'pasif',yon:'alacak'},
+  {kod:'40',ad:'MALİ BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'400',ad:'BANKA KREDİLERİ',tip:'pasif',yon:'alacak'},
+  {kod:'42',ad:'TİCARİ BORÇLAR',tip:'pasif',yon:'alacak'},
+  {kod:'420',ad:'SATICILAR',tip:'pasif',yon:'alacak'},
+  // 5 - ÖZKAYNAKLAR
+  {kod:'5',ad:'ÖZKAYNAKLAR',tip:'pasif',yon:'alacak'},
+  {kod:'50',ad:'ÖDENMİŞ SERMAYE',tip:'pasif',yon:'alacak'},
+  {kod:'500',ad:'SERMAYE',tip:'pasif',yon:'alacak'},
+  {kod:'501',ad:'ÖDENMEMİŞ SERMAYE',tip:'pasif',yon:'borc'},
+  {kod:'52',ad:'KAR YEDEKLERİ',tip:'pasif',yon:'alacak'},
+  {kod:'520',ad:'YASAL YEDEKLER',tip:'pasif',yon:'alacak'},
+  {kod:'521',ad:'STATÜ YEDEKLERİ',tip:'pasif',yon:'alacak'},
+  {kod:'522',ad:'OLAĞANÜSTÜ YEDEKLER',tip:'pasif',yon:'alacak'},
+  {kod:'57',ad:'GEÇMİŞ YILLAR KARLARI',tip:'pasif',yon:'alacak'},
+  {kod:'570',ad:'GEÇMİŞ YILLAR KARLARI',tip:'pasif',yon:'alacak'},
+  {kod:'58',ad:'GEÇMİŞ YILLAR ZARARLARI',tip:'pasif',yon:'borc'},
+  {kod:'580',ad:'GEÇMİŞ YILLAR ZARARLARI',tip:'pasif',yon:'borc'},
+  {kod:'59',ad:'DÖNEM NET KARI (ZARARI)',tip:'pasif',yon:'alacak'},
+  {kod:'590',ad:'DÖNEM NET KARI',tip:'pasif',yon:'alacak'},
+  {kod:'591',ad:'DÖNEM NET ZARARI',tip:'pasif',yon:'borc'},
+  // 6 - GELİR TABLOSU
+  {kod:'6',ad:'GELİR TABLOSU HESAPLARI',tip:'gelir',yon:'alacak'},
+  {kod:'60',ad:'BRÜT SATIŞLAR',tip:'gelir',yon:'alacak'},
+  {kod:'600',ad:'YURTİÇİ SATIŞLAR',tip:'gelir',yon:'alacak'},
+  {kod:'601',ad:'YURTDIŞI SATIŞLAR',tip:'gelir',yon:'alacak'},
+  {kod:'602',ad:'DİĞER GELİRLER',tip:'gelir',yon:'alacak'},
+  {kod:'61',ad:'SATIŞ İNDİRİMLERİ',tip:'gelir',yon:'borc'},
+  {kod:'610',ad:'SATIŞTAN İADELER',tip:'gelir',yon:'borc'},
+  {kod:'611',ad:'SATIŞ İSKONTOLARI',tip:'gelir',yon:'borc'},
+  {kod:'612',ad:'DİĞER İNDİRİMLER',tip:'gelir',yon:'borc'},
+  {kod:'62',ad:'SATIŞLARIN MALİYETİ',tip:'gider',yon:'borc'},
+  {kod:'620',ad:'SATILAN MAMÜLLER MALİYETİ',tip:'gider',yon:'borc'},
+  {kod:'621',ad:'SATILAN TİCARİ MALLAR MALİYETİ',tip:'gider',yon:'borc'},
+  {kod:'622',ad:'SATILAN HİZMET MALİYETİ',tip:'gider',yon:'borc'},
+  {kod:'63',ad:'FAALİYET GİDERLERİ',tip:'gider',yon:'borc'},
+  {kod:'630',ad:'ARAŞTIRMA VE GELİŞTİRME GİDERLERİ',tip:'gider',yon:'borc'},
+  {kod:'631',ad:'PAZARLAMA SATIŞ VE DAĞITIM GİDERLERİ',tip:'gider',yon:'borc'},
+  {kod:'632',ad:'GENEL YÖNETİM GİDERLERİ',tip:'gider',yon:'borc'},
+  {kod:'64',ad:'DİĞER FAALİYETLERDEN OLAĞAN GELİR VE KARLAR',tip:'gelir',yon:'alacak'},
+  {kod:'640',ad:'İŞTİRAKLERDEN TEMETTÜ GELİRLERİ',tip:'gelir',yon:'alacak'},
+  {kod:'641',ad:'BAĞLI ORTAKLIKLARDAN TEMETTÜ GELİRLERİ',tip:'gelir',yon:'alacak'},
+  {kod:'642',ad:'FAİZ GELİRLERİ',tip:'gelir',yon:'alacak'},
+  {kod:'643',ad:'KOMİSYON GELİRLERİ',tip:'gelir',yon:'alacak'},
+  {kod:'644',ad:'KONUSU KALMAYAN KARŞILIKLAR',tip:'gelir',yon:'alacak'},
+  {kod:'645',ad:'MENKUL KIYMET SATIŞ KARLARI',tip:'gelir',yon:'alacak'},
+  {kod:'646',ad:'KAMBİYO KARLARI',tip:'gelir',yon:'alacak'},
+  {kod:'647',ad:'REESKONT FAİZ GELİRLERİ',tip:'gelir',yon:'alacak'},
+  {kod:'648',ad:'ENFLASYON DÜZELTMESİ KARLARI',tip:'gelir',yon:'alacak'},
+  {kod:'649',ad:'DİĞER OLAĞAN GELİR VE KARLAR',tip:'gelir',yon:'alacak'},
+  {kod:'65',ad:'DİĞER FAALİYETLERDEN OLAĞAN GİDER VE ZARARLAR',tip:'gider',yon:'borc'},
+  {kod:'653',ad:'KOMİSYON GİDERLERİ',tip:'gider',yon:'borc'},
+  {kod:'654',ad:'KARŞILIK GİDERLERİ',tip:'gider',yon:'borc'},
+  {kod:'655',ad:'MENKUL KIYMET SATIŞ ZARARLARI',tip:'gider',yon:'borc'},
+  {kod:'656',ad:'KAMBİYO ZARARLARI',tip:'gider',yon:'borc'},
+  {kod:'657',ad:'REESKONT FAİZ GİDERLERİ',tip:'gider',yon:'borc'},
+  {kod:'658',ad:'ENFLASYON DÜZELTMESİ ZARARLARI',tip:'gider',yon:'borc'},
+  {kod:'659',ad:'DİĞER OLAĞAN GİDER VE ZARARLAR',tip:'gider',yon:'borc'},
+  {kod:'67',ad:'OLAĞANDIŞI GELİR VE KARLAR',tip:'gelir',yon:'alacak'},
+  {kod:'671',ad:'ÖNCEKİ DÖNEM GELİR VE KARLARI',tip:'gelir',yon:'alacak'},
+  {kod:'679',ad:'DİĞER OLAĞANDIŞI GELİR VE KARLAR',tip:'gelir',yon:'alacak'},
+  {kod:'68',ad:'OLAĞANDIŞI GİDER VE ZARARLAR',tip:'gider',yon:'borc'},
+  {kod:'680',ad:'ÇALIŞMAYAN KISIM GİDER VE ZARARLARI',tip:'gider',yon:'borc'},
+  {kod:'681',ad:'ÖNCEKİ DÖNEM GİDER VE ZARARLARI',tip:'gider',yon:'borc'},
+  {kod:'689',ad:'DİĞER OLAĞANDIŞI GİDER VE ZARARLAR',tip:'gider',yon:'borc'},
+  {kod:'69',ad:'DÖNEM NET KARI VEYA ZARARI',tip:'gelir',yon:'alacak'},
+  {kod:'690',ad:'DÖNEM KARI VEYA ZARARI',tip:'gelir',yon:'alacak'},
+  {kod:'691',ad:'DÖNEM KARI VERGİ VE DİĞER YASAL YÜKÜMLÜLÜK KARŞ.',tip:'gider',yon:'borc'},
+  {kod:'692',ad:'DÖNEM NET KARI VEYA ZARARI',tip:'gelir',yon:'alacak'},
+  // 7 - MALİYET HESAPLARI
+  {kod:'7',ad:'MALİYET HESAPLARI',tip:'maliyet',yon:'borc'},
+  {kod:'70',ad:'MALİYET MUHASEBESİ BAĞLANTI HESAPLARI',tip:'maliyet',yon:'borc'},
+  {kod:'700',ad:'MALİYET MUHASEBESİ BAĞLANTI HESABI',tip:'maliyet',yon:'borc'},
+  {kod:'71',ad:'DİREKT İLK MADDE VE MALZEME GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'710',ad:'DİREKT İLK MADDE VE MALZEME GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'72',ad:'DİREKT İŞÇİLİK GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'720',ad:'DİREKT İŞÇİLİK GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'73',ad:'GENEL ÜRETİM GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'730',ad:'GENEL ÜRETİM GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'74',ad:'HİZMET ÜRETİM MALİYETİ',tip:'maliyet',yon:'borc'},
+  {kod:'740',ad:'HİZMET ÜRETİM MALİYETİ',tip:'maliyet',yon:'borc'},
+  {kod:'75',ad:'ARAŞTIRMA VE GELİŞTİRME GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'750',ad:'ARAŞTIRMA VE GELİŞTİRME GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'76',ad:'PAZARLAMA SATIŞ VE DAĞITIM GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'760',ad:'PAZARLAMA SATIŞ VE DAĞITIM GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'77',ad:'GENEL YÖNETİM GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'770',ad:'GENEL YÖNETİM GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'78',ad:'FİNANSMAN GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'780',ad:'FİNANSMAN GİDERLERİ',tip:'maliyet',yon:'borc'},
+  {kod:'79',ad:'GAYRİ SAFİ SATIŞ KARI VEYA ZARARI',tip:'maliyet',yon:'borc'},
+  {kod:'790',ad:'İLK MADDE VE MALZEME YANSITMA HESABI',tip:'maliyet',yon:'alacak'},
+  {kod:'791',ad:'İŞÇİLİK GİDERLERİ YANSITMA HESABI',tip:'maliyet',yon:'alacak'},
+  {kod:'792',ad:'GENEL ÜRETİM GİDERLERİ YANSITMA HESABI',tip:'maliyet',yon:'alacak'},
+];
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadHesaplar(){
+  sLD();
+  try{
+    const r=await fetch(FB+'/muhasebe/hesapPlani.json');
+    if(r.ok){const d=await r.json();if(d&&typeof d==='object')hesaplar=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+async function saveHesap(hesap){
+  const key=hesap.kod.replace(/\./g,'_');
+  try{
+    await fetch(FB+'/muhasebe/hesapPlani/'+key+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(hesap)});
+  }catch(e){console.warn(e);}
+}
+
+async function deleteHesap(kod){
+  const key=kod.replace(/\./g,'_');
+  try{
+    await fetch(FB+'/muhasebe/hesapPlani/'+key+'.json',{method:'DELETE'});
+  }catch(e){console.warn(e);}
+}
+
+// ============================================================
+// THP YÜKLE
+// ============================================================
+async function thpYukle(){
+  if(!confirm('Standart Tekdüzen Hesap Planı yüklensin mi? Mevcut hesaplar korunur, sadece eksikler eklenir.'))return;
+  sLD();
+  let eklenen=0;
+  for(const h of THP_STANDART){
+    const key=h.kod.replace(/\./g,'_');
+    if(!hesaplar[key]){
+      hesaplar[key]={...h,olusturmaTarih:Date.now()};
+      await saveHesap(hesaplar[key]);
+      eklenen++;
+    }
+  }
+  hLD();
+  renderHesapAgaci();
+  toast(`✅ ${eklenen} hesap eklendi`);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+const TIP_CHIP={
+  aktif:'<span class="chip chip-blue">Aktif</span>',
+  pasif:'<span class="chip chip-red">Pasif</span>',
+  gelir:'<span class="chip chip-green">Gelir</span>',
+  gider:'<span class="chip chip-yellow">Gider</span>',
+  maliyet:'<span class="chip chip-purple">Maliyet</span>'
+};
+const OZELLIK_CHIP={
+  kasa:'<span class="chip chip-teal" style="margin-left:4px">💰</span>',
+  banka:'<span class="chip chip-blue" style="margin-left:4px">🏦</span>',
+  cari:'<span class="chip chip-orange" style="margin-left:4px">👥</span>',
+  stok:'<span class="chip chip-green" style="margin-left:4px">📦</span>',
+  kdv:'<span class="chip chip-yellow" style="margin-left:4px">🧾</span>'
+};
+
+function getSeviye(kod){
+  const parcalar=kod.split('.');
+  const uzunluk=parcalar[0].length;
+  if(uzunluk===1)return 1;
+  if(uzunluk===2)return 2;
+  if(uzunluk===3)return 3;
+  if(parcalar.length>=2)return 4;
+  return 5;
+}
+
+function getUstKod(kod){
+  const parcalar=kod.split('.');
+  const ana=parcalar[0];
+  if(parcalar.length>1){return parcalar.slice(0,-1).join('.');}
+  if(ana.length===3)return ana.slice(0,2);
+  if(ana.length===2)return ana.slice(0,1);
+  return null;
+}
+
+function renderHesapAgaci(){
+  const container=document.getElementById('hesap-agaci');
+  const tumHesaplar=Object.values(hesaplar).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
+
+  // Arama veya filtre varsa düz liste göster
+  if(araFilter||sinifFilter!=='tumu'){
+    let filtered=tumHesaplar.filter(h=>{
+      if(sinifFilter!=='tumu'&&!h.kod.startsWith(sinifFilter))return false;
+      if(araFilter&&!h.kod.toLowerCase().includes(araFilter.toLowerCase())&&!h.ad.toLowerCase().includes(araFilter.toLowerCase()))return false;
+      return true;
+    });
+    if(!filtered.length){container.innerHTML='<div class="es"><div class="ei">📊</div><div class="et">Hesap bulunamadı</div></div>';return;}
+    container.innerHTML=filtered.map(h=>hesapSatirHTML(h)).join('');
+    return;
+  }
+
+  // Ağaç yapısı
+  const kokler=tumHesaplar.filter(h=>getSeviye(h.kod)===1);
+  if(!kokler.length){
+    container.innerHTML=`<div class="es"><div class="ei">📊</div><div class="et">Hesap planı boş</div>
+      <div style="margin-top:12px"><button class="btn btn-primary" onclick="thpYukle()">📥 Standart THP Yükle</button></div></div>`;
+    return;
+  }
+  container.innerHTML=kokler.map(h=>renderDugum(h,tumHesaplar)).join('');
+}
+
+function renderDugum(h,tumlar){
+  const cocuklar=tumlar.filter(c=>getUstKod(c.kod)===h.kod&&c.kod!==h.kod);
+  const seviye=getSeviye(h.kod);
+  const hasCocuk=cocuklar.length>0;
+  return`<div class="hesap-item lv${seviye}" id="hi_${h.kod.replace(/\./g,'_')}">
+    <div class="hesap-row" onclick="toggleHesap('${h.kod.replace(/\./g,'_')}','${h.kod}')">
+      ${hasCocuk?`<span class="hesap-chevron" id="chev_${h.kod.replace(/\./g,'_')}">▶</span>`:'<span style="width:16px;display:inline-block"></span>'}
+      <span class="hesap-kod">${h.kod}</span>
+      <span class="hesap-ad">${h.ad}${h.ozellik?OZELLIK_CHIP[h.ozellik]||'':''}</span>
+      <span class="hesap-tip">${TIP_CHIP[h.tip]||''}</span>
+      <button onclick="event.stopPropagation();openDetay('${h.kod.replace(/\./g,'_')}')" style="background:none;border:none;color:var(--gray-400);cursor:pointer;padding:4px;font-size:14px">⋯</button>
+    </div>
+    ${hasCocuk?`<div class="hesap-children" id="ch_${h.kod.replace(/\./g,'_')}">${cocuklar.map(c=>renderDugum(c,tumlar)).join('')}</div>`:''}
+  </div>`;
+}
+
+function hesapSatirHTML(h){
+  const seviye=getSeviye(h.kod);
+  return`<div class="hesap-item lv${Math.min(seviye,3)}" style="margin-bottom:4px">
+    <div class="hesap-row" onclick="openDetay('${h.kod.replace(/\./g,'_')}')">
+      <span class="hesap-kod">${h.kod}</span>
+      <span class="hesap-ad">${h.ad}${h.ozellik?OZELLIK_CHIP[h.ozellik]||'':''}</span>
+      <span class="hesap-tip">${TIP_CHIP[h.tip]||''}</span>
+    </div>
+  </div>`;
+}
+
+function toggleHesap(key,kod){
+  const ch=document.getElementById('ch_'+key);
+  const chev=document.getElementById('chev_'+key);
+  if(!ch)return;
+  const open=ch.classList.toggle('open');
+  if(chev)chev.classList.toggle('open',open);
+}
+
+// ============================================================
+// DETAY / DÜZENLE
+// ============================================================
+function openDetay(key){
+  const h=hesaplar[key];if(!h)return;
+  document.getElementById('mDetayTitle').textContent=h.kod+' — '+h.ad;
+  document.getElementById('mDetayIc').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:var(--gray-100);border-radius:8px;padding:10px">
+        <div style="font-size:11px;color:var(--gray-500)">Hesap Tipi</div>
+        <div style="font-size:14px;font-weight:700;margin-top:4px">${TIP_CHIP[h.tip]||h.tip}</div>
+      </div>
+      <div style="background:var(--gray-100);border-radius:8px;padding:10px">
+        <div style="font-size:11px;color:var(--gray-500)">Çalışma Yönü</div>
+        <div style="font-size:14px;font-weight:700;margin-top:4px">${h.yon==='borc'?'Borç':'Alacak'}</div>
+      </div>
+    </div>
+    ${h.ozellik?`<div style="margin-bottom:8px">${OZELLIK_CHIP[h.ozellik]||''} <span style="font-size:13px;font-weight:600">${h.ozellik.toUpperCase()}</span></div>`:''}
+    ${h.aciklama?`<div style="font-size:13px;color:var(--gray-600);margin-bottom:12px">${h.aciklama}</div>`:''}
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mDetay')">Kapat</button>
+      <button class="btn btn-primary" onclick="kModal('mDetay');openDuzenle('${key}')">✏️ Düzenle</button>
+    </div>`;
+  aModal('mDetay');
+}
+
+function openYeniHesap(){
+  document.getElementById('mHesapTitle').innerHTML='➕ Yeni Hesap <button class="mclose" onclick="kModal(\'mHesap\')">✕</button>';
+  document.getElementById('h-id').value='';
+  document.getElementById('h-kod').value='';
+  document.getElementById('h-ust').value='';
+  document.getElementById('h-ad').value='';
+  document.getElementById('h-tip').value='aktif';
+  document.getElementById('h-yon').value='borc';
+  document.getElementById('h-kur').value='TRY';
+  document.getElementById('h-ozellik').value='';
+  document.getElementById('h-aciklama').value='';
+  document.getElementById('h-sil-btn').style.display='none';
+  aModal('mHesap');
+}
+
+function openDuzenle(key){
+  const h=hesaplar[key];if(!h)return;
+  document.getElementById('mHesapTitle').innerHTML='✏️ Hesap Düzenle <button class="mclose" onclick="kModal(\'mHesap\')">✕</button>';
+  document.getElementById('h-id').value=key;
+  document.getElementById('h-kod').value=h.kod;
+  document.getElementById('h-ust').value=getUstKod(h.kod)||'';
+  document.getElementById('h-ad').value=h.ad;
+  document.getElementById('h-tip').value=h.tip;
+  document.getElementById('h-yon').value=h.yon;
+  document.getElementById('h-kur').value=h.kur||'TRY';
+  document.getElementById('h-ozellik').value=h.ozellik||'';
+  document.getElementById('h-aciklama').value=h.aciklama||'';
+  document.getElementById('h-sil-btn').style.display='flex';
+  aModal('mHesap');
+}
+
+async function hesapKaydet(){
+  const kod=document.getElementById('h-kod').value.trim().toUpperCase();
+  const ad=document.getElementById('h-ad').value.trim().toUpperCase();
+  if(!kod||!ad){toast('⚠️ Kod ve ad zorunlu');return;}
+  const key=kod.replace(/\./g,'_');
+  const hesap={
+    kod,ad,
+    tip:document.getElementById('h-tip').value,
+    yon:document.getElementById('h-yon').value,
+    kur:document.getElementById('h-kur').value,
+    ozellik:document.getElementById('h-ozellik').value||null,
+    aciklama:document.getElementById('h-aciklama').value||'',
+    olusturmaTarih:hesaplar[key]?.olusturmaTarih||Date.now(),
+    guncellemeTarih:Date.now()
+  };
+  sLD();
+  hesaplar[key]=hesap;
+  await saveHesap(hesap);
+  hLD();
+  kModal('mHesap');
+  renderHesapAgaci();
+  toast(`✅ ${kod} — ${ad} kaydedildi`);
+}
+
+async function hesapSil(){
+  const key=document.getElementById('h-id').value;
+  const h=hesaplar[key];
+  if(!h)return;
+  if(!confirm(`"${h.kod} — ${h.ad}" silinsin mi?`))return;
+  sLD();
+  delete hesaplar[key];
+  await deleteHesap(h.kod);
+  hLD();
+  kModal('mHesap');
+  renderHesapAgaci();
+  toast('🗑️ Hesap silindi');
+}
+
+// ============================================================
+// ARAMA & FİLTRE
+// ============================================================
+function araHesap(val){araFilter=val;renderHesapAgaci();}
+function filterSinif(f,el){
+  sinifFilter=f;
+  document.querySelectorAll('.ftabs .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderHesapAgaci();
+}
+
+// ============================================================
+// YARDIMCI
+// ============================================================
+function aModal(id){document.getElementById(id).classList.add('open');}
+function kModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadHesaplar();
+  renderHesapAgaci();
+  // THP yoksa otomatik yükle
+  if(Object.keys(hesaplar).length===0){
+    toast('📥 Standart hesap planı yükleniyor...',4000);
+    await thpYukle();
+  }
+})();
+</script>
+</body>
+</html>
