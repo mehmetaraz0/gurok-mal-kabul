@@ -857,6 +857,10 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           <input type="text" id="irsaliye-no" placeholder="İrsaliye no">
         </div>
         <div class="field">
+          <label>LN Sipariş No</label>
+          <input type="text" id="ln-siparis-no" placeholder="C000... (LN'e aktarım için)">
+        </div>
+        <div class="field">
           <label>Araç Hijyen</label>
           <select id="arac-hijyen">
             <option value="uygun">✅ Uygun</option>
@@ -1092,6 +1096,20 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
         <div class="settings-item-action">›</div>
       </div>
       <input type="file" id="import-json" accept=".json" style="display:none;" onchange="importJSON(event)">
+      <!-- LN Infor Export -->
+      <div class="settings-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="settings-item-icon">🏭</div>
+          <div class="settings-item-info">
+            <div class="settings-item-title">LN Infor Export</div>
+            <div class="settings-item-sub">Mal kabulleri LN formatında Excel</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" id="ln-export-tarih" style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;">
+          <button class="btn btn-primary btn-sm" onclick="exportLNInfor()">🏭 LN Export</button>
+        </div>
+      </div>
     </div>
 
     <div class="settings-group">
@@ -1972,6 +1990,7 @@ function saveFormDraft() {
     firmaId: state.selectedFirmaId,
     faturaNo: document.getElementById('fatura-no')?.value || '',
     irsaliyeNo: document.getElementById('irsaliye-no')?.value || '',
+    lnSiparisNo: document.getElementById('ln-siparis-no')?.value || '',
     formTarih: document.getElementById('form-tarih')?.value || '',
     aracHijyen: document.getElementById('arac-hijyen')?.value || 'uygun',
     aracSicaklik: document.getElementById('arac-sicaklik')?.value || '',
@@ -2020,6 +2039,7 @@ function resetForm() {
   document.getElementById('form-tarih').value = new Date().toISOString().split('T')[0];
   document.getElementById('fatura-no').value = '';
   document.getElementById('irsaliye-no').value = '';
+  if(document.getElementById('ln-siparis-no')) document.getElementById('ln-siparis-no').value = '';
   document.getElementById('arac-hijyen').value = 'uygun';
   document.getElementById('arac-sicaklik').value = '';
 
@@ -4024,6 +4044,126 @@ async function deleteUser(id) {
 // ============================================================
 // EXPORT
 // ============================================================
+// ============================================================
+// LN INFOR FORMAT EXPORT
+// ============================================================
+function exportLNInfor() {
+  const tarihEl = document.getElementById('ln-export-tarih');
+  const hedefStr = tarihEl?.value || new Date().toISOString().split('T')[0];
+
+  let formlar = db.formlar.filter(f => {
+    const fTarih = f.formTarih || new Date(f.tarih).toISOString().split('T')[0];
+    return fTarih === hedefStr && f.durum === 'onaylandi';
+  });
+  if ((db.arsiv||[]).length > 0) {
+    const arsiv = db.arsiv.filter(f => {
+      const fTarih = f.formTarih || new Date(f.tarih).toISOString().split('T')[0];
+      return fTarih === hedefStr && f.durum === 'onaylandi';
+    });
+    formlar = [...formlar, ...arsiv];
+  }
+
+  if (!formlar.length) {
+    showToast(`⚠️ ${hedefStr} tarihinde onaylı form bulunamadı`);
+    return;
+  }
+
+  if (typeof XLSX === 'undefined') {
+    showToast('⏳ Excel kütüphanesi yükleniyor...');
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    s.onload = () => buildLNExcel(formlar, hedefStr);
+    document.head.appendChild(s);
+  } else {
+    buildLNExcel(formlar, hedefStr);
+  }
+}
+
+function buildLNExcel(formlar, tarih) {
+  const baslik = [
+    'Import Status','Import Code','Import Message','Company','Kabul','Statü','Depo','',
+    'Yükleme yapan İş Ortağı','','Teslimat Taşıyıcısı/LSP','',
+    'Tüm Satırlar Kesinle','Kısmen Onaylı','Gerekli Muayene','Hatalar Kayıt Edildi',
+    'Tüm SatırlarTamamlan','Kabul Metni','En Yüksek Öncelik Göstergesi',
+    'İrsaliye','Kabul Tarihi','İsim','Sayı (Satır)','','',
+    'Company','Satır','Sipariş Satırı','','','','Kalem','','',
+    'Kabul Biriminde Alınan Miktar','','Son','Muayene','Onaylı',
+    'Envanter Biriminde Alınan Miktar','İrsaliye Miktarı','Üretici Parça Numarası','',
+    'Geçerlilik Birimi','Planlanmış Kabul Tariihi','Kabul Tarihi','Depo'
+  ];
+
+  const rows = [baslik];
+  let satirNo = 1;
+
+  formlar.forEach(f => {
+    const kabulTarihStr = f.formTarih || new Date(f.tarih).toISOString().split('T')[0];
+    const kabulTarih = new Date(kabulTarihStr + 'T09:00:00');
+    const irsaliye = f.irsaliyeNo || '';
+    const firmaKod = f.firmaId ? String(f.firmaId) : '';
+    const firmaAd  = f.firmaAd || f.firma || '';
+    const faturaNo = f.faturaNo || '';
+    const depoKod  = '100';
+    const depoAd   = 'CLUB ISLETME DEPO';
+    // Sipariş no — mal kabuldeki siparişlerden eşleştir
+    const siparisNo = f.siparisNo || f.lnSiparisNo || '';
+
+    (f.urunler||[]).forEach((u, i) => {
+      const miktar = parseFloat(u.miktar) || 0;
+      rows.push([
+        '',  '',  '',          // Import Status, Code, Message — boş bırak
+        809,                   // Company
+        faturaNo,              // Kabul (fatura no)
+        'Onaylı',              // Statü ← KRİTİK
+        depoKod,               // Depo kodu
+        depoAd,                // Depo adı
+        firmaKod,              // Firma kodu
+        firmaAd,               // Firma adı
+        '', '',                // Taşıyıcı
+        'Evet',                // Tüm Satırlar Kesinle
+        'Hayır',               // Kısmen Onaylı
+        'Hayır',               // Gerekli Muayene
+        'Hayır',               // Hatalar Kayıt Edildi
+        'Evet',                // Tüm SatırlarTamamlan ← KRİTİK
+        'Hayır',               // Kabul Metni
+        '0',                   // En Yüksek Öncelik ← KRİTİK (Veri Gerekli değil)
+        irsaliye,              // İrsaliye
+        kabulTarih,            // Kabul tarihi
+        '', '', '', '0',       // İsim, Sayı, boş, 0
+        809,                   // Company tekrar
+        satirNo++,             // Satır no
+        siparisNo,             // Sipariş No
+        1,                     // Sipariş Satırı
+        i+1,                   // Satır sırası
+        1,                     // Kalem
+        '',                    // Kalem boş
+        u.kod || '',           // LN Kodu
+        u.ad  || '',           // Ürün adı
+        miktar,                // Kabul Biriminde Alınan Miktar
+        u.birim || 'KG',       // Birim
+        'Evet',                // Son
+        'Hayır',               // Muayene
+        'Evet',                // Onaylı ← KRİTİK
+        miktar,                // Envanter Biriminde Alınan Miktar = Gelen miktar ← KRİTİK
+        miktar,                // İrsaliye Miktarı = Gelen miktar
+        '', '',                // Parça no, boş
+        0,                     // Geçerlilik Birimi
+        kabulTarih,            // Planlanmış Kabul Tarihi
+        kabulTarih,            // Kabul Tarihi
+        depoKod                // Depo
+      ]);
+    });
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = Array(47).fill({wch: 20});
+  XLSX.utils.book_append_sheet(wb, ws, 'data');
+
+  const tarihStr = tarih.replace(/-/g, '');
+  XLSX.writeFile(wb, `LN_MalKabul_${tarihStr}.xlsx`);
+  showToast(`✅ LN Export hazır — ${rows.length-1} satır`);
+}
+
 function exportExcel() {
   const exportTarihEl = document.getElementById('export-tarih');
   const seciliTarih = exportTarihEl ? exportTarihEl.value : '';
