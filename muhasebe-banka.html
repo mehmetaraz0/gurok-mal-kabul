@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Banka/Kasa</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.tab-bar{background:white;display:flex;border-bottom:2px solid var(--gray-200);flex-shrink:0;overflow-x:auto}
+.tab-bar::-webkit-scrollbar{display:none}
+.tabbtn{padding:12px 16px;border:none;background:none;font-size:12px;font-weight:600;color:var(--gray-500);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;flex-shrink:0}
+.tabbtn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:none}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-info{background:var(--info);color:white}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-blue{background:#dbeafe;color:#1e40af}.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-teal{background:#ccfbf1;color:#065f46}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.mo.open{display:flex}
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:92vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+/* Hesap kartları */
+.hesap-grid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:480px){.hesap-grid{grid-template-columns:1fr 1fr}}
+.hesap-kart{background:white;border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);cursor:pointer;position:relative;overflow:hidden}
+.hesap-kart.banka{border-left:4px solid var(--info)}
+.hesap-kart.kasa{border-left:4px solid var(--success)}
+.hesap-kart-ikon{font-size:24px;margin-bottom:8px}
+.hesap-kart-ad{font-size:13px;font-weight:700;color:var(--primary)}
+.hesap-kart-no{font-size:11px;color:var(--gray-500);margin-bottom:8px}
+.hesap-kart-bakiye{font-size:22px;font-weight:800;color:var(--primary)}
+.hesap-kart-doviz{font-size:11px;color:var(--gray-400)}
+/* Hareket satırı */
+.har-satir{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--gray-100)}
+.har-satir:last-child{border-bottom:none}
+.har-ikon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.search-bar{position:relative;margin-bottom:10px}
+.search-bar input{width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--gray-300);border-radius:24px;font-size:14px;outline:none;background:white}
+.search-bar input:focus{border-color:var(--primary)}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat-kart{background:white;border-radius:var(--radius-sm);padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:16px;font-weight:800}.stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gelecek-tag{display:inline-flex;align-items:center;gap:4px;background:#fef9c3;color:#854d0e;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;margin-top:8px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Banka / Kasa</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Hesaplar, hareketler, virman</span></div>
+    <button class="hbtn" onclick="openYeniHesap()">➕</button>
+  </div>
+  <div class="tab-bar">
+    <button class="tabbtn active" onclick="gTab('hesaplar',this)">🏦 Hesaplar</button>
+    <button class="tabbtn" onclick="gTab('hareketler',this)">📋 Hareketler</button>
+    <button class="tabbtn" onclick="gTab('virman',this)">🔄 Virman</button>
+    <button class="tabbtn" onclick="gTab('ekstre',this)">📥 Ekstre İçe Aktar</button>
+  </div>
+
+  <!-- HESAPLAR -->
+  <div class="sc" id="tab-hesaplar" style="display:block">
+    <div class="stats-grid" id="hesap-stats"></div>
+    <div class="hesap-grid" id="hesaplar-liste"></div>
+  </div>
+
+  <!-- HAREKETLER -->
+  <div class="sc" id="tab-hareketler">
+    <div class="card">
+      <div class="field" style="margin-bottom:8px">
+        <label>Hesap</label>
+        <select id="har-hesap" onchange="renderHareketler()">
+          <option value="">Tüm Hesaplar</option>
+        </select>
+      </div>
+      <div class="rfields">
+        <div class="field"><label>Başlangıç</label><input type="date" id="har-bas" onchange="renderHareketler()"></div>
+        <div class="field"><label>Bitiş</label><input type="date" id="har-bit" onchange="renderHareketler()"></div>
+      </div>
+    </div>
+    <div id="hareketler-liste"></div>
+  </div>
+
+  <!-- VİRMAN -->
+  <div class="sc" id="tab-virman">
+    <div class="card">
+      <div class="card-title">🔄 Virman İşlemi</div>
+      <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Hesaplar arası para transferi yapın.</p>
+      <div class="field"><label>Kaynak Hesap *</label>
+        <select id="vir-kaynak"><option value="">— Seçin —</option></select>
+      </div>
+      <div class="field"><label>Hedef Hesap *</label>
+        <select id="vir-hedef"><option value="">— Seçin —</option></select>
+      </div>
+      <div class="rfields">
+        <div class="field"><label>Tutar *</label><input type="number" id="vir-tutar" placeholder="0.00" min="0" step="0.01"></div>
+        <div class="field"><label>Tarih *</label><input type="date" id="vir-tarih"></div>
+      </div>
+      <div class="field"><label>Açıklama</label><input type="text" id="vir-aciklama" placeholder="Opsiyonel"></div>
+      <button class="btn btn-primary btn-block" onclick="virmanYap()">🔄 Virman Yap</button>
+    </div>
+    <div id="virman-gecmis"></div>
+  </div>
+
+  <!-- EKSTRE İÇE AKTAR -->
+  <div class="sc" id="tab-ekstre">
+    <div class="card">
+      <div class="card-title">📥 Banka Ekstresi İçe Aktar</div>
+      <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px">QNB internet bankacılığından CSV/Excel ekstre indirip yükleyin.</p>
+      <div class="field"><label>Hedef Hesap *</label>
+        <select id="eks-hesap"><option value="">— Seçin —</option></select>
+      </div>
+      <div class="field"><label>Ekstre Dosyası (CSV)</label>
+        <input type="file" id="eks-dosya" accept=".csv,.txt">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="ekstreOnizle()">📋 Önizle</button>
+      <div class="gelecek-tag">🔮 QNB API entegrasyonu hazır olduğunda bu adım otomatikleşecek</div>
+    </div>
+    <div id="ekstre-onizleme"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni/Düzenle Hesap -->
+<div class="mo" id="mHesap">
+  <div class="mbox">
+    <div class="mtitle" id="mHesapTitle">➕ Yeni Hesap <button class="mclose" onclick="kModal('mHesap')">✕</button></div>
+    <input type="hidden" id="h-id">
+    <div class="field"><label>Hesap Türü *</label>
+      <select id="h-tur" onchange="hTurDegisti()">
+        <option value="banka">🏦 Banka</option>
+        <option value="kasa">💰 Kasa</option>
+      </select>
+    </div>
+    <div class="field"><label>Hesap Adı *</label><input type="text" id="h-ad" placeholder="Örn: QNB Finansbank TL"></div>
+    <div class="rfields">
+      <div class="field"><label>Muhasebe Hesabı</label>
+        <select id="h-muhasebe">
+          <option value="102.01">102.01 - QNB TL</option>
+          <option value="102.02">102.02 - QNB USD</option>
+          <option value="102.03">102.03 - QNB EUR</option>
+          <option value="102.04">102.04 - Diğer Banka</option>
+          <option value="100.01">100.01 - TL Kasa</option>
+          <option value="100.02">100.02 - Döviz Kasa</option>
+        </select>
+      </div>
+      <div class="field"><label>Döviz</label>
+        <select id="h-doviz"><option value="TRY">TRY</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select>
+      </div>
+    </div>
+    <div class="rfields" id="h-banka-alanlar">
+      <div class="field"><label>Banka Adı</label><input type="text" id="h-banka-ad" placeholder="QNB Finansbank"></div>
+      <div class="field"><label>Şube</label><input type="text" id="h-sube" placeholder="Manavgat"></div>
+    </div>
+    <div class="field" id="h-iban-alan"><label>IBAN</label><input type="text" id="h-iban" placeholder="TR.. .. .... .... .... .... ...."></div>
+    <div class="field"><label>Açılış Bakiyesi</label><input type="number" id="h-acilis" placeholder="0.00" min="0" step="0.01"></div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mHesap')">İptal</button>
+      <button class="btn btn-danger btn-sm" id="h-sil-btn" onclick="hesapSil()" style="display:none">🗑️</button>
+      <button class="btn btn-primary" onclick="hesapKaydet()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Hesap Detay -->
+<div class="mo" id="mHesapDetay">
+  <div class="mbox">
+    <div class="mtitle" id="mHesapDetayTitle">Hesap Detay <button class="mclose" onclick="kModal('mHesapDetay')">✕</button></div>
+    <div id="mHesapDetayIc"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni Hareket -->
+<div class="mo" id="mHareket">
+  <div class="mbox">
+    <div class="mtitle" id="mHareketTitle">➕ Hareket Ekle <button class="mclose" onclick="kModal('mHareket')">✕</button></div>
+    <input type="hidden" id="hr-hesap-id">
+    <div class="field"><label>Hesap</label><input type="text" id="hr-hesap-ad" readonly style="background:var(--gray-100)"></div>
+    <div class="rfields">
+      <div class="field"><label>İşlem Tipi *</label>
+        <select id="hr-tip">
+          <option value="yatirma">⬇️ Para Yatırma</option>
+          <option value="cekme">⬆️ Para Çekme</option>
+        </select>
+      </div>
+      <div class="field"><label>Tarih *</label><input type="date" id="hr-tarih"></div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Tutar *</label><input type="number" id="hr-tutar" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="field"><label>Belge No</label><input type="text" id="hr-belge" placeholder="Opsiyonel"></div>
+    </div>
+    <div class="field"><label>Açıklama</label><input type="text" id="hr-aciklama" placeholder="İşlem açıklaması"></div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mHareket')">İptal</button>
+      <button class="btn btn-primary" onclick="hareketKaydet()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let hesaplar={},hareketler={},virmanlar={};
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadDB(){
+  sLD();
+  try{
+    const [hR,hrR,vR]=await Promise.all([
+      fetch(FB+'/muhasebe/bankaKasaHesaplari.json'),
+      fetch(FB+'/muhasebe/bankaKasaHareketleri.json'),
+      fetch(FB+'/muhasebe/virmanlar.json'),
+    ]);
+    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hesaplar=d;}
+    if(hrR.ok){const d=await hrR.json();if(d&&typeof d==='object')hareketler=d;}
+    if(vR.ok){const d=await vR.json();if(d&&typeof d==='object')virmanlar=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+async function saveHesap(h){try{await fetch(FB+'/muhasebe/bankaKasaHesaplari/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}catch(e){}}
+async function saveHareket(h){try{await fetch(FB+'/muhasebe/bankaKasaHareketleri/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}catch(e){}}
+async function saveVirman(v){try{await fetch(FB+'/muhasebe/virmanlar/'+v.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});}catch(e){}}
+
+// ============================================================
+// BAKİYE HESAPLA
+// ============================================================
+function hesapBakiye(hesapId){
+  const h=hesaplar[hesapId];if(!h)return 0;
+  let bakiye=parseFloat(h.acilisBakiye)||0;
+  Object.values(hareketler).filter(x=>x&&x.hesapId===hesapId).forEach(x=>{
+    if(x.tip==='yatirma')bakiye+=parseFloat(x.tutar)||0;
+    else bakiye-=parseFloat(x.tutar)||0;
+  });
+  return bakiye;
+}
+
+// ============================================================
+// RENDER HESAPLAR
+// ============================================================
+function renderHesaplar(){
+  const liste=Object.values(hesaplar).filter(Boolean).sort((a,b)=>(a.tur===b.tur?0:a.tur==='banka'?-1:1));
+  const bankaToplam=liste.filter(h=>h.tur==='banka').reduce((t,h)=>t+(h.doviz==='TRY'?hesapBakiye(h.id):0),0);
+  const kasaToplam=liste.filter(h=>h.tur==='kasa').reduce((t,h)=>t+(h.doviz==='TRY'?hesapBakiye(h.id):0),0);
+  document.getElementById('hesap-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num">${liste.length}</div><div class="stat-lbl">Toplam Hesap</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--info)">${fmt(bankaToplam)} ₺</div><div class="stat-lbl">🏦 Banka (TL)</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(kasaToplam)} ₺</div><div class="stat-lbl">💰 Kasa (TL)</div></div>`;
+
+  const c=document.getElementById('hesaplar-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🏦</div><div class="et">Henüz hesap eklenmemiş</div></div>';return;}
+  c.innerHTML=liste.map(h=>{
+    const bakiye=hesapBakiye(h.id);
+    return`<div class="hesap-kart ${h.tur}" onclick="openHesapDetay('${h.id}')">
+      <div class="hesap-kart-ikon">${h.tur==='banka'?'🏦':'💰'}</div>
+      <div class="hesap-kart-ad">${h.ad}</div>
+      <div class="hesap-kart-no">${h.tur==='banka'?(h.bankaAd||'')+(h.iban?' • '+h.iban.slice(-4):''):h.muhasebeKod||''}</div>
+      <div class="hesap-kart-bakiye">${fmt(bakiye)} <span class="hesap-kart-doviz">${h.doviz}</span></div>
+    </div>`;
+  }).join('');
+
+  // Dropdownları doldur
+  ['har-hesap','vir-kaynak','vir-hedef','eks-hesap'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    const placeholder=sel.options[0]?.outerHTML||'<option value="">Seçin</option>';
+    sel.innerHTML=placeholder+liste.map(h=>`<option value="${h.id}">${h.tur==='banka'?'🏦':'💰'} ${h.ad} (${fmt(hesapBakiye(h.id))} ${h.doviz})</option>`).join('');
+  });
+}
+
+// ============================================================
+// HESAP KAYDET
+// ============================================================
+function hTurDegisti(){
+  const tur=document.getElementById('h-tur').value;
+  document.getElementById('h-banka-alanlar').style.display=tur==='banka'?'grid':'none';
+  document.getElementById('h-iban-alan').style.display=tur==='banka'?'block':'none';
+}
+
+function openYeniHesap(){
+  document.getElementById('mHesapTitle').innerHTML='➕ Yeni Hesap <button class="mclose" onclick="kModal(\'mHesap\')">✕</button>';
+  document.getElementById('h-id').value='';
+  document.getElementById('h-tur').value='banka';
+  document.getElementById('h-ad').value='';
+  document.getElementById('h-muhasebe').value='102.01';
+  document.getElementById('h-doviz').value='TRY';
+  document.getElementById('h-banka-ad').value='';
+  document.getElementById('h-sube').value='';
+  document.getElementById('h-iban').value='';
+  document.getElementById('h-acilis').value='0';
+  document.getElementById('h-sil-btn').style.display='none';
+  hTurDegisti();
+  aModal('mHesap');
+}
+
+function openDuzenleHesap(id){
+  const h=hesaplar[id];if(!h)return;
+  document.getElementById('mHesapTitle').innerHTML='✏️ Hesap Düzenle <button class="mclose" onclick="kModal(\'mHesap\')">✕</button>';
+  document.getElementById('h-id').value=id;
+  document.getElementById('h-tur').value=h.tur;
+  document.getElementById('h-ad').value=h.ad;
+  document.getElementById('h-muhasebe').value=h.muhasebeKod||'102.01';
+  document.getElementById('h-doviz').value=h.doviz||'TRY';
+  document.getElementById('h-banka-ad').value=h.bankaAd||'';
+  document.getElementById('h-sube').value=h.sube||'';
+  document.getElementById('h-iban').value=h.iban||'';
+  document.getElementById('h-acilis').value=h.acilisBakiye||0;
+  document.getElementById('h-sil-btn').style.display='flex';
+  hTurDegisti();
+  aModal('mHesap');
+}
+
+async function hesapKaydet(){
+  const ad=document.getElementById('h-ad').value.trim();
+  if(!ad){toast('⚠️ Hesap adı girin');return;}
+  const editId=document.getElementById('h-id').value;
+  const id=editId||('HSP_'+Date.now());
+  const h={
+    id,tur:document.getElementById('h-tur').value,ad,
+    muhasebeKod:document.getElementById('h-muhasebe').value,
+    doviz:document.getElementById('h-doviz').value,
+    bankaAd:document.getElementById('h-banka-ad').value||'',
+    sube:document.getElementById('h-sube').value||'',
+    iban:document.getElementById('h-iban').value||'',
+    acilisBakiye:parseFloat(document.getElementById('h-acilis').value)||0,
+    olusturmaTarih:hesaplar[id]?.olusturmaTarih||Date.now()
+  };
+  sLD();hesaplar[id]=h;await saveHesap(h);hLD();
+  kModal('mHesap');renderHesaplar();
+  toast(`✅ ${ad} kaydedildi`);
+}
+
+async function hesapSil(){
+  const id=document.getElementById('h-id').value;
+  const h=hesaplar[id];if(!h)return;
+  if(!confirm(`"${h.ad}" silinsin mi? Hareketler de silinecek!`))return;
+  sLD();delete hesaplar[id];
+  await fetch(FB+'/muhasebe/bankaKasaHesaplari/'+id+'.json',{method:'DELETE'});
+  for(const hk of Object.keys(hareketler)){
+    if(hareketler[hk]?.hesapId===id){delete hareketler[hk];await fetch(FB+'/muhasebe/bankaKasaHareketleri/'+hk+'.json',{method:'DELETE'});}
+  }
+  hLD();kModal('mHesap');renderHesaplar();toast('🗑️ Hesap silindi');
+}
+
+// ============================================================
+// HESAP DETAY
+// ============================================================
+function openHesapDetay(id){
+  const h=hesaplar[id];if(!h)return;
+  const bakiye=hesapBakiye(id);
+  const harlar=Object.values(hareketler).filter(x=>x&&x.hesapId===id).sort((a,b)=>b.tarih-a.tarih).slice(0,15);
+  document.getElementById('mHesapDetayTitle').textContent=h.ad;
+  document.getElementById('mHesapDetayIc').innerHTML=`
+    <div style="text-align:center;padding:16px;background:var(--gray-100);border-radius:12px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--gray-500)">GÜNCEL BAKİYE</div>
+      <div style="font-size:28px;font-weight:800;color:var(--primary)">${fmt(bakiye)} <span style="font-size:14px;color:var(--gray-400)">${h.doviz}</span></div>
+    </div>
+    ${h.iban?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:6px">IBAN: <b>${h.iban}</b></div>`:''}
+    ${h.bankaAd?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">${h.bankaAd}${h.sube?' • '+h.sube:''}</div>`:''}
+    <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:6px">Son Hareketler</div>
+    ${harlar.length===0?'<div style="text-align:center;color:var(--gray-400);padding:16px;font-size:13px">Hareket kaydı yok</div>':
+      harlar.map(x=>`<div class="har-satir">
+        <div class="har-ikon" style="background:${x.tip==='yatirma'?'#d4edda':'#fde8e8'}">${x.tip==='yatirma'?'⬇️':'⬆️'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600">${x.aciklama||(x.tip==='yatirma'?'Para Yatırma':'Para Çekme')}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${new Date(x.tarih).toLocaleDateString('tr-TR')}${x.belge?' • '+x.belge:''}</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:${x.tip==='yatirma'?'var(--success)':'var(--danger)'}">${x.tip==='yatirma'?'+':'-'}${fmt(x.tutar)} ₺</div>
+      </div>`).join('')}
+    <div class="brow" style="margin-top:12px">
+      <button class="btn btn-gray btn-sm" onclick="kModal('mHesapDetay')">Kapat</button>
+      <button class="btn btn-primary btn-sm" onclick="kModal('mHesapDetay');openDuzenleHesap('${id}')">✏️ Düzenle</button>
+      <button class="btn btn-success btn-sm" onclick="kModal('mHesapDetay');openHareket('${id}')">➕ Hareket</button>
+    </div>`;
+  aModal('mHesapDetay');
+}
+
+// ============================================================
+// HAREKET
+// ============================================================
+function openHareket(hesapId){
+  const h=hesaplar[hesapId];if(!h)return;
+  document.getElementById('mHareketTitle').innerHTML='➕ Hareket Ekle — '+h.ad+' <button class="mclose" onclick="kModal(\'mHareket\')">✕</button>';
+  document.getElementById('hr-hesap-id').value=hesapId;
+  document.getElementById('hr-hesap-ad').value=h.ad;
+  document.getElementById('hr-tip').value='yatirma';
+  document.getElementById('hr-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('hr-tutar').value='';
+  document.getElementById('hr-belge').value='';
+  document.getElementById('hr-aciklama').value='';
+  aModal('mHareket');
+}
+
+async function hareketKaydet(){
+  const hesapId=document.getElementById('hr-hesap-id').value;
+  const tutar=parseFloat(document.getElementById('hr-tutar').value);
+  const tarih=document.getElementById('hr-tarih').value;
+  if(!tutar||tutar<=0){toast('⚠️ Tutar girin');return;}
+  if(!tarih){toast('⚠️ Tarih girin');return;}
+  const h={
+    id:'HR_'+Date.now(),hesapId,
+    tip:document.getElementById('hr-tip').value,
+    tarih:new Date(tarih).getTime(),tarihStr:tarih,
+    tutar,belge:document.getElementById('hr-belge').value||'',
+    aciklama:document.getElementById('hr-aciklama').value||'',
+    olusturmaTarih:Date.now()
+  };
+  sLD();hareketler[h.id]=h;await saveHareket(h);hLD();
+  kModal('mHareket');renderHesaplar();
+  if(document.getElementById('tab-hareketler').style.display==='block')renderHareketler();
+  toast(`✅ Hareket kaydedildi — ${fmt(tutar)} ₺`);
+}
+
+// ============================================================
+// HAREKETLER LİSTESİ
+// ============================================================
+function renderHareketler(){
+  const hesapId=document.getElementById('har-hesap').value;
+  const bas=document.getElementById('har-bas').value;
+  const bit=document.getElementById('har-bit').value;
+  const basTs=bas?new Date(bas).getTime():0;
+  const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
+  let liste=Object.values(hareketler).filter(h=>h&&h.tarih>=basTs&&h.tarih<=bitTs);
+  if(hesapId)liste=liste.filter(h=>h.hesapId===hesapId);
+  liste.sort((a,b)=>b.tarih-a.tarih);
+
+  const c=document.getElementById('hareketler-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Hareket bulunamadı</div></div>';return;}
+
+  const gruplar={};
+  liste.forEach(h=>{const g=new Date(h.tarih).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(h);});
+
+  c.innerHTML=Object.entries(gruplar).map(([gun,harlar])=>`
+    <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin:8px 0 4px;text-transform:uppercase">${gun}</div>
+    <div class="card" style="padding:8px">
+      ${harlar.map(h=>{
+        const hesap=hesaplar[h.hesapId];
+        return`<div class="har-satir">
+          <div class="har-ikon" style="background:${h.tip==='yatirma'?'#d4edda':'#fde8e8'}">${h.tip==='yatirma'?'⬇️':'⬆️'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600">${hesap?.ad||h.hesapId}</div>
+            <div style="font-size:11px;color:var(--gray-500)">${h.aciklama||(h.tip==='yatirma'?'Para Yatırma':'Para Çekme')}</div>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:${h.tip==='yatirma'?'var(--success)':'var(--danger)'}">${h.tip==='yatirma'?'+':'-'}${fmt(h.tutar)} ₺</div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+// ============================================================
+// VİRMAN
+// ============================================================
+async function virmanYap(){
+  const kaynakId=document.getElementById('vir-kaynak').value;
+  const hedefId=document.getElementById('vir-hedef').value;
+  const tutar=parseFloat(document.getElementById('vir-tutar').value);
+  const tarih=document.getElementById('vir-tarih').value;
+  if(!kaynakId||!hedefId){toast('⚠️ Kaynak ve hedef hesap seçin');return;}
+  if(kaynakId===hedefId){toast('⚠️ Kaynak ve hedef aynı olamaz');return;}
+  if(!tutar||tutar<=0){toast('⚠️ Tutar girin');return;}
+  if(!tarih){toast('⚠️ Tarih girin');return;}
+
+  const kaynakBakiye=hesapBakiye(kaynakId);
+  if(kaynakBakiye<tutar){if(!confirm(`⚠️ Kaynak hesap bakiyesi yetersiz (${fmt(kaynakBakiye)} ₺). Devam edilsin mi?`))return;}
+
+  const aciklama=document.getElementById('vir-aciklama').value||'Virman';
+  const virmanId='VIR_'+Date.now();
+
+  sLD();
+  // Kaynaktan çıkış
+  const cikis={id:'HR_'+Date.now()+'_C',hesapId:kaynakId,tip:'cekme',tarih:new Date(tarih).getTime(),tarihStr:tarih,tutar,belge:virmanId,aciklama:'Virman → '+hesaplar[hedefId].ad+' ('+aciklama+')',olusturmaTarih:Date.now()};
+  hareketler[cikis.id]=cikis;await saveHareket(cikis);
+  // Hedefe giriş
+  const giris={id:'HR_'+Date.now()+'_G',hesapId:hedefId,tip:'yatirma',tarih:new Date(tarih).getTime(),tarihStr:tarih,tutar,belge:virmanId,aciklama:'Virman ← '+hesaplar[kaynakId].ad+' ('+aciklama+')',olusturmaTarih:Date.now()};
+  hareketler[giris.id]=giris;await saveHareket(giris);
+  // Virman kaydı
+  const vir={id:virmanId,kaynakId,hedefId,tutar,tarih:new Date(tarih).getTime(),tarihStr:tarih,aciklama,olusturmaTarih:Date.now()};
+  virmanlar[virmanId]=vir;await saveVirman(vir);
+  hLD();
+
+  document.getElementById('vir-tutar').value='';
+  document.getElementById('vir-aciklama').value='';
+  renderHesaplar();
+  renderVirmanGecmis();
+  toast(`✅ Virman tamamlandı — ${fmt(tutar)} ₺`);
+}
+
+function renderVirmanGecmis(){
+  const liste=Object.values(virmanlar).filter(Boolean).sort((a,b)=>b.tarih-a.tarih).slice(0,10);
+  const c=document.getElementById('virman-gecmis');
+  if(!liste.length){c.innerHTML='';return;}
+  c.innerHTML=`<div class="card"><div class="card-title">🔄 Son Virmanlar</div>`+
+    liste.map(v=>{
+      const kaynak=hesaplar[v.kaynakId],hedef=hesaplar[v.hedefId];
+      return`<div class="har-satir">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600">${kaynak?.ad||'?'} → ${hedef?.ad||'?'}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${new Date(v.tarih).toLocaleDateString('tr-TR')} ${v.aciklama?'• '+v.aciklama:''}</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:var(--primary)">${fmt(v.tutar)} ₺</div>
+      </div>`;
+    }).join('')+`</div>`;
+}
+
+// ============================================================
+// EKSTRE İÇE AKTAR (CSV önizleme — QNB formatı hazır olunca genişletilir)
+// ============================================================
+function ekstreOnizle(){
+  const hesapId=document.getElementById('eks-hesap').value;
+  const dosya=document.getElementById('eks-dosya').files[0];
+  if(!hesapId){toast('⚠️ Hesap seçin');return;}
+  if(!dosya){toast('⚠️ Dosya seçin');return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const text=e.target.result;
+    const satirlar=text.split('\n').filter(s=>s.trim()).slice(0,20);
+    document.getElementById('ekstre-onizleme').innerHTML=`
+      <div class="card">
+        <div class="card-title">📋 Önizleme (ilk 20 satır)</div>
+        <div style="font-size:11px;color:var(--gray-600);margin-bottom:8px">
+          Dosya: ${dosya.name} • ${satirlar.length} satır görüntüleniyor
+        </div>
+        <div style="background:var(--gray-100);border-radius:8px;padding:10px;font-family:monospace;font-size:10px;max-height:300px;overflow-y:auto;white-space:pre-wrap">${satirlar.join('\n')}</div>
+        <div class="gelecek-tag">⚠️ Otomatik içe aktarma için QNB CSV formatı analiz edilmeli. Şu an sadece önizleme yapılıyor — manuel hareket girişi önerilir.</div>
+      </div>`;
+  };
+  reader.readAsText(dosya,'UTF-8');
+}
+
+// ============================================================
+// YARDIMCI
+// ============================================================
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='hareketler')renderHareketler();
+  if(tab==='virman')renderVirmanGecmis();
+}
+function aModal(id){document.getElementById(id).classList.add('open');}
+function kModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  const today=new Date().toISOString().split('T')[0];
+  const ayBasi=new Date();ayBasi.setDate(1);
+  document.getElementById('har-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('har-bit').value=today;
+  document.getElementById('vir-tarih').value=today;
+  renderHesaplar();
+})();
+</script>
+</body>
+</html>
