@@ -121,6 +121,7 @@ td:first-child{min-width:90px}
     <h1>📊 Hesap Planı — Tekdüzen Hesap Planı (THP)</h1>
     <button class="hbtn primary" onclick="openYeniHesap()">➕ Yeni Hesap</button>
     <button class="hbtn" onclick="thpYukle()">📥 THP Yükle</button>
+    <button class="hbtn" onclick="gurokYukle()" style="background:#fce7f3">🏨 Gürok Özel</button>
     <button class="hbtn" onclick="exportExcel()">📤 Excel</button>
   </div>
 
@@ -146,6 +147,9 @@ td:first-child{min-width:90px}
       <span class="filtre-chip gelir" id="fc-gelir" onclick="filterTip('Gelir Tablosu',this)">Gelir T.</span>
       <span class="filtre-chip maliyet" id="fc-maliyet" onclick="filterTip('Maliyet',this)">Maliyet</span>
       <span class="filtre-chip nazim" id="fc-nazim" onclick="filterTip('Nazım',this)">Nazım</span>
+      <span class="filtre-chip" id="fc-gurok" style="background:#fce7f3;color:#9d174d;border-color:#f9a8d4" onclick="filterGrup('Gürok Özel',this)">🏨 Gürok Özel</span>
+      <span class="filtre-chip" id="fc-as60" style="background:#e0f2fe;color:#075985;border-color:#7dd3fc" onclick="filterAltSeviye('60',this)">60</span>
+      <span class="filtre-chip" id="fc-as70" style="background:#fff7ed;color:#9a3412;border-color:#fdba74" onclick="filterAltSeviye('70',this)">70</span>
     </div>
   </div>
 
@@ -159,6 +163,7 @@ td:first-child{min-width:90px}
           <th onclick="sortBy('tip')">Hesap Tipi</th>
           <th onclick="sortBy('anaGrup')">Ana Grup</th>
           <th onclick="sortBy('yon')">Çalışma Yönü</th>
+          <th onclick="sortBy('altSeviye')">Alt Seviye</th>
           <th>Özellik</th>
           <th>Durum</th>
           <th>Açıklama</th>
@@ -169,6 +174,7 @@ td:first-child{min-width:90px}
           <th><input type="text" id="f-tip" placeholder="= " oninput="renderTablo()"></th>
           <th><input type="text" id="f-grup" placeholder="→ a" oninput="renderTablo()"></th>
           <th><input type="text" id="f-yon" placeholder="→ a" oninput="renderTablo()"></th>
+          <th><input type="text" id="f-altseviye" placeholder="= " oninput="renderTablo()"></th>
           <th><input type="text" id="f-ozellik" placeholder="→ a" oninput="renderTablo()"></th>
           <th></th>
           <th><input type="text" id="f-aciklama" placeholder="→ a" oninput="renderTablo()"></th>
@@ -209,6 +215,7 @@ td:first-child{min-width:90px}
       <div class="field"><label>Ana Grup</label><input type="text" id="h-grup" placeholder="Örn: Aktif, Pasif, Gelir"></div>
     </div>
     <div class="rfields">
+      <div class="field"><label>Alt Seviye</label><input type="text" id="h-altseviye" placeholder="60 veya 70" maxlength="3"></div>
       <div class="field"><label>Çalışma Yönü</label>
         <select id="h-yon">
           <option value="Borç">Borç</option>
@@ -216,6 +223,8 @@ td:first-child{min-width:90px}
           <option value="İkisi de">İkisi de</option>
         </select>
       </div>
+    </div>
+    <div class="rfields">
       <div class="field"><label>Özellik</label>
         <select id="h-ozellik">
           <option value="">—</option>
@@ -254,6 +263,8 @@ td:first-child{min-width:90px}
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
 let hesaplar={};
 let tipFilter='';
+let grupFilter='';
+let altSeviyeFilter='';
 let sortKol='kod';
 let sortAsc=true;
 let seciliKod=null;
@@ -566,6 +577,97 @@ const THP_ANA=[
   ["959","KANUNEN KABUL ED.GID.KARŞ(-)","Nazım","Nazım","Borç","",""],
 ];
 
+const GUROK_OZEL=[
+  ["1001","MUHASEBE KASA","Bilanço","Gürok Özel","Borç","",""],
+  ["1002","ONBURO KASA","Bilanço","Gürok Özel","Borç","",""],
+  ["1011","PORTFOYDEKI CEKLER","Bilanço","Gürok Özel","Borç","",""],
+  ["1012","ONBURO PORTFOY CEKLERI","Bilanço","Gürok Özel","Borç","",""],
+  ["1013","TAHSILDEKI CEKLER","Bilanço","Gürok Özel","Borç","",""],
+  ["1019","DIGER CEKLER","Bilanço","Gürok Özel","Borç","",""],
+  ["1021","BANKALAR VADESIZ","Bilanço","Gürok Özel","Borç","",""],
+  ["1022","BANKALAR VADELI","Bilanço","Gürok Özel","Borç","",""],
+  ["1029","BANKALAR ARA HESABI","Bilanço","Gürok Özel","Borç","",""],
+  ["1080","DIGER HAZIR DEGERLER (TL)","Bilanço","Gürok Özel","Borç","",""],
+  ["1081","DIGER HAZIR DEGERLER (EUR)","Bilanço","Gürok Özel","Borç","",""],
+  ["1082","DIGER HAZIR DEGERLER (USD)","Bilanço","Gürok Özel","Borç","",""],
+  ["1083","DIGER HAZIR DEGERLER (GBP)","Bilanço","Gürok Özel","Borç","",""],
+  ["1089","DIGER HAZIR DEGERLER","Bilanço","Gürok Özel","Borç","",""],
+  ["1201","ALICILAR ACENTE","Bilanço","Gürok Özel","Borç","",""],
+  ["1202","ALICILAR SELF","Bilanço","Gürok Özel","Borç","",""],
+  ["1208","ALICILAR GRUP ICI","Bilanço","Gürok Özel","Borç","",""],
+  ["1209","ALICILAR DIGER","Bilanço","Gürok Özel","Borç","",""],
+  ["1211","PORTFOYDEKI SENETLER","Bilanço","Gürok Özel","Borç","",""],
+  ["1213","TAHSILDEKI SENETLER","Bilanço","Gürok Özel","Borç","",""],
+  ["1218","ILERI TARIHLI DIGER CEK SENET","Bilanço","Gürok Özel","Borç","",""],
+  ["1219","DIGER SENETLER","Bilanço","Gürok Özel","Borç","",""],
+  ["1260","VERILEN DEPOZITO VE TEMINAT(TL)","Bilanço","Gürok Özel","Borç","",""],
+  ["1361","ASGARI GECIM INDIRIMI","Bilanço","Gürok Özel","Borç","",""],
+  ["1362","TESVIK GIR.SSK ISVEREN HISSES","Bilanço","Gürok Özel","Borç","",""],
+  ["1363","TESVIK GIREN GELIR VERGISI","Bilanço","Gürok Özel","Borç","",""],
+  ["1368","KREDI KARTLARI","Bilanço","Gürok Özel","Borç","",""],
+  ["1369","DIGER","Bilanço","Gürok Özel","Borç","",""],
+  ["1501","ANA AMBAR STOKLARI","Bilanço","Gürok Özel","Borç","",""],
+  ["1502","TALI AMBAR STOKLARI","Bilanço","Gürok Özel","Borç","",""],
+  ["1531","KANTIN STOKLARI","Bilanço","Gürok Özel","Borç","",""],
+  ["1533","CLUB BUTIK","Bilanço","Gürok Özel","Borç","",""],
+  ["1590","VERILEN SIPARIS AVANSLARI TL","Bilanço","Gürok Özel","Borç","",""],
+  ["1591","VERILEN SIPARIS AVANSLARI EUR","Bilanço","Gürok Özel","Borç","",""],
+  ["1592","VERILEN SIPARIS AVANSLARI USD","Bilanço","Gürok Özel","Borç","",""],
+  ["1593","VERILEN SIPARIS AVANSLARI GBP","Bilanço","Gürok Özel","Borç","",""],
+  ["1595","VERILEN SIPARIS AVANSLARI AED","Bilanço","Gürok Özel","Borç","",""],
+  ["1599","VERILEN SIPARIS AVANS.DIGER","Bilanço","Gürok Özel","Borç","",""],
+  ["1801","GAYRIMENKUL KIRALARI","Bilanço","Gürok Özel","Borç","",""],
+  ["1802","SIGORTA BEDELLERI","Bilanço","Gürok Özel","Borç","",""],
+  ["1803","CESITLI GIDERLER","Bilanço","Gürok Özel","Borç","",""],
+  ["1804","CALISMAYAN KISIM GIDERLERI","Bilanço","Gürok Özel","Borç","",""],
+  ["1805","ERTELENMIS SGK BORCU","Bilanço","Gürok Özel","Borç","",""],
+  ["1806","GEL.AYLARA AIT GID. (K.TAZMINA","Bilanço","Gürok Özel","Borç","",""],
+  ["1911","INDIRILECEK KDV","Bilanço","Gürok Özel","Borç","",""],
+  ["1912","SATISLARDAN IADE KDV","Bilanço","Gürok Özel","Borç","",""],
+  ["1913","INDIRILEMEYECEK KDV (ALKOLLU)","Bilanço","Gürok Özel","Borç","",""],
+  ["1951","IS AVANSLARI (EUR)","Bilanço","Gürok Özel","Borç","",""],
+  ["1952","IS AVANSLARI (USD)","Bilanço","Gürok Özel","Borç","",""],
+  ["1953","IS AVANSLARI (GBP)","Bilanço","Gürok Özel","Borç","",""],
+  ["1958","KREDI KARTLARI","Bilanço","Gürok Özel","Borç","",""],
+  ["2260","VERILEN DEP.VE TEMINATLAR TL","Bilanço","Gürok Özel","Borç","",""],
+  ["2581","TESVIK DISI YATIRIMLAR","Bilanço","Gürok Özel","Borç","",""],
+  ["2585","TESVIK KAPSAMINDA YATIRIMLAR","Bilanço","Gürok Özel","Borç","",""],
+  ["3200","SATICILAR (TL)","Bilanço","Gürok Özel","Alacak","",""],
+  ["3201","SATICILAR (EUR)","Bilanço","Gürok Özel","Alacak","",""],
+  ["3202","SATICILAR (USD)","Bilanço","Gürok Özel","Alacak","",""],
+  ["3203","SATICILAR (GBP)","Bilanço","Gürok Özel","Alacak","",""],
+  ["3204","SATICILAR (RUB)","Bilanço","Gürok Özel","Alacak","",""],
+  ["3205","SATICILAR (AED)","Bilanço","Gürok Özel","Alacak","",""],
+  ["3209","GRUP ICI SATICILAR","Bilanço","Gürok Özel","Alacak","",""],
+  ["3368","KREDI KARTLARI","Bilanço","Gürok Özel","Alacak","",""],
+  ["3401","ALINAN SIPARIS AVANSLAR ACENTE","Bilanço","Gürok Özel","Alacak","",""],
+  ["3402","ALINAN SIPARIS AVANSLAR SELF","Bilanço","Gürok Özel","Alacak","",""],
+  ["3408","ALINAN SIPARIS AVANSLARI GRUP","Bilanço","Gürok Özel","Alacak","",""],
+  ["3409","ALINAN SIPARIS AVANSLARI DIGER","Bilanço","Gürok Özel","Alacak","",""],
+  ["3601","ODENECEK VERGI VE FONLAR","Bilanço","Gürok Özel","Alacak","",""],
+  ["3602","TEVKIF EDILEN KDV","Bilanço","Gürok Özel","Alacak","",""],
+  ["3911","HESAPLANAN KDV","Bilanço","Gürok Özel","Alacak","",""],
+  ["3912","ALISLARDAN IADE KDV","Bilanço","Gürok Özel","Alacak","",""],
+  ["3913","DIGER HESAPLANAN KDV","Bilanço","Gürok Özel","Alacak","",""],
+  ["3931","MERKEZ","Bilanço","Gürok Özel","Alacak","",""],
+  ["3932","LAV","Bilanço","Gürok Özel","Alacak","",""],
+  ["3933","GCA","Bilanço","Gürok Özel","Alacak","",""],
+  ["3934","ALI BEY RESORT SORGUN","Bilanço","Gürok Özel","Alacak","",""],
+  ["3935","LAPISHAN","Bilanço","Gürok Özel","Alacak","",""],
+  ["3936","GUROK IHRACAT SUBE","Bilanço","Gürok Özel","Alacak","",""],
+  ["3937","GUROK DEKOR SUBE","Bilanço","Gürok Özel","Alacak","",""],
+  ["3938","GUROK RYG MAKINE SUBE","Bilanço","Gürok Özel","Alacak","",""],
+  ["3939","GUROK DIGER SUBELER","Bilanço","Gürok Özel","Alacak","",""],
+  ["39391","GUROK ICECEK SUBE BURDUR","Bilanço","Gürok Özel","Alacak","",""],
+  ["39392","OJO SUBE","Bilanço","Gürok Özel","Alacak","",""],
+  ["39393","YESIL ENERJI","Bilanço","Gürok Özel","Alacak","",""],
+  ["6212","STMM BUTIK","Kar & Zarar","Gürok Özel","Alacak","",""],
+  ["9001","VERILEN TEMINAT MEKTUPLARI","Bilanço","Gürok Özel","Borç","",""],
+  ["9002","ALINAN TEMINAT MEKTUPLARI","Bilanço","Gürok Özel","Borç","",""],
+  ["9091","VERILEN TEMINAT MEKT.KARSILIGI","Bilanço","Gürok Özel","Borç","",""],
+  ["9092","ALINAN TEMINAT MEKT.KARSILIGI","Bilanço","Gürok Özel","Borç","",""],
+];
+
 // ============================================================
 // FIREBASE
 // ============================================================
@@ -584,14 +686,14 @@ async function saveHesap(h){
   catch(e){}
 }
 
-async function thpYukle(){
-  if(!confirm('Standart THP ana başlıkları yüklensin mi? Mevcut hesaplar korunur.'))return;
+async function thpYukle(skipConfirm){
+  if(!skipConfirm&&!confirm('Standart THP ana başlıkları yüklensin mi? Mevcut hesaplar korunur.'))return;
   sLD();
   let eklenen=0;
   for(const [kod,ad,tip,anaGrup,yon,ozellik,aciklama] of THP_ANA){
     const key=kod.replace(/\./g,'_');
     if(!hesaplar[key]){
-      const h={kod,ad,tip,anaGrup,yon,ozellik,aciklama,durum:'aktif',doviz:'TRY',olusturmaTarih:Date.now()};
+      const h={kod,ad,tip,anaGrup,yon,ozellik,aciklama,durum:'aktif',doviz:'TRY',altSeviye:'60',olusturmaTarih:Date.now()};
       hesaplar[key]=h;
       await saveHesap(h);
       eklenen++;
@@ -600,6 +702,24 @@ async function thpYukle(){
   hLD();
   renderTablo();
   toast(`✅ ${eklenen} hesap eklendi`);
+}
+
+async function gurokYukle(skipConfirm){
+  if(!skipConfirm&&!confirm(`Gürok'a özel ${GUROK_OZEL.length} ek hesap yüklensin mi? Bunlar LN Infor'da gerçekten kullanılan firma-özel hesap kodlarıdır (1001, 3401 vb.)`))return;
+  sLD();
+  let eklenen=0;
+  for(const [kod,ad,tip,anaGrup,yon,ozellik,aciklama] of GUROK_OZEL){
+    const key='G_'+kod.replace(/\./g,'_');
+    if(!hesaplar[key]){
+      const h={kod,ad,tip,anaGrup,yon,ozellik,aciklama,durum:'aktif',doviz:'TRY',altSeviye:'70',gurokOzel:true,olusturmaTarih:Date.now()};
+      hesaplar[key]=h;
+      await saveHesap(h);
+      eklenen++;
+    }
+  }
+  hLD();
+  renderTablo();
+  toast(`✅ ${eklenen} Gürok özel hesabı eklendi`);
 }
 
 // ============================================================
@@ -632,14 +752,17 @@ function renderTablo(){
   const fTip=(document.getElementById('f-tip').value||'').toLowerCase();
   const fGrup=(document.getElementById('f-grup').value||'').toLowerCase();
   const fYon=(document.getElementById('f-yon').value||'').toLowerCase();
+  const fAltSeviye=(document.getElementById('f-altseviye').value||'').toLowerCase();
   const fOzellik=(document.getElementById('f-ozellik').value||'').toLowerCase();
   const fAciklama=(document.getElementById('f-aciklama').value||'').toLowerCase();
-  const aramaVar=!!(hizliAra||fKod||fAd||fTip||fGrup||fYon||fOzellik||fAciklama||tipFilter);
+  const aramaVar=!!(hizliAra||fKod||fAd||fTip||fGrup||fYon||fAltSeviye||fOzellik||fAciklama||tipFilter||grupFilter||altSeviyeFilter);
 
   const tumListe=Object.values(hesaplar).filter(Boolean);
   const toplamSayi=tumListe.length;
 
   const eslesir=(h)=>{
+    if(grupFilter&&h.anaGrup!==grupFilter)return false;
+    if(altSeviyeFilter&&h.altSeviye!==altSeviyeFilter)return false;
     if(tipFilter&&h.tip!==tipFilter)return false;
     if(hizliAra&&!h.kod.toLowerCase().includes(hizliAra)&&!h.ad.toLowerCase().includes(hizliAra))return false;
     if(fKod&&!h.kod.toLowerCase().includes(fKod))return false;
@@ -647,6 +770,7 @@ function renderTablo(){
     if(fTip&&!(h.tip||'').toLowerCase().includes(fTip))return false;
     if(fGrup&&!(h.anaGrup||'').toLowerCase().includes(fGrup))return false;
     if(fYon&&!(h.yon||'').toLowerCase().includes(fYon))return false;
+    if(fAltSeviye&&!(h.altSeviye||'').toLowerCase().includes(fAltSeviye))return false;
     if(fOzellik&&!(h.ozellik||'').toLowerCase().includes(fOzellik))return false;
     if(fAciklama&&!(h.aciklama||'').toLowerCase().includes(fAciklama))return false;
     return true;
@@ -672,6 +796,7 @@ function renderTablo(){
       <td>${tipChip[h.tip]||h.tip||'—'}</td>
       <td>${h.anaGrup||'—'}</td>
       <td><span style="color:${h.yon==='Borç'?'var(--danger)':'var(--success)'};font-weight:600">${h.yon||'—'}</span></td>
+      <td>${h.altSeviye?'<span class="chip" style="background:'+(h.altSeviye==='70'?'#fff7ed;color:#9a3412':'#e0f2fe;color:#075985')+'">'+h.altSeviye+'</span>':''}</td>
       <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+' '+h.ozellik:''}</td>
       <td><span class="durum-dot ${h.durum==='pasif'?'durum-pasif':'durum-aktif'}"></span> ${h.durum==='pasif'?'Pasif':'Aktif'}</td>
       <td style="color:var(--gray-600);font-size:11px">${h.aciklama||''}</td>
@@ -704,6 +829,7 @@ function renderTablo(){
         <td>${tipChip[h.tip]||h.tip||'—'}</td>
         <td>${h.anaGrup||'—'}</td>
         <td><span style="color:${h.yon==='Borç'?'var(--danger)':'var(--success)'};font-weight:600">${h.yon||'—'}</span></td>
+        <td>${h.altSeviye?'<span class="chip" style="background:'+(h.altSeviye==='70'?'#fff7ed;color:#9a3412':'#e0f2fe;color:#075985')+'">'+h.altSeviye+'</span>':''}</td>
         <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+' '+h.ozellik:''}</td>
         <td><span class="durum-dot ${h.durum==='pasif'?'durum-pasif':'durum-aktif'}"></span> ${h.durum==='pasif'?'Pasif':'Aktif'}</td>
         <td style="color:var(--gray-600);font-size:11px">${h.aciklama||''}</td>
@@ -745,6 +871,26 @@ function sortBy(kol){
 
 function filterTip(tip,el){
   tipFilter=tip;
+  grupFilter='';
+  altSeviyeFilter='';
+  document.querySelectorAll('.filtre-chip[id^="fc-"]').forEach(c=>c.classList.remove('aktif'));
+  el.classList.add('aktif');
+  renderTablo();
+}
+
+function filterGrup(grup,el){
+  grupFilter=grup;
+  tipFilter='';
+  altSeviyeFilter='';
+  document.querySelectorAll('.filtre-chip[id^="fc-"]').forEach(c=>c.classList.remove('aktif'));
+  el.classList.add('aktif');
+  renderTablo();
+}
+
+function filterAltSeviye(seviye,el){
+  altSeviyeFilter=seviye;
+  tipFilter='';
+  grupFilter='';
   document.querySelectorAll('.filtre-chip[id^="fc-"]').forEach(c=>c.classList.remove('aktif'));
   el.classList.add('aktif');
   renderTablo();
@@ -761,6 +907,7 @@ function openYeniHesap(ustKod){
   document.getElementById('h-ad').value='';
   document.getElementById('h-tip').value='Bilanço';
   document.getElementById('h-grup').value='';
+  document.getElementById('h-altseviye').value='60';
   document.getElementById('h-yon').value='Borç';
   document.getElementById('h-ozellik').value='';
   document.getElementById('h-doviz').value='TRY';
@@ -786,6 +933,7 @@ function openDuzenle(){
   document.getElementById('h-ad').value=h.ad;
   document.getElementById('h-tip').value=h.tip;
   document.getElementById('h-grup').value=h.anaGrup||'';
+  document.getElementById('h-altseviye').value=h.altSeviye||'60';
   document.getElementById('h-yon').value=h.yon||'Borç';
   document.getElementById('h-ozellik').value=h.ozellik||'';
   document.getElementById('h-doviz').value=h.doviz||'TRY';
@@ -821,6 +969,7 @@ async function hesapKaydet(){
     kod,ad,
     tip:document.getElementById('h-tip').value,
     anaGrup:document.getElementById('h-grup').value,
+    altSeviye:document.getElementById('h-altseviye').value||'60',
     yon:document.getElementById('h-yon').value,
     ozellik:document.getElementById('h-ozellik').value,
     doviz:document.getElementById('h-doviz').value,
@@ -856,8 +1005,8 @@ async function hesapSilModal(){
 // ============================================================
 function exportExcel(){
   const liste=Object.values(hesaplar).filter(Boolean).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
-  let csv='Hesap Kodu\tHesap Adı\tHesap Tipi\tAna Grup\tÇalışma Yönü\tÖzellik\tDurum\tAçıklama\n';
-  liste.forEach(h=>{csv+=`${h.kod}\t${h.ad}\t${h.tip}\t${h.anaGrup||''}\t${h.yon||''}\t${h.ozellik||''}\t${h.durum||'aktif'}\t${h.aciklama||''}\n`;});
+  let csv='Hesap Kodu\tHesap Adı\tHesap Tipi\tAna Grup\tÇalışma Yönü\tAlt Seviye\tÖzellik\tDurum\tAçıklama\n';
+  liste.forEach(h=>{csv+=`${h.kod}\t${h.ad}\t${h.tip}\t${h.anaGrup||''}\t${h.yon||''}\t${h.altSeviye||''}\t${h.ozellik||''}\t${h.durum||'aktif'}\t${h.aciklama||''}\n`;});
   const blob=new Blob(['\ufeff'+csv],{type:'text/tab-separated-values;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hesap_plani.xls';a.click();
   toast('✅ Excel indirildi');
@@ -880,7 +1029,8 @@ function hLD(){document.getElementById('ld').classList.remove('show');}
   await loadDB();
   if(Object.keys(hesaplar).length===0){
     toast('📥 Standart THP yükleniyor...',4000);
-    await thpYukle();
+    await thpYukle(true);
+    await gurokYukle(true);
   } else {
     renderTablo();
   }
