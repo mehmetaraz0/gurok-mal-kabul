@@ -244,6 +244,581 @@ let cariFilter = 'tumu';
 // ============================================================
 // FIREBASE
 // ============================================================
+// ============================================================
+// DENETİM İZİ
+// ============================================================
+async function auditLogYaz(action,entityType,entityId,detail){
+  const log={
+    id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+    action,entityType,entityId:String(entityId||''),detail:detail||'',
+    userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',
+    timestamp:Date.now()
+  };
+  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}
+  catch(e){console.warn('Audit log kaydedilemedi:',e);}
+}
+
+async function loadDB(){
+  sLD();
+  try{
+    const [cR,hR]=await Promise.all([
+      fetch(FB+'/muhasebe/cariler.json'),
+      fetch(FB+'/muhasebe/cariHareketler.json'),
+    ]);
+    if(cR.ok){const d=await cR.json();if(d&&typeof d==='object')cariler=d;}
+    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hareketler=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+async function saveCari(c){
+  try{await fetch(FB+'/muhasebe/cariler/'+c.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)});}
+  catch(e){console.warn(e);}
+}
+
+async function saveHareket(h){
+  try{await fetch(FB+'/muhasebe/cariHareketler/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}
+  catch(e){console.warn(e);}
+}
+
+// ============================================================
+// CARİ BAKİYE HESAPLA
+// ============================================================
+function cariBakiye(cariId){
+  const harlar=Object.values(hareketler).filter(h=>h.cariId===cariId);
+  let borc=0,alacak=0;
+  harlar.forEach(h=>{
+    if(h.tip==='borc'||h.tip==='acilis_borc')borc+=parseFloat(h.tutar)||0;
+    else if(h.tip==='alacak'||h.tip==='iade'||h.tip==='mahsup')alacak+=parseFloat(h.tutar)||0;
+    else if(h.tip==='acilis'){borc+=parseFloat(h.borc)||0;alacak+=parseFloat(h.alacak)||0;}
+  });
+  return{borc,alacak,net:borc-alacak};
+}
+
+// ============================================================
+// RENDER CARİLER
+// ============================================================
+function renderCariler(){
+  const ara=(document.getElementById('cari-ara')?.value||'').toLowerCase();
+  let liste=Object.values(cariler).filter(Boolean);
+
+  if(cariFilter==='tedarikci')liste=liste.filter(c=>c.tip==='tedarikci'||c.tip==='her_ikisi');
+  else if(cariFilter==='musteri')liste=liste.filter(c=>c.tip==='musteri'||c.tip==='her_ikisi');
+  else if(cariFilter==='borc')liste=liste.filter(c=>cariBakiye(c.id).net>0);
+  else if(cariFilter==='alacak')liste=liste.filter(c=>cariBakiye(c.id).net<0);
+
+  if(ara)liste=liste.filter(c=>c.ad?.toLowerCase().includes(ara)||c.kod?.toLowerCase().includes(ara)||c.vkn?.includes(ara));
+
+  liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+
+  // Stats
+  const toplamBorc=liste.reduce((t,c)=>{const b=cariBakiye(c.id).net;return b>0?t+b:t;},0);
+  const toplamAlacak=liste.reduce((t,c)=>{const b=cariBakiye(c.id).net;return b<0?t+Math.abs(b):t;},0);
+  document.getElementById('cari-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num">${liste.length}</div><div class="stat-lbl">Toplam Cari</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${fmt(toplamBorc)}</div><div class="stat-lbl">🔴 Borç</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamAlacak)}</div><div class="stat-lbl">🟢 Alacak</div></div>`;
+
+  const c=document.getElementById('cariler-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">👥</div><div class="et">Cari bulunamadı</div></div>';return;}
+
+  c.innerHTML=liste.map(cari=>{
+    const bak=cariBakiye(cari.id);
+    const durum=bak.net>0?'borc':bak.net<0?'alacak':'sifir';
+    const tipChip=cari.tip==='tedarikci'?'<span class="chip chip-orange">🏭 Tedarikçi</span>':cari.tip==='musteri'?'<span class="chip chip-blue">👤 Müşteri</span>':'<span class="chip chip-gray">🔄 Her İkisi</span>';
+    return`<div class="cari-kart ${durum}" onclick="openCariDetay('${cari.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${cari.ad}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${cari.kod}${cari.vkn?' • VKN: '+cari.vkn:''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:15px;font-weight:800;color:${bak.net>0?'var(--danger)':bak.net<0?'var(--success)':'var(--gray-400)'}">${bak.net>0?'+':bak.net<0?'-':''}${fmt(Math.abs(bak.net))} ₺</div>
+          <div style="font-size:10px;color:var(--gray-400)">${bak.net>0?'Borç':bak.net<0?'Alacak':'Bakiye Yok'}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${tipChip}
+        ${cari.efatura==='evet'?'<span class="chip chip-green">e-Fatura</span>':''}
+        ${cari.vade?`<span style="font-size:11px;color:var(--gray-500)">${cari.vade} gün vade</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Mutabakat dropdown güncelle
+  const sel=document.getElementById('mut-cari');
+  if(sel){
+    sel.innerHTML='<option value="">— Cari seçin —</option>'+
+      Object.values(cariler).filter(Boolean).sort((a,b)=>a.ad.localeCompare(b.ad,'tr'))
+        .map(c=>`<option value="${c.id}">${c.ad}</option>`).join('');
+  }
+}
+
+function filterCari(f,el){
+  cariFilter=f;
+  document.querySelectorAll('#tab-cariler .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderCariler();
+}
+
+// ============================================================
+// CARİ DETAY
+// ============================================================
+function openCariDetay(id){
+  const c=cariler[id];if(!c)return;
+  const bak=cariBakiye(id);
+  const harlar=Object.values(hareketler).filter(h=>h.cariId===id).sort((a,b)=>b.tarih-a.tarih).slice(0,20);
+  document.getElementById('mCariDetayTitle').textContent=c.ad;
+  document.getElementById('mCariDetayIc').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:var(--gray-100);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:var(--gray-500)">Borç</div>
+        <div style="font-size:16px;font-weight:800;color:var(--danger)">${fmt(bak.borc)} ₺</div>
+      </div>
+      <div style="background:var(--gray-100);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:var(--gray-500)">Alacak</div>
+        <div style="font-size:16px;font-weight:800;color:var(--success)">${fmt(bak.alacak)} ₺</div>
+      </div>
+      <div style="background:${bak.net>0?'#fde8e8':bak.net<0?'#d4edda':'var(--gray-100)'};border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:var(--gray-500)">Bakiye</div>
+        <div style="font-size:16px;font-weight:800;color:${bak.net>0?'var(--danger)':bak.net<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(bak.net))} ₺</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">
+      ${c.vkn?`VKN: <b>${c.vkn}</b> • `:''}${c.tel?`📞 ${c.tel} • `:''}${c.mail?`✉️ ${c.mail}`:''}
+    </div>
+    ${c.vade?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">Ödeme vadesi: ${c.vade} gün</div>`:''}
+    <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:6px">Son Hareketler</div>
+    ${harlar.length===0?'<div style="text-align:center;color:var(--gray-400);padding:16px;font-size:13px">Hareket kaydı yok</div>':
+      harlar.map(h=>`<div class="har-satir">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600">${h.tip==='borc'?'Borç':h.tip==='alacak'?'Alacak':h.tip==='iade'?'İade':h.tip==='mahsup'?'Mahsup':'Açılış'}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${h.belge||'—'} • ${new Date(h.tarih).toLocaleDateString('tr-TR')}</div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:${h.tip==='borc'?'var(--danger)':'var(--success)'}">
+          ${h.tip==='borc'?'+':'-'}${fmt(h.tutar)} ₺
+        </div>
+      </div>`).join('')}
+    <div class="brow" style="margin-top:12px">
+      <button class="btn btn-gray btn-sm" onclick="kModal('mCariDetay')">Kapat</button>
+      <button class="btn btn-primary btn-sm" onclick="kModal('mCariDetay');openDuzenleCari('${id}')">✏️ Düzenle</button>
+      <button class="btn btn-success btn-sm" onclick="kModal('mCariDetay');openHareket('${id}')">➕ Hareket</button>
+    </div>`;
+  aModal('mCariDetay');
+}
+
+// ============================================================
+// CARİ KAYDET
+// ============================================================
+function openYeniCari(){
+  document.getElementById('mCariTitle').innerHTML='➕ Yeni Cari <button class="mclose" onclick="kModal(\'mCari\')">✕</button>';
+  document.getElementById('c-id').value='';
+  ['c-kod','c-ad','c-vkn','c-vd','c-tel','c-mail','c-adres','c-not'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('c-tip').value='tedarikci';
+  document.getElementById('c-hesap').value='320';
+  document.getElementById('c-efatura').value='hayir';
+  document.getElementById('c-vade').value='30';
+  document.getElementById('c-limit').value='0';
+  document.getElementById('c-sil-btn').style.display='none';
+  document.getElementById('c-alias-field').style.display='none';
+  aModal('mCari');
+}
+
+function openDuzenleCari(id){
+  const c=cariler[id];if(!c)return;
+  document.getElementById('mCariTitle').innerHTML='✏️ Cari Düzenle <button class="mclose" onclick="kModal(\'mCari\')">✕</button>';
+  document.getElementById('c-id').value=id;
+  document.getElementById('c-kod').value=c.kod||'';
+  document.getElementById('c-ad').value=c.ad||'';
+  document.getElementById('c-vkn').value=c.vkn||'';
+  document.getElementById('c-vd').value=c.vd||'';
+  document.getElementById('c-tel').value=c.tel||'';
+  document.getElementById('c-mail').value=c.mail||'';
+  document.getElementById('c-adres').value=c.adres||'';
+  document.getElementById('c-tip').value=c.tip||'tedarikci';
+  document.getElementById('c-hesap').value=c.hesap||'320';
+  document.getElementById('c-efatura').value=c.efatura||'hayir';
+  document.getElementById('c-vade').value=c.vade||'30';
+  document.getElementById('c-limit').value=c.limit||'0';
+  document.getElementById('c-not').value=c.not||'';
+  document.getElementById('c-alias').value=c.alias||'';
+  document.getElementById('c-alias-field').style.display=c.efatura==='evet'?'block':'none';
+  document.getElementById('c-sil-btn').style.display='flex';
+  aModal('mCari');
+}
+
+document.getElementById('c-efatura').addEventListener('change',function(){
+  document.getElementById('c-alias-field').style.display=this.value==='evet'?'block':'none';
+});
+
+async function cariKaydet(){
+  const ad=document.getElementById('c-ad').value.trim();
+  const kod=document.getElementById('c-kod').value.trim();
+  if(!ad||!kod){toast('⚠️ Kod ve ad zorunlu');return;}
+  const editId=document.getElementById('c-id').value;
+  const id=editId||('C_'+Date.now());
+  const cari={
+    id,kod,ad,
+    tip:document.getElementById('c-tip').value,
+    vkn:document.getElementById('c-vkn').value||'',
+    vd:document.getElementById('c-vd').value||'',
+    tel:document.getElementById('c-tel').value||'',
+    mail:document.getElementById('c-mail').value||'',
+    adres:document.getElementById('c-adres').value||'',
+    hesap:document.getElementById('c-hesap').value,
+    efatura:document.getElementById('c-efatura').value,
+    alias:document.getElementById('c-alias').value||'',
+    vade:parseInt(document.getElementById('c-vade').value)||30,
+    limit:parseFloat(document.getElementById('c-limit').value)||0,
+    not:document.getElementById('c-not').value||'',
+    olusturmaTarih:cariler[id]?.olusturmaTarih||Date.now(),
+    guncellemeTarih:Date.now()
+  };
+  sLD();
+  const yeniKayit=!editId;
+  cariler[id]=cari;
+  await saveCari(cari);
+  await auditLogYaz(yeniKayit?'create':'update','cari',id,`Cari ${yeniKayit?'oluşturuldu':'güncellendi'}: ${cari.kod} — ${cari.ad}`);
+  hLD();
+  kModal('mCari');
+  renderCariler();
+  toast(`✅ ${cari.ad} kaydedildi`);
+}
+
+async function cariSil(){
+  const id=document.getElementById('c-id').value;
+  const c=cariler[id];if(!c)return;
+  if(!confirm(`"${c.ad}" silinsin mi? Hareketler de silinecek!`))return;
+  sLD();
+  delete cariler[id];
+  await fetch(FB+'/muhasebe/cariler/'+id+'.json',{method:'DELETE'});
+  await auditLogYaz('delete','cari',id,`Cari silindi: ${c.kod} — ${c.ad}`);
+  // İlgili hareketleri sil
+  for(const hk of Object.keys(hareketler)){
+    if(hareketler[hk]?.cariId===id){
+      delete hareketler[hk];
+      await fetch(FB+'/muhasebe/cariHareketler/'+hk+'.json',{method:'DELETE'});
+    }
+  }
+  hLD();
+  kModal('mCari');
+  renderCariler();
+  toast('🗑️ Cari silindi');
+}
+
+// ============================================================
+// HAREKET
+// ============================================================
+function openHareket(cariId,prefillTip){
+  const c=cariler[cariId];if(!c)return;
+  document.getElementById('mHareketTitle').innerHTML='➕ Hareket Ekle — '+c.ad+' <button class="mclose" onclick="kModal(\'mHareket\')">✕</button>';
+  document.getElementById('h-cari-id').value=cariId;
+  document.getElementById('h-cari-ad').value=c.ad;
+  document.getElementById('h-tip').value=prefillTip||'borc';
+  document.getElementById('h-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('h-belge').value='';
+  document.getElementById('h-tutar').value='';
+  document.getElementById('h-kdv').value='';
+  document.getElementById('h-aciklama').value='';
+  // Vade hesapla
+  const vade=c.vade||30;
+  const vadeDate=new Date();vadeDate.setDate(vadeDate.getDate()+vade);
+  document.getElementById('h-vade').value=vadeDate.toISOString().split('T')[0];
+  aModal('mHareket');
+}
+
+async function hareketKaydet(){
+  const cariId=document.getElementById('h-cari-id').value;
+  const tutar=parseFloat(document.getElementById('h-tutar').value);
+  const tarih=document.getElementById('h-tarih').value;
+  if(!tutar||tutar<=0){toast('⚠️ Tutar girin');return;}
+  if(!tarih){toast('⚠️ Tarih girin');return;}
+  const har={
+    id:'HAR_'+Date.now(),
+    cariId,
+    tip:document.getElementById('h-tip').value,
+    tarih:new Date(tarih).getTime(),
+    tarihStr:tarih,
+    belge:document.getElementById('h-belge').value||'',
+    vade:document.getElementById('h-vade').value||'',
+    tutar,
+    kdv:parseFloat(document.getElementById('h-kdv').value)||0,
+    aciklama:document.getElementById('h-aciklama').value||'',
+    olusturmaTarih:Date.now()
+  };
+  sLD();
+  hareketler[har.id]=har;
+  await saveHareket(har);
+  const cariAd=cariler[cariId]?.ad||cariId;
+  await auditLogYaz('create','cari',har.id,`Cari hareket: ${cariAd} — ${har.tip==='borc'?'Borç':'Alacak'} ${fmt(tutar)} ₺`);
+  hLD();
+  kModal('mHareket');
+  renderCariler();
+  toast(`✅ Hareket kaydedildi — ${fmt(tutar)} ₺`);
+}
+
+// ============================================================
+// HAREKETLER LİSTESİ
+// ============================================================
+function renderHareketler(){
+  const bas=document.getElementById('har-bas').value;
+  const bit=document.getElementById('har-bit').value;
+  const ara=(document.getElementById('har-ara')?.value||'').toLowerCase();
+  const basTs=bas?new Date(bas).getTime():0;
+  const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
+  let liste=Object.values(hareketler).filter(h=>{
+    if(h.tarih<basTs||h.tarih>bitTs)return false;
+    if(ara){
+      const c=cariler[h.cariId];
+      if(!c?.ad?.toLowerCase().includes(ara)&&!h.belge?.toLowerCase().includes(ara))return false;
+    }
+    return true;
+  }).sort((a,b)=>b.tarih-a.tarih);
+  const c=document.getElementById('hareketler-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Hareket bulunamadı</div></div>';return;}
+  // Gün bazlı grupla
+  const gruplar={};
+  liste.forEach(h=>{const g=new Date(h.tarih).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(h);});
+  c.innerHTML=Object.entries(gruplar).map(([gun,harlar])=>`
+    <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin:8px 0 4px;text-transform:uppercase">${gun}</div>
+    <div class="card" style="padding:8px">
+      ${harlar.map(h=>{
+        const cari=cariler[h.cariId];
+        const tipRenk=h.tip==='borc'?'var(--danger)':'var(--success)';
+        const tipAd=h.tip==='borc'?'Borç':h.tip==='alacak'?'Alacak':h.tip==='iade'?'İade':h.tip==='mahsup'?'Mahsup':'Açılış';
+        return`<div class="har-satir">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cari?.ad||h.cariId}</div>
+            <div style="font-size:11px;color:var(--gray-500)">${tipAd} • ${h.belge||'—'}</div>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:${tipRenk};flex-shrink:0">${h.tip==='borc'?'+':'-'}${fmt(h.tutar)} ₺</div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+// ============================================================
+// MUTABAKAT
+// ============================================================
+function renderMutabakat(){
+  const cariId=document.getElementById('mut-cari').value;
+  const bas=document.getElementById('mut-bas').value;
+  const bit=document.getElementById('mut-bit').value;
+  if(!cariId){document.getElementById('mutabakat-sonuc').innerHTML='';return;}
+  const c=cariler[cariId];if(!c)return;
+  const basTs=bas?new Date(bas).getTime():0;
+  const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
+  const harlar=Object.values(hareketler).filter(h=>h.cariId===cariId&&h.tarih>=basTs&&h.tarih<=bitTs).sort((a,b)=>a.tarih-b.tarih);
+  let bakiye=0;
+  const satirlar=harlar.map(h=>{
+    const tutar=parseFloat(h.tutar)||0;
+    if(h.tip==='borc')bakiye+=tutar;
+    else bakiye-=tutar;
+    return{...h,bakiye};
+  });
+  const son=bakiye;
+  document.getElementById('mutabakat-sonuc').innerHTML=`
+    <div class="card" style="border-left:4px solid ${son>0?'var(--danger)':son<0?'var(--success)':'var(--gray-300)'}">
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+        <div><div style="font-size:15px;font-weight:700">${c.ad}</div><div style="font-size:12px;color:var(--gray-500)">${bas||'—'} → ${bit||'—'}</div></div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:800;color:${son>0?'var(--danger)':son<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(son))} ₺</div>
+          <div style="font-size:11px;color:var(--gray-500)">${son>0?'Borç Bakiyesi':son<0?'Alacak Bakiyesi':'Bakiyesiz'}</div>
+        </div>
+      </div>
+      ${satirlar.length===0?'<div style="text-align:center;color:var(--gray-400);padding:12px">Bu dönemde hareket yok</div>':
+      `<table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="background:var(--gray-100)">
+          <th style="text-align:left;padding:6px">Tarih</th>
+          <th style="text-align:left;padding:6px">Belge</th>
+          <th style="text-align:right;padding:6px">Borç</th>
+          <th style="text-align:right;padding:6px">Alacak</th>
+          <th style="text-align:right;padding:6px">Bakiye</th>
+        </tr>
+        ${satirlar.map(h=>`<tr style="border-bottom:1px solid var(--gray-100)">
+          <td style="padding:6px">${new Date(h.tarih).toLocaleDateString('tr-TR')}</td>
+          <td style="padding:6px">${h.belge||'—'}</td>
+          <td style="padding:6px;text-align:right;color:var(--danger)">${h.tip==='borc'?fmt(h.tutar)+'₺':''}</td>
+          <td style="padding:6px;text-align:right;color:var(--success)">${h.tip!=='borc'?fmt(h.tutar)+'₺':''}</td>
+          <td style="padding:6px;text-align:right;font-weight:600;color:${h.bakiye>0?'var(--danger)':h.bakiye<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(h.bakiye))}₺</td>
+        </tr>`).join('')}
+      </table>`}
+    </div>`;
+}
+
+// ============================================================
+// FİRMA DB AKTAR
+// ============================================================
+async function firmaDBaktar(){
+  if(!window.FIRMA_DB){
+    const s=document.createElement('script');s.src='gurok_veritabani.js';document.head.appendChild(s);
+    await new Promise(r=>{s.onload=r;s.onerror=r;setTimeout(r,5000);});
+  }
+  if(!window.FIRMA_DB||!window.FIRMA_DB.length){toast('⚠️ FIRMA_DB yüklenemedi');return;}
+  if(!confirm(`${window.FIRMA_DB.length} tedarikçi aktarılsın mı? Mevcut cariler korunur.`))return;
+  sLD();
+  let eklenen=0;
+  for(const f of window.FIRMA_DB){
+    const id='C_FIRMA_'+f.id;
+    if(!cariler[id]){
+      const cari={
+        id,kod:'F'+String(f.id).padStart(4,'0'),
+        ad:f.ad,tip:'tedarikci',
+        vkn:'',vd:'',tel:'',mail:f.mail||'',adres:'',
+        hesap:'320',efatura:'hayir',alias:'',vade:30,limit:0,not:'',
+        olusturmaTarih:Date.now(),guncellemeTarih:Date.now()
+      };
+      cariler[id]=cari;
+      await saveCari(cari);
+      eklenen++;
+    }
+  }
+  hLD();
+  renderCariler();
+  toast(`✅ ${eklenen} tedarikçi aktarıldı`);
+}
+
+// ============================================================
+// YARDIMCI
+// ============================================================
+function fmt(n){return (parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='hareketler')renderHareketler();
+  if(tab==='mutabakat')renderMutabakat();
+}
+function aModal(id){document.getElementById(id).classList.add('open');}
+function kModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  const today=new Date().toISOString().split('T')[0];
+  const ayBasi=new Date();ayBasi.setDate(1);
+  document.getElementById('har-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('har-bit').value=today;
+  document.getElementById('mut-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('mut-bit').value=today;
+  renderCariler();
+})();
+</script>
+</body>
+</html>
+der="C001"></div>
+      <div class="field"><label>Tip *</label>
+        <select id="c-tip">
+          <option value="tedarikci">🏭 Tedarikçi</option>
+          <option value="musteri">👤 Müşteri</option>
+          <option value="her_ikisi">🔄 Her İkisi</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Unvan / Ad Soyad *</label><input type="text" id="c-ad" placeholder="Firma veya kişi adı"></div>
+    <div class="rfields">
+      <div class="field"><label>VKN / TCKN</label><input type="text" id="c-vkn" placeholder="Vergi No" maxlength="11"></div>
+      <div class="field"><label>Vergi Dairesi</label><input type="text" id="c-vd" placeholder="Vergi dairesi"></div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Telefon</label><input type="tel" id="c-tel" placeholder="0212 xxx xx xx"></div>
+      <div class="field"><label>E-posta</label><input type="email" id="c-mail" placeholder="firma@mail.com"></div>
+    </div>
+    <div class="field"><label>Adres</label><textarea id="c-adres" rows="2" placeholder="Açık adres"></textarea></div>
+    <div class="rfields">
+      <div class="field"><label>Ödeme Vadesi (Gün)</label><input type="number" id="c-vade" placeholder="30" min="0"></div>
+      <div class="field"><label>Risk Limiti (TL)</label><input type="number" id="c-limit" placeholder="0" min="0"></div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Muhasebe Hesabı</label>
+        <select id="c-hesap">
+          <option value="120">120 - Alıcılar</option>
+          <option value="320" selected>320 - Satıcılar</option>
+          <option value="121">121 - Alacak Senetleri</option>
+          <option value="321">321 - Borç Senetleri</option>
+        </select>
+      </div>
+      <div class="field"><label>e-Fatura Mükellefi</label>
+        <select id="c-efatura">
+          <option value="hayir">Hayır</option>
+          <option value="evet">Evet</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" id="c-alias-field" style="display:none">
+      <label>e-Fatura Alias (KEP)</label>
+      <input type="text" id="c-alias" placeholder="urn:mail:...">
+    </div>
+    <div class="field"><label>Not</label><input type="text" id="c-not" placeholder="Opsiyonel"></div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mCari')">İptal</button>
+      <button class="btn btn-danger btn-sm" id="c-sil-btn" onclick="cariSil()" style="display:none">🗑️</button>
+      <button class="btn btn-primary" onclick="cariKaydet()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Cari Detay -->
+<div class="mo" id="mCariDetay">
+  <div class="mbox">
+    <div class="mtitle" id="mCariDetayTitle">Cari Detay <button class="mclose" onclick="kModal('mCariDetay')">✕</button></div>
+    <div id="mCariDetayIc"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni Hareket -->
+<div class="mo" id="mHareket">
+  <div class="mbox">
+    <div class="mtitle" id="mHareketTitle">➕ Hareket Ekle <button class="mclose" onclick="kModal('mHareket')">✕</button></div>
+    <input type="hidden" id="h-cari-id">
+    <div class="field"><label>Cari</label><input type="text" id="h-cari-ad" readonly style="background:var(--gray-100)"></div>
+    <div class="rfields">
+      <div class="field"><label>Hareket Tipi *</label>
+        <select id="h-tip">
+          <option value="borc">Borç (Alış Faturası)</option>
+          <option value="alacak">Alacak (Ödeme)</option>
+          <option value="iade">İade</option>
+          <option value="mahsup">Mahsup</option>
+          <option value="acilis">Açılış Bakiyesi</option>
+        </select>
+      </div>
+      <div class="field"><label>Tarih *</label><input type="date" id="h-tarih"></div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Belge No</label><input type="text" id="h-belge" placeholder="Fatura no"></div>
+      <div class="field"><label>Vade Tarihi</label><input type="date" id="h-vade"></div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Tutar *</label><input type="number" id="h-tutar" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="field"><label>KDV</label><input type="number" id="h-kdv" placeholder="0.00" min="0" step="0.01"></div>
+    </div>
+    <div class="field"><label>Açıklama</label><input type="text" id="h-aciklama" placeholder="Opsiyonel"></div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mHareket')">İptal</button>
+      <button class="btn btn-primary" onclick="hareketKaydet()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let cariler = {};
+let hareketler = {};
+let cariFilter = 'tumu';
+
+// ============================================================
+// FIREBASE
+// ============================================================
 async function loadDB(){
   sLD();
   try{
