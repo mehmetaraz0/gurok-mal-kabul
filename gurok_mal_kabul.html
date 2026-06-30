@@ -1001,14 +1001,31 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
   <!-- Siparişler Tab Panel -->
   <div class="scroll-content" id="tab-siparisler" style="display:none;">
+
+  <!-- SORGU Tab Panel -->
+  <div class="scroll-content" id="tab-sorgu" style="display:none;">
+    <div class="card">
+      <div class="card-title">🔍 Mal Kabul Sorgulama</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" id="sorgu-inp" placeholder="MK-2026-00001, firma adı veya ürün adı..." autocomplete="off"
+          oninput="renderSorgu()"
+          style="flex:1;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:24px;font-size:13px;outline:none">
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="filter-tab active" id="sq-tab-tumu" onclick="sqFilter('tumu',this)">Tümü</button>
+        <button class="filter-tab" id="sq-tab-onaylandi" onclick="sqFilter('onaylandi',this)">✅ Onaylı</button>
+        <button class="filter-tab" id="sq-tab-bekleyen" onclick="sqFilter('bekleyen',this)">⏳ Bekleyen</button>
+        <button class="filter-tab" id="sq-tab-reddedildi" onclick="sqFilter('reddedildi',this)">❌ Reddedilen</button>
+      </div>
+    </div>
+    <div id="sorgu-sonuc"></div>
+  </div>
     <div class="card">
       <div class="card-title">📦 Sipariş Takip
-        <button class="btn btn-sm btn-primary" style="margin-left:auto;" onclick="document.getElementById('siparis-excel-input').click()">
-          ⬆️ Excel Yükle
-        </button>
-        <input type="file" id="siparis-excel-input" accept=".xlsx,.xls" style="display:none;" onchange="parseSiparisExcel(event)">
+        <button class="btn btn-sm btn-primary" style="margin-left:auto;" onclick="renderSiparisler()">🔄 Yenile</button>
       </div>
-      <div class="filter-tabs" style="margin-bottom:0;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px" id="sip-stats"></div>
+      <div class="filter-tabs" style="margin-bottom:0;margin-top:8px">
         <button class="filter-tab active" id="sip-tab-bekleyen" onclick="switchSiparisTab('bekleyen',this)">⏳ Bekleyen</button>
         <button class="filter-tab" id="sip-tab-kismi" onclick="switchSiparisTab('kismi',this)">🔶 Kısmen Geldi</button>
         <button class="filter-tab" id="sip-tab-tamamlandi" onclick="switchSiparisTab('tamamlandi',this)">✅ Tamamlandı</button>
@@ -1043,8 +1060,14 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       <span class="nav-icon">📊</span>
       <span class="nav-label">İzleme</span>
     </button>
+    <button class="nav-btn" id="nav-sorgu" onclick="switchTab('sorgu')">
+      <span class="nav-icon">🔍</span>
+      <span class="nav-label">Sorgu</span>
+    </button>
   </nav>
 </div>
+
+<!-- SORGU PANEL (tab içinde) -->
 
 <!-- ===== AYARLAR ===== -->
 <div class="screen" id="screen-settings">
@@ -1972,16 +1995,18 @@ function switchTab(tab) {
     saveFormDraft();
   }
   state.currentTab = tab;
-  ['malkabul','skt','onay','siparisler','izleme'].forEach(t => {
-    document.getElementById('tab-' + t).style.display = t === tab ? 'flex' : 'none';
-    document.getElementById('nav-' + t).classList.toggle('active', t === tab);
+  ['malkabul','skt','onay','siparisler','izleme','sorgu'].forEach(t => {
+    const el=document.getElementById('tab-'+t);
+    const nav=document.getElementById('nav-'+t);
+    if(el)el.style.display = t===tab?'flex':'none';
+    if(nav)nav.classList.toggle('active', t===tab);
   });
-  // Mal kabul'e dönünce taslağı geri yükle
   if (tab === 'malkabul') restoreFormDraft();
   if (tab === 'skt') renderSkt();
   if (tab === 'onay') renderOnayList();
   if (tab === 'siparisler') renderSiparisler();
   if (tab === 'izleme') renderIzleme();
+  if (tab === 'sorgu') renderSorgu();
 }
 
 // Form taslağını localStorage'a kaydet
@@ -2056,6 +2081,22 @@ function resetForm() {
 // SİPARİŞ SORGULAMA — Satın Alma'da oluşturulan siparişi bul ve doldur
 // ============================================================
 let _siparisSorguTimer=null;
+// ============================================================
+// MAL KABUL NUMARASI — MK-2026-00001 formatı
+// ============================================================
+async function yeniMalKabulNo(){
+  const yil=new Date().getFullYear();
+  const prefix=`MK-${yil}-`;
+  let max=0;
+  [...(db.formlar||[]),(db.arsiv||[])].flat().forEach(f=>{
+    if(f.mkNo&&f.mkNo.startsWith(prefix)){
+      const n=parseInt(f.mkNo.slice(prefix.length))||0;
+      if(n>max)max=n;
+    }
+  });
+  return prefix+String(max+1).padStart(5,'0');
+}
+
 function siparisSorgula(val){
   clearTimeout(_siparisSorguTimer);
   const bilgiDiv=document.getElementById('siparis-bilgi');
@@ -2579,8 +2620,10 @@ async function submitForm() {
   const emptySicaklik = state.formRows.find(r => r.sicaklikKriter && r.sicaklikKriter !== 'none' && !r.sicaklik);
   if (emptySicaklik) showToast('⚠️ ' + emptySicaklik.ad + ' — sıcaklık girilmedi, devam ediliyor', 3000);
 
+  const mkNo = await yeniMalKabulNo();
   const form = {
     id: Date.now(),
+    mkNo,
     formTarih: document.getElementById('form-tarih').value,
     tarih: Date.now(),
     firma: firmaAd,
@@ -2626,7 +2669,7 @@ async function submitForm() {
   showLoading('Kaydediliyor...');
   await saveFormTekil(form);
   hideLoading();
-  showToast('✅ Form onaya gönderildi!');
+  showToast(`✅ ${form.mkNo} — Onaya gönderildi`);
   localStorage.removeItem('gurok_form_draft');
   resetForm();
   updateBadges();
@@ -3522,48 +3565,56 @@ async function loadSiparisler() {
 
 async function renderSiparisler() {
   await loadSiparisler();
-  const siparisler = db.siparisler || [];
+  // ——— siparisHavuzu'ndan oku ———
+  let siparisHavuzuData = {};
+  try {
+    const r = await fetch(FIREBASE_URL + '/siparisHavuzu.json');
+    if (r.ok) { const d = await r.json(); if (d && typeof d === 'object') siparisHavuzuData = d; }
+  } catch(e) {}
+
+  const siparisler = Object.values(siparisHavuzuData).filter(s => s && !s.rezerve);
   const container = document.getElementById('siparisler-content');
 
-  // Mal kabul formlarından gelen ürünleri kontrol et
-  siparisler.forEach(s => {
-    s.kalemler.forEach(k => {
-      const geldi = db.formlar.some(f =>
-        f.durum !== 'reddedildi' &&
-        f.firma && f.firma.toLowerCase().includes(s.firma.toLowerCase().slice(0,8)) &&
-        f.urunler && f.urunler.some(u => u.kod === k.lnKod)
-      );
-      if (geldi) k.geldi = true;
-    });
-    // Durum güncelle
-    const gelenSayi = s.kalemler.filter(k => k.geldi).length;
-    if (gelenSayi === 0) s.durum = 'bekleyen';
-    else if (gelenSayi === s.kalemler.length) s.durum = 'tamamlandi';
-    else s.durum = 'kismi';
-  });
+  // Stats
+  const bek = siparisler.filter(s=>s.durum==='bekleyen').length;
+  const kis = siparisler.filter(s=>s.durum==='kismi').length;
+  const tam = siparisler.filter(s=>s.durum==='tamamlandi').length;
+  const statsEl = document.getElementById('sip-stats');
+  if (statsEl) statsEl.innerHTML = `
+    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${bek}</div><div class="stat-label">Bekleyen</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--warning)">${kis}</div><div class="stat-label">Kısmi</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--success)">${tam}</div><div class="stat-label">Tamam</div></div>`;
 
   // Filtrele
   let liste = siparisler;
   if (_siparisTab !== 'tumu') liste = siparisler.filter(s => s.durum === _siparisTab);
-  liste.sort((a,b) => b.yuklenmeTarih - a.yuklenmeTarih);
+  liste.sort((a,b) => (b.olusturmaTarih||0) - (a.olusturmaTarih||0));
+
+  // Badge
+  const b = document.getElementById('siparis-badge');
+  if (b) { if (bek>0){b.textContent=bek;b.style.display='block';}else b.style.display='none'; }
 
   if (!liste.length) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>
-      <div class="empty-text">${_siparisTab === 'bekleyen' ? 'Bekleyen sipariş yok' : 'Kayıt yok'}</div>
-      <div style="font-size:12px;color:var(--gray-400);margin-top:8px;">Excel yüklemek için ⬆️ Excel Yükle butonunu kullanın</div>
+      <div class="empty-text">${_siparisTab==='bekleyen'?'Bekleyen sipariş yok':'Kayıt yok'}</div>
+      <div style="font-size:12px;color:var(--gray-400);margin-top:8px;">Satın Alma modülünden sipariş oluşturun</div>
     </div>`;
     return;
   }
 
+  const durumChip = {
+    bekleyen: '<span class="chip chip-danger">⏳ Bekliyor</span>',
+    kismi:    '<span class="chip chip-warning">🔶 Kısmen Geldi</span>',
+    tamamlandi:'<span class="chip chip-success">✅ Tamamlandı</span>',
+    iptal:    '<span class="chip chip-danger">❌ İptal</span>'
+  };
+
   container.innerHTML = liste.map(s => {
-    const gelenSayi = s.kalemler.filter(k => k.geldi).length;
-    const toplamSayi = s.kalemler.length;
+    const kalemler = s.kalemler || [];
+    const toplamSayi = kalemler.length;
+    const gelenSayi = kalemler.filter(k => (k.kalanMiktar||k.miktar) <= 0.01).length;
     const eksikSayi = toplamSayi - gelenSayi;
-    const durumChip = s.durum === 'tamamlandi'
-      ? '<span class="chip chip-success">✅ Tamamlandı</span>'
-      : s.durum === 'kismi'
-      ? '<span class="chip chip-warning">🔶 Kısmen Geldi</span>'
-      : '<span class="chip chip-danger">⏳ Bekliyor</span>';
+    const yuzde = toplamSayi > 0 ? Math.round(gelenSayi/toplamSayi*100) : 0;
 
     return `
       <div class="kayit-item ${s.durum}" style="cursor:pointer;" onclick="openSiparisDetay('${s.siparisNo}')">
@@ -3571,83 +3622,89 @@ async function renderSiparisler() {
           <div style="flex:1;">
             <div class="kayit-firma">🏢 ${s.firma}</div>
             <div class="kayit-meta">
-              Sipariş: ${s.siparisNo} •
-              ${s.tarih ? new Date(s.tarih).toLocaleDateString('tr-TR') : '—'}
+              <span style="font-family:monospace;font-weight:700;color:#5b21b6">${s.siparisNo}</span> •
+              ${s.tarih||'—'} ${s.olusturanAd?' • '+s.olusturanAd:''}
             </div>
           </div>
-          ${durumChip}
+          ${durumChip[s.durum]||''}
         </div>
         <div style="margin-top:8px;">
           <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
             <span>${toplamSayi} kalem</span>
-            <span style="color:${eksikSayi>0?'var(--danger)':'var(--success)'};">
-              ${eksikSayi > 0 ? `${eksikSayi} kalem eksik` : 'Tümü geldi'}
+            <span style="color:${eksikSayi>0?'var(--danger)':'var(--success)'}">
+              ${eksikSayi>0?`${eksikSayi} kalem eksik`:'Tümü geldi'}
             </span>
           </div>
           <div class="progress-bar">
-            <div class="progress-fill ${s.durum==='bekleyen'?'danger':''}"
-              style="width:${toplamSayi>0?Math.round(gelenSayi/toplamSayi*100):0}%"></div>
+            <div class="progress-fill ${s.durum==='bekleyen'?'danger':''}" style="width:${yuzde}%"></div>
           </div>
         </div>
         ${eksikSayi > 0 ? `
           <div style="margin-top:8px;">
-            <div style="font-size:11px;color:var(--danger);font-weight:600;margin-bottom:4px;">⚠️ Gelmeyen Ürünler:</div>
-            ${s.kalemler.filter(k=>!k.geldi).slice(0,3).map(k=>
-              `<div style="font-size:11px;color:var(--gray-600);">• ${k.urunAd} — ${k.miktar} ${k.birim}</div>`
+            <div style="font-size:11px;color:var(--danger);font-weight:600;margin-bottom:4px;">⚠️ Bekleyen Kalemler:</div>
+            ${kalemler.filter(k=>(k.kalanMiktar||k.miktar)>0.01).slice(0,3).map(k=>
+              `<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — Kalan: ${k.kalanMiktar||k.miktar} ${k.birim}</div>`
             ).join('')}
-            ${eksikSayi > 3 ? `<div style="font-size:11px;color:var(--gray-400);">+${eksikSayi-3} daha...</div>` : ''}
+            ${eksikSayi > 3 ? `<div style="font-size:11px;color:var(--gray-400)">+${eksikSayi-3} daha...</div>` : ''}
           </div>
         ` : ''}
-      </div>
-    `;
+      </div>`;
   }).join('');
 
-  updateSiparisBadge();
+  // state'e kaydet (detay için)
+  window._siparisHavuzuCache = siparisHavuzuData;
 }
 
 function openSiparisDetay(siparisNo) {
-  const s = (db.siparisler||[]).find(x => x.siparisNo === siparisNo);
+  const cache = window._siparisHavuzuCache || {};
+  const s = cache[siparisNo];
   if (!s) return;
 
-  const content = document.getElementById('modal-onay-content');
-  const gelenler = s.kalemler.filter(k => k.geldi);
-  const eksikler = s.kalemler.filter(k => !k.geldi);
+  const kalemler = s.kalemler || [];
+  const tamam    = kalemler.filter(k => (k.kalanMiktar||0) <= 0.01);
+  const eksikler = kalemler.filter(k => (k.kalanMiktar||k.miktar) > 0.01);
 
+  const content = document.getElementById('modal-onay-content');
   content.innerHTML = `
     <div style="margin-bottom:12px;">
       <div style="font-size:15px;font-weight:700;color:var(--primary);">${s.firma}</div>
-      <div style="font-size:12px;color:var(--gray-500);">Sipariş: ${s.siparisNo} • ${s.tarih ? new Date(s.tarih).toLocaleDateString('tr-TR') : '—'}</div>
+      <div style="font-size:12px;color:var(--gray-500);">
+        <span style="font-family:monospace;font-weight:700;color:#5b21b6">${s.siparisNo}</span>
+        • ${s.tarih||'—'} • ${s.olusturanAd||''}
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
-      <div class="stat-card"><div class="stat-num">${s.kalemler.length}</div><div class="stat-label">Toplam</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--success)">${gelenler.length}</div><div class="stat-label">Geldi</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${eksikler.length}</div><div class="stat-label">Eksik</div></div>
+      <div class="stat-card"><div class="stat-num">${kalemler.length}</div><div class="stat-label">Toplam</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--success)">${tamam.length}</div><div class="stat-label">Geldi</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${eksikler.length}</div><div class="stat-label">Bekliyor</div></div>
     </div>
     ${eksikler.length ? `
-      <div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px;">⚠️ Gelmeyen Kalemler</div>
+      <div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px;">⚠️ Bekleyen Kalemler</div>
       ${eksikler.map(k => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--gray-100);">
+        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100);">
           <div>
-            <div style="font-size:13px;font-weight:600;">${k.urunAd}</div>
-            <div style="font-size:11px;color:var(--gray-400);">${k.lnKod}</div>
+            <div style="font-size:13px;font-weight:600;">${k.ad}</div>
+            <div style="font-size:11px;color:var(--gray-400);">${k.kod||'—'}</div>
           </div>
-          <span style="font-size:13px;font-weight:600;color:var(--danger);">${k.miktar} ${k.birim}</span>
+          <div style="text-align:right">
+            <div style="font-size:12px;font-weight:700;color:var(--danger)">Kalan: ${k.kalanMiktar||k.miktar} ${k.birim}</div>
+            ${k.gelenMiktar>0?`<div style="font-size:11px;color:var(--success)">Gelen: ${k.gelenMiktar} ${k.birim}</div>`:''}
+          </div>
         </div>`).join('')}
     ` : ''}
-    ${gelenler.length ? `
-      <div style="font-size:12px;font-weight:700;color:var(--success);margin:10px 0 6px;">✅ Gelen Kalemler</div>
-      ${gelenler.map(k => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--gray-100);">
+    ${tamam.length ? `
+      <div style="font-size:12px;font-weight:700;color:var(--success);margin:10px 0 6px;">✅ Teslim Alınan Kalemler</div>
+      ${tamam.map(k => `
+        <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100);">
           <div>
-            <div style="font-size:13px;font-weight:600;">${k.urunAd}</div>
-            <div style="font-size:11px;color:var(--gray-400);">${k.lnKod}</div>
+            <div style="font-size:13px;font-weight:600;">${k.ad}</div>
+            <div style="font-size:11px;color:var(--gray-400);">${k.kod||'—'}</div>
           </div>
-          <span style="font-size:13px;color:var(--success);">${k.miktar} ${k.birim}</span>
+          <span style="font-size:13px;color:var(--success);">${k.gelenMiktar||k.miktar} ${k.birim} ✓</span>
         </div>`).join('')}
     ` : ''}
   `;
 
-  // Eksik ürünleri forma ekleme butonu
   const actions = document.getElementById('modal-onay-actions');
   actions.innerHTML = eksikler.length ? `
     <button class="btn btn-gray" onclick="closeModal('modal-onay')">Kapat</button>
@@ -3658,42 +3715,156 @@ function openSiparisDetay(siparisNo) {
 }
 
 function eksikleriFormaEkle(siparisNo) {
-  const s = (db.siparisler||[]).find(x => x.siparisNo === siparisNo);
+  const cache = window._siparisHavuzuCache || {};
+  const s = cache[siparisNo];
   if (!s) return;
-  const eksikler = s.kalemler.filter(k => !k.geldi);
-  if (!eksikler.length) { showToast('Tüm kalemler zaten geldi'); return; }
+  const eksikler = (s.kalemler||[]).filter(k => (k.kalanMiktar||k.miktar) > 0.01);
+  if (!eksikler.length) { showToast('Tüm kalemler zaten teslim alındı'); return; }
 
   // Firma seç
-  document.getElementById('firma-input').value = s.firma;
-  state.selectedFirmaId = null;
+  const firmaInp = document.getElementById('firma-input');
+  if (firmaInp) firmaInp.value = s.firma;
   const firma = FIRMA_DB.find(f => f.ad.toLowerCase().includes(s.firma.toLowerCase().slice(0,8)));
-  if (firma) { state.selectedFirmaId = firma.id; document.getElementById('firma-id').value = firma.id; }
+  if (firma) { state.selectedFirmaId = firma.id; const fi=document.getElementById('firma-id'); if(fi)fi.value=firma.id; }
 
-  // Ürünleri ekle
+  // Sipariş no doldur
+  const sipNoInp = document.getElementById('ln-siparis-no');
+  if (sipNoInp) { sipNoInp.value = siparisNo; siparisSorgula(siparisNo); }
+
+  // Kalan kalemleri forma ekle
   state.formRows = [];
   eksikler.forEach(k => {
-    const urun = URUN_DB.find(u => u.kod === k.lnKod);
+    const urun = URUN_DB.find(u => u.kod === k.kod);
     state.formRows.push({
-      ad: k.urunAd, kod: k.lnKod,
-      miktar: k.miktar.toString(), birim: k.birim.toUpperCase(),
-      sicaklikKriter: urun?.sicaklikKriter || '', sicaklik: '',
-      skt: '', seriNo: '', marka: '', uygun: true, not: '', barkod: ''
+      ad: k.ad, kod: k.kod||'',
+      miktar: String(k.kalanMiktar||k.miktar), birim: (k.birim||'KG').toUpperCase(),
+      sicaklikKriter: urun?.sicaklikKriter||'', sicaklik:'',
+      skt:'', seriNo:'', marka:'', uygun:true, not:'', barkod:''
     });
   });
 
   renderUrunRows();
   closeModal('modal-onay');
   switchTab('malkabul');
-  showToast(`✅ ${eksikler.length} eksik kalem forma eklendi`);
+  showToast(`✅ ${eksikler.length} kalem forma eklendi — Sipariş: ${siparisNo}`);
 }
 
-function updateSiparisBadge() {
-  const bekleyen = (db.siparisler||[]).filter(s => s.durum === 'bekleyen').length;
-  const b = document.getElementById('siparis-badge');
-  if (b) {
-    if (bekleyen > 0) { b.textContent = bekleyen; b.style.display = 'block'; }
-    else b.style.display = 'none';
+// ============================================================
+// MAL KABUL SORGU
+// ============================================================
+let _sqFilter='tumu';
+
+function sqFilter(f,el){
+  _sqFilter=f;
+  document.querySelectorAll('#tab-sorgu .filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderSorgu();
+}
+
+function renderSorgu(){
+  const ara=(document.getElementById('sorgu-inp')?.value||'').toLowerCase().trim();
+  let liste=[...(db.formlar||[]),...(db.arsiv||[])].filter(Boolean);
+  if(_sqFilter!=='tumu')liste=liste.filter(f=>f.durum===_sqFilter);
+  if(ara){
+    liste=liste.filter(f=>{
+      if((f.mkNo||'').toLowerCase().includes(ara))return true;
+      if((f.firma||'').toLowerCase().includes(ara))return true;
+      if((f.faturaNo||'').toLowerCase().includes(ara))return true;
+      if((f.irsaliyeNo||'').toLowerCase().includes(ara))return true;
+      if((f.lnSiparisNo||'').toLowerCase().includes(ara))return true;
+      if(f.urunler?.some(u=>(u.ad||'').toLowerCase().includes(ara)))return true;
+      return false;
+    });
   }
+  liste.sort((a,b)=>(b.tarih||0)-(a.tarih||0));
+
+  const c=document.getElementById('sorgu-sonuc');
+  if(!liste.length){
+    c.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div>
+      <div class="empty-text">${ara?'Sonuç bulunamadı':'Kayıt yok'}</div></div>`;
+    return;
+  }
+
+  const dRenk={onaylandi:'var(--success)',bekleyen:'var(--warning)',reddedildi:'var(--danger)'};
+  const dEtiket={onaylandi:'✅ Onaylı',bekleyen:'⏳ Bekliyor',reddedildi:'❌ Reddedildi'};
+
+  c.innerHTML=liste.map(f=>{
+    const eslUrunler=ara?(f.urunler||[]).filter(u=>(u.ad||'').toLowerCase().includes(ara)):[];
+    return`<div class="kayit-item" style="cursor:pointer;border-left:4px solid ${dRenk[f.durum]||'var(--gray-300)'}" onclick="sorguDetayAc(${f.id})">
+      <div class="kayit-header">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+            <span style="font-family:monospace;font-weight:800;color:var(--primary)">${f.mkNo||'—'}</span>
+            <span style="font-size:11px;font-weight:600;color:${dRenk[f.durum]||'var(--gray-500)'}">${dEtiket[f.durum]||f.durum}</span>
+          </div>
+          <div class="kayit-firma">🏢 ${f.firma||'—'}</div>
+          <div class="kayit-meta">
+            ${f.formTarih||new Date(f.tarih||0).toLocaleDateString('tr-TR')}
+            ${f.faturaNo?' • Fatura: '+f.faturaNo:''}
+            ${f.lnSiparisNo?' • '+f.lnSiparisNo:''}
+            ${f.personel?' • '+f.personel:''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:18px;font-weight:800;color:var(--primary)">${(f.urunler||[]).length}</div>
+          <div style="font-size:10px;color:var(--gray-500)">KALEM</div>
+        </div>
+      </div>
+      ${eslUrunler.length?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--gray-100)">
+        <div style="font-size:11px;color:#0284c7;font-weight:600;margin-bottom:2px">🎯 Eşleşen:</div>
+        ${eslUrunler.map(u=>`<div style="font-size:11px;color:var(--gray-600)">• ${u.ad} — ${u.miktar} ${u.birim}</div>`).join('')}
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function sorguDetayAc(formId){
+  const f=[...(db.formlar||[]),...(db.arsiv||[])].flat().find(x=>x.id==formId);
+  if(!f)return;
+  const content=document.getElementById('modal-onay-content');
+  content.innerHTML=`
+    <div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-family:monospace;font-weight:800;font-size:16px;color:var(--primary)">${f.mkNo||'—'}</span>
+        <span class="chip ${f.durum==='onaylandi'?'chip-success':f.durum==='reddedildi'?'chip-danger':'chip-warning'}">${f.durum==='onaylandi'?'✅ Onaylı':f.durum==='reddedildi'?'❌ Reddedildi':'⏳ Bekliyor'}</span>
+      </div>
+      <div style="font-size:14px;font-weight:700">${f.firma}</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-top:3px">
+        ${f.formTarih||'—'}
+        ${f.faturaNo?' • Fatura: <b>'+f.faturaNo+'</b>':''}
+        ${f.irsaliyeNo?' • İrsaliye: '+f.irsaliyeNo:''}
+      </div>
+      ${f.lnSiparisNo?`<div style="font-size:12px;margin-top:3px">📋 Sipariş: <span style="font-family:monospace;font-weight:700;color:#5b21b6">${f.lnSiparisNo}</span></div>`:''}
+      ${f.onaylayan?`<div style="font-size:11px;color:var(--success);margin-top:3px">Onaylayan: ${f.onaylayan}</div>`:''}
+      ${f.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:3px">Red notu: ${f.redNot}</div>`:''}
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📦 Ürünler (${(f.urunler||[]).length} kalem)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--gray-100)">
+        <th style="padding:5px 6px;text-align:left">#</th>
+        <th style="padding:5px 6px;text-align:left">Ürün</th>
+        <th style="padding:5px 6px;text-align:right">Miktar</th>
+        <th style="padding:5px 6px;text-align:center">Durum</th>
+      </tr>
+      ${(f.urunler||[]).map((u,i)=>`
+        <tr style="border-bottom:1px solid var(--gray-100)">
+          <td style="padding:5px 6px;color:var(--gray-400)">${i+1}</td>
+          <td style="padding:5px 6px">
+            <div style="font-weight:600">${u.ad}</div>
+            <div style="font-size:10px;color:var(--gray-400);font-family:monospace">${u.kod||''}</div>
+            ${u.skt?`<div style="font-size:10px;color:var(--warning)">SKT: ${u.skt}</div>`:''}
+          </td>
+          <td style="padding:5px 6px;text-align:right;font-weight:700">${u.miktar} ${u.birim}</td>
+          <td style="padding:5px 6px;text-align:center">${u.uygun!==false?'<span style="color:var(--success)">✅</span>':'<span style="color:var(--danger)">❌</span>'}</td>
+        </tr>`).join('')}
+    </table>`;
+  const actions=document.getElementById('modal-onay-actions');
+  actions.innerHTML=`<button class="btn btn-gray btn-block" onclick="closeModal('modal-onay')">Kapat</button>`;
+  openModal('modal-onay');
+}
+
+function updateSiparisBadge(){
+  // badge artık renderSiparisler içinde güncelleniyor
 }
 
 
