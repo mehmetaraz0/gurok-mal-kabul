@@ -856,9 +856,10 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           <label>İrsaliye No</label>
           <input type="text" id="irsaliye-no" placeholder="İrsaliye no">
         </div>
-        <div class="field">
-          <label>LN Sipariş No</label>
-          <input type="text" id="ln-siparis-no" placeholder="C000... (LN'e aktarım için)">
+        <div class="field" style="position:relative">
+          <label>Sipariş No</label>
+          <input type="text" id="ln-siparis-no" placeholder="C00091112 (yazınca otomatik bulur)" oninput="siparisSorgula(this.value)" autocomplete="off">
+          <div id="siparis-bilgi" style="display:none;margin-top:6px;padding:8px 10px;background:#ede9fe;border-radius:8px;font-size:12px;color:#5b21b6"></div>
         </div>
         <div class="field">
           <label>Araç Hijyen</label>
@@ -2051,6 +2052,40 @@ function resetForm() {
   document.getElementById('ai-tedarikcii-panel').style.display = 'none';
 }
 
+// ============================================================
+// SİPARİŞ SORGULAMA — Satın Alma'da oluşturulan siparişi bul ve doldur
+// ============================================================
+let _siparisSorguTimer=null;
+function siparisSorgula(val){
+  clearTimeout(_siparisSorguTimer);
+  const bilgiDiv=document.getElementById('siparis-bilgi');
+  if(!val||val.length<6){bilgiDiv.style.display='none';return;}
+  _siparisSorguTimer=setTimeout(async ()=>{
+    try{
+      const r=await fetch(FIREBASE_URL+'/siparisHavuzu/'+val.toUpperCase()+'.json');
+      if(!r.ok){bilgiDiv.style.display='none';return;}
+      const sip=await r.json();
+      if(!sip||sip.rezerve){bilgiDiv.style.display='none';return;}
+
+      bilgiDiv.style.display='block';
+      bilgiDiv.innerHTML=`✅ <b>${sip.firma}</b> — ${sip.kalemler?.length||0} kalem — ${sip.tarih||''} ${sip.durum==='tamamlandi'?' <span style="color:#9b1c1c">⚠️ Bu sipariş zaten tamamlanmış</span>':''}`;
+
+      // Firma adını otomatik doldur (varsa input)
+      const firmaInp=document.getElementById('firma-adi')||document.getElementById('firma-input');
+      if(firmaInp&&!firmaInp.value)firmaInp.value=sip.firma;
+
+      // Ürün satırlarını otomatik doldur — sadece form boşsa
+      if((!state.formRows.length||state.formRows.every(r=>!r.ad))&&sip.kalemler?.length){
+        state.formRows=[];
+        sip.kalemler.forEach(k=>{
+          addUrunRow({ad:k.ad,kod:k.kod||'',miktar:k.kalanMiktar>0?k.kalanMiktar:k.miktar,birim:k.birim});
+        });
+        showToast(`📋 ${sip.kalemler.length} kalem sipariş üzerinden dolduruldu`);
+      }
+    }catch(e){bilgiDiv.style.display='none';}
+  },400);
+}
+
 function addUrunRow(data) {
   state.formRows.push({
     ad:'', kod:'', barkod:'', seriNo:'', marka:'',
@@ -2683,6 +2718,8 @@ async function onaylaForm(id) {
     f.onaylayan = state.currentUser.ad;
     f.onayTarih = Date.now();
     await saveFormTekil(f); // tekil node güncelle
+    // Sipariş havuzunu güncelle — gelen miktarları işle
+    if(f.lnSiparisNo){ await siparisHavuzuGuncelle(f.lnSiparisNo, f.urunler||[]); }
     closeModal('modal-onay');
     showToast('✅ Form onaylandı');
     renderOnayList();
@@ -2690,6 +2727,33 @@ async function onaylaForm(id) {
   } finally {
     _onaylaniyor = false;
   }
+}
+
+// ============================================================
+// SİPARİŞ HAVUZU GÜNCELLE — mal kabul onaylanınca gelen miktarı işle
+// ============================================================
+async function siparisHavuzuGuncelle(siparisNo, gelenUrunler){
+  try{
+    const r=await fetch(FIREBASE_URL+'/siparisHavuzu/'+siparisNo.toUpperCase()+'.json');
+    if(!r.ok)return;
+    const sip=await r.json();
+    if(!sip||!sip.kalemler)return;
+
+    gelenUrunler.forEach(gu=>{
+      const kalem=sip.kalemler.find(k=>k.kod===gu.kod||k.ad?.toLowerCase()===gu.ad?.toLowerCase());
+      if(kalem){
+        kalem.gelenMiktar=(kalem.gelenMiktar||0)+(parseFloat(gu.miktar)||0);
+        kalem.kalanMiktar=Math.max(0,(kalem.miktar||0)-kalem.gelenMiktar);
+      }
+    });
+
+    const tumuTamam=sip.kalemler.every(k=>k.kalanMiktar<=0.01);
+    const kismiGeldi=sip.kalemler.some(k=>k.gelenMiktar>0);
+    sip.durum = tumuTamam ? 'tamamlandi' : (kismiGeldi ? 'kismi' : 'bekleyen');
+    sip.sonGuncelleme=Date.now();
+
+    await fetch(FIREBASE_URL+'/siparisHavuzu/'+siparisNo.toUpperCase()+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(sip)});
+  }catch(e){console.warn('Sipariş havuzu güncellenemedi:',e);}
 }
 
 async function reddetForm(id) {
