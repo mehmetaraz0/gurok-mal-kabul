@@ -796,7 +796,29 @@ document.addEventListener('pointerdown',e=>{
 
 function spGeriDon(){document.getElementById('spAdim1').style.display='block';document.getElementById('spAdim2').style.display='none';}
 
-function spGrupla(){
+// ============================================================
+// SİPARİŞ NO ÜRET — C00091111 formatı, kendi havuzumuzdan
+// ============================================================
+async function yeniSiparisNoUret(){
+  try{
+    const r=await fetch(FB+'/siparisHavuzu.json?shallow=true');
+    let maxNo=91110; // başlangıç noktası
+    if(r.ok){
+      const d=await r.json();
+      if(d){
+        Object.keys(d).forEach(k=>{
+          const m=k.match(/^C(\d+)$/);
+          if(m){const n=parseInt(m[1]);if(n>maxNo)maxNo=n;}
+        });
+      }
+    }
+    return 'C'+String(maxNo+1).padStart(8,'0');
+  }catch(e){
+    return 'C'+String(91111+Math.floor(Math.random()*1000)).padStart(8,'0');
+  }
+}
+
+async function spGrupla(){
   const dolu=SP_SATIRLAR.filter(u=>u.ad&&u.miktar);
   if(!dolu.length){toast('⚠️ Kalem ekleyin');return;}
 
@@ -812,12 +834,22 @@ function spGrupla(){
   const termin=document.getElementById('sp-termin').value;
   const grupListesi=Object.values(gruplar).sort((a,b)=>a.firmaAd.localeCompare(b.firmaAd));
 
+  sLD();
+  // Her firma grubuna ayrı sipariş no ata
+  for(const g of grupListesi){
+    g.siparisNo = await yeniSiparisNoUret();
+    // Hemen havuza yaz ki bir sonraki grup farklı no alsın (çakışma önleme)
+    await fetch(FB+'/siparisHavuzu/'+g.siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({rezerve:true,ts:Date.now()})});
+  }
+  hLD();
+
   document.getElementById('sp-gruplar').innerHTML=grupListesi.map((g,gi)=>`
     <div class="card" style="margin-bottom:10px;border-left:4px solid var(--primary)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div>
           <div style="font-size:14px;font-weight:700;color:var(--primary)">${g.firmaAd||'⚠️ Firma Atanmamış'}</div>
           <div style="font-size:11px;color:var(--gray-500)">${g.kalemler.length} kalem</div>
+          <div style="margin-top:4px"><span class="chip" style="background:#ede9fe;color:#5b21b6;font-family:monospace;font-weight:700">📋 ${g.siparisNo}</span></div>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-sm btn-gray" onclick="spPDF(${gi})">🖨️ PDF</button>
@@ -845,8 +877,27 @@ function spGrupla(){
   window._spTarih=tarih;
   window._spTermin=termin;
 
+  // Siparişleri kalıcı olarak havuza yaz (mal kabul ve fatura eşleştirme için)
+  for(const g of grupListesi){
+    const siparis={
+      siparisNo:g.siparisNo,
+      firma:g.firmaAd,firmaId:g.firmaId,
+      tarih,termin,
+      kalemler:g.kalemler.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
+        gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0})),
+      durum:'bekleyen', // bekleyen | kismi | tamamlandi | iptal
+      olusturanAd:CU.ad,
+      olusturmaTarih:Date.now()
+    };
+    await fetch(FB+'/siparisHavuzu/'+g.siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(siparis)});
+    // Eski satinAlmaSiparisler koleksiyonuna da yaz (geriye dönük uyumluluk)
+    DB.siparisler[g.siparisNo]=siparis;
+    await save('satinAlmaSiparisler/'+g.siparisNo,siparis);
+  }
+
   document.getElementById('spAdim1').style.display='none';
   document.getElementById('spAdim2').style.display='block';
+  toast(`✅ ${grupListesi.length} sipariş oluşturuldu`);
 }
 
 function spPDF(gi){
@@ -872,6 +923,7 @@ function spPDF(gi){
   <h2>Gürok Turizm Grubu</h2>
   <div class="sub">Sipariş Formu</div>
   <div class="info">
+    <div><label>Sipariş No</label><span>${g.siparisNo||'—'}</span></div>
     <div><label>Tedarikçi Firma</label><span>${g.firmaAd}</span></div>
     <div><label>Sipariş Tarihi</label><span>${tarih}</span></div>
     <div><label>Hazırlayan</label><span>${CU.ad}</span></div>
@@ -906,21 +958,9 @@ function spMail(gi){
   const firma=DB.firmalar.find(f=>f.id==g.firmaId||f.ad===g.firmaAd);
   const mail=firma?.mail||'';
   const kalemler=g.kalemler.map((k,i)=>`${i+1}. ${k.ad} — ${k.miktar} ${k.birim}`).join('\n');
-  const body=`Sayın ${g.firmaAd},\n\nAşağıdaki ürünler için fiyat teklifinizi bekliyoruz:\n\n${kalemler}\n\nSipariş Tarihi: ${tarih}${termin?'\nTermin Tarihi: '+termin:''}\n\nSaygılarımızla,\n${CU.ad}\nGürok Turizm Grubu`;
-  const subject=encodeURIComponent(`Fiyat Teklifi Talebi — ${g.firmaAd} — ${tarih}`);
+  const body=`Sayın ${g.firmaAd},\n\nSipariş No: ${g.siparisNo||'—'}\n\nAşağıdaki ürünler için fiyat teklifinizi bekliyoruz:\n\n${kalemler}\n\nSipariş Tarihi: ${tarih}${termin?'\nTermin Tarihi: '+termin:''}\n\nSaygılarımızla,\n${CU.ad}\nGürok Turizm Grubu`;
+  const subject=encodeURIComponent(`Sipariş ${g.siparisNo||''} — ${g.firmaAd} — ${tarih}`);
   window.open(`mailto:${mail}?subject=${subject}&body=${encodeURIComponent(body)}`);
-}
-
-async function spKaydet(){
-  if(!window._spGruplar||!window._spGruplar.length)return;
-  const tarih=window._spTarih||'';
-  window._spGruplar.forEach(async g=>{
-    if(!g.kalemler.length)return;
-    const sip={id:'SP_'+Date.now()+'_'+Math.random().toString(36).slice(2,4),tarih,termin:window._spTermin||'',firma:g.firmaAd,firmaId:g.firmaId,kalemler:g.kalemler,olusturanAd:CU.ad,olusturmaTarih:Date.now(),durum:'bekleyen'};
-    DB.siparisler[sip.id]=sip;
-    await save('satinAlmaSiparisler/'+sip.id,sip);
-  });
-  toast('✅ Siparişler kaydedildi');
 }
 
 function spMailGonder(){spMail(0);}// eski referans için
