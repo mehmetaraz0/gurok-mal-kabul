@@ -185,6 +185,623 @@ let yevKalemler=[];
 // ============================================================
 // FIREBASE
 // ============================================================
+// ============================================================
+// DÖNEM KONTROLÜ & DENETİM İZİ (paylaşılan mantık)
+// ============================================================
+async function donemAcikMi(tarihMs){
+  try{
+    const r=await fetch(FB+'/muhasebe/donemler.json');
+    if(!r.ok)return{acik:true};
+    const d=await r.json();
+    if(!d)return{acik:true};
+    for(const key in d){
+      const don=d[key];if(!don)continue;
+      const bas=new Date(don.baslangic).getTime();
+      const bit=new Date(don.bitis+'T23:59:59').getTime();
+      if(tarihMs>=bas&&tarihMs<=bit)return{acik:don.durum!=='kapali',donem:don};
+    }
+    return{acik:true};
+  }catch(e){return{acik:true};}
+}
+
+async function auditLogYaz(action,entityType,entityId,detail){
+  const log={
+    id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+    action,entityType,entityId:String(entityId||''),detail:detail||'',
+    userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',
+    timestamp:Date.now()
+  };
+  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}
+  catch(e){console.warn('Audit log kaydedilemedi:',e);}
+}
+
+async function loadDB(){
+  sLD();
+  try{
+    const [yR,hR]=await Promise.all([
+      fetch(FB+'/muhasebe/yevmiye.json'),
+      fetch(FB+'/muhasebe/hesapPlani.json'),
+    ]);
+    if(yR.ok){const d=await yR.json();if(d&&typeof d==='object')yevmiyeler=d;}
+    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hesapPlani=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+async function saveYevmiye(y){
+  try{await fetch(FB+'/muhasebe/yevmiye/'+y.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(y)});}
+  catch(e){console.warn(e);}
+}
+
+// ============================================================
+// FİŞ NO ÜRET
+// ============================================================
+function yeniFisNo(){
+  const yil=new Date().getFullYear();
+  const sayi=Object.keys(yevmiyeler).length+1;
+  return`YEV-${yil}-${String(sayi).padStart(5,'0')}`;
+}
+
+// ============================================================
+// RENDER YEVMİYE
+// ============================================================
+function renderYevmiye(){
+  const bas=document.getElementById('yev-bas').value;
+  const bit=document.getElementById('yev-bit').value;
+  const basTs=bas?new Date(bas).getTime():0;
+  const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
+
+  let liste=Object.values(yevmiyeler).filter(y=>y&&y.tarih>=basTs&&y.tarih<=bitTs)
+    .sort((a,b)=>b.tarih-a.tarih);
+
+  const c=document.getElementById('yevmiye-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📒</div><div class="et">Yevmiye kaydı bulunamadı</div></div>';return;}
+
+  // Gün bazlı grupla
+  const gruplar={};
+  liste.forEach(y=>{const g=new Date(y.tarih).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(y);});
+
+  c.innerHTML=Object.entries(gruplar).map(([gun,liste])=>`
+    <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin:8px 0 4px;text-transform:uppercase">${gun}</div>
+    ${liste.map(y=>`
+      <div class="yev-kart ${y.onaylandi?'onaylandi':'taslak'}" onclick="openYevmiyeDetay('${y.id}')">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <div>
+            <div style="font-size:13px;font-weight:700">${y.no} <span style="font-size:11px;color:var(--gray-500)">• ${y.tip}</span></div>
+            <div style="font-size:12px;color:var(--gray-600)">${y.aciklama||'—'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:14px;font-weight:800;color:var(--danger)">${fmt(y.toplamBorc)} ₺</div>
+            <div style="font-size:10px;color:var(--gray-400)">${y.onaylandi?'✅ Onaylı':'📝 Taslak'}</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--gray-500)">${(y.kalemler||[]).map(k=>k.hesapKod).join(' / ')}</div>
+      </div>`).join('')}
+  `).join('');
+}
+
+// ============================================================
+// YEVMİYE DETAY
+// ============================================================
+function openYevmiyeDetay(id){
+  const y=yevmiyeler[id];if(!y)return;
+  document.getElementById('mYevmiyeDetayTitle').textContent=y.no;
+  document.getElementById('mYevmiyeDetayIc').innerHTML=`
+    <div style="margin-bottom:12px">
+      <div style="font-size:13px;color:var(--gray-600)">${y.tip} • ${new Date(y.tarih).toLocaleDateString('tr-TR')}</div>
+      <div style="font-size:14px;font-weight:700">${y.aciklama||'—'}</div>
+      ${y.belge?`<div style="font-size:12px;color:var(--gray-500)">Belge: ${y.belge}</div>`:''}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
+      <tr style="background:var(--gray-100)">
+        <th style="text-align:left;padding:6px">Hesap</th>
+        <th style="text-align:left;padding:6px">Açıklama</th>
+        <th style="text-align:right;padding:6px;color:var(--danger)">Borç</th>
+        <th style="text-align:right;padding:6px;color:var(--success)">Alacak</th>
+      </tr>
+      ${(y.kalemler||[]).map(k=>`<tr style="border-bottom:1px solid var(--gray-100)">
+        <td style="padding:6px;font-family:monospace;font-weight:700">${k.hesapKod}</td>
+        <td style="padding:6px">${k.hesapAd||k.aciklama||'—'}</td>
+        <td style="padding:6px;text-align:right;color:var(--danger)">${k.borc>0?fmt(k.borc)+' ₺':''}</td>
+        <td style="padding:6px;text-align:right;color:var(--success)">${k.alacak>0?fmt(k.alacak)+' ₺':''}</td>
+      </tr>`).join('')}
+      <tr style="background:var(--gray-100);font-weight:700">
+        <td colspan="2" style="padding:6px">TOPLAM</td>
+        <td style="padding:6px;text-align:right;color:var(--danger)">${fmt(y.toplamBorc)} ₺</td>
+        <td style="padding:6px;text-align:right;color:var(--success)">${fmt(y.toplamAlacak)} ₺</td>
+      </tr>
+    </table>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mYevmiyeDetay')">Kapat</button>
+      ${!y.onaylandi?`<button class="btn btn-primary btn-sm" onclick="kModal('mYevmiyeDetay');openDuzenleYevmiye('${id}')">✏️ Düzenle</button>`:''}
+    </div>`;
+  aModal('mYevmiyeDetay');
+}
+
+// ============================================================
+// YENİ YEVMİYE
+// ============================================================
+function openYeniYevmiye(){
+  yevKalemler=[];
+  document.getElementById('mYevmiyeTitle').innerHTML='➕ Yevmiye Kaydı <button class="mclose" onclick="kModal(\'mYevmiye\')">✕</button>';
+  document.getElementById('y-id').value='';
+  document.getElementById('y-no').value=yeniFisNo();
+  document.getElementById('y-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('y-tip').value='fatura';
+  document.getElementById('y-belge').value='';
+  document.getElementById('y-aciklama').value='';
+  document.getElementById('y-sil-btn').style.display='none';
+  addYevmiyeKalem();addYevmiyeKalem();
+  renderYevmiyeKalemler();
+  aModal('mYevmiye');
+}
+
+function openDuzenleYevmiye(id){
+  const y=yevmiyeler[id];if(!y)return;
+  yevKalemler=[...(y.kalemler||[])];
+  document.getElementById('mYevmiyeTitle').innerHTML='✏️ Yevmiye Düzenle <button class="mclose" onclick="kModal(\'mYevmiye\')">✕</button>';
+  document.getElementById('y-id').value=id;
+  document.getElementById('y-no').value=y.no;
+  document.getElementById('y-tarih').value=new Date(y.tarih).toISOString().split('T')[0];
+  document.getElementById('y-tip').value=y.tip;
+  document.getElementById('y-belge').value=y.belge||'';
+  document.getElementById('y-aciklama').value=y.aciklama||'';
+  document.getElementById('y-sil-btn').style.display='flex';
+  renderYevmiyeKalemler();
+  aModal('mYevmiye');
+}
+
+// ============================================================
+// YEVMİYE KALEMLERİ
+// ============================================================
+function addYevmiyeKalem(){
+  yevKalemler.push({hesapKod:'',hesapAd:'',aciklama:'',borc:0,alacak:0});
+  renderYevmiyeKalemler();
+}
+
+function renderYevmiyeKalemler(){
+  const c=document.getElementById('y-kalemler');
+  c.innerHTML=yevKalemler.map((k,i)=>`
+    <div style="display:grid;grid-template-columns:85px 1fr 90px 90px 24px;gap:4px;margin-bottom:4px;align-items:center">
+      <div style="position:relative">
+        <input type="text" id="yk-hesap-${i}" value="${k.hesapKod}" placeholder="100"
+          oninput="filterHesapDD(this.value,'yk-dd-${i}','',${i})"
+          style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;font-family:monospace;outline:none">
+        <div id="yk-dd-${i}" class="udd"></div>
+      </div>
+      <input type="text" id="yk-acik-${i}" value="${k.aciklama}" placeholder="Açıklama"
+        oninput="yevKalemler[${i}].aciklama=this.value"
+        style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none">
+      <input type="number" value="${k.borc||''}" placeholder="0.00" min="0" step="0.01"
+        oninput="yevKalemler[${i}].borc=parseFloat(this.value)||0;if(this.value)yevKalemler[${i}].alacak=0;hesaplaDenge()"
+        style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:right;outline:none;color:var(--danger)">
+      <input type="number" value="${k.alacak||''}" placeholder="0.00" min="0" step="0.01"
+        oninput="yevKalemler[${i}].alacak=parseFloat(this.value)||0;if(this.value)yevKalemler[${i}].borc=0;hesaplaDenge()"
+        style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:right;outline:none;color:var(--success)">
+      <button onclick="yevKalemler.splice(${i},1);renderYevmiyeKalemler()"
+        style="background:none;border:none;color:var(--gray-400);cursor:pointer;font-size:14px;padding:0;width:24px;text-align:center">✕</button>
+    </div>`).join('');
+  hesaplaDenge();
+}
+
+function hesaplaDenge(){
+  const topBorc=yevKalemler.reduce((t,k)=>t+(parseFloat(k.borc)||0),0);
+  const topAlacak=yevKalemler.reduce((t,k)=>t+(parseFloat(k.alacak)||0),0);
+  const fark=Math.abs(topBorc-topAlacak);
+  const dengeli=fark<0.01;
+  document.getElementById('y-denge').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+      <div style="text-align:center;font-size:12px;color:var(--danger);font-weight:700">Borç: ${fmt(topBorc)} ₺</div>
+      <div style="text-align:center;font-size:12px;color:var(--success);font-weight:700">Alacak: ${fmt(topAlacak)} ₺</div>
+    </div>
+    <div class="${dengeli?'denge-ok':'denge-err'}">${dengeli?'✅ Denge Sağlandı':'⚠️ Fark: '+fmt(fark)+' ₺ — Denge Sağlanamadı'}</div>`;
+}
+
+// ============================================================
+// HESAP DROPDOWN
+// ============================================================
+function filterHesapDD(val,ddId,kodFieldId,kalemIdx){
+  const dd=document.getElementById(ddId);
+  if(!val||val.length<1){if(dd)dd.style.display='none';return;}
+  const res=Object.values(hesapPlani).filter(h=>h&&(h.kod?.includes(val)||h.ad?.toLowerCase().includes(val.toLowerCase()))).slice(0,12);
+  if(!res.length){if(dd)dd.style.display='none';return;}
+  dd.innerHTML=res.map(h=>`<div class="uddi" data-kod="${h.kod}" data-ad="${(h.ad||'').replace(/"/g,'&quot;')}" data-idx="${kalemIdx!==undefined?kalemIdx:''}">
+    <span style="font-family:monospace;font-weight:700">${h.kod}</span> ${h.ad}
+  </div>`).join('');
+  dd.querySelectorAll('[data-kod]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      const idx=this.dataset.idx;
+      if(idx!==''){
+        yevKalemler[idx].hesapKod=this.dataset.kod;
+        yevKalemler[idx].hesapAd=this.dataset.ad;
+        const inp=document.getElementById('yk-hesap-'+idx);
+        if(inp)inp.value=this.dataset.kod;
+        // Hesap adını açıklama olarak otomatik doldur
+        const acikInp=document.getElementById('yk-acik-'+idx);
+        if(acikInp&&!acikInp.value)acikInp.value=this.dataset.ad;
+      }else if(kodFieldId){
+        document.getElementById(kodFieldId).value=this.dataset.kod;
+        const inp=document.getElementById(ddId.replace('-dd','-inp'));
+        if(inp)inp.value=this.dataset.kod+' — '+this.dataset.ad;
+        renderKebir();
+      }
+      dd.style.display='none';
+    });
+  });
+  dd.style.display='block';
+}
+document.addEventListener('pointerdown',e=>{
+  document.querySelectorAll('.udd').forEach(dd=>{if(!dd.contains(e.target))dd.style.display='none';});
+});
+
+// ============================================================
+// KAYDET
+// ============================================================
+async function yevmiyeKaydet(onayla){
+  const tarihStr=document.getElementById('y-tarih').value;
+  if(!tarihStr){toast('⚠️ Tarih girin');return;}
+  const doluKalemler=yevKalemler.filter(k=>k.hesapKod&&(k.borc>0||k.alacak>0));
+  if(doluKalemler.length<2){toast('⚠️ En az 2 kalem gerekli');return;}
+  const topBorc=doluKalemler.reduce((t,k)=>t+(k.borc||0),0);
+  const topAlacak=doluKalemler.reduce((t,k)=>t+(k.alacak||0),0);
+  if(onayla&&Math.abs(topBorc-topAlacak)>0.01){toast('⚠️ Borç-Alacak dengesi sağlanamadan onaylanamaz');return;}
+
+  // Dönem kontrolü — kapalı döneme onaylı kayıt girilemez
+  if(onayla){
+    const donemDurum=await donemAcikMi(new Date(tarihStr).getTime());
+    if(!donemDurum.acik){
+      toast(`⚠️ ${donemDurum.donem?.ad||'Bu'} dönem kapalı — kayıt yapılamaz`);
+      return;
+    }
+  }
+
+  const editId=document.getElementById('y-id').value;
+  const id=editId||('YEV_'+Date.now());
+  const yev={
+    id,no:document.getElementById('y-no').value||yeniFisNo(),
+    tarih:new Date(tarihStr).getTime(),
+    tarihStr,
+    tip:document.getElementById('y-tip').value,
+    belge:document.getElementById('y-belge').value||'',
+    aciklama:document.getElementById('y-aciklama').value||'',
+    kalemler:doluKalemler,
+    toplamBorc,toplamAlacak,
+    onaylandi:onayla,
+    olusturmaTarih:yevmiyeler[id]?.olusturmaTarih||Date.now(),
+    guncellemeTarih:Date.now()
+  };
+  sLD();yevmiyeler[id]=yev;await saveYevmiye(yev);
+  await auditLogYaz(onayla?'approve':'create','yevmiye',id,`Yevmiye fişi ${onayla?'onaylandı':'taslak kaydedildi'}: ${yev.no} (Tutar: ${fmt(topBorc)} ₺)`);
+  hLD();
+  kModal('mYevmiye');renderYevmiye();
+  toast(onayla?`✅ ${yev.no} onaylandı`:`📝 ${yev.no} taslak kaydedildi`);
+}
+
+async function yevmiyeSil(){
+  const id=document.getElementById('y-id').value;
+  if(!id)return;
+  if(!confirm('Yevmiye kaydı silinsin mi?'))return;
+  sLD();delete yevmiyeler[id];
+  await fetch(FB+'/muhasebe/yevmiye/'+id+'.json',{method:'DELETE'});
+  hLD();kModal('mYevmiye');renderYevmiye();toast('🗑️ Silindi');
+}
+
+// ============================================================
+// DEFTERİ KEBİR
+// ============================================================
+function renderKebir(){
+  const kod=document.getElementById('kebir-hesap-kod').value||document.getElementById('kebir-hesap-inp').value;
+  if(!kod){document.getElementById('kebir-sonuc').innerHTML='';return;}
+  const bas=document.getElementById('kebir-bas').value;
+  const bit=document.getElementById('kebir-bit').value;
+  const basTs=bas?new Date(bas).getTime():0;
+  const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
+
+  // Bu hesabı içeren yevmiye kayıtlarını bul
+  const satirlar=[];
+  Object.values(yevmiyeler).filter(y=>y&&y.onaylandi&&y.tarih>=basTs&&y.tarih<=bitTs)
+    .sort((a,b)=>a.tarih-b.tarih)
+    .forEach(y=>{
+      (y.kalemler||[]).filter(k=>k.hesapKod===kod||k.hesapKod?.startsWith(kod)).forEach(k=>{
+        satirlar.push({...k,yevNo:y.no,tarih:y.tarih,aciklamaYev:y.aciklama});
+      });
+    });
+
+  if(!satirlar.length){document.getElementById('kebir-sonuc').innerHTML='<div class="es"><div class="ei">📗</div><div class="et">Bu hesapta hareket yok</div></div>';return;}
+
+  let topBorc=0,topAlacak=0,bakiye=0;
+  const hesap=Object.values(hesapPlani).find(h=>h.kod===kod);
+
+  document.getElementById('kebir-sonuc').innerHTML=`
+    <div class="card">
+      <div class="card-title">${kod} — ${hesap?.ad||kod}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="background:var(--gray-100)">
+          <th style="text-align:left;padding:6px">Tarih</th>
+          <th style="text-align:left;padding:6px">Fiş</th>
+          <th style="text-align:left;padding:6px">Açıklama</th>
+          <th style="text-align:right;padding:6px;color:var(--danger)">Borç</th>
+          <th style="text-align:right;padding:6px;color:var(--success)">Alacak</th>
+          <th style="text-align:right;padding:6px">Bakiye</th>
+        </tr>
+        ${satirlar.map(s=>{
+          topBorc+=s.borc||0;topAlacak+=s.alacak||0;
+          bakiye+=(s.borc||0)-(s.alacak||0);
+          return`<tr style="border-bottom:1px solid var(--gray-100)">
+            <td style="padding:6px">${new Date(s.tarih).toLocaleDateString('tr-TR')}</td>
+            <td style="padding:6px;font-family:monospace;font-size:11px">${s.yevNo}</td>
+            <td style="padding:6px">${s.aciklamaYev||s.aciklama||'—'}</td>
+            <td style="padding:6px;text-align:right;color:var(--danger)">${s.borc>0?fmt(s.borc)+'₺':''}</td>
+            <td style="padding:6px;text-align:right;color:var(--success)">${s.alacak>0?fmt(s.alacak)+'₺':''}</td>
+            <td style="padding:6px;text-align:right;font-weight:700;color:${bakiye>=0?'var(--danger)':'var(--success)'}">${fmt(Math.abs(bakiye))}₺</td>
+          </tr>`;
+        }).join('')}
+        <tr style="background:var(--gray-100);font-weight:700">
+          <td colspan="3" style="padding:6px">TOPLAM</td>
+          <td style="padding:6px;text-align:right;color:var(--danger)">${fmt(topBorc)}₺</td>
+          <td style="padding:6px;text-align:right;color:var(--success)">${fmt(topAlacak)}₺</td>
+          <td style="padding:6px;text-align:right">${fmt(Math.abs(topBorc-topAlacak))}₺</td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+// ============================================================
+// MİZAN
+// ============================================================
+function renderMizan(){
+  const bas=document.getElementById('mizan-bas').value;
+  const bit=document.getElementById('mizan-bit').value;
+  const basTs=bas?new Date(bas).getTime():0;
+  const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
+  const gizleSifir=document.getElementById('mizan-sifir').checked;
+
+  // Hesap bazlı topla
+  const hesapToplam={};
+  Object.values(yevmiyeler).filter(y=>y&&y.onaylandi&&y.tarih>=basTs&&y.tarih<=bitTs).forEach(y=>{
+    (y.kalemler||[]).forEach(k=>{
+      if(!k.hesapKod)return;
+      if(!hesapToplam[k.hesapKod])hesapToplam[k.hesapKod]={kod:k.hesapKod,ad:k.hesapAd||'',borc:0,alacak:0};
+      hesapToplam[k.hesapKod].borc+=(k.borc||0);
+      hesapToplam[k.hesapKod].alacak+=(k.alacak||0);
+    });
+  });
+
+  // Hesap planından adları doldur
+  Object.values(hesapToplam).forEach(h=>{
+    const hp=hesapPlani[h.kod.replace(/\./g,'_')];
+    if(hp)h.ad=hp.ad;
+  });
+
+  let satirlar=Object.values(hesapToplam).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
+  if(gizleSifir)satirlar=satirlar.filter(h=>Math.abs(h.borc-h.alacak)>0.01);
+
+  const topBorc=satirlar.reduce((t,h)=>t+h.borc,0);
+  const topAlacak=satirlar.reduce((t,h)=>t+h.alacak,0);
+
+  if(!satirlar.length){document.getElementById('mizan-tablo').innerHTML='<div class="es"><div class="ei">📊</div><div class="et">Bu dönemde onaylı kayıt yok</div></div>';return;}
+
+  document.getElementById('mizan-tablo').innerHTML=`
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:10px 12px;background:var(--primary);color:white;font-size:12px;font-weight:700;display:grid;grid-template-columns:80px 1fr 90px 90px 90px">
+        <span>HESAP</span><span>AD</span>
+        <span style="text-align:right;color:#fca5a5">BORÇ</span>
+        <span style="text-align:right;color:#86efac">ALACAK</span>
+        <span style="text-align:right">BAKİYE</span>
+      </div>
+      ${satirlar.map(h=>{
+        const bak=h.borc-h.alacak;
+        return`<div style="display:grid;grid-template-columns:80px 1fr 90px 90px 90px;padding:7px 12px;border-bottom:1px solid var(--gray-100);font-size:12px">
+          <span style="font-family:monospace;font-weight:700">${h.kod}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.ad}</span>
+          <span style="text-align:right;color:var(--danger)">${fmt(h.borc)}</span>
+          <span style="text-align:right;color:var(--success)">${fmt(h.alacak)}</span>
+          <span style="text-align:right;font-weight:700;color:${bak>=0?'var(--danger)':'var(--success)'}">${fmt(Math.abs(bak))}</span>
+        </div>`;
+      }).join('')}
+      <div style="display:grid;grid-template-columns:80px 1fr 90px 90px 90px;padding:8px 12px;background:var(--gray-100);font-weight:700;font-size:12px">
+        <span colspan="2">TOPLAM</span><span></span>
+        <span style="text-align:right;color:var(--danger)">${fmt(topBorc)}</span>
+        <span style="text-align:right;color:var(--success)">${fmt(topAlacak)}</span>
+        <span style="text-align:right;color:${Math.abs(topBorc-topAlacak)<0.01?'var(--success)':'var(--danger)'}">${fmt(Math.abs(topBorc-topAlacak))}</span>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:12px;color:${Math.abs(topBorc-topAlacak)<0.01?'var(--success)':'var(--danger)'};margin-top:8px;font-weight:700">
+      ${Math.abs(topBorc-topAlacak)<0.01?'✅ Mizan Dengeli':'⚠️ Mizan Dengesiz — Fark: '+fmt(Math.abs(topBorc-topAlacak))+' ₺'}
+    </div>`;
+}
+
+// ============================================================
+// YARDIMCI
+// ============================================================
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='yevmiye')renderYevmiye();
+  if(tab==='kebir')renderKebir();
+  if(tab==='mizan')renderMizan();
+}
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function aModal(id){document.getElementById(id).classList.add('open');}
+function kModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  const today=new Date().toISOString().split('T')[0];
+  const ayBasi=new Date();ayBasi.setDate(1);
+  const ayBasiStr=ayBasi.toISOString().split('T')[0];
+  document.getElementById('yev-bas').value=ayBasiStr;
+  document.getElementById('yev-bit').value=today;
+  document.getElementById('kebir-bas').value=ayBasiStr;
+  document.getElementById('kebir-bit').value=today;
+  document.getElementById('mizan-bas').value=ayBasiStr;
+  document.getElementById('mizan-bit').value=today;
+  renderYevmiye();
+})();
+</script>
+</body>
+</html>
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:92vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+.yev-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-300);cursor:pointer}
+.yev-kart.onaylandi{border-left-color:var(--success)}
+.yev-kart.taslak{border-left-color:var(--gray-400)}
+.kalem-satir{display:grid;grid-template-columns:80px 1fr 100px 100px;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-100)}
+.kalem-satir:last-child{border-bottom:none}
+.denge-ok{background:#d4edda;border-radius:6px;padding:6px 10px;font-size:12px;color:#155724;text-align:center;margin-top:8px}
+.denge-err{background:#fde8e8;border-radius:6px;padding:6px 10px;font-size:12px;color:#9b1c1c;text-align:center;margin-top:8px}
+.udd{display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-top:none;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.uddi{padding:8px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:12px}
+.uddi:active{background:var(--gray-100)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Yevmiye Defteri</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Günlük muhasebe kayıtları</span></div>
+    <button class="hbtn" onclick="openYeniYevmiye()">➕</button>
+  </div>
+  <div class="tab-bar">
+    <button class="tabbtn active" onclick="gTab('yevmiye',this)">📒 Yevmiye</button>
+    <button class="tabbtn" onclick="gTab('kebir',this)">📗 Defteri Kebir</button>
+    <button class="tabbtn" onclick="gTab('mizan',this)">📊 Mizan</button>
+  </div>
+
+  <!-- YEVMİYE -->
+  <div class="sc" id="tab-yevmiye" style="display:block">
+    <div class="card">
+      <div class="rfields">
+        <div class="field"><label>Başlangıç</label><input type="date" id="yev-bas" onchange="renderYevmiye()"></div>
+        <div class="field"><label>Bitiş</label><input type="date" id="yev-bit" onchange="renderYevmiye()"></div>
+      </div>
+    </div>
+    <div id="yevmiye-liste"></div>
+  </div>
+
+  <!-- DEFTERİ KEBİR -->
+  <div class="sc" id="tab-kebir">
+    <div class="card">
+      <div class="field">
+        <label>Hesap Seç</label>
+        <div style="position:relative">
+          <input type="text" id="kebir-hesap-inp" placeholder="Hesap kodu veya adı..." oninput="filterHesapDD(this.value,'kebir-hesap-dd','kebir-hesap-kod')">
+          <div id="kebir-hesap-dd" class="udd"></div>
+        </div>
+        <input type="hidden" id="kebir-hesap-kod">
+      </div>
+      <div class="rfields">
+        <div class="field"><label>Başlangıç</label><input type="date" id="kebir-bas" onchange="renderKebir()"></div>
+        <div class="field"><label>Bitiş</label><input type="date" id="kebir-bit" onchange="renderKebir()"></div>
+      </div>
+    </div>
+    <div id="kebir-sonuc"></div>
+  </div>
+
+  <!-- MİZAN -->
+  <div class="sc" id="tab-mizan">
+    <div class="card">
+      <div class="rfields">
+        <div class="field"><label>Dönem Başı</label><input type="date" id="mizan-bas" onchange="renderMizan()"></div>
+        <div class="field"><label>Dönem Sonu</label><input type="date" id="mizan-bit" onchange="renderMizan()"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="mizan-sifir" onchange="renderMizan()" style="width:auto"> Sıfır bakiyeleri gizle
+        </label>
+      </div>
+    </div>
+    <div id="mizan-tablo"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni Yevmiye -->
+<div class="mo" id="mYevmiye">
+  <div class="mbox">
+    <div class="mtitle" id="mYevmiyeTitle">➕ Yevmiye Kaydı <button class="mclose" onclick="kModal('mYevmiye')">✕</button></div>
+    <input type="hidden" id="y-id">
+    <div class="rfields" style="margin-bottom:0">
+      <div class="field"><label>Fiş No</label><input type="text" id="y-no" placeholder="Otomatik"></div>
+      <div class="field"><label>Tarih *</label><input type="date" id="y-tarih"></div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Belge Tipi</label>
+        <select id="y-tip">
+          <option value="fatura">Fatura</option>
+          <option value="odeme">Ödeme</option>
+          <option value="tahsilat">Tahsilat</option>
+          <option value="bordro">Bordro</option>
+          <option value="amortisman">Amortisman</option>
+          <option value="mahsup">Mahsup</option>
+          <option value="acilis">Açılış</option>
+          <option value="diger">Diğer</option>
+        </select>
+      </div>
+      <div class="field"><label>Belge No</label><input type="text" id="y-belge" placeholder="INV-001"></div>
+    </div>
+    <div class="field"><label>Açıklama</label><input type="text" id="y-aciklama" placeholder="İşlem açıklaması"></div>
+
+    <!-- Kalemler başlığı -->
+    <div style="display:grid;grid-template-columns:80px 1fr 90px 90px 24px;gap:4px;padding:0 2px;margin-bottom:4px">
+      <div style="font-size:11px;font-weight:700;color:var(--gray-600)">HESAP</div>
+      <div style="font-size:11px;font-weight:700;color:var(--gray-600)">AÇIKLAMA</div>
+      <div style="font-size:11px;font-weight:700;color:var(--danger);text-align:right">BORÇ</div>
+      <div style="font-size:11px;font-weight:700;color:var(--success);text-align:right">ALACAK</div>
+      <div></div>
+    </div>
+    <div id="y-kalemler"></div>
+    <button class="btn btn-sm btn-gray btn-block" style="margin-top:4px" onclick="addYevmiyeKalem()">+ Satır Ekle</button>
+
+    <!-- Denge -->
+    <div id="y-denge" style="margin-top:8px"></div>
+
+    <div class="brow" style="margin-top:10px">
+      <button class="btn btn-gray" onclick="kModal('mYevmiye')">İptal</button>
+      <button class="btn btn-danger btn-sm" id="y-sil-btn" onclick="yevmiyeSil()" style="display:none">🗑️</button>
+      <button class="btn btn-gray btn-sm" onclick="yevmiyeKaydet(false)">📝 Taslak</button>
+      <button class="btn btn-primary" onclick="yevmiyeKaydet(true)">✅ Onayla</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Yevmiye Detay -->
+<div class="mo" id="mYevmiyeDetay">
+  <div class="mbox">
+    <div class="mtitle" id="mYevmiyeDetayTitle">Yevmiye Detayı <button class="mclose" onclick="kModal('mYevmiyeDetay')">✕</button></div>
+    <div id="mYevmiyeDetayIc"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let yevmiyeler={},hesapPlani={};
+let yevKalemler=[];
+
+// ============================================================
+// FIREBASE
+// ============================================================
 async function loadDB(){
   sLD();
   try{
