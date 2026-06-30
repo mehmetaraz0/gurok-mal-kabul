@@ -234,6 +234,785 @@ let alisFilter='tumu',satisFilter='tumu';
 // ============================================================
 // FIREBASE
 // ============================================================
+// ============================================================
+// DÖNEM KONTROLÜ & DENETİM İZİ
+// ============================================================
+async function donemAcikMi(tarihMs){
+  try{
+    const r=await fetch(FB+'/muhasebe/donemler.json');
+    if(!r.ok)return{acik:true};
+    const d=await r.json();
+    if(!d)return{acik:true};
+    for(const key in d){
+      const don=d[key];if(!don)continue;
+      const bas=new Date(don.baslangic).getTime();
+      const bit=new Date(don.bitis+'T23:59:59').getTime();
+      if(tarihMs>=bas&&tarihMs<=bit)return{acik:don.durum!=='kapali',donem:don};
+    }
+    return{acik:true};
+  }catch(e){return{acik:true};}
+}
+
+async function auditLogYaz(action,entityType,entityId,detail){
+  const log={
+    id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+    action,entityType,entityId:String(entityId||''),detail:detail||'',
+    userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',
+    timestamp:Date.now()
+  };
+  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}
+  catch(e){console.warn('Audit log kaydedilemedi:',e);}
+}
+
+async function loadDB(){
+  sLD();
+  try{
+    const [fR,cR,mkR,spR]=await Promise.all([
+      fetch(FB+'/muhasebe/faturalar.json'),
+      fetch(FB+'/muhasebe/cariler.json'),
+      fetch(FB+'/formlar.json'),
+      fetch(FB+'/siparisler.json'),
+    ]);
+    if(fR.ok){const d=await fR.json();if(d&&typeof d==='object')faturalar=d;}
+    if(cR.ok){const d=await cR.json();if(d&&typeof d==='object')cariler=d;}
+    if(mkR.ok){const d=await mkR.json();if(d&&typeof d==='object'&&!Array.isArray(d))malKabulFormlar=d;}
+    if(spR.ok){const d=await spR.json();if(d&&typeof d==='object'&&!Array.isArray(d))satinAlmaSiparisler=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+async function saveFatura(f){
+  try{await fetch(FB+'/muhasebe/faturalar/'+f.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(f)});}
+  catch(e){console.warn(e);}
+}
+
+// ============================================================
+// FATURA NO ÜRET
+// ============================================================
+function yeniFaturaNo(tur){
+  const prefix=tur==='alis'?'ALI':'SAT';
+  const yil=new Date().getFullYear();
+  const ay=String(new Date().getMonth()+1).padStart(2,'0');
+  const mevcut=Object.values(faturalar).filter(f=>f.tur===tur&&f.no?.startsWith(prefix+'-'+yil)).length;
+  return`${prefix}-${yil}${ay}-${String(mevcut+1).padStart(4,'0')}`;
+}
+
+// ============================================================
+// RENDER FATURALAR
+// ============================================================
+function renderFaturalar(tur){
+  const ara=(document.getElementById(tur+'-ara')?.value||'').toLowerCase();
+  const filter=tur==='alis'?alisFilter:satisFilter;
+  let liste=Object.values(faturalar).filter(f=>f&&f.tur===tur);
+  if(filter!=='tumu')liste=liste.filter(f=>f.durum===filter);
+  if(ara)liste=liste.filter(f=>f.no?.toLowerCase().includes(ara)||f.cariAd?.toLowerCase().includes(ara)||String(f.genelToplam).includes(ara));
+  liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+
+  // Stats
+  const toplam=liste.reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0);
+  const bekliyor=liste.filter(f=>f.durum==='bekliyor').reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0);
+  const odendi=liste.filter(f=>f.durum==='odendi').reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0);
+  document.getElementById(tur+'-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num">${liste.length}</div><div class="stat-lbl">Toplam Fatura</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${fmt(bekliyor)} ₺</div><div class="stat-lbl">⏳ Bekliyor</div></div>
+    <div class="stat-kart" style="display:none"></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--primary)">${fmt(toplam)} ₺</div><div class="stat-lbl">Toplam Tutar</div></div>`;
+
+  const c=document.getElementById(tur+'-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🧾</div><div class="et">Fatura bulunamadı</div></div>';return;}
+
+  const durumChip={
+    taslak:'<span class="chip chip-gray">📝 Taslak</span>',
+    bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',
+    onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',
+    odendi:'<span class="chip chip-blue">💳 Ödendi</span>',
+    iptal:'<span class="chip chip-red">❌ İptal</span>'
+  };
+
+  c.innerHTML=liste.map(f=>`
+    <div class="fatura-kart ${f.durum}" onclick="openFaturaDetay('${f.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${f.no}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${f.cariAd||'—'} • ${f.tarih||''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:15px;font-weight:800;color:var(--primary)">${fmt(f.genelToplam)} ₺</div>
+          <div style="font-size:10px;color:var(--gray-400)">KDV: ${fmt(f.kdvToplam)} ₺</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        ${durumChip[f.durum]||''}
+        ${f.siparisNo?`<span class="chip chip-purple">📋 ${f.siparisNo}</span>`:''}
+        ${f.vade?`<span style="font-size:11px;color:${new Date(f.vade)<new Date()&&f.durum!=='odendi'?'var(--danger)':'var(--gray-500)'}">Vade: ${f.vade}</span>`:''}
+      </div>
+    </div>`).join('');
+
+  // 3-way match dropdown güncelle
+  const sel=document.getElementById('match-fatura');
+  if(sel){
+    const alislar=Object.values(faturalar).filter(f=>f&&f.tur==='alis'&&f.durum!=='iptal');
+    sel.innerHTML='<option value="">— Fatura seçin —</option>'+
+      alislar.map(f=>`<option value="${f.id}">${f.no} — ${f.cariAd} — ${fmt(f.genelToplam)}₺</option>`).join('');
+  }
+}
+
+function filterF(tur,f,el){
+  if(tur==='alis')alisFilter=f;else satisFilter=f;
+  document.querySelectorAll('#tab-'+tur+' .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderFaturalar(tur);
+}
+
+// ============================================================
+// FATURA DETAY
+// ============================================================
+function openFaturaDetay(id){
+  const f=faturalar[id];if(!f)return;
+  document.getElementById('mFaturaDetayTitle').textContent=f.no;
+  const durumChip={taslak:'<span class="chip chip-gray">📝 Taslak</span>',bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',odendi:'<span class="chip chip-blue">💳 Ödendi</span>',iptal:'<span class="chip chip-red">❌ İptal</span>'};
+  document.getElementById('mFaturaDetayIc').innerHTML=`
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:15px;font-weight:700">${f.cariAd||'—'}</div>
+        <div style="font-size:12px;color:var(--gray-500)">${f.tarih} ${f.vade?'• Vade: '+f.vade:''}</div>
+      </div>
+      ${durumChip[f.durum]||''}
+    </div>
+    ${f.siparisNo?`<div style="margin-bottom:8px"><span class="chip chip-purple">📋 LN Sipariş: ${f.siparisNo}</span></div>`:''}
+    <!-- Kalemler -->
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
+      <tr style="background:var(--gray-100)">
+        <th style="text-align:left;padding:6px">Ürün</th>
+        <th style="text-align:right;padding:6px">Miktar</th>
+        <th style="text-align:right;padding:6px">Birim Fiyat</th>
+        <th style="text-align:right;padding:6px">KDV</th>
+        <th style="text-align:right;padding:6px">Toplam</th>
+      </tr>
+      ${(f.kalemler||[]).map(k=>`<tr style="border-bottom:1px solid var(--gray-100)">
+        <td style="padding:6px"><div style="font-weight:600">${k.ad}</div><div style="font-size:10px;color:var(--gray-400)">${k.kod||'—'}</div></td>
+        <td style="padding:6px;text-align:right">${k.miktar} ${k.birim}</td>
+        <td style="padding:6px;text-align:right">${fmt(k.birimFiyat)} ₺</td>
+        <td style="padding:6px;text-align:right">%${k.kdvOran}</td>
+        <td style="padding:6px;text-align:right;font-weight:700">${fmt(k.toplam)} ₺</td>
+      </tr>`).join('')}
+    </table>
+    <div style="background:var(--gray-100);border-radius:8px;padding:10px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Ara Toplam</span><span>${fmt(f.araToplam)} ₺</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>KDV</span><span>${fmt(f.kdvToplam)} ₺</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700"><span>Genel Toplam</span><span style="color:var(--primary)">${fmt(f.genelToplam)} ₺</span></div>
+    </div>
+    ${f.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Not: ${f.not}</div>`:''}
+    <div class="brow">
+      <button class="btn btn-gray btn-sm" onclick="kModal('mFaturaDetay')">Kapat</button>
+      ${f.durum==='taslak'||f.durum==='bekliyor'?`<button class="btn btn-primary btn-sm" onclick="kModal('mFaturaDetay');openDuzenleFatura('${id}')">✏️ Düzenle</button>`:''}
+      ${f.durum==='bekliyor'?`<button class="btn btn-success btn-sm" onclick="kModal('mFaturaDetay');onayla('${id}')">✅ Onayla</button>`:''}
+      ${f.durum==='onaylandi'?`<button class="btn btn-info btn-sm" onclick="kModal('mFaturaDetay');openOdeme('${id}')">💳 Ödeme</button>`:''}
+      ${f.durum!=='iptal'&&f.durum!=='odendi'?`<button class="btn btn-danger btn-sm" onclick="kModal('mFaturaDetay');iptalEt('${id}')">❌</button>`:''}
+    </div>`;
+  aModal('mFaturaDetay');
+}
+
+// ============================================================
+// YENİ / DÜZENLE FATURA
+// ============================================================
+function openYeniFatura(tur){
+  kalemler=[];
+  document.getElementById('mFaturaTitle').innerHTML=`➕ Yeni ${tur==='alis'?'Alış':'Satış'} Faturası <button class="mclose" onclick="kModal('mFatura')">✕</button>`;
+  document.getElementById('f-id').value='';
+  document.getElementById('f-tur').value=tur;
+  document.getElementById('f-no').value=yeniFaturaNo(tur);
+  document.getElementById('f-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('f-cari-inp').value='';
+  document.getElementById('f-cari-id').value='';
+  document.getElementById('f-siparis').value='';
+  document.getElementById('f-not').value='';
+  document.getElementById('f-cari-label').textContent=tur==='alis'?'Tedarikçi *':'Müşteri *';
+  // Vade = bugün + 30
+  const vade=new Date();vade.setDate(vade.getDate()+30);
+  document.getElementById('f-vade').value=vade.toISOString().split('T')[0];
+  document.getElementById('f-sil-btn').style.display='none';
+  addKalem();
+  renderKalemler();
+  aModal('mFatura');
+}
+
+function openDuzenleFatura(id){
+  const f=faturalar[id];if(!f)return;
+  kalemler=[...(f.kalemler||[])];
+  document.getElementById('mFaturaTitle').innerHTML=`✏️ Fatura Düzenle <button class="mclose" onclick="kModal('mFatura')">✕</button>`;
+  document.getElementById('f-id').value=id;
+  document.getElementById('f-tur').value=f.tur;
+  document.getElementById('f-no').value=f.no;
+  document.getElementById('f-tarih').value=f.tarih;
+  document.getElementById('f-cari-inp').value=f.cariAd||'';
+  document.getElementById('f-cari-id').value=f.cariId||'';
+  document.getElementById('f-vade').value=f.vade||'';
+  document.getElementById('f-siparis').value=f.siparisNo||'';
+  document.getElementById('f-not').value=f.not||'';
+  document.getElementById('f-sil-btn').style.display='flex';
+  renderKalemler();
+  aModal('mFatura');
+}
+
+// ============================================================
+// KALEMLER
+// ============================================================
+function addKalem(data){
+  kalemler.push({ad:'',kod:'',miktar:1,birim:'KG',birimFiyat:0,kdvOran:20,iskonto:0,...(data||{})});
+  renderKalemler();
+}
+
+function renderKalemler(){
+  const c=document.getElementById('f-kalemler');
+  c.innerHTML=kalemler.map((k,i)=>`
+    <div class="kalem-satir">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:12px;font-weight:600;color:var(--primary)">${i+1}. Kalem</span>
+        <button onclick="kalemSil(${i})" style="background:none;border:none;color:var(--gray-400);cursor:pointer;font-size:14px">✕</button>
+      </div>
+      <input type="text" id="k-ad-${i}" value="${k.ad}" placeholder="Ürün adı..."
+        oninput="kalemler[${i}].ad=this.value"
+        style="width:100%;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;outline:none;margin-bottom:6px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+        <div>
+          <label style="font-size:10px;font-weight:600;color:var(--gray-600)">MİKTAR</label>
+          <input type="number" value="${k.miktar}" min="0" step="0.01" oninput="kalemler[${i}].miktar=parseFloat(this.value)||0;hesaplaToplamlar()"
+            style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:600;color:var(--gray-600)">BİRİM FİYAT</label>
+          <input type="number" value="${k.birimFiyat}" min="0" step="0.01" oninput="kalemler[${i}].birimFiyat=parseFloat(this.value)||0;hesaplaToplamlar()"
+            style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:600;color:var(--gray-600)">KDV %</label>
+          <select onchange="kalemler[${i}].kdvOran=parseInt(this.value);hesaplaToplamlar()"
+            style="width:100%;padding:7px 4px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;-webkit-appearance:none;outline:none">
+            ${[0,1,10,20].map(r=>`<option value="${r}"${k.kdvOran===r?' selected':''}>${r}%</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:600;color:var(--gray-600)">İSKONTO %</label>
+          <input type="number" value="${k.iskonto||0}" min="0" max="100" step="0.1" oninput="kalemler[${i}].iskonto=parseFloat(this.value)||0;hesaplaToplamlar()"
+            style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none">
+        </div>
+      </div>
+    </div>`).join('');
+  hesaplaToplamlar();
+}
+
+function kalemSil(i){kalemler.splice(i,1);renderKalemler();}
+
+function hesaplaToplamlar(){
+  let ara=0,kdv=0;
+  kalemler.forEach(k=>{
+    const brut=(parseFloat(k.miktar)||0)*(parseFloat(k.birimFiyat)||0);
+    const isk=brut*(parseFloat(k.iskonto)||0)/100;
+    const net=brut-isk;
+    k.toplam=net*(1+(parseFloat(k.kdvOran)||0)/100);
+    ara+=net;
+    kdv+=net*(parseFloat(k.kdvOran)||0)/100;
+  });
+  document.getElementById('f-araToplam').textContent=fmt(ara)+' ₺';
+  document.getElementById('f-kdvToplam').textContent=fmt(kdv)+' ₺';
+  document.getElementById('f-genelToplam').textContent=fmt(ara+kdv)+' ₺';
+}
+
+// ============================================================
+// FATURA KAYDET
+// ============================================================
+async function faturaKaydet(durum){
+  const no=document.getElementById('f-no').value.trim();
+  const cariId=document.getElementById('f-cari-id').value;
+  const cariAd=document.getElementById('f-cari-inp').value.trim();
+  const tarih=document.getElementById('f-tarih').value;
+  if(!no||!cariAd||!tarih){toast('⚠️ Fatura no, cari ve tarih zorunlu');return;}
+  const doluKalemler=kalemler.filter(k=>k.ad&&k.birimFiyat>0);
+  if(!doluKalemler.length){toast('⚠️ En az bir kalem ekleyin');return;}
+
+  // Dönem kontrolü — onaylı/bekleyen faturalar için
+  if(durum==='bekliyor'||durum==='onaylandi'){
+    const donemDurum=await donemAcikMi(new Date(tarih).getTime());
+    if(!donemDurum.acik){
+      toast(`⚠️ ${donemDurum.donem?.ad||'Bu'} dönem kapalı — fatura kaydedilemez`);
+      return;
+    }
+  }
+
+  let ara=0,kdv=0;
+  doluKalemler.forEach(k=>{
+    const brut=(parseFloat(k.miktar)||0)*(parseFloat(k.birimFiyat)||0);
+    const isk=brut*(parseFloat(k.iskonto)||0)/100;
+    const net=brut-isk;
+    k.toplam=net*(1+(parseFloat(k.kdvOran)||0)/100);
+    ara+=net;kdv+=net*(parseFloat(k.kdvOran)||0)/100;
+  });
+
+  const editId=document.getElementById('f-id').value;
+  const id=editId||('FAT_'+Date.now());
+  const fatura={
+    id,no,tur:document.getElementById('f-tur').value,
+    tarih,vade:document.getElementById('f-vade').value||'',
+    cariId,cariAd,
+    siparisNo:document.getElementById('f-siparis').value||'',
+    kalemler:doluKalemler,
+    araToplam:ara,kdvToplam:kdv,genelToplam:ara+kdv,
+    not:document.getElementById('f-not').value||'',
+    durum,
+    olusturmaTarih:faturalar[id]?.olusturmaTarih||Date.now(),
+    guncellemeTarih:Date.now()
+  };
+  sLD();
+  const yeniKayit=!editId;
+  faturalar[id]=fatura;
+  await saveFatura(fatura);
+  await auditLogYaz(yeniKayit?'create':'update','fatura',id,`Fatura ${yeniKayit?'oluşturuldu':'güncellendi'}: ${no} — ${cariAd} (${fmt(ara+kdv)} ₺) [${durum}]`);
+  // Cari hareketi oluştur
+  if(durum==='bekliyor'||durum==='onaylandi'){
+    const har={
+      id:'HAR_FAT_'+id,cariId,
+      tip:fatura.tur==='alis'?'borc':'alacak',
+      tarih:new Date(tarih).getTime(),tarihStr:tarih,
+      belge:no,vade:fatura.vade,
+      tutar:ara+kdv,kdv,
+      aciklama:`Fatura: ${no}`,
+      olusturmaTarih:Date.now()
+    };
+    await fetch(FB+'/muhasebe/cariHareketler/'+har.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(har)});
+  }
+  hLD();
+  kModal('mFatura');
+  renderFaturalar(fatura.tur);
+  toast(`✅ ${no} kaydedildi — ${fmt(ara+kdv)} ₺`);
+}
+
+async function onayla(id){
+  const f=faturalar[id];if(!f)return;
+  f.durum='onaylandi';f.onayTarih=Date.now();
+  sLD();await saveFatura(f);
+  await auditLogYaz('approve','fatura',id,`Fatura onaylandı: ${f.no} — ${f.cariAd} (${fmt(f.genelToplam)} ₺)`);
+  hLD();
+  renderFaturalar(f.tur);toast('✅ Fatura onaylandı');
+}
+
+async function iptalEt(id){
+  const f=faturalar[id];if(!f)return;
+  if(!confirm('Fatura iptal edilsin mi?'))return;
+  f.durum='iptal';f.iptalTarih=Date.now();
+  sLD();await saveFatura(f);
+  await auditLogYaz('update','fatura',id,`Fatura iptal edildi: ${f.no}`);
+  hLD();
+  renderFaturalar(f.tur);toast('❌ Fatura iptal edildi');
+}
+
+async function faturaSil(){
+  const id=document.getElementById('f-id').value;
+  const f=faturalar[id];if(!f)return;
+  if(!confirm(`"${f.no}" silinsin mi?`))return;
+  sLD();delete faturalar[id];
+  await fetch(FB+'/muhasebe/faturalar/'+id+'.json',{method:'DELETE'});
+  await auditLogYaz('delete','fatura',id,`Fatura silindi: ${f.no} — ${f.cariAd}`);
+  hLD();kModal('mFatura');
+  renderFaturalar(f.tur);toast('🗑️ Fatura silindi');
+}
+
+// ============================================================
+// ÖDEME
+// ============================================================
+function openOdeme(id){
+  const f=faturalar[id];if(!f)return;
+  document.getElementById('od-fatura-id').value=id;
+  document.getElementById('od-fatura-no').value=f.no+' — '+fmt(f.genelToplam)+' ₺';
+  document.getElementById('od-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('od-tutar').value=f.genelToplam.toFixed(2);
+  document.getElementById('od-aciklama').value='';
+  aModal('mOdeme');
+}
+
+async function odemeKaydet(){
+  const id=document.getElementById('od-fatura-id').value;
+  const f=faturalar[id];if(!f)return;
+  const tutar=parseFloat(document.getElementById('od-tutar').value);
+  if(!tutar||tutar<=0){toast('⚠️ Tutar girin');return;}
+  f.durum='odendi';f.odemeTarih=Date.now();f.odemeTutar=tutar;f.odemeYontem=document.getElementById('od-yontem').value;
+  // Cari alacak hareketi ekle
+  const har={
+    id:'HAR_ODE_'+Date.now(),cariId:f.cariId,
+    tip:'alacak',tarih:Date.now(),tarihStr:document.getElementById('od-tarih').value,
+    belge:'ÖD-'+f.no,tutar,
+    aciklama:document.getElementById('od-aciklama').value||'Ödeme: '+f.no,
+    olusturmaTarih:Date.now()
+  };
+  sLD();
+  await saveFatura(f);
+  await fetch(FB+'/muhasebe/cariHareketler/'+har.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(har)});
+  await auditLogYaz('payment','fatura',id,`Ödeme yapıldı: ${f.no} — ${f.cariAd} (${fmt(tutar)} ₺, ${document.getElementById('od-yontem').value})`);
+  hLD();
+  kModal('mOdeme');
+  renderFaturalar(f.tur);
+  renderOdemeBekleyen();
+  toast(`✅ Ödeme kaydedildi — ${fmt(tutar)} ₺`);
+}
+
+// ============================================================
+// 3-WAY MATCHING
+// ============================================================
+function runMatch(){
+  const fId=document.getElementById('match-fatura').value;
+  if(!fId){document.getElementById('match-sonuc').innerHTML='';return;}
+  const f=faturalar[fId];if(!f)return;
+
+  // 1. Sipariş bul (LN sipariş no ile)
+  const siparis=f.siparisNo?Object.values(satinAlmaSiparisler).find(s=>s?.siparisNo===f.siparisNo||s?.id===f.siparisNo):null;
+
+  // 2. Mal kabul bul (fatura no veya sipariş no ile)
+  const malKabul=Object.values(malKabulFormlar).find(mk=>mk&&(mk.faturaNo===f.no||mk.lnSiparisNo===f.siparisNo)&&mk.durum==='onaylandi');
+
+  let sonuc='';
+
+  // Sipariş kontrolü
+  if(f.siparisNo){
+    if(siparis){sonuc+=`<div class="match-ok" style="margin-bottom:6px">✅ Sipariş bulundu: ${f.siparisNo}</div>`;}
+    else{sonuc+=`<div class="match-warn" style="margin-bottom:6px">⚠️ Sipariş bulunamadı: ${f.siparisNo} (LN'de olabilir)</div>`;}
+  }else{
+    sonuc+=`<div class="match-warn" style="margin-bottom:6px">⚠️ Sipariş no girilmemiş</div>`;
+  }
+
+  // Mal kabul kontrolü
+  if(malKabul){
+    // Miktar karşılaştırma
+    const fatToplam=parseFloat(f.genelToplam)||0;
+    const mkUrunler=malKabul.urunler||[];
+    sonuc+=`<div class="match-ok" style="margin-bottom:6px">✅ Mal Kabul bulundu: ${malKabul.faturaNo||malKabul.id}</div>`;
+    // Kalem bazlı kontrol
+    f.kalemler?.forEach(k=>{
+      const mkUrun=mkUrunler.find(u=>u.kod===k.kod||u.ad?.toLowerCase()===k.ad?.toLowerCase());
+      if(mkUrun){
+        const fark=Math.abs(parseFloat(k.miktar)-parseFloat(mkUrun.miktar));
+        if(fark<0.01){
+          sonuc+=`<div class="match-ok" style="margin-bottom:4px">✅ ${k.ad}: ${k.miktar} ${k.birim} ✓</div>`;
+        }else{
+          sonuc+=`<div class="match-warn" style="margin-bottom:4px">⚠️ ${k.ad}: Fatura ${k.miktar} — Mal Kabul ${mkUrun.miktar} ${k.birim}</div>`;
+        }
+      }else{
+        sonuc+=`<div class="match-err" style="margin-bottom:4px">❌ ${k.ad}: Mal Kabul'de bulunamadı</div>`;
+      }
+    });
+  }else{
+    sonuc+=`<div class="match-err" style="margin-bottom:6px">❌ Onaylı mal kabul bulunamadı</div>`;
+  }
+
+  // Genel sonuç
+  const tamam=!sonuc.includes('match-err')&&!sonuc.includes('match-warn');
+  document.getElementById('match-sonuc').innerHTML=`
+    <div class="card" style="border-left:4px solid ${tamam?'var(--success)':'var(--warning)'}">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px">${f.no} — ${f.cariAd}</div>
+      ${sonuc}
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--gray-200)">
+        <div style="font-size:13px;font-weight:700;color:${tamam?'var(--success)':'var(--warning)'}">
+          ${tamam?'✅ 3-Way Match TAMAM — Ödemeye Hazır':'⚠️ Eksikler Var — Kontrol Edin'}
+        </div>
+        ${tamam?`<button class="btn btn-success btn-block" style="margin-top:8px" onclick="onayla('${fId}')">✅ Faturayı Onayla</button>`:''}
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// ÖDEME BEKLEYEN
+// ============================================================
+function renderOdemeBekleyen(){
+  const liste=Object.values(faturalar).filter(f=>f&&f.tur==='alis'&&(f.durum==='onaylandi'||f.durum==='bekliyor'))
+    .sort((a,b)=>{
+      const av=a.vade?new Date(a.vade):new Date(9999,0);
+      const bv=b.vade?new Date(b.vade):new Date(9999,0);
+      return av-bv;
+    });
+  const c=document.getElementById('odeme-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">💳</div><div class="et">Ödeme bekleyen fatura yok</div></div>';return;}
+  const toplam=liste.reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0);
+  c.innerHTML=`<div class="card" style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between">
+      <div style="font-size:13px;font-weight:700">${liste.length} fatura bekliyor</div>
+      <div style="font-size:15px;font-weight:800;color:var(--danger)">${fmt(toplam)} ₺</div>
+    </div>
+  </div>`+
+  liste.map(f=>{
+    const vadePassed=f.vade&&new Date(f.vade)<new Date();
+    return`<div class="fatura-kart ${f.durum}" onclick="openFaturaDetay('${f.id}')">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${f.cariAd||'—'}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${f.no}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:15px;font-weight:800;color:var(--primary)">${fmt(f.genelToplam)} ₺</div>
+          ${f.vade?`<div style="font-size:11px;color:${vadePassed?'var(--danger)':'var(--gray-500)'}">
+            ${vadePassed?'⚠️ Vade geçti:':'Vade:'} ${f.vade}</div>`:''}
+        </div>
+      </div>
+      <button class="btn btn-success btn-sm" onclick="event.stopPropagation();openOdeme('${f.id}')">💳 Ödeme Yap</button>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// CARİ DROPDOWN
+// ============================================================
+function filterCariDD(val){
+  const dd=document.getElementById('f-cari-dd');
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const tur=document.getElementById('f-tur').value;
+  const res=Object.values(cariler).filter(c=>c&&(tur==='alis'?(c.tip==='tedarikci'||c.tip==='her_ikisi'):(c.tip==='musteri'||c.tip==='her_ikisi'))&&c.ad.toLowerCase().includes(val.toLowerCase())).slice(0,15);
+  if(!res.length){dd.style.display='none';return;}
+  dd.innerHTML=res.map(c=>`<div class="uddi" data-id="${c.id}" data-ad="${c.ad.replace(/"/g,'&quot;')}">${c.ad}${c.vkn?' <span style="color:var(--gray-400);font-size:10px">'+c.vkn+'</span>':''}</div>`).join('');
+  dd.querySelectorAll('[data-id]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      document.getElementById('f-cari-inp').value=this.dataset.ad;
+      document.getElementById('f-cari-id').value=this.dataset.id;
+      dd.style.display='none';
+    });
+  });
+  dd.style.display='block';
+}
+document.addEventListener('pointerdown',e=>{
+  const dd=document.getElementById('f-cari-dd');
+  const inp=document.getElementById('f-cari-inp');
+  if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+});
+
+// ============================================================
+// TAB & YARDIMCI
+// ============================================================
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='alis')renderFaturalar('alis');
+  if(tab==='satis')renderFaturalar('satis');
+  if(tab==='odeme')renderOdemeBekleyen();
+  if(tab==='eslestir')renderFaturalar('alis');
+}
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function aModal(id){document.getElementById(id).classList.add('open');}
+function kModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  renderFaturalar('alis');
+})();
+</script>
+</body>
+</html>
+.ftab.active{background:var(--primary);border-color:var(--primary);color:white}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.mo.open{display:flex}
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:92vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.stat-kart{background:white;border-radius:var(--radius-sm);padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:18px;font-weight:800}.stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
+.fatura-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-300);cursor:pointer}
+.fatura-kart.taslak{border-left-color:var(--gray-400)}
+.fatura-kart.bekliyor{border-left-color:var(--warning)}
+.fatura-kart.onaylandi{border-left-color:var(--success)}
+.fatura-kart.odendi{border-left-color:var(--info)}
+.fatura-kart.iptal{border-left-color:var(--danger);opacity:.6}
+.kalem-satir{background:var(--gray-100);border-radius:var(--radius-sm);padding:10px;margin-bottom:6px}
+.search-bar{position:relative;margin-bottom:10px}
+.search-bar input{width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--gray-300);border-radius:24px;font-size:14px;outline:none;background:white}
+.search-bar input:focus{border-color:var(--primary)}
+.udd{display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.uddi{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:13px}
+.uddi:active{background:var(--gray-100)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* 3-way matching renkleri */
+.match-ok{background:#d4edda;border-radius:6px;padding:6px 10px;font-size:12px;color:#155724}
+.match-warn{background:#fff3cd;border-radius:6px;padding:6px 10px;font-size:12px;color:#856404}
+.match-err{background:#fde8e8;border-radius:6px;padding:6px 10px;font-size:12px;color:#9b1c1c}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Faturalar</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px" id="hsub">Alış / Satış Faturaları</span></div>
+    <button class="hbtn" onclick="openYeniFatura('alis')">➕</button>
+  </div>
+  <div class="tab-bar">
+    <button class="tabbtn active" onclick="gTab('alis',this)">📥 Alış</button>
+    <button class="tabbtn" onclick="gTab('satis',this)">📤 Satış</button>
+    <button class="tabbtn" onclick="gTab('eslestir',this)">🔗 3-Way Match</button>
+    <button class="tabbtn" onclick="gTab('odeme',this)">💳 Ödeme Bekleyen</button>
+  </div>
+
+  <!-- ALIŞ FATURALARI -->
+  <div class="sc" id="tab-alis" style="display:block">
+    <div class="stats-grid" id="alis-stats"></div>
+    <div class="search-bar">
+      <input type="text" id="alis-ara" placeholder="Fatura no, cari veya tutar ara..." oninput="renderFaturalar('alis')">
+      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gray-500)">🔍</span>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterF('alis','tumu',this)">Tümü</button>
+      <button class="ftab" onclick="filterF('alis','taslak',this)">📝 Taslak</button>
+      <button class="ftab" onclick="filterF('alis','bekliyor',this)">⏳ Bekliyor</button>
+      <button class="ftab" onclick="filterF('alis','onaylandi',this)">✅ Onaylı</button>
+      <button class="ftab" onclick="filterF('alis','odendi',this)">💳 Ödendi</button>
+    </div>
+    <div id="alis-liste"></div>
+  </div>
+
+  <!-- SATIŞ FATURALARI -->
+  <div class="sc" id="tab-satis">
+    <div class="stats-grid" id="satis-stats"></div>
+    <div class="search-bar">
+      <input type="text" id="satis-ara" placeholder="Fatura no veya müşteri ara..." oninput="renderFaturalar('satis')">
+      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gray-500)">🔍</span>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterF('satis','tumu',this)">Tümü</button>
+      <button class="ftab" onclick="filterF('satis','taslak',this)">📝 Taslak</button>
+      <button class="ftab" onclick="filterF('satis','onaylandi',this)">✅ Onaylı</button>
+      <button class="ftab" onclick="filterF('satis','odendi',this)">💳 Ödendi</button>
+    </div>
+    <div id="satis-liste"></div>
+  </div>
+
+  <!-- 3-WAY MATCHING -->
+  <div class="sc" id="tab-eslestir">
+    <div class="card">
+      <div class="card-title">🔗 3-Way Matching</div>
+      <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Sipariş + Mal Kabul + Fatura eşleştirmesi yapın.</p>
+      <div class="field">
+        <label>Fatura Seç</label>
+        <select id="match-fatura" onchange="runMatch()">
+          <option value="">— Fatura seçin —</option>
+        </select>
+      </div>
+    </div>
+    <div id="match-sonuc"></div>
+  </div>
+
+  <!-- ÖDEME BEKLEYEN -->
+  <div class="sc" id="tab-odeme">
+    <div id="odeme-liste"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni/Düzenle Fatura -->
+<div class="mo" id="mFatura">
+  <div class="mbox">
+    <div class="mtitle" id="mFaturaTitle">➕ Yeni Fatura <button class="mclose" onclick="kModal('mFatura')">✕</button></div>
+    <input type="hidden" id="f-id">
+    <input type="hidden" id="f-tur">
+    <div class="rfields" style="margin-bottom:0">
+      <div class="field"><label>Fatura No *</label><input type="text" id="f-no" placeholder="INV-2026-001"></div>
+      <div class="field"><label>Fatura Tarihi *</label><input type="date" id="f-tarih"></div>
+    </div>
+    <div class="field">
+      <label id="f-cari-label">Tedarikçi *</label>
+      <div style="position:relative">
+        <input type="text" id="f-cari-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterCariDD(this.value)">
+        <div id="f-cari-dd" class="udd"></div>
+      </div>
+      <input type="hidden" id="f-cari-id">
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Vade Tarihi</label><input type="date" id="f-vade"></div>
+      <div class="field"><label>LN Sipariş No</label><input type="text" id="f-siparis" placeholder="C000..."></div>
+    </div>
+    <!-- Kalemler -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:12px;font-weight:700;color:var(--gray-600);text-transform:uppercase">Kalemler</div>
+      <button class="btn btn-sm" style="background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addKalem()">+ Ekle</button>
+    </div>
+    <div id="f-kalemler"></div>
+    <!-- Toplamlar -->
+    <div style="background:var(--gray-100);border-radius:8px;padding:10px;margin-top:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span>Ara Toplam</span><span id="f-araToplam">0,00 ₺</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span>KDV Toplamı</span><span id="f-kdvToplam">0,00 ₺</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700">
+        <span>Genel Toplam</span><span id="f-genelToplam" style="color:var(--primary)">0,00 ₺</span>
+      </div>
+    </div>
+    <div class="field" style="margin-top:10px"><label>Not</label><input type="text" id="f-not" placeholder="Opsiyonel"></div>
+    <div class="brow" style="margin-top:8px">
+      <button class="btn btn-gray" onclick="kModal('mFatura')">İptal</button>
+      <button class="btn btn-danger btn-sm" id="f-sil-btn" onclick="faturaSil()" style="display:none">🗑️</button>
+      <button class="btn btn-gray btn-sm" onclick="faturaKaydet('taslak')">📝 Taslak</button>
+      <button class="btn btn-primary" onclick="faturaKaydet('bekliyor')">✅ Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Fatura Detay -->
+<div class="mo" id="mFaturaDetay">
+  <div class="mbox">
+    <div class="mtitle" id="mFaturaDetayTitle">Fatura Detayı <button class="mclose" onclick="kModal('mFaturaDetay')">✕</button></div>
+    <div id="mFaturaDetayIc"></div>
+  </div>
+</div>
+
+<!-- MODAL: Ödeme Kaydet -->
+<div class="mo" id="mOdeme">
+  <div class="mbox">
+    <div class="mtitle">💳 Ödeme Kaydet <button class="mclose" onclick="kModal('mOdeme')">✕</button></div>
+    <input type="hidden" id="od-fatura-id">
+    <div class="field"><label>Fatura</label><input type="text" id="od-fatura-no" readonly style="background:var(--gray-100)"></div>
+    <div class="rfields">
+      <div class="field"><label>Ödeme Tarihi</label><input type="date" id="od-tarih"></div>
+      <div class="field"><label>Ödeme Tutarı</label><input type="number" id="od-tutar" placeholder="0.00" step="0.01"></div>
+    </div>
+    <div class="field"><label>Ödeme Yöntemi</label>
+      <select id="od-yontem">
+        <option value="havale">Havale/EFT</option>
+        <option value="cek">Çek</option>
+        <option value="nakit">Nakit</option>
+        <option value="kredi">Kredi Kartı</option>
+      </select>
+    </div>
+    <div class="field"><label>Açıklama</label><input type="text" id="od-aciklama" placeholder="Opsiyonel"></div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mOdeme')">İptal</button>
+      <button class="btn btn-success" onclick="odemeKaydet()">💳 Ödeme Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let faturalar={},cariler={},malKabulFormlar={},satinAlmaSiparisler={};
+let kalemler=[];
+let alisFilter='tumu',satisFilter='tumu';
+
+// ============================================================
+// FIREBASE
+// ============================================================
 async function loadDB(){
   sLD();
   try{
