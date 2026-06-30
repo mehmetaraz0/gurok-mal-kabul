@@ -257,7 +257,7 @@ let tipFilter='';
 let sortKol='kod';
 let sortAsc=true;
 let seciliKod=null;
-let agacAcik=new Set(['1','2','3','4','5','6','7','8','9']);
+let agacAcik=new Set();
 
 // ============================================================
 // THP STANDART ANA BAŞLIKLAR
@@ -454,7 +454,7 @@ function getUstKod(kod){
 }
 
 // ============================================================
-// RENDER TABLO
+// RENDER TABLO — Gerçek hiyerarşik ağaç
 // ============================================================
 function renderTablo(){
   const hizliAra=(document.getElementById('hizli-ara').value||'').toLowerCase();
@@ -465,13 +465,12 @@ function renderTablo(){
   const fYon=(document.getElementById('f-yon').value||'').toLowerCase();
   const fOzellik=(document.getElementById('f-ozellik').value||'').toLowerCase();
   const fAciklama=(document.getElementById('f-aciklama').value||'').toLowerCase();
-  const aramaVar=hizliAra||fKod||fAd||fTip||fGrup||fYon||fOzellik||fAciklama||tipFilter;
+  const aramaVar=!!(hizliAra||fKod||fAd||fTip||fGrup||fYon||fOzellik||fAciklama||tipFilter);
 
-  let liste=Object.values(hesaplar).filter(Boolean).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
-  const toplamSayi=liste.length;
+  const tumListe=Object.values(hesaplar).filter(Boolean);
+  const toplamSayi=tumListe.length;
 
-  // Filtrele
-  liste=liste.filter(h=>{
+  const eslesir=(h)=>{
     if(tipFilter&&h.tip!==tipFilter)return false;
     if(hizliAra&&!h.kod.toLowerCase().includes(hizliAra)&&!h.ad.toLowerCase().includes(hizliAra))return false;
     if(fKod&&!h.kod.toLowerCase().includes(fKod))return false;
@@ -482,25 +481,7 @@ function renderTablo(){
     if(fOzellik&&!(h.ozellik||'').toLowerCase().includes(fOzellik))return false;
     if(fAciklama&&!(h.aciklama||'').toLowerCase().includes(fAciklama))return false;
     return true;
-  });
-
-  // Arama yoksa ağaç yapısı uygula (gizle/göster)
-  if(!aramaVar){
-    liste=liste.filter(h=>{
-      const ust=getUstKod(h.kod);
-      if(!ust)return true;
-      // Üst hesap açıksa göster
-      return agacAcik.has(ust);
-    });
-  }
-
-  // Sort
-  if(sortKol){
-    liste.sort((a,b)=>{
-      const av=a[sortKol]||'',bv=b[sortKol]||'';
-      return sortAsc?av.localeCompare(bv,'tr',{numeric:true}):bv.localeCompare(av,'tr',{numeric:true});
-    });
-  }
+  };
 
   const tipChip={
     'Bilanço':'<span class="chip chip-bilanco">Bilanço</span>',
@@ -510,28 +491,65 @@ function renderTablo(){
   };
   const ozellikIkon={Kasa:'💰',Banka:'🏦',Cari:'👥',Stok:'📦',KDV:'🧾',SGK:'🏥',Vergi:'📋',Demirbaş:'🔧'};
 
-  const tbody=document.getElementById('tablo-body');
-  tbody.innerHTML=liste.map(h=>{
-    const seviye=getSeviye(h.kod);
-    const cocukVar=Object.values(hesaplar).some(c=>c&&getUstKod(c.kod)===h.kod);
+  function satirHTML(h,seviye){
+    const cocuklar=tumListe.filter(c=>getUstKod(c.kod)===h.kod).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
+    const cocukVar=cocuklar.length>0;
     const acik=agacAcik.has(h.kod);
-    const girinti='&nbsp;'.repeat((seviye-1)*4);
-    const chevron=cocukVar?`<span onclick="toggleAgac('${h.kod}',event)" style="cursor:pointer;margin-right:4px">${acik?'▾':'▸'}</span>`:'<span style="display:inline-block;width:14px;margin-right:4px"></span>';
-    return`<tr class="lv${Math.min(seviye,4)} ${seciliKod===h.kod?'secili':''}" onclick="secRow('${h.kod}')">
+    const girintiPx=(seviye-1)*22;
+    const chevron=cocukVar?`<span onclick="toggleAgac('${h.kod}',event)" style="cursor:pointer;display:inline-block;width:16px;text-align:center">${acik?'▾':'▸'}</span>`:'<span style="display:inline-block;width:16px"></span>';
+    let html=`<tr class="lv${Math.min(seviye,4)} ${seciliKod===h.kod?'secili':''}" onclick="secRow('${h.kod}')">
       <td style="font-family:monospace;font-weight:700">${h.kod}</td>
-      <td>${girinti}${chevron}${h.ad}</td>
+      <td><span style="display:inline-flex;align-items:center;padding-left:${girintiPx}px">${chevron}${h.ad}</span></td>
       <td>${tipChip[h.tip]||h.tip||'—'}</td>
       <td>${h.anaGrup||'—'}</td>
       <td><span style="color:${h.yon==='Borç'?'var(--danger)':'var(--success)'};font-weight:600">${h.yon||'—'}</span></td>
-      <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+''+h.ozellik:''}</td>
+      <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+' '+h.ozellik:''}</td>
       <td><span class="durum-dot ${h.durum==='pasif'?'durum-pasif':'durum-aktif'}"></span> ${h.durum==='pasif'?'Pasif':'Aktif'}</td>
       <td style="color:var(--gray-600);font-size:11px">${h.aciklama||''}</td>
     </tr>`;
-  }).join('');
+    if(cocukVar&&acik){
+      cocuklar.forEach(c=>{html+=satirHTML(c,seviye+1);});
+    }
+    return html;
+  }
 
-  // Status bar
+  let outputHTML='';
+
+  if(aramaVar){
+    // Arama modunda düz liste, eşleşenleri göster
+    let eslesenler=tumListe.filter(eslesir);
+    if(sortKol){
+      eslesenler.sort((a,b)=>{
+        const av=(a[sortKol]||'').toString(),bv=(b[sortKol]||'').toString();
+        const cmp=av.localeCompare(bv,'tr',{numeric:true});
+        return sortAsc?cmp:-cmp;
+      });
+    }else{
+      eslesenler.sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
+    }
+    outputHTML=eslesenler.map(h=>{
+      const seviye=getSeviye(h.kod);
+      return`<tr class="lv${Math.min(seviye,4)} ${seciliKod===h.kod?'secili':''}" onclick="secRow('${h.kod}')">
+        <td style="font-family:monospace;font-weight:700">${h.kod}</td>
+        <td>${h.ad}</td>
+        <td>${tipChip[h.tip]||h.tip||'—'}</td>
+        <td>${h.anaGrup||'—'}</td>
+        <td><span style="color:${h.yon==='Borç'?'var(--danger)':'var(--success)'};font-weight:600">${h.yon||'—'}</span></td>
+        <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+' '+h.ozellik:''}</td>
+        <td><span class="durum-dot ${h.durum==='pasif'?'durum-pasif':'durum-aktif'}"></span> ${h.durum==='pasif'?'Pasif':'Aktif'}</td>
+        <td style="color:var(--gray-600);font-size:11px">${h.aciklama||''}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('sb-filtreli').textContent=`Filtrelenmiş: ${eslesenler.length}`;
+  }else{
+    // Ağaç modu: sadece kökler (1 haneli kod, üst hesabı olmayan)
+    const kokler=tumListe.filter(h=>!getUstKod(h.kod)).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
+    outputHTML=kokler.map(h=>satirHTML(h,1)).join('');
+    document.getElementById('sb-filtreli').textContent='';
+  }
+
+  document.getElementById('tablo-body').innerHTML=outputHTML||'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray-400)">Hesap bulunamadı</td></tr>';
   document.getElementById('sb-toplam').textContent=`Toplam: ${toplamSayi} hesap`;
-  document.getElementById('sb-filtreli').textContent=aramaVar?`Filtrelenmiş: ${liste.length}`:'';
   document.getElementById('sb-secili').textContent=seciliKod?`Seçili: ${seciliKod}`:'';
 }
 
@@ -545,7 +563,7 @@ function toggleAgac(kod,e){
 }
 
 function tumunuAc(){Object.values(hesaplar).filter(Boolean).forEach(h=>agacAcik.add(h.kod));renderTablo();}
-function tumunuKapat(){agacAcik=new Set(['1','2','3','4','5','6','7','8','9']);renderTablo();}
+function tumunuKapat(){agacAcik=new Set();renderTablo();}
 
 function sortBy(kol){
   if(sortKol===kol)sortAsc=!sortAsc;else{sortKol=kol;sortAsc=true;}
