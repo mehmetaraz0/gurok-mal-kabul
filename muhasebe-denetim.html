@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Denetim İzi</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.tab-bar{background:white;display:flex;border-bottom:2px solid var(--gray-200);flex-shrink:0;overflow-x:auto}
+.tab-bar::-webkit-scrollbar{display:none}
+.tabbtn{padding:12px 16px;border:none;background:none;font-size:12px;font-weight:600;color:var(--gray-500);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;flex-shrink:0}
+.tabbtn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:none}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-blue{background:#dbeafe;color:#1e40af}
+.ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.ftab.active{background:var(--primary);border-color:var(--primary);color:white}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.mo.open{display:flex}
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:92vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+.search-bar{position:relative;margin-bottom:10px}
+.search-bar input{width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--gray-300);border-radius:24px;font-size:14px;outline:none;background:white}
+.search-bar input:focus{border-color:var(--primary)}
+/* Log satırı */
+.log-satir{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-100)}
+.log-satir:last-child{border-bottom:none}
+.log-ikon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+/* Dönem kartı */
+.donem-kart{background:white;border-radius:var(--radius);padding:14px;margin-bottom:8px;box-shadow:var(--shadow);display:flex;justify-content:space-between;align-items:center}
+.donem-kart.acik{border-left:4px solid var(--success)}
+.donem-kart.kapali{border-left:4px solid var(--gray-400)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Denetim İzi & Dönemler</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Audit Trail • Mali Dönem Yönetimi</span></div>
+  </div>
+  <div class="tab-bar">
+    <button class="tabbtn active" onclick="gTab('log',this)">📜 Denetim İzi</button>
+    <button class="tabbtn" onclick="gTab('donem',this)">🗓️ Mali Dönemler</button>
+  </div>
+
+  <!-- DENETİM İZİ -->
+  <div class="sc" id="tab-log" style="display:block">
+    <div class="search-bar">
+      <input type="text" id="log-ara" placeholder="Kullanıcı, işlem veya açıklama ara..." oninput="renderLog()">
+      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gray-500)">🔍</span>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterLog('tumu',this)">Tümü</button>
+      <button class="ftab" onclick="filterLog('create',this)">➕ Oluşturma</button>
+      <button class="ftab" onclick="filterLog('update',this)">✏️ Güncelleme</button>
+      <button class="ftab" onclick="filterLog('delete',this)">🗑️ Silme</button>
+      <button class="ftab" onclick="filterLog('approve',this)">✅ Onay</button>
+      <button class="ftab" onclick="filterLog('period',this)">🗓️ Dönem</button>
+    </div>
+    <div id="log-liste"></div>
+  </div>
+
+  <!-- MALİ DÖNEMLER -->
+  <div class="sc" id="tab-donem">
+    <div class="card">
+      <div class="card-title">➕ Yeni Mali Dönem</div>
+      <div class="rfields">
+        <div class="field"><label>Dönem Adı</label><input type="text" id="d-ad" placeholder="2026 Haziran"></div>
+        <div class="field"><label>Yıl</label><input type="number" id="d-yil" placeholder="2026"></div>
+      </div>
+      <div class="rfields" style="margin-top:8px">
+        <div class="field"><label>Başlangıç</label><input type="date" id="d-bas"></div>
+        <div class="field"><label>Bitiş</label><input type="date" id="d-bit"></div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px" onclick="donemOlustur()">💾 Dönem Oluştur</button>
+    </div>
+    <div id="donemler-liste"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let auditLogs={},donemler={};
+let logFilter='tumu';
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadDB(){
+  sLD();
+  try{
+    const [aR,dR]=await Promise.all([
+      fetch(FB+'/muhasebe/auditLog.json'),
+      fetch(FB+'/muhasebe/donemler.json'),
+    ]);
+    if(aR.ok){const d=await aR.json();if(d&&typeof d==='object')auditLogs=d;}
+    if(dR.ok){const d=await dR.json();if(d&&typeof d==='object')donemler=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+// Dışarıdan çağrılabilir global fonksiyon — diğer modüller bunu kullanacak
+window.gurokAuditLog = async function(action, entityType, entityId, detail, userName){
+  const log = {
+    id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+    action, // create, update, delete, approve, period
+    entityType, // hesap, cari, fatura, yevmiye, banka, donem
+    entityId: String(entityId||''),
+    detail: detail||'',
+    userName: userName||(localStorage.getItem('gurok_user_name')||'Bilinmeyen'),
+    timestamp: Date.now()
+  };
+  try{
+    await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});
+  }catch(e){console.warn('Audit log kaydedilemedi:',e);}
+  return log;
+};
+
+// Dönem kontrolü — diğer modüller işlem öncesi bunu çağırır
+window.gurokDonemAcikMi = async function(tarihMs){
+  try{
+    const r = await fetch(FB+'/muhasebe/donemler.json');
+    if(!r.ok) return {acik:true}; // veri yoksa engelleme
+    const d = await r.json();
+    if(!d) return {acik:true};
+    const tarih = new Date(tarihMs);
+    for(const key in d){
+      const don = d[key];
+      if(!don) continue;
+      const bas = new Date(don.baslangic).getTime();
+      const bit = new Date(don.bitis+'T23:59:59').getTime();
+      if(tarihMs>=bas && tarihMs<=bit){
+        return {acik: don.durum!=='kapali', donem: don};
+      }
+    }
+    return {acik:true}; // tanımlı dönem yoksa serbest
+  }catch(e){
+    return {acik:true};
+  }
+};
+
+// ============================================================
+// RENDER LOG
+// ============================================================
+const actionIkon={create:'➕',update:'✏️',delete:'🗑️',approve:'✅',period:'🗓️',payment:'💳'};
+const actionRenk={create:'#d4edda',update:'#dbeafe',delete:'#fde8e8',approve:'#d4edda',period:'#fef9c3',payment:'#e0f2fe'};
+const entityAd={hesap:'Hesap Planı',cari:'Cari Hesap',fatura:'Fatura',yevmiye:'Yevmiye',banka:'Banka/Kasa',virman:'Virman',donem:'Mali Dönem'};
+
+function renderLog(){
+  const ara=(document.getElementById('log-ara').value||'').toLowerCase();
+  let liste=Object.values(auditLogs).filter(Boolean);
+  if(logFilter!=='tumu')liste=liste.filter(l=>l.action===logFilter);
+  if(ara)liste=liste.filter(l=>(l.userName||'').toLowerCase().includes(ara)||(l.detail||'').toLowerCase().includes(ara)||(l.entityType||'').toLowerCase().includes(ara));
+  liste.sort((a,b)=>b.timestamp-a.timestamp);
+  liste=liste.slice(0,200); // performans için son 200
+
+  const c=document.getElementById('log-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📜</div><div class="et">Kayıt bulunamadı</div></div>';return;}
+
+  // Gün bazlı grupla
+  const gruplar={};
+  liste.forEach(l=>{const g=new Date(l.timestamp).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(l);});
+
+  c.innerHTML=Object.entries(gruplar).map(([gun,loglar])=>`
+    <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin:8px 0 4px;text-transform:uppercase">${gun}</div>
+    <div class="card" style="padding:8px">
+      ${loglar.map(l=>`<div class="log-satir">
+        <div class="log-ikon" style="background:${actionRenk[l.action]||'#f1f3f5'}">${actionIkon[l.action]||'📝'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600">${l.userName||'Bilinmeyen'} <span style="font-weight:400;color:var(--gray-500)">— ${entityAd[l.entityType]||l.entityType}</span></div>
+          <div style="font-size:11px;color:var(--gray-600);margin-top:1px">${l.detail||''}</div>
+          <div style="font-size:10px;color:var(--gray-400);margin-top:2px">${new Date(l.timestamp).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      </div>`).join('')}
+    </div>`).join('');
+}
+
+function filterLog(f,el){
+  logFilter=f;
+  document.querySelectorAll('#tab-log .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderLog();
+}
+
+// ============================================================
+// MALİ DÖNEMLER
+// ============================================================
+function renderDonemler(){
+  const liste=Object.values(donemler).filter(Boolean).sort((a,b)=>new Date(b.baslangic)-new Date(a.baslangic));
+  const c=document.getElementById('donemler-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🗓️</div><div class="et">Henüz dönem tanımlanmamış</div></div>';return;}
+  c.innerHTML=liste.map(d=>`
+    <div class="donem-kart ${d.durum==='kapali'?'kapali':'acik'}">
+      <div>
+        <div style="font-size:14px;font-weight:700">${d.ad}</div>
+        <div style="font-size:12px;color:var(--gray-500)">${d.baslangic} → ${d.bitis}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="chip ${d.durum==='kapali'?'chip-gray':'chip-green'}">${d.durum==='kapali'?'🔒 Kapalı':'🔓 Açık'}</span>
+        <button class="btn btn-sm ${d.durum==='kapali'?'btn-success':'btn-warning'}" onclick="donemDurumDegistir('${d.id}','${d.durum==='kapali'?'acik':'kapali'}')">
+          ${d.durum==='kapali'?'Aç':'Kapat'}
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+async function donemOlustur(){
+  const ad=document.getElementById('d-ad').value.trim();
+  const yil=document.getElementById('d-yil').value;
+  const bas=document.getElementById('d-bas').value;
+  const bit=document.getElementById('d-bit').value;
+  if(!ad||!bas||!bit){toast('⚠️ Tüm alanları doldurun');return;}
+  const id='DON_'+Date.now();
+  const donem={id,ad,yil:parseInt(yil)||new Date().getFullYear(),baslangic:bas,bitis:bit,durum:'acik',olusturmaTarih:Date.now()};
+  sLD();
+  donemler[id]=donem;
+  await fetch(FB+'/muhasebe/donemler/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(donem)});
+  await window.gurokAuditLog('create','donem',id,`Mali dönem oluşturuldu: ${ad} (${bas} - ${bit})`);
+  hLD();
+  document.getElementById('d-ad').value='';
+  document.getElementById('d-yil').value='';
+  document.getElementById('d-bas').value='';
+  document.getElementById('d-bit').value='';
+  renderDonemler();
+  renderLog();
+  toast(`✅ ${ad} oluşturuldu`);
+}
+
+async function donemDurumDegistir(id,yeniDurum){
+  const d=donemler[id];if(!d)return;
+  const mesaj=yeniDurum==='kapali'
+    ? `"${d.ad}" dönemi kapatılsın mı? Kapatıldıktan sonra bu döneme yeni yevmiye fişi girilemez.`
+    : `"${d.ad}" dönemi yeniden açılsın mı?`;
+  if(!confirm(mesaj))return;
+  sLD();
+  d.durum=yeniDurum;
+  donemler[id]=d;
+  await fetch(FB+'/muhasebe/donemler/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+  await window.gurokAuditLog('period',d.id,id,`Mali dönem ${yeniDurum==='kapali'?'kapatıldı':'açıldı'}: ${d.ad}`);
+  hLD();
+  renderDonemler();
+  renderLog();
+  toast(yeniDurum==='kapali'?`🔒 ${d.ad} kapatıldı`:`🔓 ${d.ad} açıldı`);
+}
+
+// ============================================================
+// YARDIMCI
+// ============================================================
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='log')renderLog();
+  if(tab==='donem')renderDonemler();
+}
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  renderLog();
+})();
+</script>
+</body>
+</html>
