@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Muhasebe Asistanı</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-green{background:#d4edda;color:#155724}.chip-blue{background:#dbeafe;color:#1e40af}
+.es{text-align:center;padding:30px 20px;color:var(--gray-400);font-size:13px}
+/* Uyarı kartları */
+.uyari-kart{border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.uyari-kart.kritik{background:#fde8e8;border-left:4px solid var(--danger)}
+.uyari-kart.dikkat{background:#fff3cd;border-left:4px solid var(--warning)}
+.uyari-kart.bilgi{background:#dbeafe;border-left:4px solid var(--info)}
+.uyari-ikon{font-size:20px;flex-shrink:0;margin-top:1px}
+.uyari-baslik{font-size:13px;font-weight:700;color:var(--primary)}
+.uyari-detay{font-size:12px;color:var(--gray-600);margin-top:2px}
+.uyari-tutar{font-size:14px;font-weight:800;margin-top:4px}
+/* Asistan sohbet */
+.sohbet-kutu{background:white;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden}
+.sohbet-baslik{background:linear-gradient(135deg,var(--primary),var(--primary-light));color:white;padding:14px;display:flex;align-items:center;gap:10px}
+.sohbet-icerik{padding:14px;max-height:400px;overflow-y:auto}
+.msg{margin-bottom:12px}
+.msg-asistan{background:var(--gray-100);border-radius:12px 12px 12px 2px;padding:10px 14px;font-size:13px;line-height:1.6;max-width:90%}
+.msg-kullanici{background:var(--primary);color:white;border-radius:12px 12px 2px 12px;padding:10px 14px;font-size:13px;max-width:85%;margin-left:auto}
+.oneri-chip{display:inline-block;padding:7px 12px;background:white;border:1.5px solid var(--primary-light);color:var(--primary);border-radius:18px;font-size:12px;font-weight:600;cursor:pointer;margin:3px 4px 3px 0}
+.oneri-chip:active{background:var(--gray-100)}
+.input-bar{display:flex;gap:8px;padding:10px;border-top:1px solid var(--gray-200)}
+.input-bar input{flex:1;padding:10px 14px;border:1.5px solid var(--gray-300);border-radius:24px;font-size:13px;outline:none}
+.input-bar input:focus{border-color:var(--primary)}
+.input-bar button{width:42px;height:42px;border-radius:50%;background:var(--primary);color:white;border:none;font-size:16px;cursor:pointer;flex-shrink:0}
+.dots{display:flex;gap:4px;padding:6px 0}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--gray-400);animation:bounce 1.4s infinite ease-in-out}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ozet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.ozet-mini{background:white;border-radius:var(--radius-sm);padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.ozet-mini-num{font-size:16px;font-weight:800}
+.ozet-mini-lbl{font-size:9px;color:var(--gray-500);margin-top:2px;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>🤖 Muhasebe Asistanı</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Otomatik uyarılar + soru-cevap</span></div>
+    <button class="hbtn" onclick="yenile()">🔄</button>
+  </div>
+
+  <div class="sc">
+    <!-- ÖZET MİNİ KARTLAR -->
+    <div class="ozet-grid" id="ozet-mini"></div>
+
+    <!-- UYARILAR -->
+    <div class="card">
+      <div class="card-title">⚠️ Aktif Uyarılar <span id="uyari-sayi" style="margin-left:auto;font-weight:400;font-size:11px;color:var(--gray-500)"></span></div>
+      <div id="uyarilar-liste"></div>
+    </div>
+
+    <!-- AI SOHBET -->
+    <div class="sohbet-kutu">
+      <div class="sohbet-baslik">
+        <div style="width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px">🤖</div>
+        <div>
+          <div style="font-size:13px;font-weight:700">Soru Sor</div>
+          <div style="font-size:11px;opacity:.8">Muhasebe verinize göre cevap veririm</div>
+        </div>
+      </div>
+      <div class="sohbet-icerik" id="sohbet-icerik">
+        <div class="msg">
+          <div class="msg-asistan">Merhaba! Cari, fatura, banka ve yevmiye verilerinize bakarak sorularınızı cevaplayabilirim. Örnek sorular:</div>
+        </div>
+        <div style="margin-top:8px">
+          <span class="oneri-chip" onclick="soruSor('En çok hangi tedarikçiye borçluyuz?')">En çok kime borçluyuz?</span>
+          <span class="oneri-chip" onclick="soruSor('Bu ay toplam kaç fatura kestik?')">Bu ay kaç fatura?</span>
+          <span class="oneri-chip" onclick="soruSor('Nakit durumumuz nasıl?')">Nakit durumu nasıl?</span>
+          <span class="oneri-chip" onclick="soruSor('Hangi cari ile mutabakat yapmalıyım?')">Mutabakat önerisi</span>
+        </div>
+      </div>
+      <div class="input-bar">
+        <input type="text" id="soru-inp" placeholder="Bir soru yazın..." onkeydown="if(event.key==='Enter')soruSorInput()">
+        <button onclick="soruSorInput()">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Analiz ediliyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let cariler={},cariHareketler={},faturalar={},yevmiyeler={},bankaKasaHesaplari={},bankaKasaHareketleri={};
+let veriOzeti=null;
+
+// ============================================================
+// FIREBASE YÜKLE
+// ============================================================
+async function loadAll(){
+  sLD();
+  try{
+    const [c,ch,f,y,bk,bkh]=await Promise.all([
+      fetch(FB+'/muhasebe/cariler.json'),
+      fetch(FB+'/muhasebe/cariHareketler.json'),
+      fetch(FB+'/muhasebe/faturalar.json'),
+      fetch(FB+'/muhasebe/yevmiye.json'),
+      fetch(FB+'/muhasebe/bankaKasaHesaplari.json'),
+      fetch(FB+'/muhasebe/bankaKasaHareketleri.json'),
+    ]);
+    if(c.ok){const d=await c.json();if(d)cariler=d;}
+    if(ch.ok){const d=await ch.json();if(d)cariHareketler=d;}
+    if(f.ok){const d=await f.json();if(d)faturalar=d;}
+    if(y.ok){const d=await y.json();if(d)yevmiyeler=d;}
+    if(bk.ok){const d=await bk.json();if(d)bankaKasaHesaplari=d;}
+    if(bkh.ok){const d=await bkh.json();if(d)bankaKasaHareketleri=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:0,maximumFractionDigits:0});}
+
+function cariBakiye(cariId){
+  let b=0,a=0;
+  Object.values(cariHareketler).filter(h=>h?.cariId===cariId).forEach(h=>{
+    if(h.tip==='borc')b+=parseFloat(h.tutar)||0;else a+=parseFloat(h.tutar)||0;
+  });
+  return{borc:b,alacak:a,net:b-a};
+}
+
+function hesapBakiye(hesapId){
+  const h=bankaKasaHesaplari[hesapId];if(!h)return 0;
+  let bakiye=parseFloat(h.acilisBakiye)||0;
+  Object.values(bankaKasaHareketleri).filter(x=>x?.hesapId===hesapId).forEach(x=>{
+    if(x.tip==='yatirma')bakiye+=parseFloat(x.tutar)||0;else bakiye-=parseFloat(x.tutar)||0;
+  });
+  return bakiye;
+}
+
+// ============================================================
+// ANALİZ MOTORU — Skt takip mantığının muhasebe karşılığı
+// ============================================================
+function analizYap(){
+  const today=Date.now();
+  const uyarilar=[];
+
+  // 1. VADESİ GEÇMİŞ FATURALAR (kritik)
+  const gecmisFaturalar=Object.values(faturalar).filter(f=>f&&f.tur==='alis'&&(f.durum==='onaylandi'||f.durum==='bekliyor')&&f.vade&&new Date(f.vade).getTime()<today);
+  gecmisFaturalar.sort((a,b)=>new Date(a.vade)-new Date(b.vade));
+  gecmisFaturalar.forEach(f=>{
+    const gecenGun=Math.floor((today-new Date(f.vade).getTime())/86400000);
+    uyarilar.push({
+      tip:'kritik',ikon:'🔴',
+      baslik:`Vadesi ${gecenGun} gün geçti: ${f.cariAd}`,
+      detay:`${f.no} — Vade: ${f.vade}`,
+      tutar:f.genelToplam,
+      aksiyon:()=>location.href='muhasebe-faturalar.html'
+    });
+  });
+
+  // 2. VADESİ 7 GÜN İÇİNDE YAKLAŞAN (dikkat)
+  const yakinFaturalar=Object.values(faturalar).filter(f=>{
+    if(!f||f.tur!=='alis'||!(f.durum==='onaylandi'||f.durum==='bekliyor')||!f.vade)return false;
+    const fark=(new Date(f.vade).getTime()-today)/86400000;
+    return fark>=0&&fark<=7;
+  });
+  yakinFaturalar.sort((a,b)=>new Date(a.vade)-new Date(b.vade));
+  yakinFaturalar.forEach(f=>{
+    const kalanGun=Math.ceil((new Date(f.vade).getTime()-today)/86400000);
+    uyarilar.push({
+      tip:'dikkat',ikon:'🟡',
+      baslik:`${kalanGun} gün sonra vade: ${f.cariAd}`,
+      detay:`${f.no} — Vade: ${f.vade}`,
+      tutar:f.genelToplam,
+      aksiyon:()=>location.href='muhasebe-faturalar.html'
+    });
+  });
+
+  // 3. RİSK LİMİTİ AŞAN CARİLER (kritik)
+  Object.values(cariler).filter(Boolean).forEach(c=>{
+    if(!c.limit||c.limit<=0)return;
+    const bak=cariBakiye(c.id);
+    if(bak.net>c.limit){
+      uyarilar.push({
+        tip:'kritik',ikon:'🚨',
+        baslik:`Risk limiti aşıldı: ${c.ad}`,
+        detay:`Limit: ${fmt(c.limit)} ₺ — Bakiye: ${fmt(bak.net)} ₺`,
+        tutar:bak.net-c.limit,
+        aksiyon:()=>location.href='muhasebe-cariler.html'
+      });
+    }
+  });
+
+  // 4. UZUN SÜREDİR HAREKETSİZ BÜYÜK BORÇLU CARİLER (dikkat)
+  Object.values(cariler).filter(Boolean).forEach(c=>{
+    const bak=cariBakiye(c.id);
+    if(bak.net<=5000)return;
+    const harlar=Object.values(cariHareketler).filter(h=>h?.cariId===c.id).sort((a,b)=>b.tarih-a.tarih);
+    if(!harlar.length)return;
+    const sonHareket=harlar[0].tarih;
+    const gun=(today-sonHareket)/86400000;
+    if(gun>30){
+      uyarilar.push({
+        tip:'dikkat',ikon:'⏳',
+        baslik:`${c.ad} — ${Math.floor(gun)} gündür hareket yok`,
+        detay:`Borç bakiyesi: ${fmt(bak.net)} ₺ — Mutabakat önerilir`,
+        tutar:bak.net,
+        aksiyon:()=>location.href='muhasebe-cariler.html'
+      });
+    }
+  });
+
+  // 5. TASLAK FATURALAR UNUTULMUŞ OLABİLİR (bilgi)
+  const taslaklar=Object.values(faturalar).filter(f=>f&&f.durum==='taslak');
+  if(taslaklar.length>3){
+    uyarilar.push({
+      tip:'bilgi',ikon:'📝',
+      baslik:`${taslaklar.length} taslak fatura bekliyor`,
+      detay:`Onaylanmamış faturalar birikmiş`,
+      tutar:taslaklar.reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0),
+      aksiyon:()=>location.href='muhasebe-faturalar.html'
+    });
+  }
+
+  // 6. MİZAN DENGESİZLİĞİ (kritik) — bu ay
+  const ayBasi=new Date();ayBasi.setDate(1);ayBasi.setHours(0,0,0,0);
+  const buAyYev=Object.values(yevmiyeler).filter(y=>y&&y.onaylandi&&y.tarih>=ayBasi.getTime());
+  let topBorc=0,topAlacak=0;
+  buAyYev.forEach(y=>{topBorc+=y.toplamBorc||0;topAlacak+=y.toplamAlacak||0;});
+  if(buAyYev.length&&Math.abs(topBorc-topAlacak)>0.01){
+    uyarilar.push({
+      tip:'kritik',ikon:'⚠️',
+      baslik:'Bu ay mizan dengesiz',
+      detay:`Borç: ${fmt(topBorc)} ₺ — Alacak: ${fmt(topAlacak)} ₺`,
+      tutar:Math.abs(topBorc-topAlacak),
+      aksiyon:()=>location.href='muhasebe-yevmiye.html'
+    });
+  }
+
+  // 7. NAKİT DÜŞÜK UYARISI (dikkat) — toplam nakit ödeme bekleyenin altındaysa
+  const nakitToplam=Object.values(bankaKasaHesaplari).filter(h=>h&&h.doviz==='TRY').reduce((t,h)=>t+hesapBakiye(h.id),0);
+  const odemeBekleyen=Object.values(faturalar).filter(f=>f&&f.tur==='alis'&&(f.durum==='onaylandi'||f.durum==='bekliyor')).reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0);
+  if(odemeBekleyen>0&&nakitToplam<odemeBekleyen){
+    uyarilar.push({
+      tip:'dikkat',ikon:'💰',
+      baslik:'Nakit, ödeme bekleyen tutarın altında',
+      detay:`Nakit: ${fmt(nakitToplam)} ₺ — Ödenecek: ${fmt(odemeBekleyen)} ₺`,
+      tutar:odemeBekleyen-nakitToplam,
+      aksiyon:()=>location.href='muhasebe-banka.html'
+    });
+  }
+
+  // Sırala: kritik > dikkat > bilgi
+  const siraDeger={kritik:0,dikkat:1,bilgi:2};
+  uyarilar.sort((a,b)=>siraDeger[a.tip]-siraDeger[b.tip]);
+
+  return uyarilar;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderOzetMini(){
+  const tumCariler=Object.values(cariler).filter(Boolean);
+  let toplamBorc=0;
+  tumCariler.forEach(c=>{const b=cariBakiye(c.id).net;if(b>0)toplamBorc+=b;});
+  const nakitToplam=Object.values(bankaKasaHesaplari).filter(h=>h&&h.doviz==='TRY').reduce((t,h)=>t+hesapBakiye(h.id),0);
+  const vadesiGecen=Object.values(faturalar).filter(f=>f&&f.tur==='alis'&&(f.durum==='onaylandi'||f.durum==='bekliyor')&&f.vade&&new Date(f.vade).getTime()<Date.now()).length;
+
+  document.getElementById('ozet-mini').innerHTML=`
+    <div class="ozet-mini"><div class="ozet-mini-num" style="color:var(--primary)">${fmt(nakitToplam)}₺</div><div class="ozet-mini-lbl">Nakit</div></div>
+    <div class="ozet-mini"><div class="ozet-mini-num" style="color:var(--danger)">${fmt(toplamBorc)}₺</div><div class="ozet-mini-lbl">Borç</div></div>
+    <div class="ozet-mini"><div class="ozet-mini-num" style="color:${vadesiGecen>0?'var(--danger)':'var(--success)'}">${vadesiGecen}</div><div class="ozet-mini-lbl">Vadesi Geçen</div></div>`;
+}
+
+function renderUyarilar(){
+  const uyarilar=analizYap();
+  document.getElementById('uyari-sayi').textContent=uyarilar.length?`${uyarilar.length} uyarı`:'';
+  const c=document.getElementById('uyarilar-liste');
+  if(!uyarilar.length){
+    c.innerHTML='<div class="es">✅ Şu an aktif uyarı yok, her şey düzenli görünüyor</div>';
+    return;
+  }
+  c.innerHTML=uyarilar.map((u,i)=>`
+    <div class="uyari-kart ${u.tip}" onclick="uyariAksiyon(${i})">
+      <div class="uyari-ikon">${u.ikon}</div>
+      <div style="flex:1;min-width:0">
+        <div class="uyari-baslik">${u.baslik}</div>
+        <div class="uyari-detay">${u.detay}</div>
+        ${u.tutar?`<div class="uyari-tutar" style="color:${u.tip==='kritik'?'var(--danger)':u.tip==='dikkat'?'#92400e':'var(--info)'}">${fmt(u.tutar)} ₺</div>`:''}
+      </div>
+    </div>`).join('');
+  window._uyarilar=uyarilar;
+}
+
+function uyariAksiyon(i){
+  if(window._uyarilar&&window._uyarilar[i]&&window._uyarilar[i].aksiyon)window._uyarilar[i].aksiyon();
+}
+
+// ============================================================
+// VERİ ÖZETİ ÜRET (AI'a gönderilecek sade özet)
+// ============================================================
+function veriOzetiUret(){
+  const tumCariler=Object.values(cariler).filter(Boolean);
+  const cariOzet=tumCariler.map(c=>{
+    const bak=cariBakiye(c.id);
+    return{ad:c.ad,tip:c.tip,bakiye:Math.round(bak.net),vade:c.vade};
+  }).filter(c=>Math.abs(c.bakiye)>0.01).sort((a,b)=>b.bakiye-a.bakiye);
+
+  const tumFaturalar=Object.values(faturalar).filter(Boolean);
+  const buAy=new Date();buAy.setDate(1);buAy.setHours(0,0,0,0);
+  const buAyFaturalar=tumFaturalar.filter(f=>f.olusturmaTarih>=buAy.getTime());
+
+  const bekleyenOdemeler=tumFaturalar.filter(f=>f.tur==='alis'&&(f.durum==='onaylandi'||f.durum==='bekliyor')).map(f=>({cari:f.cariAd,tutar:f.genelToplam,vade:f.vade,no:f.no}));
+
+  const nakitHesaplar=Object.values(bankaKasaHesaplari).filter(Boolean).map(h=>({ad:h.ad,tur:h.tur,bakiye:Math.round(hesapBakiye(h.id)),doviz:h.doviz}));
+
+  return{
+    bugun:new Date().toLocaleDateString('tr-TR'),
+    toplamCariSayisi:tumCariler.length,
+    cariBakiyeler:cariOzet.slice(0,30), // en büyük 30
+    buAyFaturaSayisi:buAyFaturalar.length,
+    buAyAlisToplam:Math.round(buAyFaturalar.filter(f=>f.tur==='alis').reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0)),
+    bekleyenOdemeler:bekleyenOdemeler.slice(0,20),
+    nakitHesaplar,
+    toplamNakit:Math.round(nakitHesaplar.reduce((t,h)=>h.doviz==='TRY'?t+h.bakiye:t,0))
+  };
+}
+
+// ============================================================
+// AI SOHBET
+// ============================================================
+function soruSor(soru){
+  document.getElementById('soru-inp').value=soru;
+  soruSorInput();
+}
+
+async function soruSorInput(){
+  const inp=document.getElementById('soru-inp');
+  const soru=inp.value.trim();
+  if(!soru)return;
+  inp.value='';
+
+  const sohbet=document.getElementById('sohbet-icerik');
+  sohbet.innerHTML+=`<div class="msg"><div class="msg-kullanici">${soru.replace(/</g,'&lt;')}</div></div>`;
+
+  const loadingId='ld_'+Date.now();
+  sohbet.innerHTML+=`<div class="msg" id="${loadingId}"><div class="msg-asistan"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div>`;
+  sohbet.scrollTop=sohbet.scrollHeight;
+
+  try{
+    const ozet=veriOzetiUret();
+    const sistemPrompt=`Sen Gürok Turizm Grubu için çalışan bir muhasebe asistanısın. Aşağıdaki güncel muhasebe verisine göre soruları kısa, net ve Türkçe cevapla. Sayısal hesaplamaları SEN YAPMA, veride zaten hesaplanmış toplam ve bakiye değerlerini kullan. Eğer veri yetersizse bunu açıkça söyle. Cevapların 2-4 cümle olsun, gereksiz uzatma.
+
+GÜNCEL VERİ (JSON):
+${JSON.stringify(ozet)}`;
+
+    const response=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-6",
+        max_tokens:500,
+        messages:[
+          {role:"user",content:sistemPrompt+"\n\nSORU: "+soru}
+        ]
+      })
+    });
+    const data=await response.json();
+    const cevapMetni=data.content?.filter(c=>c.type==='text').map(c=>c.text).join('\n')||'Cevap alınamadı.';
+
+    document.getElementById(loadingId).innerHTML=`<div class="msg-asistan">${cevapMetni.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+  }catch(e){
+    document.getElementById(loadingId).innerHTML=`<div class="msg-asistan" style="color:var(--danger)">⚠️ Cevap alınamadı, bağlantıyı kontrol edin.</div>`;
+  }
+  sohbet.scrollTop=sohbet.scrollHeight;
+}
+
+// ============================================================
+// YENİLE
+// ============================================================
+async function yenile(){
+  await loadAll();
+  renderOzetMini();
+  renderUyarilar();
+}
+
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadAll();
+  renderOzetMini();
+  renderUyarilar();
+})();
+</script>
+</body>
+</html>
