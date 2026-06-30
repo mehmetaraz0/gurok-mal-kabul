@@ -933,6 +933,12 @@ function addSPSatir(data){
   setTimeout(()=>{const inp=document.getElementById('spa'+(SP_SATIRLAR.length-1));if(inp)inp.focus();},50);
 }
 
+function autoFirma(kod){
+  if(!DB.firmalar||!DB.firmalar.length) return null;
+  const firma = DB.firmalar.find(f => f.urunler && f.urunler.includes(kod));
+  return firma || null;
+}
+
 function renderSPSatirlar(){
   const c=document.getElementById('sp-satirlar');if(!c)return;
   if(!SP_SATIRLAR.length){c.innerHTML='<div style="text-align:center;color:var(--gray-400);padding:16px;font-size:13px">Kalem eklemek için + Ekle butonuna basın</div>';return;}
@@ -949,7 +955,7 @@ function renderSPSatirlar(){
           style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
         <div id="spdd${i}" class="udd"></div>
       </div>
-      <div class="rfields">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div><label style="font-size:11px;font-weight:600;color:var(--gray-600)">MİKTAR</label>
           <input type="number" value="${u.miktar}" placeholder="0" oninput="SP_SATIRLAR[${i}].miktar=this.value"
             style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none"></div>
@@ -959,7 +965,36 @@ function renderSPSatirlar(){
             ${['KG','AD','KOL','LT','PKT','TRB','TNK','BOT'].map(b=>`<option${u.birim===b?' selected':''}>${b}</option>`).join('')}
           </select></div>
       </div>
+      <div style="position:relative">
+        <label style="font-size:11px;font-weight:600;color:var(--gray-600)">FİRMA</label>
+        <input type="text" id="spf${i}" value="${(u.firmaAd||'').replace(/"/g,'&quot;')}" placeholder="Firma ara veya değiştir..."
+          autocomplete="off" oninput="filterSPFirma(${i},this.value)"
+          style="width:100%;padding:9px 12px;border:1.5px solid ${u.firmaAd?'var(--success)':'var(--gray-300)'};border-radius:8px;font-size:13px;outline:none;color:${u.firmaAd?'var(--success)':'inherit'};font-weight:${u.firmaAd?'600':'400'}">
+        <div id="spfdd${i}" class="udd"></div>
+      </div>
     </div>`).join('');
+}
+
+function filterSPFirma(i,val){
+  SP_SATIRLAR[i].firmaAd=val;
+  SP_SATIRLAR[i].firmaId='';
+  const dd=document.getElementById('spfdd'+i);
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const res=(DB.firmalar||[]).filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,12);
+  if(!res.length){dd.style.display='none';return;}
+  dd.innerHTML=res.map(f=>`<div class="uddi" data-i="${i}" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">${f.ad}</div>`).join('');
+  dd.querySelectorAll('[data-id]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      const idx=parseInt(this.dataset.i);
+      SP_SATIRLAR[idx].firmaId=this.dataset.id;
+      SP_SATIRLAR[idx].firmaAd=this.dataset.ad;
+      const finp=document.getElementById('spf'+idx);
+      if(finp){finp.value=this.dataset.ad;finp.style.borderColor='var(--success)';finp.style.color='var(--success)';finp.style.fontWeight='600';}
+      dd.style.display='none';
+    });
+  });
+  dd.style.display='block';
 }
 
 function filterSPUrun(i,val){
@@ -976,16 +1011,25 @@ function filterSPUrun(i,val){
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();
       const idx=parseInt(this.dataset.i);
-      SP_SATIRLAR[idx]={...SP_SATIRLAR[idx],ad:this.dataset.ad,kod:this.dataset.kod,birim:this.dataset.birim};
+      const firma=autoFirma(this.dataset.kod);
+      SP_SATIRLAR[idx]={...SP_SATIRLAR[idx],ad:this.dataset.ad,kod:this.dataset.kod,birim:this.dataset.birim,
+        firmaId:firma?.id||SP_SATIRLAR[idx].firmaId||'',firmaAd:firma?.ad||SP_SATIRLAR[idx].firmaAd||''};
       dd.style.display='none';
       const inp=document.getElementById('spa'+idx);if(inp)inp.value=this.dataset.ad;
       const sel=document.getElementById('spb'+idx);if(sel)sel.value=this.dataset.birim||'KG';
+      const finp=document.getElementById('spf'+idx);
+      if(finp&&firma){finp.value=firma.ad;finp.style.borderColor='var(--success)';finp.style.color='var(--success)';finp.style.fontWeight='600';}
     });
   });
   dd.style.display='block';
 }
 document.addEventListener('pointerdown',e=>{
-  SP_SATIRLAR.forEach((_,i)=>{const dd=document.getElementById('spdd'+i);const inp=document.getElementById('spa'+i);if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';});
+  SP_SATIRLAR.forEach((_,i)=>{
+    const dd=document.getElementById('spdd'+i);const inp=document.getElementById('spa'+i);
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+    const fdd=document.getElementById('spfdd'+i);const finp=document.getElementById('spf'+i);
+    if(fdd&&finp&&!fdd.contains(e.target)&&e.target!==finp)fdd.style.display='none';
+  });
 });
 
 function spSifirla(){SP_SATIRLAR=[];renderSPSatirlar();document.getElementById('sp-firma-inp').value='';document.getElementById('sp-firma-id').value='';document.getElementById('sp-not').value='';}
