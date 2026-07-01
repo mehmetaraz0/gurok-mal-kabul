@@ -1009,6 +1009,20 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
   <!-- Siparişler Tab Panel -->
   <div class="scroll-content" id="tab-siparisler" style="display:none;">
+    <div class="card">
+      <div class="card-title">📦 Sipariş Takip
+        <button class="btn btn-sm btn-primary" style="margin-left:auto;" onclick="renderSiparisler()">🔄 Yenile</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px" id="sip-stats"></div>
+      <div class="filter-tabs" style="margin-bottom:0;margin-top:8px">
+        <button class="filter-tab active" id="sip-tab-bekleyen" onclick="switchSiparisTab('bekleyen',this)">⏳ Bekleyen</button>
+        <button class="filter-tab" id="sip-tab-kismi" onclick="switchSiparisTab('kismi',this)">🔶 Kısmen Geldi</button>
+        <button class="filter-tab" id="sip-tab-tamamlandi" onclick="switchSiparisTab('tamamlandi',this)">✅ Tamamlandı</button>
+        <button class="filter-tab" id="sip-tab-tumu" onclick="switchSiparisTab('tumu',this)">Tümü</button>
+      </div>
+    </div>
+    <div id="siparisler-content"></div>
+  </div>
 
   <!-- SORGU Tab Panel -->
   <div class="scroll-content" id="tab-sorgu" style="display:none;">
@@ -1027,20 +1041,6 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
       </div>
     </div>
     <div id="sorgu-sonuc"></div>
-  </div>
-    <div class="card">
-      <div class="card-title">📦 Sipariş Takip
-        <button class="btn btn-sm btn-primary" style="margin-left:auto;" onclick="renderSiparisler()">🔄 Yenile</button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px" id="sip-stats"></div>
-      <div class="filter-tabs" style="margin-bottom:0;margin-top:8px">
-        <button class="filter-tab active" id="sip-tab-bekleyen" onclick="switchSiparisTab('bekleyen',this)">⏳ Bekleyen</button>
-        <button class="filter-tab" id="sip-tab-kismi" onclick="switchSiparisTab('kismi',this)">🔶 Kısmen Geldi</button>
-        <button class="filter-tab" id="sip-tab-tamamlandi" onclick="switchSiparisTab('tamamlandi',this)">✅ Tamamlandı</button>
-        <button class="filter-tab" id="sip-tab-tumu" onclick="switchSiparisTab('tumu',this)">Tümü</button>
-      </div>
-    </div>
-    <div id="siparisler-content"></div>
   </div>
 
   <!-- Bottom Nav -->
