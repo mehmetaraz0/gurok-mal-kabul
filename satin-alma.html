@@ -1136,7 +1136,6 @@ function fkDetayAc(formId){
   _fkAktifId=String(formId);
 
   const fiyatlar=f.fiyatlar||new Array((f.urunler||[]).length).fill(0);
-  const kdvler=f.kdvler||new Array((f.urunler||[]).length).fill(20);
 
   document.getElementById('fk-modal-content').innerHTML=`
     <!-- Başlık bilgileri -->
@@ -1166,9 +1165,7 @@ function fkDetayAc(formId){
     <div id="fk-urun-listesi">
       ${(f.urunler||[]).map((u,i)=>{
         const fiyat=fiyatlar[i]||0;
-        const kdv=kdvler[i]||20;
         const toplam=fiyat*(parseFloat(u.miktar)||0);
-        const kdvTutar=toplam*kdv/100;
         return`<div style="padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-bottom:8px;${fiyat>0?'border-color:var(--success);background:#f0fdf4':''}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div>
@@ -1176,27 +1173,18 @@ function fkDetayAc(formId){
               <div style="font-size:11px;color:var(--gray-400)">${u.miktar} ${u.birim}${u.skt?' • SKT: '+u.skt:''}</div>
             </div>
             ${fiyat>0?`<div style="text-align:right">
-              <div style="font-size:13px;font-weight:800;color:var(--success)">${fmt(toplam+kdvTutar)} ₺</div>
-              <div style="font-size:10px;color:var(--gray-400)">KDV dahil</div>
+              <div style="font-size:13px;font-weight:800;color:var(--success)">${fmt(toplam)} ₺</div>
+              <div style="font-size:10px;color:var(--gray-400)">KDV hariç</div>
             </div>`:''}
           </div>
-          <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
-            <div>
-              <label style="font-size:10px;font-weight:600;color:var(--gray-500)">BİRİM FİYAT (₺)</label>
-              <input type="number" id="fk-fiyat-${i}" value="${fiyat||''}" placeholder="0.00" min="0" step="0.01"
-                oninput="fkFiyatHesapla(${i})"
-                style="width:100%;padding:8px 10px;border:1.5px solid ${fiyat>0?'var(--success)':'var(--gray-300)'};border-radius:6px;font-size:14px;font-weight:600;outline:none">
-            </div>
-            <div>
-              <label style="font-size:10px;font-weight:600;color:var(--gray-500)">KDV %</label>
-              <select id="fk-kdv-${i}" oninput="fkFiyatHesapla(${i})"
-                style="width:100%;padding:8px 6px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px">
-                ${[0,1,8,10,18,20].map(k=>`<option value="${k}"${kdv===k?' selected':''}>${k}%</option>`).join('')}
-              </select>
-            </div>
+          <div>
+            <label style="font-size:10px;font-weight:600;color:var(--gray-500)">BİRİM FİYAT (₺, KDV hariç)</label>
+            <input type="number" id="fk-fiyat-${i}" value="${fiyat||''}" placeholder="0.00" min="0" step="0.01"
+              oninput="fkFiyatHesapla(${i})"
+              style="width:100%;margin-top:4px;padding:10px;border:1.5px solid ${fiyat>0?'var(--success)':'var(--gray-300)'};border-radius:6px;font-size:14px;font-weight:600;outline:none">
           </div>
           <div id="fk-satir-toplam-${i}" style="margin-top:6px;font-size:11px;color:var(--gray-500)">
-            ${fiyat>0?`${fmt(fiyat)} ₺ × ${u.miktar} ${u.birim} + %${kdv} KDV = <b>${fmt(toplam+kdvTutar)} ₺</b>`:''}
+            ${fiyat>0?`${fmt(fiyat)} ₺ × ${u.miktar} ${u.birim} = <b>${fmt(toplam)} ₺</b> (KDV hariç)`:''}
           </div>
         </div>`;
       }).join('')}
@@ -1205,10 +1193,13 @@ function fkDetayAc(formId){
     <!-- Genel Toplam -->
     <div style="background:var(--primary);color:white;border-radius:8px;padding:12px;margin-top:8px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:13px;font-weight:700">GENEL TOPLAM (KDV Dahil)</div>
+        <div>
+          <div style="font-size:13px;font-weight:700">TOPLAM (KDV HARİÇ)</div>
+          <div style="font-size:11px;opacity:.7;margin-top:2px">KDV muhasebe tarafından işlenecek</div>
+        </div>
         <div id="fk-genel-toplam" style="font-size:18px;font-weight:800">— ₺</div>
       </div>
-      <div id="fk-not-kutusu" style="margin-top:10px">
+      <div style="margin-top:10px">
         <label style="font-size:11px;opacity:.8">Kontrol Notu (opsiyonel)</label>
         <input type="text" id="fk-not" value="${f.fiyatKontrolNotu||''}" placeholder="Fiyat farkı, indirim notu vb."
           style="width:100%;margin-top:4px;padding:8px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.1);color:white;font-size:13px;outline:none">
@@ -1232,13 +1223,11 @@ function fkFiyatHesapla(i){
   if(!f)return;
   const u=(f.urunler||[])[i];if(!u)return;
   const fiyat=parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0;
-  const kdv=parseFloat(document.getElementById('fk-kdv-'+i)?.value)||0;
   const miktar=parseFloat(u.miktar)||0;
   const toplam=fiyat*miktar;
-  const kdvTutar=toplam*kdv/100;
   const satirToplamEl=document.getElementById('fk-satir-toplam-'+i);
   if(satirToplamEl){
-    satirToplamEl.innerHTML=fiyat>0?`${fmt(fiyat)} ₺ × ${miktar} ${u.birim} + %${kdv} KDV = <b>${fmt(toplam+kdvTutar)} ₺</b>`:'';
+    satirToplamEl.innerHTML=fiyat>0?`${fmt(fiyat)} ₺ × ${miktar} ${u.birim} = <b>${fmt(toplam)} ₺</b> (KDV hariç)`:'';
   }
   const inp=document.getElementById('fk-fiyat-'+i);
   if(inp)inp.style.borderColor=fiyat>0?'var(--success)':'var(--gray-300)';
@@ -1250,9 +1239,8 @@ function fkGenelToplamHesapla(f){
   let genel=0;
   urunler.forEach((u,i)=>{
     const fiyat=parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0;
-    const kdv=parseFloat(document.getElementById('fk-kdv-'+i)?.value)||0;
     const miktar=parseFloat(u.miktar)||0;
-    genel+=fiyat*miktar*(1+kdv/100);
+    genel+=fiyat*miktar;
   });
   const el=document.getElementById('fk-genel-toplam');
   if(el)el.textContent=genel>0?fmt(genel)+' ₺':'— ₺';
@@ -1263,28 +1251,20 @@ async function muhasebeGonder(){
   if(!f)return;
   const urunler=f.urunler||[];
 
-  // Fiyatları topla
+  // Fiyatları topla — KDV muhasebe tarafından işlenecek
   const fiyatlar=urunler.map((_,i)=>parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0);
-  const kdvler=urunler.map((_,i)=>parseFloat(document.getElementById('fk-kdv-'+i)?.value)||20);
   const herFiyatGirildi=fiyatlar.every(p=>p>0);
 
   if(!herFiyatGirildi){
     if(!confirm('Bazı ürünlerin fiyatı girilmemiş. Yine de Muhasebe\'ye göndermek istiyor musunuz?'))return;
   }
 
-  // Genel toplam
-  let genelToplam=0,kdvToplam=0,araToplam=0;
+  // Ara toplam (KDV hariç) — KDV muhasebe işler
+  let araToplam=0;
   urunler.forEach((u,i)=>{
-    const miktar=parseFloat(u.miktar)||0;
-    const fiyat=fiyatlar[i];
-    const kdv=kdvler[i];
-    const sat=fiyat*miktar;
-    araToplam+=sat;
-    kdvToplam+=sat*kdv/100;
-    genelToplam+=sat*(1+kdv/100);
+    araToplam+=fiyatlar[i]*(parseFloat(u.miktar)||0);
   });
 
-  // Firebase muhasebe/faturalar'a fatura oluştur
   const faturaId='FAT_'+Date.now();
   const fatura={
     id:faturaId,
@@ -1298,21 +1278,22 @@ async function muhasebeGonder(){
     malKabulId:String(f.id),
     irsaliyeNo:f.irsaliyeNo||'',
     kalemler:urunler.map((u,i)=>({
-      ad:u.ad,kod:u.kod||'',
-      miktar:parseFloat(u.miktar)||0,birim:u.birim,
-      birimFiyat:fiyatlar[i],kdvOran:kdvler[i],
+      ad:u.ad, kod:u.kod||'',
+      miktar:parseFloat(u.miktar)||0, birim:u.birim,
+      birimFiyat:fiyatlar[i],
+      kdvOran:0, // muhasebe belirleyecek
       iskonto:0
     })),
     araToplam:Math.round(araToplam*100)/100,
-    kdvToplam:Math.round(kdvToplam*100)/100,
-    genelToplam:Math.round(genelToplam*100)/100,
+    kdvToplam:0, // muhasebe hesaplayacak
+    genelToplam:Math.round(araToplam*100)/100,
     durum:'bekliyor',
-    not:document.getElementById('fk-not')?.value||''
+    not:document.getElementById('fk-not')?.value||'',
+    fiyatKontrolAdi:DB?.kullanici?.ad||''
   };
 
   // Mal kabul formunu güncelle
   f.fiyatlar=fiyatlar;
-  f.kdvler=kdvler;
   f.fiyatKontrolDurum='muhasebe';
   f.fiyatKontrolTarih=Date.now();
   f.fiyatKontrolNotu=document.getElementById('fk-not')?.value||'';
@@ -1323,14 +1304,15 @@ async function muhasebeGonder(){
     await Promise.all([
       fetch(FB+`/muhasebe/faturalar/${faturaId}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fatura)}),
       fetch(FB+`/formlar/${f.id}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-        fiyatlar,kdvler,fiyatKontrolDurum:'muhasebe',
+        fiyatlar,
+        fiyatKontrolDurum:'muhasebe',
         fiyatKontrolTarih:f.fiyatKontrolTarih,
         fiyatKontrolNotu:f.fiyatKontrolNotu,
         muhasebeFaturaId:faturaId
       })})
     ]);
     kModal('mFiyatKontrol');
-    toast(`✅ ${f.faturaNo} — Muhasebe'ye gönderildi (${fmt(genelToplam)} ₺)`);
+    toast(`✅ ${f.faturaNo} — Muhasebe'ye gönderildi (${fmt(araToplam)} ₺ KDV hariç)`);
     renderFiyatKontrol();
   }catch(e){
     toast('⚠️ Hata: '+e.message);
