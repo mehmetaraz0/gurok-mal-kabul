@@ -852,8 +852,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           <input type="date" id="form-tarih">
         </div>
         <div class="field">
-          <label>Fatura No <span style="font-size:10px;color:var(--gray-400)">(sonradan girilebilir)</span></label>
-          <input type="text" id="fatura-no" placeholder="Opsiyonel — Satın Alma girer">
+          <label>Fatura No <span style="font-size:10px;color:var(--gray-400)">(opsiyonel — irsaliye ile gelirse gir)</span></label>
+          <input type="text" id="fatura-no" placeholder="Fatura numarası">
         </div>
         <div class="field">
           <label>İrsaliye No *</label>
@@ -4288,6 +4288,7 @@ function sorguDetayAc(formId){
   if(!f)return;
   const content=document.getElementById('modal-onay-content');
   const depoRol=['yonetici','depo'].includes(state.currentUser?.rol);
+  const faturaGirebilir=['yonetici','depo','satinalma'].includes(state.currentUser?.rol);
 
   content.innerHTML=`
     <div style="margin-bottom:12px">
@@ -4305,9 +4306,9 @@ function sorguDetayAc(formId){
         <div style="font-size:11px;font-weight:700;color:${f.faturaNo?'#155724':'#856404'};margin-bottom:6px">
           ${f.faturaNo?'✅ FATURA EŞLEŞTİ':'⏳ FATURA BEKLENİYOR'}
         </div>
-        ${depoRol?`
+        ${faturaGirebilir?`
           <div style="display:flex;gap:6px;align-items:center">
-            <input type="text" id="dtz-fatura-no" value="${f.faturaNo||''}" placeholder="Fatura numarasını girin..."
+            <input type="text" id="dtz-fatura-no" value="${f.faturaNo||''}" placeholder="Fatura numarası..."
               style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;outline:none">
             <button onclick="faturaNoKaydet(${f.id})" style="padding:8px 14px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Kaydet</button>
           </div>`:
@@ -4340,11 +4341,15 @@ function sorguDetayAc(formId){
   `;
 
   const actions=document.getElementById('modal-onay-actions');
-  // Depo rolü → düzeltme butonu da göster
-  actions.innerHTML=depoRol&&f.durum==='onaylandi'?`
-    <button class="btn btn-gray" onclick="closeModal('modal-onay')">Kapat</button>
-    <button class="btn btn-warning" onclick="duzeltmeModuAc(${f.id})">✏️ Düzelt</button>
-  `:`<button class="btn btn-gray btn-block" onclick="closeModal('modal-onay')">Kapat</button>`;
+  if(f.durum==='onaylandi'){
+    actions.innerHTML=`
+      <button class="btn btn-gray" onclick="closeModal('modal-onay')">Kapat</button>
+      <button class="btn btn-primary" style="flex:1" onclick="closeModal('modal-onay');kabulOzetAc('${f.id}')">📋 Kabul Sayfası</button>
+      ${depoRol?`<button class="btn btn-warning" onclick="duzeltmeModuAc(${f.id})">✏️ Düzelt</button>`:''}
+    `;
+  } else {
+    actions.innerHTML=`<button class="btn btn-gray btn-block" onclick="closeModal('modal-onay')">Kapat</button>`;
+  }
 
   openModal('modal-onay');
 }
@@ -4491,7 +4496,7 @@ function kabulOzetAc(formId){
       </div>`:''}
       <div style="padding:8px 10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:6px;grid-column:span 2">
         <div style="color:${f.faturaNo?'#155724':'#856404'};font-size:10px;text-transform:uppercase;margin-bottom:2px">Fatura No</div>
-        <div style="font-weight:700;color:${f.faturaNo?'#155724':'#856404'}">${f.faturaNo||'⏳ Bekleniyor — Satın Alma girecek'}</div>
+        <div style="font-weight:700;color:${f.faturaNo?'#155724':'#856404'}">${f.faturaNo||'⏳ Bekleniyor — fatura ile birlikte girilecek'}</div>
       </div>
     </div>
 
