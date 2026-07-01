@@ -831,7 +831,10 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
     <!-- Form -->
     <div class="card">
-      <div class="card-title">📋 Teslimat Bilgileri</div>
+      <div class="card-title">
+        📋 Teslimat Bilgileri
+        <span id="mk-no-badge" style="margin-left:auto;font-family:monospace;font-size:13px;font-weight:800;color:#5b21b6;background:#ede9fe;padding:3px 10px;border-radius:10px;display:none"></span>
+      </div>
       <div class="field">
         <label>Tedarikçi Firma *</label>
         <div class="autocomplete-wrap">
@@ -2101,14 +2104,22 @@ function resetForm() {
   document.getElementById('fatura-no').value = '';
   document.getElementById('irsaliye-no').value = '';
   if(document.getElementById('ln-siparis-no')) document.getElementById('ln-siparis-no').value = '';
+  const sipBilgi=document.getElementById('siparis-bilgi');
+  if(sipBilgi){sipBilgi.style.display='none';}
+  const seciliSip=document.getElementById('secili-siparisler');
+  if(seciliSip)seciliSip.innerHTML='';
   document.getElementById('arac-hijyen').value = 'uygun';
   document.getElementById('arac-sicaklik').value = '';
-
   document.getElementById('form-notlar').value = '';
   state.formRows = [];
   state.selectedFirmaId = null;
   document.getElementById('urun-rows').innerHTML = '';
-  addUrunRow();
+  // MK numarasını üret ve göster
+  const mkNo = yeniMalKabulNo();
+  state._pendingMkNo = mkNo;
+  const badge = document.getElementById('mk-no-badge');
+  if(badge){badge.textContent='Kabul: '+mkNo;badge.style.display='block';}
+  // İlk satırı boş EKLEMİYORUZ — popup'tan veya manuel eklenecek
   document.getElementById('ai-tedarikcii-panel').style.display = 'none';
 }
 
@@ -2271,7 +2282,8 @@ function bspUygula(){
     bilgiDiv.textContent=`✅ ${siparisNolar.length} sipariş, ${secilen.length} kalem seçildi`;
   }
 
-  // Form satırlarına ekle — mevcut satırlar korunsun, sadece yeniler eklensin
+  // Mevcut BOŞ satırları temizle, sonra seçilenleri ekle
+  state.formRows = state.formRows.filter(r=>r.ad&&r.ad.trim());
   const mevcutKodlar=new Set(state.formRows.map(r=>r.kod).filter(Boolean));
   let eklenen=0;
   secilen.forEach(s=>{
@@ -2394,6 +2406,15 @@ function validateSkt(i,el) {
 function renderUrunRows() {
   const today = new Date().toISOString().split('T')[0];
   const container = document.getElementById('urun-rows');
+  if(!state.formRows.length){
+    container.innerHTML=`<div style="text-align:center;padding:20px;color:var(--gray-400)">
+      <div style="font-size:32px;margin-bottom:8px">📦</div>
+      <div style="font-size:13px;margin-bottom:12px">Henüz ürün eklenmedi</div>
+      <button onclick="bekleyenSiparisleriAc()" style="padding:8px 16px;background:#ede9fe;color:#5b21b6;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px">📋 Siparişten Seç</button>
+      <button onclick="addUrunRow()" style="padding:8px 16px;background:var(--gray-200);color:var(--gray-700);border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">+ Manuel Ekle</button>
+    </div>`;
+    return;
+  }
   container.innerHTML = state.formRows.map((r,i) => {
     const birimOpts = ['KG','AD','KOL','PKT','LT','TRB','TNK','BOT']
       .map(b=>`<option value="${b}"${r.birim===b?' selected':''}>${b}</option>`).join('');
@@ -2848,7 +2869,8 @@ async function submitForm() {
   const emptySicaklik = state.formRows.find(r => r.sicaklikKriter && r.sicaklikKriter !== 'none' && !r.sicaklik);
   if (emptySicaklik) showToast('⚠️ ' + emptySicaklik.ad + ' — sıcaklık girilmedi, devam ediliyor', 3000);
 
-  const mkNo = yeniMalKabulNo();
+  const mkNo = state._pendingMkNo || yeniMalKabulNo();
+  state._pendingMkNo = null;
   const form = {
     id: Date.now(),
     mkNo,
