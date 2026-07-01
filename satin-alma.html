@@ -116,6 +116,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('yeniSiparis',this)">✉️ Sipariş Oluştur</button>
     <button class="tabbtn" onclick="gTab('firmalar',this)">🏢 Firmalar</button>
     <button class="tabbtn" onclick="gTab('siparisTakip',this)">📊 Sipariş Takip</button>
+    <button class="tabbtn" onclick="gTab('fiyatKontrol',this)" id="tab-btn-fiyatKontrol">💰 Fiyat Kontrolü <span id="fk-badge" style="display:none;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
   </div>
 
   <!-- İÇ TALEPLER -->
@@ -209,6 +210,38 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" id="st-tab-tumu" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
     </div>
     <div id="siparis-takip-liste"></div>
+  </div>
+
+  <!-- FİYAT KONTROLÜ PANELİ -->
+  <div class="sc" id="tab-fiyatKontrol">
+    <div class="card">
+      <div class="card-title">💰 Fiyat Kontrolü
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadFiyatKontrol()">🔄 Yenile</button>
+      </div>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">
+        Deponun fatura eşleştirdiği kabul kayıtları — fiyatları kontrol edip Muhasebe'ye gönderin
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px" id="fk-stats"></div>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" id="fk-tab-bekleyen" onclick="filterFiyatKontrol('bekleyen',this)">⏳ Kontrol Bekliyor</button>
+      <button class="ftab" id="fk-tab-kontrol" onclick="filterFiyatKontrol('kontrol',this)">✅ Kontrol Edildi</button>
+      <button class="ftab" id="fk-tab-muhasebe" onclick="filterFiyatKontrol('muhasebe',this)">📤 Muhasebe'ye Gönderildi</button>
+      <button class="ftab" id="fk-tab-tumu" onclick="filterFiyatKontrol('tumu',this)">Tümü</button>
+    </div>
+    <div id="fiyat-kontrol-liste"></div>
+  </div>
+</div>
+
+<!-- MODAL: Fiyat Kontrol Detay -->
+<div class="mo" id="mFiyatKontrol">
+  <div class="mbox" style="max-height:95vh">
+    <div class="mtitle">💰 Fiyat Kontrolü <button class="mclose" onclick="kModal('mFiyatKontrol')">✕</button></div>
+    <div id="fk-modal-content"></div>
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-gray" onclick="kModal('mFiyatKontrol')">Kapat</button>
+      <button class="btn btn-success" style="flex:1" id="fk-muhasebe-btn" onclick="muhasebeGonder()">📤 Muhasebe'ye Gönder</button>
+    </div>
   </div>
 </div>
 
@@ -392,6 +425,7 @@ function gTab(tab,el){
   if(tab==='siparisler')renderLN();
   if(tab==='firmalar')renderFirmalar('');
   if(tab==='siparisTakip')loadSiparisTakip();
+  if(tab==='fiyatKontrol')loadFiyatKontrol();
   if(tab==='yeniSiparis'){
     document.getElementById('sp-tarih').value=new Date().toISOString().split('T')[0];
     document.getElementById('sp-termin').value='';
@@ -985,6 +1019,325 @@ function spMail(gi){
 function spMailGonder(){spMail(0);}// eski referans için
 
 // ============================================================
+// FİYAT KONTROLÜ — Deponun fatura eşleştirdiği kayıtları al
+// ============================================================
+let _fkFilter='bekleyen';
+let _fkFormlar=[];
+let _fkAktifId=null;
+
+async function loadFiyatKontrol(){
+  try{
+    const r=await fetch(FB+'/formlar.json');
+    if(r.ok){const d=await r.json();
+      if(d&&typeof d==='object'){
+        // Hem array hem object formatını destekle
+        _fkFormlar=Array.isArray(d)?d:Object.values(d).filter(Boolean);
+      }
+    }
+  }catch(e){console.warn(e);}
+  renderFiyatKontrol();
+}
+
+function filterFiyatKontrol(f,el){
+  _fkFilter=f;
+  document.querySelectorAll('#tab-fiyatKontrol .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderFiyatKontrol();
+}
+
+function renderFiyatKontrol(){
+  // Sadece onaylı ve fatura no girilmiş formlar
+  const onaylilar=_fkFormlar.filter(f=>f&&f.durum==='onaylandi'&&f.faturaNo);
+
+  // fiyatKontrolDurum: undefined=bekleyen, 'kontrol'=edildi, 'muhasebe'=gönderildi
+  const bekleyen=onaylilar.filter(f=>!f.fiyatKontrolDurum);
+  const kontrol=onaylilar.filter(f=>f.fiyatKontrolDurum==='kontrol');
+  const muhasebe=onaylilar.filter(f=>f.fiyatKontrolDurum==='muhasebe');
+
+  // Badge güncelle
+  const badge=document.getElementById('fk-badge');
+  if(badge){
+    if(bekleyen.length){badge.textContent=bekleyen.length;badge.style.display='inline';}
+    else badge.style.display='none';
+  }
+
+  // Stats
+  document.getElementById('fk-stats').innerHTML=`
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--warning)">${bekleyen.length}</div>
+      <div style="font-size:10px;color:var(--gray-500)">KONTROL BEKLİYOR</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--info)">${kontrol.length}</div>
+      <div style="font-size:10px;color:var(--gray-500)">KONTROL EDİLDİ</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--success)">${muhasebe.length}</div>
+      <div style="font-size:10px;color:var(--gray-500)">MUHASEBE'DE</div>
+    </div>`;
+
+  let liste=onaylilar;
+  if(_fkFilter==='bekleyen')liste=bekleyen;
+  else if(_fkFilter==='kontrol')liste=kontrol;
+  else if(_fkFilter==='muhasebe')liste=muhasebe;
+  liste=liste.sort((a,b)=>(b.tarih||0)-(a.tarih||0));
+
+  const c=document.getElementById('fiyat-kontrol-liste');
+  if(!liste.length){
+    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:var(--gray-400)">
+      <div style="font-size:40px;margin-bottom:12px">💰</div>
+      <div style="font-size:13px">${_fkFilter==='bekleyen'?'Fiyat kontrolü bekleyen kayıt yok':'Kayıt bulunamadı'}</div>
+      <div style="font-size:11px;margin-top:6px;color:var(--gray-300)">Depo fatura numarası girdikten sonra burada görünür</div>
+    </div>`;
+    return;
+  }
+
+  c.innerHTML=liste.map(f=>{
+    const durumRenk={bekleyen:'var(--warning)',kontrol:'var(--info)',muhasebe:'var(--success)'}[f.fiyatKontrolDurum||'bekleyen'];
+    const durumYazi={bekleyen:'⏳ Kontrol Bekliyor',kontrol:'✅ Kontrol Edildi',muhasebe:'📤 Muhasebe\'de'}[f.fiyatKontrolDurum||'bekleyen'];
+    const kalemSayisi=(f.urunler||[]).length;
+    const fiyatGirildi=(f.fiyatlar||[]).filter(p=>p>0).length;
+
+    return`<div class="card" style="margin-bottom:8px;cursor:pointer;border-left:4px solid ${durumRenk}" onclick="fkDetayAc('${f.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+            <span style="font-family:monospace;font-weight:800;color:var(--primary);font-size:12px">${f.mkNo||'—'}</span>
+            <span style="font-size:11px;font-weight:600;color:${durumRenk}">${durumYazi}</span>
+          </div>
+          <div style="font-size:13px;font-weight:700">🏢 ${f.firma||'—'}</div>
+          <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
+            ${f.formTarih||'—'}
+            ${f.irsaliyeNo?' • İrs: <b>'+f.irsaliyeNo+'</b>':''}
+            ${f.faturaNo?' • Fat: <b>'+f.faturaNo+'</b>':''}
+          </div>
+          ${f.lnSiparisNo?`<div style="font-size:11px;color:#5b21b6;font-family:monospace;margin-top:2px">${f.lnSiparisNo.split(',')[0]}${f.lnSiparisNo.includes(',')?'...':''}</div>`:''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:16px;font-weight:800;color:var(--primary)">${kalemSayisi}</div>
+          <div style="font-size:10px;color:var(--gray-500)">KALEM</div>
+          ${fiyatGirildi>0?`<div style="font-size:10px;color:var(--success);margin-top:2px">${fiyatGirildi}/${kalemSayisi} fiyat</div>`:''}
+        </div>
+      </div>
+      <!-- Progress bar fiyat girişi -->
+      <div style="height:4px;background:var(--gray-200);border-radius:2px;overflow:hidden">
+        <div style="height:100%;background:${durumRenk};width:${kalemSayisi>0?Math.round(fiyatGirildi/kalemSayisi*100):0}%;transition:width .3s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// FİYAT KONTROL DETAY MODAL
+// ============================================================
+function fkDetayAc(formId){
+  const f=_fkFormlar.find(x=>String(x.id)===String(formId));
+  if(!f)return;
+  _fkAktifId=String(formId);
+
+  const fiyatlar=f.fiyatlar||new Array((f.urunler||[]).length).fill(0);
+  const kdvler=f.kdvler||new Array((f.urunler||[]).length).fill(20);
+
+  document.getElementById('fk-modal-content').innerHTML=`
+    <!-- Başlık bilgileri -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;font-size:12px">
+      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px">KABUL NO</div>
+        <div style="font-family:monospace;font-weight:800;color:var(--primary)">${f.mkNo||'—'}</div>
+      </div>
+      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px">TEDARİKÇİ</div>
+        <div style="font-weight:700">${f.firma}</div>
+      </div>
+      <div style="padding:7px 10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px">FATURA NO</div>
+        <div style="font-weight:700">${f.faturaNo||'—'}</div>
+      </div>
+      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px">İRSALİYE</div>
+        <div style="font-weight:700">${f.irsaliyeNo||'—'}</div>
+      </div>
+    </div>
+
+    <!-- Ürün Fiyat Giriş Tablosu -->
+    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">
+      📦 Ürünler — Birim Fiyat Girişi
+    </div>
+    <div id="fk-urun-listesi">
+      ${(f.urunler||[]).map((u,i)=>{
+        const fiyat=fiyatlar[i]||0;
+        const kdv=kdvler[i]||20;
+        const toplam=fiyat*(parseFloat(u.miktar)||0);
+        const kdvTutar=toplam*kdv/100;
+        return`<div style="padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-bottom:8px;${fiyat>0?'border-color:var(--success);background:#f0fdf4':''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div>
+              <div style="font-size:13px;font-weight:700">${u.ad}</div>
+              <div style="font-size:11px;color:var(--gray-400)">${u.miktar} ${u.birim}${u.skt?' • SKT: '+u.skt:''}</div>
+            </div>
+            ${fiyat>0?`<div style="text-align:right">
+              <div style="font-size:13px;font-weight:800;color:var(--success)">${fmt(toplam+kdvTutar)} ₺</div>
+              <div style="font-size:10px;color:var(--gray-400)">KDV dahil</div>
+            </div>`:''}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+            <div>
+              <label style="font-size:10px;font-weight:600;color:var(--gray-500)">BİRİM FİYAT (₺)</label>
+              <input type="number" id="fk-fiyat-${i}" value="${fiyat||''}" placeholder="0.00" min="0" step="0.01"
+                oninput="fkFiyatHesapla(${i})"
+                style="width:100%;padding:8px 10px;border:1.5px solid ${fiyat>0?'var(--success)':'var(--gray-300)'};border-radius:6px;font-size:14px;font-weight:600;outline:none">
+            </div>
+            <div>
+              <label style="font-size:10px;font-weight:600;color:var(--gray-500)">KDV %</label>
+              <select id="fk-kdv-${i}" oninput="fkFiyatHesapla(${i})"
+                style="width:100%;padding:8px 6px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px">
+                ${[0,1,8,10,18,20].map(k=>`<option value="${k}"${kdv===k?' selected':''}>${k}%</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div id="fk-satir-toplam-${i}" style="margin-top:6px;font-size:11px;color:var(--gray-500)">
+            ${fiyat>0?`${fmt(fiyat)} ₺ × ${u.miktar} ${u.birim} + %${kdv} KDV = <b>${fmt(toplam+kdvTutar)} ₺</b>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Genel Toplam -->
+    <div style="background:var(--primary);color:white;border-radius:8px;padding:12px;margin-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:13px;font-weight:700">GENEL TOPLAM (KDV Dahil)</div>
+        <div id="fk-genel-toplam" style="font-size:18px;font-weight:800">— ₺</div>
+      </div>
+      <div id="fk-not-kutusu" style="margin-top:10px">
+        <label style="font-size:11px;opacity:.8">Kontrol Notu (opsiyonel)</label>
+        <input type="text" id="fk-not" value="${f.fiyatKontrolNotu||''}" placeholder="Fiyat farkı, indirim notu vb."
+          style="width:100%;margin-top:4px;padding:8px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.1);color:white;font-size:13px;outline:none">
+      </div>
+    </div>
+  `;
+
+  // Mevcut toplam hesapla
+  fkGenelToplamHesapla(f);
+
+  // Buton durumu
+  const muhasebeGonderildi=f.fiyatKontrolDurum==='muhasebe';
+  document.getElementById('fk-muhasebe-btn').disabled=muhasebeGonderildi;
+  document.getElementById('fk-muhasebe-btn').textContent=muhasebeGonderildi?'✅ Muhasebe\'ye Gönderildi':'📤 Muhasebe\'ye Gönder';
+
+  aModal('mFiyatKontrol');
+}
+
+function fkFiyatHesapla(i){
+  const f=_fkFormlar.find(x=>String(x.id)===_fkAktifId);
+  if(!f)return;
+  const u=(f.urunler||[])[i];if(!u)return;
+  const fiyat=parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0;
+  const kdv=parseFloat(document.getElementById('fk-kdv-'+i)?.value)||0;
+  const miktar=parseFloat(u.miktar)||0;
+  const toplam=fiyat*miktar;
+  const kdvTutar=toplam*kdv/100;
+  const satirToplamEl=document.getElementById('fk-satir-toplam-'+i);
+  if(satirToplamEl){
+    satirToplamEl.innerHTML=fiyat>0?`${fmt(fiyat)} ₺ × ${miktar} ${u.birim} + %${kdv} KDV = <b>${fmt(toplam+kdvTutar)} ₺</b>`:'';
+  }
+  const inp=document.getElementById('fk-fiyat-'+i);
+  if(inp)inp.style.borderColor=fiyat>0?'var(--success)':'var(--gray-300)';
+  fkGenelToplamHesapla(f);
+}
+
+function fkGenelToplamHesapla(f){
+  const urunler=f.urunler||[];
+  let genel=0;
+  urunler.forEach((u,i)=>{
+    const fiyat=parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0;
+    const kdv=parseFloat(document.getElementById('fk-kdv-'+i)?.value)||0;
+    const miktar=parseFloat(u.miktar)||0;
+    genel+=fiyat*miktar*(1+kdv/100);
+  });
+  const el=document.getElementById('fk-genel-toplam');
+  if(el)el.textContent=genel>0?fmt(genel)+' ₺':'— ₺';
+}
+
+async function muhasebeGonder(){
+  const f=_fkFormlar.find(x=>String(x.id)===_fkAktifId);
+  if(!f)return;
+  const urunler=f.urunler||[];
+
+  // Fiyatları topla
+  const fiyatlar=urunler.map((_,i)=>parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0);
+  const kdvler=urunler.map((_,i)=>parseFloat(document.getElementById('fk-kdv-'+i)?.value)||20);
+  const herFiyatGirildi=fiyatlar.every(p=>p>0);
+
+  if(!herFiyatGirildi){
+    if(!confirm('Bazı ürünlerin fiyatı girilmemiş. Yine de Muhasebe\'ye göndermek istiyor musunuz?'))return;
+  }
+
+  // Genel toplam
+  let genelToplam=0,kdvToplam=0,araToplam=0;
+  urunler.forEach((u,i)=>{
+    const miktar=parseFloat(u.miktar)||0;
+    const fiyat=fiyatlar[i];
+    const kdv=kdvler[i];
+    const sat=fiyat*miktar;
+    araToplam+=sat;
+    kdvToplam+=sat*kdv/100;
+    genelToplam+=sat*(1+kdv/100);
+  });
+
+  // Firebase muhasebe/faturalar'a fatura oluştur
+  const faturaId='FAT_'+Date.now();
+  const fatura={
+    id:faturaId,
+    no:f.faturaNo,
+    tur:'alis',
+    cariAd:f.firma,
+    tarih:new Date().toISOString().split('T')[0],
+    olusturmaTarih:Date.now(),
+    siparisNo:f.lnSiparisNo||'',
+    malKabulNo:f.mkNo||'',
+    malKabulId:String(f.id),
+    irsaliyeNo:f.irsaliyeNo||'',
+    kalemler:urunler.map((u,i)=>({
+      ad:u.ad,kod:u.kod||'',
+      miktar:parseFloat(u.miktar)||0,birim:u.birim,
+      birimFiyat:fiyatlar[i],kdvOran:kdvler[i],
+      iskonto:0
+    })),
+    araToplam:Math.round(araToplam*100)/100,
+    kdvToplam:Math.round(kdvToplam*100)/100,
+    genelToplam:Math.round(genelToplam*100)/100,
+    durum:'bekliyor',
+    not:document.getElementById('fk-not')?.value||''
+  };
+
+  // Mal kabul formunu güncelle
+  f.fiyatlar=fiyatlar;
+  f.kdvler=kdvler;
+  f.fiyatKontrolDurum='muhasebe';
+  f.fiyatKontrolTarih=Date.now();
+  f.fiyatKontrolNotu=document.getElementById('fk-not')?.value||'';
+  f.muhasebeFaturaId=faturaId;
+
+  toast('📤 Muhasebe\'ye gönderiliyor...');
+  try{
+    await Promise.all([
+      fetch(FB+`/muhasebe/faturalar/${faturaId}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fatura)}),
+      fetch(FB+`/formlar/${f.id}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        fiyatlar,kdvler,fiyatKontrolDurum:'muhasebe',
+        fiyatKontrolTarih:f.fiyatKontrolTarih,
+        fiyatKontrolNotu:f.fiyatKontrolNotu,
+        muhasebeFaturaId:faturaId
+      })})
+    ]);
+    kModal('mFiyatKontrol');
+    toast(`✅ ${f.faturaNo} — Muhasebe'ye gönderildi (${fmt(genelToplam)} ₺)`);
+    renderFiyatKontrol();
+  }catch(e){
+    toast('⚠️ Hata: '+e.message);
+  }
+}
+
+// ============================================================
 // SİPARİŞ TAKİP — siparisHavuzu'ndan okur
 // ============================================================
 let _stFilter='bekleyen';
@@ -1313,6 +1666,7 @@ function renderFirmalar(val){
 // ====== YARDIMCI ======
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
 function sLD(){document.getElementById('ld').classList.add('show');}
