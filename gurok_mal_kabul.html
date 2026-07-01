@@ -3001,16 +3001,22 @@ function openOnayDetail(id) {
 let _onaylaniyor = false;
 async function onaylaForm(id) {
   if (_onaylaniyor) return;
-  const f = db.formlar.find(x => x.id == id);
+  const f = db.formlar.find(x => String(x.id) === String(id));
   if (!f || f.durum !== 'bekleyen') { showToast('Bu form zaten işleme alındı'); closeModal('modal-onay'); return; }
   _onaylaniyor = true;
   const btn = document.getElementById('btn-onayla');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Onaylanıyor...'; }
+
+  const resetBtn = () => {
+    _onaylaniyor = false;
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Onayla'; }
+  };
+
   try {
     f.durum = 'onaylandi';
     f.onaylayan = state.currentUser.ad;
     f.onayTarih = Date.now();
-    await saveFormTekil(f); // tekil node güncelle
+    await saveFormTekil(f);
     // Sipariş havuzunu güncelle — virgülle ayrılmış birden fazla sipariş olabilir
     if(f.lnSiparisNo){
       const sipNolar=f.lnSiparisNo.split(',').map(s=>s.trim()).filter(Boolean);
@@ -3018,12 +3024,16 @@ async function onaylaForm(id) {
         await siparisHavuzuGuncelle(no, f.urunler||[]);
       }
     }
+    resetBtn();
     closeModal('modal-onay');
-    showToast('✅ Form onaylandı');
+    showToast('✅ ' + (f.mkNo||'Form') + ' onaylandı');
     renderOnayList();
     updateBadges();
-  } finally {
-    _onaylaniyor = false;
+  } catch(err) {
+    console.error('Onay hatası:', err);
+    f.durum = 'bekleyen'; // geri al
+    resetBtn();
+    showToast('⚠️ Onay sırasında hata: ' + err.message);
   }
 }
 
