@@ -730,15 +730,21 @@ function getSeviye(kod){
   if(ana.length===1)return 1;
   if(ana.length===2)return 2;
   if(ana.length===3)return 3;
-  return 4;
+  if(ana.length===4)return 4;
+  return 5;
 }
 
+// Üst hesap: kodu kısaltıla kısaltıla, hesap planında GERÇEKTEN VAR OLAN ilk
+// atayı bulur (örn. 271 -> 27 yoksa -> 2 bulunur; 1001 -> 100 bulunur; 39391 -> 3939 bulunur).
+// Tek haneli (1-9) kodların üst hesabı yoktur — bunlar ağacın kökleridir.
 function getUstKod(kod){
   const parcalar=kod.split('.');
-  const ana=parcalar[0];
   if(parcalar.length>1)return parcalar.slice(0,-1).join('.');
-  if(ana.length===3)return ana.slice(0,2);
-  if(ana.length===2)return ana.slice(0,1);
+  const ana=parcalar[0];
+  for(let i=ana.length-1;i>=1;i--){
+    const aday=ana.slice(0,i);
+    if(Object.values(hesaplar).some(h=>h&&h.kod===aday))return aday;
+  }
   return null;
 }
 
@@ -837,7 +843,7 @@ function renderTablo(){
     }).join('');
     document.getElementById('sb-filtreli').textContent=`Filtrelenmiş: ${eslesenler.length}`;
   }else{
-    // Ağaç modu: sadece kökler (1 haneli kod, üst hesabı olmayan)
+    // Ağaç modu: sadece kökler (üst hesabı olmayan — yani tek haneli 1-9 ana hesaplar)
     const kokler=tumListe.filter(h=>!getUstKod(h.kod)).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
     outputHTML=kokler.map(h=>satirHTML(h,1)).join('');
     document.getElementById('sb-filtreli').textContent='';
