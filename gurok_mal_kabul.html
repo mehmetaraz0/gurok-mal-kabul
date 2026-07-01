@@ -852,12 +852,12 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
           <input type="date" id="form-tarih">
         </div>
         <div class="field">
-          <label>Fatura No *</label>
-          <input type="text" id="fatura-no" placeholder="Fatura numarası">
+          <label>Fatura No <span style="font-size:10px;color:var(--gray-400)">(sonradan girilebilir)</span></label>
+          <input type="text" id="fatura-no" placeholder="Opsiyonel — Satın Alma girer">
         </div>
         <div class="field">
-          <label>İrsaliye No</label>
-          <input type="text" id="irsaliye-no" placeholder="İrsaliye no">
+          <label>İrsaliye No *</label>
+          <input type="text" id="irsaliye-no" placeholder="Zorunlu">
         </div>
         <div class="field" style="position:relative">
           <label>Sipariş No</label>
@@ -948,6 +948,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     <div class="filter-tabs" style="margin-bottom:0;padding-bottom:0;">
       <button class="filter-tab active" id="izleme-tab-analiz" onclick="switchIzlemeTab('analiz',this)">📊 Analiz</button>
       <button class="filter-tab" id="izleme-tab-raporlar" onclick="switchIzlemeTab('raporlar',this)">📋 Raporlar</button>
+      <button class="filter-tab" id="izleme-tab-esleme" onclick="switchIzlemeTab('esleme',this)">🔗 Eşleşme</button>
     </div>
 
     <!-- ANALİZ BÖLÜMÜ -->
@@ -1002,6 +1003,23 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
         </div>
       </div>
       <div id="rapor-content"></div>
+    </div>
+
+    <!-- EŞLEŞME RAPORU PANELİ -->
+    <div id="izleme-esleme-panel" style="display:none;">
+      <div class="card" style="margin-top:10px;">
+        <div class="card-title">🔗 Sipariş — İrsaliye — Fatura Eşleşme Raporu
+          <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="renderEslemeRaporu()">🔄 Yenile</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px" id="esleme-stats"></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button class="filter-tab active" id="esl-tab-tumu" onclick="filterEsleme('tumu',this)">Tümü</button>
+          <button class="filter-tab" id="esl-tab-tam" onclick="filterEsleme('tam',this)">✅ Tam Eşleşti</button>
+          <button class="filter-tab" id="esl-tab-fatura-bek" onclick="filterEsleme('fatura_bek',this)">⏳ Fatura Bekliyor</button>
+          <button class="filter-tab" id="esl-tab-eksik" onclick="filterEsleme('eksik',this)">❌ Eksik</button>
+        </div>
+      </div>
+      <div id="esleme-liste"></div>
     </div>
 
   </div>
@@ -2128,9 +2146,48 @@ function resetForm() {
 // SİPARİŞ SORGULAMA — Satın Alma'da oluşturulan siparişi bul ve doldur
 // ============================================================
 let _siparisSorguTimer=null;
+
+function siparisSorgula(val){
+  clearTimeout(_siparisSorguTimer);
+  const bilgiDiv=document.getElementById('siparis-bilgi');
+  if(!val||val.length<6){if(bilgiDiv)bilgiDiv.style.display='none';return;}
+  _siparisSorguTimer=setTimeout(async()=>{
+    try{
+      const r=await fetch(FIREBASE_URL+'/siparisHavuzu/'+val.toUpperCase()+'.json');
+      if(!r.ok){if(bilgiDiv)bilgiDiv.style.display='none';return;}
+      const sip=await r.json();
+      if(!sip||sip.rezerve){if(bilgiDiv)bilgiDiv.style.display='none';return;}
+      if(bilgiDiv){
+        bilgiDiv.style.display='block';
+        bilgiDiv.innerHTML=`✅ <b>${sip.firma}</b> — ${sip.kalemler?.length||0} kalem — ${sip.tarih||''} ${sip.durum==='tamamlandi'?'<span style="color:#9b1c1c">⚠️ Zaten tamamlanmış</span>':''}`;
+      }
+      const firmaInp=document.getElementById('firma-input');
+      if(firmaInp&&!firmaInp.value&&sip.firma)firmaInp.value=sip.firma;
+      if((!state.formRows.length||state.formRows.every(r=>!r.ad))&&sip.kalemler?.length){
+        state.formRows=[];
+        sip.kalemler.forEach(k=>addUrunRow({ad:k.ad,kod:k.kod||'',miktar:k.kalanMiktar>0?k.kalanMiktar:k.miktar,birim:k.birim}));
+        showToast(`📋 ${sip.kalemler.length} kalem dolduruldu`);
+      }
+    }catch(e){if(bilgiDiv)bilgiDiv.style.display='none';}
+  },400);
+}
+
 // ============================================================
 // MAL KABUL NUMARASI — MK-2026-00001 formatı
 // ============================================================
+function yeniMalKabulNo(){
+  const yil=new Date().getFullYear();
+  const prefix=`MK-${yil}-`;
+  let max=0;
+  [...(db.formlar||[]),(db.arsiv||[])].flat().forEach(f=>{
+    if(f.mkNo&&f.mkNo.startsWith(prefix)){
+      const n=parseInt(f.mkNo.slice(prefix.length))||0;
+      if(n>max)max=n;
+    }
+  });
+  return prefix+String(max+1).padStart(5,'0');
+}
+
 // ============================================================
 // BEKLENEN SİPARİŞ SATIRLARI — LN tarzı popup
 // ============================================================
@@ -2865,7 +2922,8 @@ async function submitForm() {
   const firmaAd = document.getElementById('firma-input').value.trim();
   if (!firmaAd) { showToast('⚠️ Firma adı zorunlu'); return; }
   const faturaNo = document.getElementById('fatura-no').value.trim();
-  if (!faturaNo) { showToast('⚠️ Fatura / İrsaliye No zorunlu'); return; }
+  const irsaliyeNo = document.getElementById('irsaliye-no').value.trim();
+  if (!irsaliyeNo) { showToast('⚠️ İrsaliye No zorunlu'); return; }
   const aracSicaklik = document.getElementById('arac-sicaklik').value.trim();
   if (!aracSicaklik) { showToast('⚠️ Araç sıcaklığı zorunlu'); return; }
   if (state.formRows.length === 0) { showToast('⚠️ En az bir ürün ekleyin'); return; }
@@ -4092,6 +4150,57 @@ function sqFilter(f,el){
   renderSorgu();
 }
 
+// ============================================================
+// FATURA NO KAYDET & DÜZELTME
+// ============================================================
+async function faturaNoKaydet(formId){
+  const inp=document.getElementById('dtz-fatura-no');
+  if(!inp)return;
+  const faturaNo=inp.value.trim();
+  if(!faturaNo){showToast('⚠️ Fatura no boş olamaz');return;}
+
+  const f=[...(db.formlar||[]),...(db.arsiv||[])].flat().find(x=>x.id==formId);
+  if(!f)return;
+
+  const eskiFatura=f.faturaNo||'';
+  f.faturaNo=faturaNo;
+  f.faturaGirisTarih=Date.now();
+  f.faturaGirenAd=state.currentUser?.ad||'';
+
+  showLoading('Kaydediliyor...');
+  await saveFormTekil(f);
+  hideLoading();
+
+  showToast(`✅ Fatura no kaydedildi: ${faturaNo}`);
+  // Modal içindeki fatura kutusunu yeşile çevir
+  sorguDetayAc(formId);
+}
+
+async function duzeltmeModuAc(formId){
+  const f=[...(db.formlar||[]),...(db.arsiv||[])].flat().find(x=>x.id==formId);
+  if(!f)return;
+  if(!['yonetici','depo'].includes(state.currentUser?.rol)){
+    showToast('⚠️ Bu işlem için depo yetkisi gerekli');return;
+  }
+  if(!confirm(`"${f.mkNo||f.id}" numaralı onaylı kaydı düzeltme moduna almak istediğinize emin misiniz?\nDüzeltme sonrası yeniden onaya gönderilecektir.`))return;
+
+  // Onayı geri al, düzeltme için bekleyen yap
+  f.durum='bekleyen';
+  f.duzeltmeNotu=`Düzeltme: ${state.currentUser?.ad||''} — ${new Date().toLocaleDateString('tr-TR')}`;
+  f.oncekiOnaylayan=f.onaylayan||'';
+  delete f.onaylayan;
+  delete f.onayTarih;
+
+  showLoading('Düzeltme moduna alınıyor...');
+  await saveFormTekil(f);
+  hideLoading();
+  closeModal('modal-onay');
+  showToast(`✏️ ${f.mkNo||'Form'} düzeltme için açıldı — Onay sekmesinde görünecek`);
+  renderSorgu();
+  renderOnayList();
+  updateBadges();
+}
+
 function renderSorgu(){
   const ara=(document.getElementById('sorgu-inp')?.value||'').toLowerCase().trim();
   let liste=[...(db.formlar||[]),...(db.arsiv||[])].filter(Boolean);
@@ -4153,6 +4262,8 @@ function sorguDetayAc(formId){
   const f=[...(db.formlar||[]),...(db.arsiv||[])].flat().find(x=>x.id==formId);
   if(!f)return;
   const content=document.getElementById('modal-onay-content');
+  const depoRol=['yonetici','depo'].includes(state.currentUser?.rol);
+
   content.innerHTML=`
     <div style="margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
@@ -4162,12 +4273,24 @@ function sorguDetayAc(formId){
       <div style="font-size:14px;font-weight:700">${f.firma}</div>
       <div style="font-size:12px;color:var(--gray-500);margin-top:3px">
         ${f.formTarih||'—'}
-        ${f.faturaNo?' • Fatura: <b>'+f.faturaNo+'</b>':''}
-        ${f.irsaliyeNo?' • İrsaliye: '+f.irsaliyeNo:''}
+        ${f.irsaliyeNo?` • İrsaliye: <b>${f.irsaliyeNo}</b>`:'<span style="color:var(--danger)"> • ⚠️ İrsaliye yok</span>'}
       </div>
-      ${f.lnSiparisNo?`<div style="font-size:12px;margin-top:3px">📋 Sipariş: <span style="font-family:monospace;font-weight:700;color:#5b21b6">${f.lnSiparisNo}</span></div>`:''}
+      <!-- Fatura no — düzenlenebilir -->
+      <div style="margin-top:10px;padding:10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:8px">
+        <div style="font-size:11px;font-weight:700;color:${f.faturaNo?'#155724':'#856404'};margin-bottom:6px">
+          ${f.faturaNo?'✅ FATURA EŞLEŞTİ':'⏳ FATURA BEKLENİYOR'}
+        </div>
+        ${depoRol?`
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="text" id="dtz-fatura-no" value="${f.faturaNo||''}" placeholder="Fatura numarasını girin..."
+              style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;outline:none">
+            <button onclick="faturaNoKaydet(${f.id})" style="padding:8px 14px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Kaydet</button>
+          </div>`:
+          `<div style="font-size:13px;font-weight:600">${f.faturaNo||'—'}</div>`
+        }
+      </div>
+      ${f.lnSiparisNo?`<div style="font-size:12px;margin-top:6px">📋 Sipariş: <span style="font-family:monospace;font-weight:700;color:#5b21b6">${f.lnSiparisNo}</span></div>`:''}
       ${f.onaylayan?`<div style="font-size:11px;color:var(--success);margin-top:3px">Onaylayan: ${f.onaylayan}</div>`:''}
-      ${f.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:3px">Red notu: ${f.redNot}</div>`:''}
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📦 Ürünler (${(f.urunler||[]).length} kalem)</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -4188,9 +4311,16 @@ function sorguDetayAc(formId){
           <td style="padding:5px 6px;text-align:right;font-weight:700">${u.miktar} ${u.birim}</td>
           <td style="padding:5px 6px;text-align:center">${u.uygun!==false?'<span style="color:var(--success)">✅</span>':'<span style="color:var(--danger)">❌</span>'}</td>
         </tr>`).join('')}
-    </table>`;
+    </table>
+  `;
+
   const actions=document.getElementById('modal-onay-actions');
-  actions.innerHTML=`<button class="btn btn-gray btn-block" onclick="closeModal('modal-onay')">Kapat</button>`;
+  // Depo rolü → düzeltme butonu da göster
+  actions.innerHTML=depoRol&&f.durum==='onaylandi'?`
+    <button class="btn btn-gray" onclick="closeModal('modal-onay')">Kapat</button>
+    <button class="btn btn-warning" onclick="duzeltmeModuAc(${f.id})">✏️ Düzelt</button>
+  `:`<button class="btn btn-gray btn-block" onclick="closeModal('modal-onay')">Kapat</button>`;
+
   openModal('modal-onay');
 }
 
@@ -4200,8 +4330,8 @@ function updateSiparisBadge(){
 
 
 function switchIzlemeTab(tab, el) {
-  document.querySelectorAll('#izleme-analiz-panel, #izleme-raporlar-panel').forEach(p => p.style.display = 'none');
-  document.querySelectorAll('#izleme-tab-analiz, #izleme-tab-raporlar').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#izleme-analiz-panel, #izleme-raporlar-panel, #izleme-esleme-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('#izleme-tab-analiz, #izleme-tab-raporlar, #izleme-tab-esleme').forEach(t => t.classList.remove('active'));
   document.getElementById('izleme-' + tab + '-panel').style.display = 'block';
   el.classList.add('active');
   if (tab === 'raporlar') {
@@ -4212,6 +4342,88 @@ function switchIzlemeTab(tab, el) {
     if (!document.getElementById('rapor-end').value) document.getElementById('rapor-end').value = today;
     renderRaporlar();
   }
+  if (tab === 'esleme') renderEslemeRaporu();
+}
+
+// ============================================================
+// EŞLEŞME RAPORU — Sipariş + İrsaliye + Fatura
+// ============================================================
+let _eslemeFilter='tumu';
+
+function filterEsleme(f,el){
+  _eslemeFilter=f;
+  document.querySelectorAll('#izleme-esleme-panel .filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderEslemeRaporu();
+}
+
+async function renderEslemeRaporu(){
+
+  // Her formu kategorize et
+  const satirlar=tumFormlar.map(f=>{
+    const siparis=!!(f.lnSiparisNo&&f.lnSiparisNo.trim());
+    const irsaliye=!!(f.irsaliyeNo&&f.irsaliyeNo.trim());
+    const fatura=!!(f.faturaNo&&f.faturaNo.trim());
+    let durum;
+    if(siparis&&irsaliye&&fatura) durum='tam';
+    else if(irsaliye&&!fatura) durum='fatura_bek';
+    else durum='eksik';
+    return{...f,_siparis:siparis,_irsaliye:irsaliye,_fatura:fatura,_durum:durum};
+  });
+
+  // Stats
+  const tam=satirlar.filter(s=>s._durum==='tam').length;
+  const faturaBek=satirlar.filter(s=>s._durum==='fatura_bek').length;
+  const eksik=satirlar.filter(s=>s._durum==='eksik').length;
+  document.getElementById('esleme-stats').innerHTML=`
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--success)">${tam}</div>
+      <div style="font-size:10px;color:var(--gray-500)">TAM EŞLEŞTİ</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--warning)">${faturaBek}</div>
+      <div style="font-size:10px;color:var(--gray-500)">FATURA BEKLİYOR</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--danger)">${eksik}</div>
+      <div style="font-size:10px;color:var(--gray-500)">EKSİK</div>
+    </div>`;
+
+  let liste=satirlar;
+  if(_eslemeFilter!=='tumu')liste=satirlar.filter(s=>s._durum===_eslemeFilter);
+  liste.sort((a,b)=>(b.tarih||0)-(a.tarih||0));
+
+  const c=document.getElementById('esleme-liste');
+  if(!liste.length){c.innerHTML='<div class="empty-state"><div class="empty-icon">🔗</div><div class="empty-text">Kayıt yok</div></div>';return;}
+
+  c.innerHTML=liste.map(f=>`
+    <div class="kayit-item" style="cursor:pointer;border-left:4px solid ${f._durum==='tam'?'var(--success)':f._durum==='fatura_bek'?'var(--warning)':'var(--danger)'}"
+      onclick="sorguDetayAc(${f.id})">
+      <div class="kayit-header">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+            <span style="font-family:monospace;font-weight:800;color:var(--primary);font-size:12px">${f.mkNo||'—'}</span>
+          </div>
+          <div class="kayit-firma">🏢 ${f.firma}</div>
+          <div class="kayit-meta">${f.formTarih||'—'}</div>
+        </div>
+      </div>
+      <!-- 3 kutucuk -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">
+        <div style="padding:6px 8px;border-radius:6px;text-align:center;background:${f._siparis?'#d4edda':'#f1f3f5'}">
+          <div style="font-size:10px;font-weight:700;color:${f._siparis?'#155724':'var(--gray-500)'}">${f._siparis?'✅':'—'} SİPARİŞ</div>
+          <div style="font-size:10px;color:var(--gray-500);margin-top:1px;font-family:monospace">${f.lnSiparisNo||'yok'}</div>
+        </div>
+        <div style="padding:6px 8px;border-radius:6px;text-align:center;background:${f._irsaliye?'#d4edda':'#fde8e8'}">
+          <div style="font-size:10px;font-weight:700;color:${f._irsaliye?'#155724':'#9b1c1c'}">${f._irsaliye?'✅':'❌'} İRSALİYE</div>
+          <div style="font-size:10px;color:var(--gray-500);margin-top:1px">${f.irsaliyeNo||'yok'}</div>
+        </div>
+        <div style="padding:6px 8px;border-radius:6px;text-align:center;background:${f._fatura?'#d4edda':'#fff3cd'}">
+          <div style="font-size:10px;font-weight:700;color:${f._fatura?'#155724':'#856404'}">${f._fatura?'✅':'⏳'} FATURA</div>
+          <div style="font-size:10px;color:var(--gray-500);margin-top:1px">${f.faturaNo||'bekliyor'}</div>
+        </div>
+      </div>
+    </div>`).join('');
 }
 
 function switchRaporTab(tab, el) {
