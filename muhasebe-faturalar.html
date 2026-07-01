@@ -261,6 +261,49 @@ async function auditLogYaz(action,entityType,entityId,detail){
   catch(e){console.warn('Audit log kaydedilemedi:',e);}
 }
 
+// ============================================================
+// OTOMATİK YEVMİYE FİŞİ
+// NOT: Alış kalemlerinde 770 (Genel Yönetim Giderleri) ve satış gelirinde
+// 600 (Yurtiçi Satışlar) GEÇİCİ/genel hesaplardır — kalem türüne göre doğru
+// stok/gider/gelir hesabına eşleştirme henüz yapılmadı. Mali müşavir onayına
+// kadar bu fişler "otomatik:true" olarak işaretlenir ki ayırt edilebilsin.
+// ============================================================
+function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
+
+async function yeniFisNo(){
+  try{
+    const r=await fetch(FB+'/muhasebe/yevmiye.json?shallow=true');
+    if(r.ok){
+      const d=await r.json();
+      const sayi=(d?Object.keys(d).length:0)+1;
+      return `YEV-${new Date().getFullYear()}-${String(sayi).padStart(5,'0')}`;
+    }
+  }catch(e){}
+  return `YEV-${new Date().getFullYear()}-${Date.now()}`;
+}
+
+async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs){
+  const topBorc=kalemler.reduce((t,k)=>t+(k.borc||0),0);
+  const topAlacak=kalemler.reduce((t,k)=>t+(k.alacak||0),0);
+  const no=await yeniFisNo();
+  const yev={
+    id:fisId,no,
+    tarih:tarihMs,
+    tarihStr:new Date(tarihMs).toISOString().split('T')[0],
+    tip,belge,aciklama,
+    kalemler,
+    toplamBorc:round2(topBorc),toplamAlacak:round2(topAlacak),
+    onaylandi:true,
+    otomatik:true,
+    olusturmaTarih:Date.now(),
+    guncellemeTarih:Date.now()
+  };
+  try{
+    await fetch(FB+'/muhasebe/yevmiye/'+fisId+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(yev)});
+    await auditLogYaz('create','yevmiye',fisId,`Otomatik yevmiye fişi: ${no} — ${aciklama} (${fmt(topBorc)} ₺)`);
+  }catch(e){console.warn('Yevmiye fişi oluşturulamadı:',e);}
+}
+
 async function loadDB(){
   sLD();
   try{
@@ -577,6 +620,23 @@ async function faturaKaydet(durum){
       olusturmaTarih:Date.now()
     };
     await fetch(FB+'/muhasebe/cariHareketler/'+har.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(har)});
+
+    // Otomatik yevmiye fişi — kalem bazlı hesap eşleştirmesi netleşene kadar geçici hesaplar kullanılır
+    let yevKalemler;
+    if(fatura.tur==='alis'){
+      yevKalemler=[
+        {hesapKod:'770',aciklama:'Alış (geçici gider hesabı — netleştirilecek): '+no,borc:round2(ara),alacak:0},
+        {hesapKod:'191',aciklama:'İndirilecek KDV: '+no,borc:round2(kdv),alacak:0},
+        {hesapKod:'320',aciklama:'Satıcı: '+cariAd+' — '+no,borc:0,alacak:round2(ara+kdv)}
+      ];
+    }else{
+      yevKalemler=[
+        {hesapKod:'120',aciklama:'Alıcı: '+cariAd+' — '+no,borc:round2(ara+kdv),alacak:0},
+        {hesapKod:'600',aciklama:'Satış geliri (geçici — netleştirilecek): '+no,borc:0,alacak:round2(ara)},
+        {hesapKod:'391',aciklama:'Hesaplanan KDV: '+no,borc:0,alacak:round2(kdv)}
+      ];
+    }
+    await yevmiyeFisiPostla('YEV_FAT_'+id,yevKalemler,'fatura',no,`Fatura: ${no} — ${cariAd}`,new Date(tarih).getTime());
   }
   hLD();
   kModal('mFatura');
@@ -645,6 +705,16 @@ async function odemeKaydet(){
   await saveFatura(f);
   await fetch(FB+'/muhasebe/cariHareketler/'+har.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(har)});
   await auditLogYaz('payment','fatura',id,`Ödeme yapıldı: ${f.no} — ${f.cariAd} (${fmt(tutar)} ₺, ${document.getElementById('od-yontem').value})`);
+
+  // Otomatik yevmiye fişi — ödeme yöntemine göre kasa/banka hesabı
+  const yontem=document.getElementById('od-yontem').value;
+  const nakitMi=yontem==='nakit';
+  const yevKalemler=[
+    {hesapKod:'320',aciklama:'Ödeme: '+f.no+' — '+f.cariAd,borc:round2(tutar),alacak:0},
+    {hesapKod:nakitMi?'100':'102',aciklama:(nakitMi?'Kasadan ödeme: ':'Bankadan ödeme ('+yontem+'): ')+f.no,borc:0,alacak:round2(tutar)}
+  ];
+  await yevmiyeFisiPostla('YEV_ODE_'+id,yevKalemler,'odeme','ÖD-'+f.no,`Ödeme: ${f.no} — ${f.cariAd}`,Date.now());
+
   hLD();
   kModal('mOdeme');
   renderFaturalar(f.tur);
