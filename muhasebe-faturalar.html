@@ -564,12 +564,36 @@ function hesaplaToplamlar(){
 // ============================================================
 async function faturaKaydet(durum){
   const no=document.getElementById('f-no').value.trim();
-  const cariId=document.getElementById('f-cari-id').value;
+  let cariId=document.getElementById('f-cari-id').value;
   const cariAd=document.getElementById('f-cari-inp').value.trim();
   const tarih=document.getElementById('f-tarih').value;
+  const tur=document.getElementById('f-tur').value;
   if(!no||!cariAd||!tarih){toast('⚠️ Fatura no, cari ve tarih zorunlu');return;}
   const doluKalemler=kalemler.filter(k=>k.ad&&k.birimFiyat>0);
   if(!doluKalemler.length){toast('⚠️ En az bir kalem ekleyin');return;}
+
+  // Cari dropdown'dan seçilmemişse (elle yazılmışsa) otomatik eşleştir ya da yeni cari oluştur.
+  // Bu, "sahipsiz" (cariId'siz) hareket kalmasını engeller.
+  if(!cariId){
+    const eslesen=Object.values(cariler).find(c=>c&&c.ad&&c.ad.trim().toLowerCase()===cariAd.toLowerCase());
+    const gerekliTip=tur==='alis'?'tedarikci':'musteri';
+    if(eslesen){
+      cariId=eslesen.id;
+      if(eslesen.tip!==gerekliTip&&eslesen.tip!=='her_ikisi'){
+        eslesen.tip='her_ikisi';
+        eslesen.guncellemeTarih=Date.now();
+        await fetch(FB+'/muhasebe/cariler/'+eslesen.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(eslesen)});
+      }
+    }else{
+      cariId='CARI_'+Date.now();
+      const yeniCari={id:cariId,kod:cariId,ad:cariAd,tip:gerekliTip,durum:'aktif',olusturmaTarih:Date.now()};
+      cariler[cariId]=yeniCari;
+      await fetch(FB+'/muhasebe/cariler/'+cariId+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(yeniCari)});
+      await auditLogYaz('create','cari',cariId,`Fatura kaydında otomatik cari oluşturuldu: ${cariAd}`);
+      toast(`ℹ️ Yeni cari otomatik oluşturuldu: ${cariAd}`,3000);
+    }
+    document.getElementById('f-cari-id').value=cariId;
+  }
 
   // Dönem kontrolü — onaylı/bekleyen faturalar için
   if(durum==='bekliyor'||durum==='onaylandi'){
