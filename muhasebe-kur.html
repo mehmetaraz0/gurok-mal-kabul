@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Döviz Kurları</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px}
+
+.durum-bar{border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px}
+.durum-guncel{background:#d4edda;color:#155724}
+.durum-eski{background:#fff3cd;color:#856404}
+.durum-yok{background:#fde8e8;color:#9b1c1c}
+
+.kur-kart{background:white;border-radius:var(--radius);padding:16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.kur-baslik{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.kur-bayrak{font-size:24px}
+.kur-kod{font-size:16px;font-weight:800;color:var(--primary)}
+.kur-ad{font-size:11px;color:var(--gray-500)}
+.kur-degerler{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kur-deger{background:var(--gray-100);border-radius:var(--radius-sm);padding:10px;text-align:center}
+.kur-deger-lbl{font-size:10px;color:var(--gray-500);text-transform:uppercase;font-weight:600}
+.kur-deger-num{font-size:17px;font-weight:800;color:var(--primary);margin-top:2px}
+
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}
+
+.gecmis-satir{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--gray-100);font-size:12px}
+.gecmis-satir:last-child{border-bottom:none}
+.chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700}
+.chip-tcmb{background:#dbeafe;color:#1e40af}
+.chip-manuel{background:#fff3cd;color:#856404}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Döviz Kurları</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">TCMB günlük kurlar</span></div>
+    <button class="hbtn" onclick="yenidenYukle()">🔄</button>
+  </div>
+
+  <div class="sc">
+    <div id="durum-alani"></div>
+
+    <div id="kur-kartlari"></div>
+
+    <div class="card">
+      <div class="card-title">✏️ Manuel Kur Girişi</div>
+      <p style="font-size:11px;color:var(--gray-600);margin-bottom:10px">TCMB tatil/hafta sonu kur yayınlamaz veya otomatik güncelleme henüz çalışmadıysa, günün kurunu buradan elle girebilirsin.</p>
+      <div class="rfields">
+        <div class="field"><label>Para Birimi</label>
+          <select id="mk-kod">
+            <option value="USD">USD — ABD Doları</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="GBP">GBP — İngiliz Sterlini</option>
+          </select>
+        </div>
+        <div class="field"><label>Döviz Alış (₺)</label><input type="number" id="mk-alis" step="0.0001" placeholder="0.0000"></div>
+      </div>
+      <div class="field" style="margin-top:8px"><label>Döviz Satış (₺) — opsiyonel</label><input type="number" id="mk-satis" step="0.0001" placeholder="0.0000"></div>
+      <button class="btn btn-primary btn-block" style="margin-top:6px" onclick="manuelKurKaydet()">💾 Kaydet</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📜 Son 14 Gün</div>
+      <div id="gecmis-liste"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let guncelKur=null;
+let gunlukKurlar={};
+
+const PARA_META={
+  USD:{ad:'ABD Doları',bayrak:'🇺🇸'},
+  EUR:{ad:'Euro',bayrak:'🇪🇺'},
+  GBP:{ad:'İngiliz Sterlini',bayrak:'🇬🇧'}
+};
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadDB(){
+  sLD();
+  try{
+    const [gR,hR]=await Promise.all([
+      fetch(FB+'/muhasebe/kurlar/guncel.json'),
+      fetch(FB+'/muhasebe/kurlar/gunluk.json'),
+    ]);
+    if(gR.ok){const d=await gR.json();if(d)guncelKur=d;}
+    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')gunlukKurlar=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+async function yenidenYukle(){
+  await loadDB();
+  render();
+  toast('🔄 Yenilendi');
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function gunFarki(tarihKey){
+  if(!tarihKey)return null;
+  const [y,m,d]=tarihKey.split('-').map(Number);
+  const kurTarih=new Date(y,m-1,d);
+  const bugun=new Date();bugun.setHours(0,0,0,0);
+  return Math.round((bugun-kurTarih)/86400000);
+}
+
+function render(){
+  const durumEl=document.getElementById('durum-alani');
+  if(!guncelKur){
+    durumEl.innerHTML=`<div class="durum-bar durum-yok">⚠️ Henüz hiç kur çekilmemiş. Otomatik güncelleme (GitHub Actions) ilk kez çalışana kadar aşağıdan manuel kur girebilirsin.</div>`;
+  }else{
+    const fark=gunFarki(guncelKur.tarih);
+    if(fark===0){
+      durumEl.innerHTML=`<div class="durum-bar durum-guncel">✅ Bugünün kuru güncel — ${guncelKur.tarihStr} (${guncelKur.kaynak==='TCMB'?'TCMB':'Manuel giriş'})</div>`;
+    }else if(fark!==null&&fark<=3){
+      durumEl.innerHTML=`<div class="durum-bar durum-eski">🕐 En son ${guncelKur.tarihStr} tarihli kur var (${fark} gün önce) — hafta sonu/tatil olabilir, veya otomatik güncelleme henüz çalışmadı.</div>`;
+    }else{
+      durumEl.innerHTML=`<div class="durum-bar durum-yok">⚠️ Kur ${fark} gündür güncellenmemiş (${guncelKur.tarihStr}) — GitHub Actions çalışıyor mu kontrol et veya manuel gir.</div>`;
+    }
+  }
+
+  const kartlar=document.getElementById('kur-kartlari');
+  if(!guncelKur||!guncelKur.kurlar){kartlar.innerHTML='';}
+  else{
+    kartlar.innerHTML=Object.entries(guncelKur.kurlar).map(([kod,k])=>{
+      const meta=PARA_META[kod]||{ad:kod,bayrak:'💱'};
+      return`<div class="kur-kart">
+        <div class="kur-baslik">
+          <span class="kur-bayrak">${meta.bayrak}</span>
+          <div><div class="kur-kod">${kod}</div><div class="kur-ad">${meta.ad}</div></div>
+        </div>
+        <div class="kur-degerler">
+          <div class="kur-deger"><div class="kur-deger-lbl">Döviz Alış</div><div class="kur-deger-num">${k.dovizAlis?fmt(k.dovizAlis):'—'}</div></div>
+          <div class="kur-deger"><div class="kur-deger-lbl">Döviz Satış</div><div class="kur-deger-num">${k.dovizSatis?fmt(k.dovizSatis):'—'}</div></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const gecmisListe=document.getElementById('gecmis-liste');
+  const gunler=Object.values(gunlukKurlar).filter(Boolean).sort((a,b)=>b.tarih.localeCompare(a.tarih)).slice(0,14);
+  if(!gunler.length){gecmisListe.innerHTML='<div style="text-align:center;padding:16px;color:var(--gray-400);font-size:12px">Henüz kayıt yok</div>';}
+  else{
+    gecmisListe.innerHTML=gunler.map(g=>{
+      const usd=g.kurlar?.USD?.dovizAlis;
+      const eur=g.kurlar?.EUR?.dovizAlis;
+      const gbp=g.kurlar?.GBP?.dovizAlis;
+      return`<div class="gecmis-satir">
+        <span>${g.tarihStr}</span>
+        <span style="display:flex;gap:10px;align-items:center">
+          <span>$${usd?fmt(usd):'—'}</span>
+          <span>€${eur?fmt(eur):'—'}</span>
+          <span>£${gbp?fmt(gbp):'—'}</span>
+          <span class="chip ${g.kaynak==='TCMB'?'chip-tcmb':'chip-manuel'}">${g.kaynak==='TCMB'?'TCMB':'Manuel'}</span>
+        </span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ============================================================
+// MANUEL KUR GİRİŞİ
+// ============================================================
+async function manuelKurKaydet(){
+  const kod=document.getElementById('mk-kod').value;
+  const alis=parseFloat(document.getElementById('mk-alis').value);
+  const satisInp=document.getElementById('mk-satis').value;
+  const satis=satisInp?parseFloat(satisInp):alis;
+  if(!alis||alis<=0){toast('⚠️ Döviz alış kuru girin');return;}
+
+  const today=new Date();
+  const tarihKey=today.toISOString().split('T')[0].split('-').join('-'); // YYYY-MM-DD
+  const tarihStr=today.toLocaleDateString('tr-TR');
+
+  // Mevcut günkü kaydı koru, sadece girilen para birimini güncelle/ekle
+  const mevcut=gunlukKurlar[tarihKey]||{tarih:tarihKey,tarihStr,kurlar:{},kaynak:'Manuel'};
+  mevcut.kurlar[kod]={dovizAlis:alis,dovizSatis:satis,efektifAlis:null,efektifSatis:null};
+  mevcut.kaynak='Manuel';
+  mevcut.guncellemeTarih=Date.now();
+
+  sLD();
+  try{
+    await fetch(FB+'/muhasebe/kurlar/gunluk/'+tarihKey+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(mevcut)});
+    // Bugünkü kayıt en güncel olanla aynıysa veya daha yeniyse "güncel" olarak da işaretle
+    if(!guncelKur||gunFarki(guncelKur.tarih)>=0){
+      await fetch(FB+'/muhasebe/kurlar/guncel.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(mevcut)});
+    }
+  }catch(e){console.warn(e);}
+  hLD();
+  document.getElementById('mk-alis').value='';
+  document.getElementById('mk-satis').value='';
+  await loadDB();
+  render();
+  toast(`✅ ${kod} kuru kaydedildi — ${fmt(alis)} ₺`);
+}
+
+// ============================================================
+// YARDIMCI
+// ============================================================
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:4,maximumFractionDigits:4});}
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  render();
+})();
+</script>
+</body>
+</html>
