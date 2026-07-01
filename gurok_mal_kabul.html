@@ -858,8 +858,13 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
         </div>
         <div class="field" style="position:relative">
           <label>Sipariş No</label>
-          <input type="text" id="ln-siparis-no" placeholder="C00091112 (yazınca otomatik bulur)" oninput="siparisSorgula(this.value)" autocomplete="off">
+          <div style="display:flex;gap:6px">
+            <input type="text" id="ln-siparis-no" placeholder="C00091112..." oninput="siparisSorgula(this.value)" autocomplete="off" style="flex:1">
+            <button onclick="bekleyenSiparisleriAc()" style="padding:0 12px;background:var(--primary);color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">📋 Seç</button>
+          </div>
           <div id="siparis-bilgi" style="display:none;margin-top:6px;padding:8px 10px;background:#ede9fe;border-radius:8px;font-size:12px;color:#5b21b6"></div>
+          <!-- Seçili sipariş etiketleri -->
+          <div id="secili-siparisler" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px"></div>
         </div>
         <div class="field">
           <label>Araç Hijyen</label>
@@ -1185,7 +1190,37 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 </div>
 
 <!-- ===== MODAL: Onay Detay ===== -->
-<div class="modal-overlay" id="modal-onay">
+<!-- ===== MODAL: Beklenen Sipariş Satırları (LN tarzı) ===== -->
+<div class="modal-overlay" id="modal-bekleyen-sip" style="z-index:600">
+  <div class="modal-box" style="max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-title">
+      📋 Beklenen Sipariş Satırları
+      <button class="modal-close" onclick="closeModal('modal-bekleyen-sip')">✕</button>
+    </div>
+    <div style="padding:8px 0;font-size:12px;color:var(--gray-500)" id="bsp-firma-bilgi"></div>
+    <!-- Filtre -->
+    <div style="margin-bottom:8px">
+      <input type="text" id="bsp-ara" placeholder="Ürün adı veya sipariş no ile filtrele..." autocomplete="off"
+        oninput="filterBSP()"
+        style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:13px;outline:none">
+    </div>
+    <!-- Tüm seç -->
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--gray-200);margin-bottom:6px">
+      <input type="checkbox" id="bsp-tumunu-sec" onchange="bspTumunuSec(this.checked)" style="width:16px;height:16px">
+      <label for="bsp-tumunu-sec" style="font-size:12px;font-weight:600">Tümünü Seç</label>
+      <span id="bsp-secilen-sayi" style="margin-left:auto;font-size:12px;color:var(--primary);font-weight:600"></span>
+    </div>
+    <!-- Liste -->
+    <div id="bsp-liste" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+    <!-- Aksiyon -->
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-gray" onclick="closeModal('modal-bekleyen-sip')">İptal</button>
+      <button class="btn btn-primary" onclick="bspUygula()" style="flex:1">✅ Seçilenleri Forma Ekle</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: Form Detayı ===== -->
   <div class="modal-box">
     <div class="modal-title">
       📋 Form Detayı
@@ -2084,7 +2119,192 @@ let _siparisSorguTimer=null;
 // ============================================================
 // MAL KABUL NUMARASI — MK-2026-00001 formatı
 // ============================================================
-async function yeniMalKabulNo(){
+async // ============================================================
+// BEKLENEN SİPARİŞ SATIRLARI — LN tarzı popup
+// ============================================================
+let _bspSatirlar = []; // tüm satırlar (firma + tüm bekleyen siparişler)
+let _seciliSiparisler = {}; // { siparisNo: siparis } — seçili siparişler
+
+async function bekleyenSiparisleriAc(){
+  const firmaAd = (document.getElementById('firma-input')?.value||'').trim();
+
+  showLoading('Siparişler yükleniyor...');
+  let havuz = {};
+  try{
+    const r = await fetch(FIREBASE_URL+'/siparisHavuzu.json');
+    if(r.ok){const d=await r.json();if(d&&typeof d==='object')havuz=d;}
+  }catch(e){}
+  hideLoading();
+
+  // Firmaya ait bekleyen/kısmı siparişlerin kalemlerini düzleştir
+  _bspSatirlar = [];
+  Object.values(havuz).filter(s=>s&&!s.rezerve&&(s.durum==='bekleyen'||s.durum==='kismi')).forEach(sip=>{
+    // Firma filtresi — firma seçildiyse sadece o firmayı göster
+    if(firmaAd && !sip.firma?.toLowerCase().includes(firmaAd.toLowerCase().slice(0,6))) return;
+    (sip.kalemler||[]).filter(k=>(k.kalanMiktar||k.miktar)>0.01).forEach(k=>{
+      _bspSatirlar.push({
+        siparisNo: sip.siparisNo,
+        firma: sip.firma,
+        tarih: sip.tarih||'',
+        kalemAd: k.ad,
+        kalemKod: k.kod||'',
+        miktar: k.kalanMiktar>0 ? k.kalanMiktar : k.miktar,
+        birim: k.birim||'KG',
+        _checked: false
+      });
+    });
+  });
+
+  // Firma bilgi etiketi
+  document.getElementById('bsp-firma-bilgi').textContent =
+    firmaAd ? `${firmaAd} firmasına ait bekleyen siparişler` : 'Tüm firmaların bekleyen siparişleri';
+
+  document.getElementById('bsp-ara').value='';
+  document.getElementById('bsp-tumunu-sec').checked=false;
+  renderBSP();
+  openModal('modal-bekleyen-sip');
+}
+
+function renderBSP(){
+  const ara=(document.getElementById('bsp-ara')?.value||'').toLowerCase();
+  let liste=_bspSatirlar;
+  if(ara) liste=liste.filter(s=>
+    s.kalemAd.toLowerCase().includes(ara)||
+    s.siparisNo.toLowerCase().includes(ara)||
+    s.firma.toLowerCase().includes(ara)
+  );
+
+  document.getElementById('bsp-secilen-sayi').textContent =
+    _bspSatirlar.filter(s=>s._checked).length + ' seçili';
+
+  if(!liste.length){
+    document.getElementById('bsp-liste').innerHTML=`<div class="empty-state">
+      <div class="empty-icon">📦</div>
+      <div class="empty-text">Bekleyen sipariş kalemi yok</div>
+    </div>`;
+    return;
+  }
+
+  // Sipariş no bazlı grupla
+  const gruplar={};
+  liste.forEach(s=>{
+    if(!gruplar[s.siparisNo])gruplar[s.siparisNo]={firma:s.firma,tarih:s.tarih,kalemler:[]};
+    gruplar[s.siparisNo].kalemler.push(s);
+  });
+
+  document.getElementById('bsp-liste').innerHTML=Object.entries(gruplar).map(([sipNo,g])=>`
+    <div style="margin-bottom:10px">
+      <div style="background:var(--gray-100);padding:7px 10px;border-radius:6px;font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-family:monospace;color:#5b21b6">${sipNo}</span>
+        <span style="font-weight:400;color:var(--gray-500)">${g.firma}</span>
+        ${g.tarih?`<span style="font-weight:400;color:var(--gray-400);margin-left:auto">${g.tarih}</span>`:''}
+      </div>
+      ${g.kalemler.map((s,i)=>{
+        const globalIdx=_bspSatirlar.indexOf(s);
+        return`<div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-bottom:1px solid var(--gray-100);${s._checked?'background:#f0fdf4':''}">
+          <input type="checkbox" ${s._checked?'checked':''} onchange="bspToggle(${globalIdx},this.checked)"
+            style="width:18px;height:18px;flex-shrink:0;accent-color:var(--primary)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600">${s.kalemAd}</div>
+            <div style="font-size:11px;color:var(--gray-400);font-family:monospace">${s.kalemKod}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:14px;font-weight:800;color:var(--primary)">${s.miktar}</div>
+            <div style="font-size:10px;color:var(--gray-500)">${s.birim}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+}
+
+function bspToggle(idx,checked){
+  _bspSatirlar[idx]._checked=checked;
+  document.getElementById('bsp-secilen-sayi').textContent=
+    _bspSatirlar.filter(s=>s._checked).length+' seçili';
+  // satır rengini güncelle
+  renderBSP();
+}
+
+function bspTumunuSec(checked){
+  const ara=(document.getElementById('bsp-ara')?.value||'').toLowerCase();
+  _bspSatirlar.forEach(s=>{
+    const gorünür=!ara||(s.kalemAd.toLowerCase().includes(ara)||s.siparisNo.toLowerCase().includes(ara));
+    if(gorünür)s._checked=checked;
+  });
+  renderBSP();
+}
+
+function filterBSP(){ renderBSP(); }
+
+function bspUygula(){
+  const secilen=_bspSatirlar.filter(s=>s._checked);
+  if(!secilen.length){showToast('⚠️ En az bir kalem seçin');return;}
+
+  // Sipariş nolarını topla (tekrarsız)
+  const siparisNolar=[...new Set(secilen.map(s=>s.siparisNo))];
+
+  // Firma belirsizse ilk seçilenden al
+  const firmaInp=document.getElementById('firma-input');
+  if(firmaInp&&!firmaInp.value&&secilen[0].firma){
+    firmaInp.value=secilen[0].firma;
+  }
+
+  // Sipariş no alanına (birden fazlaysa virgülle)
+  const sipNoInp=document.getElementById('ln-siparis-no');
+  if(sipNoInp) sipNoInp.value=siparisNolar.join(', ');
+
+  // Seçili sipariş etiketlerini göster
+  renderSeciliSiparisler(siparisNolar);
+
+  // Sipariş bilgi kutusunu göster
+  const bilgiDiv=document.getElementById('siparis-bilgi');
+  if(bilgiDiv){
+    bilgiDiv.style.display='block';
+    bilgiDiv.textContent=`✅ ${siparisNolar.length} sipariş, ${secilen.length} kalem seçildi`;
+  }
+
+  // Form satırlarına ekle — mevcut satırlar korunsun, sadece yeniler eklensin
+  const mevcutKodlar=new Set(state.formRows.map(r=>r.kod).filter(Boolean));
+  let eklenen=0;
+  secilen.forEach(s=>{
+    if(!mevcutKodlar.has(s.kalemKod)){
+      const urun=URUN_DB.find(u=>u.kod===s.kalemKod)||{};
+      state.formRows.push({
+        ad:s.kalemAd, kod:s.kalemKod,
+        miktar:String(s.miktar), birim:s.birim.toUpperCase(),
+        sicaklikKriter:urun.sicaklikKriter||'', sicaklik:'',
+        skt:'', seriNo:'', marka:'', uygun:true, not:'', barkod:''
+      });
+      mevcutKodlar.add(s.kalemKod);
+      eklenen++;
+    }
+  });
+
+  renderUrunRows();
+  closeModal('modal-bekleyen-sip');
+  showToast(`✅ ${eklenen} kalem forma eklendi (${siparisNolar.length} sipariş)`);
+}
+
+function renderSeciliSiparisler(siparisNolar){
+  const c=document.getElementById('secili-siparisler');
+  if(!c)return;
+  c.innerHTML=siparisNolar.map(no=>`
+    <span style="display:inline-flex;align-items:center;gap:4px;background:#ede9fe;color:#5b21b6;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;font-family:monospace">
+      📋 ${no}
+      <button onclick="siparisiKaldir('${no}')" style="background:none;border:none;color:#5b21b6;cursor:pointer;font-size:12px;padding:0;line-height:1">✕</button>
+    </span>`).join('');
+}
+
+function siparisiKaldir(siparisNo){
+  const sipNoInp=document.getElementById('ln-siparis-no');
+  if(sipNoInp){
+    const mevcut=sipNoInp.value.split(',').map(s=>s.trim()).filter(s=>s&&s!==siparisNo);
+    sipNoInp.value=mevcut.join(', ');
+    renderSeciliSiparisler(mevcut);
+  }
+}
+
+function yeniMalKabulNo(){
   const yil=new Date().getFullYear();
   const prefix=`MK-${yil}-`;
   let max=0;
@@ -2761,8 +2981,13 @@ async function onaylaForm(id) {
     f.onaylayan = state.currentUser.ad;
     f.onayTarih = Date.now();
     await saveFormTekil(f); // tekil node güncelle
-    // Sipariş havuzunu güncelle — gelen miktarları işle
-    if(f.lnSiparisNo){ await siparisHavuzuGuncelle(f.lnSiparisNo, f.urunler||[]); }
+    // Sipariş havuzunu güncelle — virgülle ayrılmış birden fazla sipariş olabilir
+    if(f.lnSiparisNo){
+      const sipNolar=f.lnSiparisNo.split(',').map(s=>s.trim()).filter(Boolean);
+      for(const no of sipNolar){
+        await siparisHavuzuGuncelle(no, f.urunler||[]);
+      }
+    }
     closeModal('modal-onay');
     showToast('✅ Form onaylandı');
     renderOnayList();
