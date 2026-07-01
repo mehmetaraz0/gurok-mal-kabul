@@ -1224,6 +1224,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 </div>
 
 <!-- ===== MODAL: Form Detayı ===== -->
+<div class="modal-overlay" id="modal-onay">
   <div class="modal-box">
     <div class="modal-title">
       📋 Form Detayı
@@ -2322,6 +2323,20 @@ function siparisiKaldir(siparisNo){
     sipNoInp.value=mevcut.join(', ');
     renderSeciliSiparisler(mevcut);
   }
+}
+
+function checkSicaklikUygunluk(i, val){
+  if(!state.formRows[i]) return;
+  const kriter = parseFloat(state.formRows[i].sicaklikKriter);
+  if(isNaN(kriter)) return;
+  const giren = parseFloat(val);
+  if(isNaN(giren)) return;
+  // Kriter negatifse (donmuş): giren <= kriter olmalı
+  // Kriter pozitifse (soğuk): giren <= kriter olmalı
+  state.formRows[i].sicaklik = val;
+  const uygun = giren <= kriter;
+  const inp = document.getElementById('sck-'+i);
+  if(inp) inp.style.borderColor = uygun ? 'var(--success)' : 'var(--danger)';
 }
 
 function yeniMalKabulNo(){
