@@ -1,0 +1,21 @@
+name: TCMB Kur Güncelle
+
+on:
+  schedule:
+    # TCMB kurları hafta içi ~15:30 Türkiye saatinde (UTC+3) yayınlanır.
+    # 12:40 UTC = 15:40 Türkiye saati — 10 dakika tampon payı.
+    - cron: '40 12 * * 1-5'
+  workflow_dispatch: {}   # Actions sekmesinden elle "Run workflow" ile de tetiklenebilir
+
+jobs:
+  kur-guncelle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: TCMB kurunu çek ve Firebase'e yaz
+        run: node scripts/fetch-kur.js
