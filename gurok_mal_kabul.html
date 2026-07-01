@@ -2119,45 +2119,53 @@ let _siparisSorguTimer=null;
 // ============================================================
 // MAL KABUL NUMARASI — MK-2026-00001 formatı
 // ============================================================
-async // ============================================================
+// ============================================================
 // BEKLENEN SİPARİŞ SATIRLARI — LN tarzı popup
 // ============================================================
 let _bspSatirlar = []; // tüm satırlar (firma + tüm bekleyen siparişler)
 let _seciliSiparisler = {}; // { siparisNo: siparis } — seçili siparişler
 
 async function bekleyenSiparisleriAc(){
-  const firmaAd = (document.getElementById('firma-input')?.value||'').trim();
+  const firmaAd=(document.getElementById('firma-input')?.value||'').trim();
 
   showLoading('Siparişler yükleniyor...');
-  let havuz = {};
+  let havuz={};
   try{
-    const r = await fetch(FIREBASE_URL+'/siparisHavuzu.json');
+    const r=await fetch(FIREBASE_URL+'/siparisHavuzu.json');
     if(r.ok){const d=await r.json();if(d&&typeof d==='object')havuz=d;}
-  }catch(e){}
+  }catch(e){
+    hideLoading();
+    showToast('⚠️ Siparişler yüklenemedi: '+e.message);
+    return;
+  }
   hideLoading();
 
-  // Firmaya ait bekleyen/kısmı siparişlerin kalemlerini düzleştir
-  _bspSatirlar = [];
+  // Firmaya ait bekleyen/kısmi siparişlerin kalemlerini düzleştir
+  _bspSatirlar=[];
   Object.values(havuz).filter(s=>s&&!s.rezerve&&(s.durum==='bekleyen'||s.durum==='kismi')).forEach(sip=>{
-    // Firma filtresi — firma seçildiyse sadece o firmayı göster
-    if(firmaAd && !sip.firma?.toLowerCase().includes(firmaAd.toLowerCase().slice(0,6))) return;
+    if(firmaAd&&!sip.firma?.toLowerCase().includes(firmaAd.toLowerCase().slice(0,5)))return;
     (sip.kalemler||[]).filter(k=>(k.kalanMiktar||k.miktar)>0.01).forEach(k=>{
       _bspSatirlar.push({
-        siparisNo: sip.siparisNo,
-        firma: sip.firma,
-        tarih: sip.tarih||'',
-        kalemAd: k.ad,
-        kalemKod: k.kod||'',
-        miktar: k.kalanMiktar>0 ? k.kalanMiktar : k.miktar,
-        birim: k.birim||'KG',
-        _checked: false
+        siparisNo:sip.siparisNo,
+        firma:sip.firma,
+        tarih:sip.tarih||'',
+        kalemAd:k.ad,
+        kalemKod:k.kod||'',
+        miktar:k.kalanMiktar>0?k.kalanMiktar:k.miktar,
+        birim:k.birim||'KG',
+        _checked:false
       });
     });
   });
 
-  // Firma bilgi etiketi
-  document.getElementById('bsp-firma-bilgi').textContent =
-    firmaAd ? `${firmaAd} firmasına ait bekleyen siparişler` : 'Tüm firmaların bekleyen siparişleri';
+  if(!_bspSatirlar.length){
+    showToast(firmaAd?`${firmaAd} için bekleyen sipariş kalemi yok`:'Bekleyen sipariş kalemi yok');
+    return;
+  }
+
+  document.getElementById('bsp-firma-bilgi').textContent=
+    firmaAd?`${firmaAd} — bekleyen siparişler (${_bspSatirlar.length} kalem)`
+           :`Tüm firmalar — bekleyen siparişler (${_bspSatirlar.length} kalem)`;
 
   document.getElementById('bsp-ara').value='';
   document.getElementById('bsp-tumunu-sec').checked=false;
@@ -2840,7 +2848,7 @@ async function submitForm() {
   const emptySicaklik = state.formRows.find(r => r.sicaklikKriter && r.sicaklikKriter !== 'none' && !r.sicaklik);
   if (emptySicaklik) showToast('⚠️ ' + emptySicaklik.ad + ' — sıcaklık girilmedi, devam ediliyor', 3000);
 
-  const mkNo = await yeniMalKabulNo();
+  const mkNo = yeniMalKabulNo();
   const form = {
     id: Date.now(),
     mkNo,
