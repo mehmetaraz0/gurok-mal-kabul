@@ -3032,12 +3032,16 @@ async function onaylaForm(id) {
     f.onaylayan = state.currentUser.ad;
     f.onayTarih = Date.now();
     await saveFormTekil(f);
-    // Sipariş havuzunu güncelle — virgülle ayrılmış birden fazla sipariş olabilir
+    // Sipariş havuzunu güncelle
     if(f.lnSiparisNo){
+      // Virgülle ayrılmış birden fazla sipariş olabilir
       const sipNolar=f.lnSiparisNo.split(',').map(s=>s.trim()).filter(Boolean);
       for(const no of sipNolar){
         await siparisHavuzuGuncelle(no, f.urunler||[]);
       }
+    } else {
+      // Sipariş no girilmemişse ürün adlarıyla tüm havuzu tara
+      await siparisHavuzuGuncelleTumHavuz(f.urunler||[]);
     }
     resetBtn();
     closeModal('modal-onay');
@@ -3055,27 +3059,74 @@ async function onaylaForm(id) {
 // ============================================================
 // SİPARİŞ HAVUZU GÜNCELLE — mal kabul onaylanınca gelen miktarı işle
 // ============================================================
+// Sipariş no bilinmiyorsa tüm bekleyen siparişlerde ürün adıyla eşleştir
+async function siparisHavuzuGuncelleTumHavuz(gelenUrunler){
+  if(!gelenUrunler.length)return;
+  try{
+    const r=await fetch(FIREBASE_URL+'/siparisHavuzu.json');
+    if(!r.ok)return;
+    const havuz=await r.json();
+    if(!havuz)return;
+    for(const [no,sip] of Object.entries(havuz)){
+      if(!sip||sip.rezerve||!sip.kalemler)continue;
+      if(sip.durum==='tamamlandi'||sip.durum==='iptal')continue;
+      let degisti=false;
+      gelenUrunler.forEach(gu=>{
+        const kalem=sip.kalemler.find(k=>
+          (gu.kod&&k.kod&&k.kod===gu.kod)||
+          (k.ad&&gu.ad&&k.ad.toLowerCase().trim()===gu.ad.toLowerCase().trim())
+        );
+        if(kalem&&(kalem.kalanMiktar||kalem.miktar)>0){
+          kalem.gelenMiktar=(kalem.gelenMiktar||0)+(parseFloat(gu.miktar)||0);
+          kalem.kalanMiktar=Math.max(0,(kalem.miktar||0)-kalem.gelenMiktar);
+          degisti=true;
+        }
+      });
+      if(degisti){
+        const tumuTamam=sip.kalemler.every(k=>(k.kalanMiktar||0)<=0.01);
+        const kismiGeldi=sip.kalemler.some(k=>(k.gelenMiktar||0)>0);
+        sip.durum=tumuTamam?'tamamlandi':(kismiGeldi?'kismi':'bekleyen');
+        sip.sonGuncelleme=Date.now();
+        await fetch(FIREBASE_URL+'/siparisHavuzu/'+no+'.json',{
+          method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(sip)
+        });
+        console.log('Havuz güncellendi (ürün adı eşleşme):', no, sip.durum);
+      }
+    }
+  }catch(e){console.warn('Havuz tara hatası:',e);}
+}
+
 async function siparisHavuzuGuncelle(siparisNo, gelenUrunler){
   try{
-    const r=await fetch(FIREBASE_URL+'/siparisHavuzu/'+siparisNo.toUpperCase()+'.json');
+    const no = siparisNo.trim().toUpperCase();
+    const r=await fetch(FIREBASE_URL+'/siparisHavuzu/'+no+'.json');
     if(!r.ok)return;
     const sip=await r.json();
     if(!sip||!sip.kalemler)return;
 
     gelenUrunler.forEach(gu=>{
-      const kalem=sip.kalemler.find(k=>k.kod===gu.kod||k.ad?.toLowerCase()===gu.ad?.toLowerCase());
+      // Kod ile eşleştir, yoksa ad ile (toleranslı)
+      const kalem=sip.kalemler.find(k=>
+        (gu.kod && k.kod && k.kod===gu.kod) ||
+        (k.ad&&gu.ad&&k.ad.toLowerCase().trim()===gu.ad.toLowerCase().trim())
+      );
       if(kalem){
         kalem.gelenMiktar=(kalem.gelenMiktar||0)+(parseFloat(gu.miktar)||0);
         kalem.kalanMiktar=Math.max(0,(kalem.miktar||0)-kalem.gelenMiktar);
       }
     });
 
-    const tumuTamam=sip.kalemler.every(k=>k.kalanMiktar<=0.01);
-    const kismiGeldi=sip.kalemler.some(k=>k.gelenMiktar>0);
+    const tumuTamam=sip.kalemler.every(k=>(k.kalanMiktar||0)<=0.01);
+    const kismiGeldi=sip.kalemler.some(k=>(k.gelenMiktar||0)>0);
     sip.durum = tumuTamam ? 'tamamlandi' : (kismiGeldi ? 'kismi' : 'bekleyen');
     sip.sonGuncelleme=Date.now();
 
-    await fetch(FIREBASE_URL+'/siparisHavuzu/'+siparisNo.toUpperCase()+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(sip)});
+    await fetch(FIREBASE_URL+'/siparisHavuzu/'+no+'.json',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(sip)
+    });
+    console.log('Sipariş havuzu güncellendi:', no, sip.durum);
   }catch(e){console.warn('Sipariş havuzu güncellenemedi:',e);}
 }
 
