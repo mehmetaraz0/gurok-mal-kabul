@@ -970,7 +970,19 @@ async function hesapKaydet(){
   const kod=document.getElementById('h-kod').value.trim().toUpperCase();
   const ad=document.getElementById('h-ad').value.trim().toUpperCase();
   if(!kod||!ad){toast('⚠️ Kod ve ad zorunlu');return;}
+  // Hesap kodu formatı: sadece rakam, alt hesaplar nokta ile ayrılır (örn. 100, 100.01, 100.01.002)
+  if(!/^[0-9]+(\.[0-9]+)*$/.test(kod)){
+    toast('⚠️ Hesap kodu sadece rakam ve nokta içerebilir (örn. 100.01)',3500);
+    return;
+  }
   const key=kod.replace(/\./g,'_');
+  const editId=document.getElementById('h-edit-id').value;
+  // Aynı kodun farklı bir key altında (örn. Gürok özel G_ önekiyle) zaten var olup olmadığını kontrol et
+  const cakisan=Object.entries(hesaplar).find(([k,h])=>h&&h.kod===kod&&k!==key&&kod!==editId);
+  if(cakisan){
+    toast(`⚠️ "${kod}" kodu zaten kullanımda: ${cakisan[1].ad}`,3500);
+    return;
+  }
   const h={
     kod,ad,
     tip:document.getElementById('h-tip').value,
