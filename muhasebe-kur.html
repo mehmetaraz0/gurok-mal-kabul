@@ -152,8 +152,9 @@ function render(){
     durumEl.innerHTML=`<div class="durum-bar durum-yok">⚠️ Henüz hiç kur çekilmemiş. Otomatik güncelleme (GitHub Actions) ilk kez çalışana kadar aşağıdan manuel kur girebilirsin.</div>`;
   }else{
     const fark=gunFarki(guncelKur.tarih);
+    const sifirlaBtn=`<button onclick="bugunuSifirla()" style="background:none;border:1px solid currentColor;color:inherit;border-radius:14px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;margin-left:8px">🗑️ Bugünkü kaydı sıfırla</button>`;
     if(fark===0){
-      durumEl.innerHTML=`<div class="durum-bar durum-guncel">✅ Bugünün kuru güncel — ${guncelKur.tarihStr} (${guncelKur.kaynak==='TCMB'?'TCMB':'Manuel giriş'})</div>`;
+      durumEl.innerHTML=`<div class="durum-bar durum-guncel">✅ Bugünün kuru güncel — ${guncelKur.tarihStr} (${guncelKur.kaynak==='TCMB'?'TCMB':'Manuel giriş'})${guncelKur.kaynak==='Manuel'?sifirlaBtn:''}</div>`;
     }else if(fark!==null&&fark<=3){
       durumEl.innerHTML=`<div class="durum-bar durum-eski">🕐 En son ${guncelKur.tarihStr} tarihli kur var (${fark} gün önce) — hafta sonu/tatil olabilir, veya otomatik güncelleme henüz çalışmadı.</div>`;
     }else{
@@ -198,6 +199,34 @@ function render(){
       </div>`;
     }).join('');
   }
+}
+
+// ============================================================
+// BUGÜNÜN HATALI KAYDINI SIFIRLA
+// ============================================================
+async function bugunuSifirla(){
+  const today=new Date();
+  const tarihKey=today.toISOString().split('T')[0].split('-').join('-');
+  const oncekiler=Object.values(gunlukKurlar).filter(g=>g&&g.tarih!==tarihKey).sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  const yerineGecen=oncekiler[0];
+  const mesaj=yerineGecen
+    ? `Bugünün (${tarihKey}) kaydı silinecek. Ekranda tekrar ${yerineGecen.tarihStr} tarihli (${yerineGecen.kaynak}) kur gösterilecek — USD ${fmt(yerineGecen.kurlar?.USD?.dovizAlis)}, EUR ${fmt(yerineGecen.kurlar?.EUR?.dovizAlis)}, GBP ${fmt(yerineGecen.kurlar?.GBP?.dovizAlis)}.\n\nDevam edilsin mi?`
+    : `Bugünün (${tarihKey}) kaydı silinecek ve gösterilecek başka bir kayıt kalmayacak. Devam edilsin mi?`;
+  if(!confirm(mesaj))return;
+
+  sLD();
+  try{
+    await fetch(FB+'/muhasebe/kurlar/gunluk/'+tarihKey+'.json',{method:'DELETE'});
+    if(yerineGecen){
+      await fetch(FB+'/muhasebe/kurlar/guncel.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(yerineGecen)});
+    }else{
+      await fetch(FB+'/muhasebe/kurlar/guncel.json',{method:'DELETE'});
+    }
+  }catch(e){console.warn(e);}
+  hLD();
+  await loadDB();
+  render();
+  toast('✅ Bugünkü kayıt sıfırlandı');
 }
 
 // ============================================================
