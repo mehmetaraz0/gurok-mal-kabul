@@ -311,7 +311,7 @@ async function loadDB(){
       fetch(FB+'/muhasebe/faturalar.json'),
       fetch(FB+'/muhasebe/cariler.json'),
       fetch(FB+'/formlar.json'),
-      fetch(FB+'/siparisler.json'),
+      fetch(FB+'/siparisHavuzu.json'),
     ]);
     if(fR.ok){const d=await fR.json();if(d&&typeof d==='object')faturalar=d;}
     if(cR.ok){const d=await cR.json();if(d&&typeof d==='object')cariler=d;}
