@@ -755,10 +755,21 @@ function runMatch(){
   const f=faturalar[fId];if(!f)return;
 
   // 1. Sipariş bul (LN sipariş no ile)
-  const siparis=f.siparisNo?Object.values(satinAlmaSiparisler).find(s=>s?.siparisNo===f.siparisNo||s?.id===f.siparisNo):null;
+  // Boşluk/büyük-küçük harf farkına toleranslı karşılaştırma yardımcı fonksiyonu
+  const norm=v=>(v||'').toString().trim().toUpperCase();
+  const fSiparisNoNorm=norm(f.siparisNo);
 
-  // 2. Mal kabul bul (fatura no veya sipariş no ile)
-  const malKabul=Object.values(malKabulFormlar).find(mk=>mk&&(mk.faturaNo===f.no||mk.lnSiparisNo===f.siparisNo)&&mk.durum==='onaylandi');
+  const siparis=f.siparisNo?Object.values(satinAlmaSiparisler).find(s=>norm(s?.siparisNo)===fSiparisNoNorm||norm(s?.id)===fSiparisNoNorm):null;
+  const malKabul=Object.values(malKabulFormlar).find(mk=>mk&&(norm(mk.faturaNo)===norm(f.no)||norm(mk.lnSiparisNo)===fSiparisNoNorm)&&mk.durum==='onaylandi');
+
+  // Hata ayıklama — bulunamazsa konsolda window._matchDebug ile incelenebilir
+  window._matchDebug={
+    faturaSiparisNo:f.siparisNo,
+    faturaSiparisNoNorm:fSiparisNoNorm,
+    siparisHavuzuAnahtarSayisi:Object.keys(satinAlmaSiparisler).length,
+    siparisHavuzuAnahtarlari:Object.keys(satinAlmaSiparisler),
+    eslesenSiparis:siparis
+  };
 
   let sonuc='';
 
