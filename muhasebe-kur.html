@@ -69,21 +69,27 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="kur-kartlari"></div>
 
     <div class="card">
-      <div class="card-title">✏️ Manuel Kur Girişi</div>
-      <p style="font-size:11px;color:var(--gray-600);margin-bottom:10px">TCMB tatil/hafta sonu kur yayınlamaz veya otomatik güncelleme henüz çalışmadıysa, günün kurunu buradan elle girebilirsin.</p>
-      <div class="rfields">
-        <div class="field"><label>Para Birimi</label>
-          <select id="mk-kod">
-            <option value="USD">USD — ABD Doları</option>
-            <option value="EUR">EUR — Euro</option>
-            <option value="GBP">GBP — İngiliz Sterlini</option>
-          </select>
-        </div>
-        <div class="field"><label>Döviz Alış (₺)</label><input type="number" id="mk-alis" step="0.0001" placeholder="0.0000"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="manuelToggle()">
+        <div class="card-title" style="margin-bottom:0">✏️ Manuel Kur Girişi</div>
+        <span id="mk-toggle-ok" style="font-size:12px;color:var(--primary);font-weight:600">Aç ▾</span>
       </div>
-      <div class="field" style="margin-top:8px"><label>Döviz Satış (₺)</label><input type="number" id="mk-satis" step="0.0001" placeholder="0.0000"></div>
-      <p style="font-size:11px;color:var(--gray-500);margin-top:-4px;margin-bottom:6px">İkisinden birini boş bırakabilirsin, diğerinden otomatik hesaplanır. İkisi de boş kalırsa kaydedilmez.</p>
-      <button class="btn btn-primary btn-block" style="margin-top:6px" onclick="manuelKurKaydet()">💾 Kaydet</button>
+      <div id="mk-form" style="display:none;margin-top:10px">
+        <p style="font-size:11px;color:var(--gray-600);margin-bottom:10px">TCMB tatil/hafta sonu kur yayınlamaz veya otomatik güncelleme henüz çalışmadıysa, günün kurunu buradan elle girebilirsin.</p>
+        <div id="mk-tcmb-uyari"></div>
+        <div class="rfields">
+          <div class="field"><label>Para Birimi</label>
+            <select id="mk-kod" onchange="mkKodDegisti()">
+              <option value="USD">USD — ABD Doları</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — İngiliz Sterlini</option>
+            </select>
+          </div>
+          <div class="field"><label>Döviz Alış (₺)</label><input type="number" id="mk-alis" step="0.0001" placeholder="0.0000"></div>
+        </div>
+        <div class="field" style="margin-top:8px"><label>Döviz Satış (₺)</label><input type="number" id="mk-satis" step="0.0001" placeholder="0.0000"></div>
+        <p style="font-size:11px;color:var(--gray-500);margin-top:-4px;margin-bottom:6px">İkisinden birini boş bırakabilirsin, diğerinden otomatik hesaplanır. İkisi de boş kalırsa kaydedilmez.</p>
+        <button class="btn btn-primary btn-block" style="margin-top:6px" onclick="manuelKurKaydet()">💾 Kaydet</button>
+      </div>
     </div>
 
     <div class="card">
@@ -197,6 +203,29 @@ function render(){
 // ============================================================
 // MANUEL KUR GİRİŞİ
 // ============================================================
+function manuelToggle(){
+  const form=document.getElementById('mk-form');
+  const acikMi=form.style.display!=='none';
+  form.style.display=acikMi?'none':'block';
+  document.getElementById('mk-toggle-ok').textContent=acikMi?'Aç ▾':'Kapat ▴';
+  if(!acikMi)mkKodDegisti();
+}
+
+function mkKodDegisti(){
+  const kod=document.getElementById('mk-kod').value;
+  const today=new Date();
+  const tarihKey=today.toISOString().split('T')[0].split('-').join('-');
+  const mevcutGun=gunlukKurlar[tarihKey];
+  const mevcutKur=mevcutGun?.kurlar?.[kod];
+  const uyariEl=document.getElementById('mk-tcmb-uyari');
+  if(mevcutKur){
+    const kaynakMetin=mevcutGun.kaynak==='TCMB'?'TCMB otomasyonundan':'daha önce manuel girişle';
+    uyariEl.innerHTML=`<div class="durum-bar durum-eski" style="margin-bottom:10px">⚠️ Bugün için ${kod} kuru ${kaynakMetin} zaten girilmiş: Alış ${fmt(mevcutKur.dovizAlis)} — Satış ${fmt(mevcutKur.dovizSatis)}. Kaydedersen üzerine yazılır.</div>`;
+  }else{
+    uyariEl.innerHTML='';
+  }
+}
+
 async function manuelKurKaydet(){
   const kod=document.getElementById('mk-kod').value;
   const alisInp=document.getElementById('mk-alis').value;
@@ -221,6 +250,12 @@ async function manuelKurKaydet(){
 
   // Mevcut günkü kaydı koru, sadece girilen para birimini güncelle/ekle
   const mevcut=gunlukKurlar[tarihKey]||{tarih:tarihKey,tarihStr,kurlar:{},kaynak:'Manuel'};
+  const eskiKur=mevcut.kurlar?.[kod];
+  if(eskiKur){
+    const kaynakMetin=mevcut.kaynak==='TCMB'?'TCMB otomasyonundan gelen':'mevcut manuel';
+    const onayMsg=`${kod} için ${kaynakMetin} kur zaten var:\nAlış ${fmt(eskiKur.dovizAlis)} — Satış ${fmt(eskiKur.dovizSatis)}\n\nBunun üzerine\nAlış ${fmt(alis)} — Satış ${fmt(satis)}\nyazılsın mı?`;
+    if(!confirm(onayMsg))return;
+  }
   mevcut.kurlar[kod]={dovizAlis:alis,dovizSatis:satis,efektifAlis:null,efektifSatis:null};
   mevcut.kaynak='Manuel';
   mevcut.guncellemeTarih=Date.now();
