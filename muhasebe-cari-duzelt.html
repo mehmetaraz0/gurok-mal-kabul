@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — Cari Veri Düzeltme</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-500:#adb5bd;--gray-600:#6c757d;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);font-size:13px}
+.header{background:var(--primary);color:white;padding:14px 16px;box-shadow:var(--shadow)}
+.header h1{font-size:16px;font-weight:700}
+.header p{font-size:12px;opacity:.8;margin-top:2px}
+.content{padding:16px;max-width:900px;margin:0 auto}
+.uyari{background:#fff3cd;color:#856404;border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.5}
+.btn{padding:11px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--primary);color:white}
+.btn-success{background:var(--success);color:white}
+.btn-gray{background:var(--gray-200);color:#333}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;background:white;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-top:12px}
+th{background:#2d3748;color:white;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase}
+td{padding:8px 10px;border-bottom:1px solid var(--gray-200)}
+.chip{display:inline-flex;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.chip-yeni{background:#fde8e8;color:#9b1c1c}
+.chip-eslesme{background:#d4edda;color:#155724}
+.chip-tamam{background:var(--gray-200);color:var(--gray-600)}
+#log{background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:12px;border-radius:8px;margin-top:12px;max-height:300px;overflow-y:auto;white-space:pre-wrap;display:none}
+.stat{display:inline-block;background:white;border-radius:8px;padding:10px 16px;margin-right:8px;margin-bottom:12px;box-shadow:var(--shadow)}
+.stat b{font-size:18px;color:var(--primary)}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🔧 Cari Veri Düzeltme Aracı</h1>
+  <p>Tek seferlik kullanım — cariId'si eksik fatura/hareketleri gerçek cari kayıtlarına bağlar</p>
+</div>
+<div class="content">
+  <div class="uyari">
+    ⚠️ Bu araç, dropdown'dan seçilmeden elle yazılmış tedarikçi/müşteri isimlerini tarar. Aynı isim zaten Cari Hesaplar'da varsa oraya bağlar; yoksa yeni cari kaydı oluşturur. Faturalardaki ve cari hareketlerdeki <b>cariId</b> alanlarını günceller. <b>Önce "Tara" ile önizle, sonucu kontrol ettikten sonra "Uygula"ya bas.</b>
+  </div>
+
+  <button class="btn btn-primary" onclick="tara()">🔍 Tara (Önizleme)</button>
+  <button class="btn btn-success" id="uygula-btn" onclick="uygula()" disabled style="margin-left:8px">✅ Uygula</button>
+
+  <div id="stats"></div>
+  <div id="sonuc"></div>
+  <div id="log"></div>
+</div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let faturalar={},cariler={},cariHareketler={};
+let plan=[]; // [{faturaId,no,tur,cariAd,eskiCariId,yeniCariId,durum:'eslesme'|'yeni'|'tamam'}]
+
+function logYaz(msg){
+  const el=document.getElementById('log');
+  el.style.display='block';
+  el.textContent+=msg+'\n';
+  el.scrollTop=el.scrollHeight;
+}
+
+async function loadDB(){
+  const [fR,cR,hR]=await Promise.all([
+    fetch(FB+'/muhasebe/faturalar.json'),
+    fetch(FB+'/muhasebe/cariler.json'),
+    fetch(FB+'/muhasebe/cariHareketler.json'),
+  ]);
+  faturalar=fR.ok?(await fR.json()||{}):{};
+  cariler=cR.ok?(await cR.json()||{}):{};
+  cariHareketler=hR.ok?(await hR.json()||{}):{};
+}
+
+function normAd(s){return(s||'').trim().toLowerCase();}
+
+async function tara(){
+  document.getElementById('log').textContent='';
+  document.getElementById('log').style.display='none';
+  document.getElementById('sonuc').innerHTML='<p style="padding:12px">Yükleniyor...</p>';
+  await loadDB();
+
+  const adMap={}; // normalize edilmiş ad -> cari objesi
+  Object.values(cariler).filter(Boolean).forEach(c=>{ if(c.ad) adMap[normAd(c.ad)]=c; });
+
+  plan=[];
+  const yeniCariAdaylari={}; // bu taramada henüz "oluşturulacak" ama DB'ye yazılmamış adaylar (aynı isim 2 faturada geçebilir)
+
+  Object.values(faturalar).filter(Boolean).forEach(f=>{
+    const mevcutGecerli = f.cariId && cariler[f.cariId];
+    if(mevcutGecerli){
+      plan.push({faturaId:f.id,no:f.no,tur:f.tur,cariAd:f.cariAd,eskiCariId:f.cariId,yeniCariId:f.cariId,durum:'tamam'});
+      return;
+    }
+    const key=normAd(f.cariAd);
+    let hedefCari = adMap[key] || yeniCariAdaylari[key];
+    let durum;
+    if(hedefCari){
+      durum='eslesme';
+    }else{
+      hedefCari={id:'CARI_MIG_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),kod:'',ad:f.cariAd,tip:f.tur==='alis'?'tedarikci':'musteri',durum:'aktif',olusturmaTarih:Date.now()};
+      yeniCariAdaylari[key]=hedefCari;
+      durum='yeni';
+    }
+    // Tip uyumu — aynı isim hem alışta hem satışta geçtiyse "her_ikisi" yap
+    const gerekliTip=f.tur==='alis'?'tedarikci':'musteri';
+    if(hedefCari.tip!==gerekliTip && hedefCari.tip!=='her_ikisi') hedefCari.tip='her_ikisi';
+
+    plan.push({faturaId:f.id,no:f.no,tur:f.tur,cariAd:f.cariAd,eskiCariId:f.cariId||'(boş)',yeniCariId:hedefCari.id,durum,hedefCariObj:hedefCari});
+  });
+
+  renderPlan();
+}
+
+function renderPlan(){
+  const yeniSayisi=plan.filter(p=>p.durum==='yeni').length;
+  const eslesmeSayisi=plan.filter(p=>p.durum==='eslesme').length;
+  const tamamSayisi=plan.filter(p=>p.durum==='tamam').length;
+
+  document.getElementById('stats').innerHTML=`
+    <div class="stat">Toplam Fatura: <b>${plan.length}</b></div>
+    <div class="stat">Zaten Doğru: <b style="color:var(--success)">${tamamSayisi}</b></div>
+    <div class="stat">Mevcut Cariye Eşleşecek: <b style="color:var(--warning)">${eslesmeSayisi}</b></div>
+    <div class="stat">Yeni Cari Oluşacak: <b style="color:var(--danger)">${yeniSayisi}</b></div>`;
+
+  const degisecekler=plan.filter(p=>p.durum!=='tamam');
+  if(!degisecekler.length){
+    document.getElementById('sonuc').innerHTML='<p style="padding:12px;color:var(--success);font-weight:700">✅ Tüm faturalar zaten doğru cariye bağlı, düzeltilecek bir şey yok.</p>';
+    document.getElementById('uygula-btn').disabled=true;
+    return;
+  }
+
+  document.getElementById('sonuc').innerHTML=`<table>
+    <tr><th>Fatura No</th><th>Tür</th><th>Cari Adı (metinden)</th><th>Durum</th><th>Hedef</th></tr>
+    ${degisecekler.map(p=>`<tr>
+      <td>${p.no}</td>
+      <td>${p.tur==='alis'?'Alış':'Satış'}</td>
+      <td>${p.cariAd}</td>
+      <td><span class="chip ${p.durum==='yeni'?'chip-yeni':'chip-eslesme'}">${p.durum==='yeni'?'🆕 Yeni cari':'🔗 Mevcut cariye bağlanacak'}</span></td>
+      <td style="font-family:monospace;font-size:10px">${p.yeniCariId}</td>
+    </tr>`).join('')}
+  </table>`;
+  document.getElementById('uygula-btn').disabled=false;
+}
+
+async function uygula(){
+  if(!confirm(`${plan.filter(p=>p.durum!=='tamam').length} fatura düzeltilecek. Bu işlem Firebase'e yazacak, geri alınamaz (ama sadece cariId alanlarını değiştirir, tutar/kalem verisine dokunmaz). Devam edilsin mi?`))return;
+  document.getElementById('uygula-btn').disabled=true;
+  logYaz('🚀 Uygulama başladı...');
+
+  // 1) Yeni carileri yaz (aynı hedef nesne birden fazla plan satırında referans olabileceği için Set ile tekilleştir)
+  const yeniCariler=new Map();
+  plan.filter(p=>p.durum==='yeni').forEach(p=>{ if(p.hedefCariObj) yeniCariler.set(p.hedefCariObj.id,p.hedefCariObj); });
+  for(const [id,c] of yeniCariler){
+    await fetch(FB+'/muhasebe/cariler/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)});
+    logYaz(`✅ Yeni cari oluşturuldu: ${c.ad} (${id})`);
+  }
+  // Tip güncellenen mevcut carileri de yaz (eslesme durumunda hedefCariObj yok, adMap'ten geldi — tip değişmiş olabilir)
+  const guncellenenMevcut=new Map();
+  plan.filter(p=>p.durum==='eslesme').forEach(p=>{
+    const c=cariler[p.yeniCariId];
+    if(c) guncellenenMevcut.set(c.id,c);
+  });
+  for(const [id,c] of guncellenenMevcut){
+    await fetch(FB+'/muhasebe/cariler/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)});
+    logYaz(`🔄 Cari güncellendi: ${c.ad} (tip: ${c.tip})`);
+  }
+
+  // 2) Faturaları güncelle
+  for(const p of plan){
+    if(p.durum==='tamam')continue;
+    const f=faturalar[p.faturaId];
+    if(!f)continue;
+    f.cariId=p.yeniCariId;
+    await fetch(FB+'/muhasebe/faturalar/'+p.faturaId+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(f)});
+    logYaz(`🧾 Fatura düzeltildi: ${f.no} → cariId=${p.yeniCariId}`);
+
+    // 3) Bu faturaya bağlı cari hareketlerini bul ve düzelt (HAR_FAT_ ve HAR_ODE_ / belge eşleşmesiyle)
+    const ilgiliHareketler=Object.values(cariHareketler).filter(h=>h && (h.belge===f.no || h.belge==='ÖD-'+f.no));
+    for(const h of ilgiliHareketler){
+      if(h.cariId===p.yeniCariId)continue;
+      h.cariId=p.yeniCariId;
+      await fetch(FB+'/muhasebe/cariHareketler/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});
+      logYaz(`  ↳ Hareket düzeltildi: ${h.belge} (${h.tip})`);
+    }
+  }
+
+  // 4) Audit log
+  try{
+    await fetch(FB+'/muhasebe/auditLog/LOG_MIGRATION_'+Date.now()+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      id:'LOG_MIGRATION_'+Date.now(),action:'migration',entityType:'cari',entityId:'toplu',
+      detail:`Cari veri düzeltme aracı çalıştırıldı — ${plan.filter(p=>p.durum!=='tamam').length} fatura düzeltildi`,
+      userName:'Sistem (Migration Tool)',timestamp:Date.now()
+    })});
+  }catch(e){}
+
+  logYaz('✅ Tamamlandı! Cari Hesaplar ve Faturalar ekranlarını yenileyip kontrol et.');
+  document.getElementById('sonuc').innerHTML='<p style="padding:12px;color:var(--success);font-weight:700">✅ Düzeltme tamamlandı. Aşağıdaki loga bak, sonra Cari Hesaplar sayfasını kontrol et.</p>';
+}
+</script>
+</body>
+</html>
