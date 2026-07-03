@@ -2968,6 +2968,14 @@ async function submitForm() {
 
   const mkNo = state._pendingMkNo || yeniMalKabulNo();
   state._pendingMkNo = null;
+
+  // Otel türetme: sipariş no önekinden (C→810 Club, R→811 Resort). Sipariş yoksa varsayılan Club.
+  // Depo kodu: 810→100 (Club İşletme), 811→300 (Resort İşletme) — LN depo kod aralığıyla hizalı.
+  const lnSipNoStr = document.getElementById('ln-siparis-no')?.value?.trim() || '';
+  const ilkSipHarf = lnSipNoStr.toUpperCase().charAt(0);
+  const otelId = ilkSipHarf === 'R' ? '811' : '810';
+  const depoKod = otelId === '811' ? '300' : '100';
+
   const form = {
     id: Date.now(),
     mkNo,
@@ -2977,6 +2985,9 @@ async function submitForm() {
     firmaId: state.selectedFirmaId,
     faturaNo: document.getElementById('fatura-no').value.trim(),
     irsaliyeNo: document.getElementById('irsaliye-no').value.trim(),
+    lnSiparisNo: lnSipNoStr,
+    otelId,
+    depoKod,
     aracHijyen: document.getElementById('arac-hijyen').value,
     aracSicaklik: document.getElementById('arac-sicaklik').value,
     seriNo: '',
@@ -4262,7 +4273,7 @@ function renderSorgu(){
             <span style="font-family:monospace;font-weight:800;color:var(--primary)">${f.mkNo||'—'}</span>
             <span style="font-size:11px;font-weight:600;color:${dRenk[f.durum]||'var(--gray-500)'}">${dEtiket[f.durum]||f.durum}</span>
           </div>
-          <div class="kayit-firma">🏢 ${f.firma||'—'}</div>
+          <div class="kayit-firma">🏢 ${f.firma||'—'} ${f.otelId?`<span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:${f.otelId==='811'?'#dbeafe':'#fed7aa'};color:${f.otelId==='811'?'#1e40af':'#92400e'}">🏨 ${f.otelId==='811'?'Resort':'Club'}</span>`:''}</div>
           <div class="kayit-meta">
             ${f.formTarih||new Date(f.tarih||0).toLocaleDateString('tr-TR')}
             ${f.faturaNo?' • Fatura: '+f.faturaNo:''}
@@ -5131,8 +5142,8 @@ function buildLNExcel(formlar, tarih) {
     const firmaKod = f.firmaId ? String(f.firmaId) : '';
     const firmaAd  = f.firmaAd || f.firma || '';
     const faturaNo = f.faturaNo || '';
-    const depoKod  = '100';
-    const depoAd   = 'CLUB ISLETME DEPO';
+    const depoKod  = f.depoKod || (f.otelId === '811' ? '300' : '100');
+    const depoAd   = depoKod === '300' ? 'RESORT ISLETME DEPO' : depoKod === '400' ? 'RESORT TEKNIK DEPO' : depoKod === '200' ? 'CLUB TEKNIK DEPO' : 'CLUB ISLETME DEPO';
     // Sipariş no — mal kabuldeki siparişlerden eşleştir
     const siparisNo = f.siparisNo || f.lnSiparisNo || '';
 
