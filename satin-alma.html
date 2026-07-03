@@ -1971,8 +1971,8 @@ function iadeDetayAc(siparisNo){
 
   const gonderildi=!!s.gonderildiMuhasebe;
   const btn=document.getElementById('iade-muhasebe-btn');
-  btn.disabled=gonderildi;
-  btn.textContent=gonderildi?'✅ Muhasebe\'ye Gönderildi':'📤 Muhasebe\'ye Gönder';
+  btn.disabled=false;
+  btn.textContent=gonderildi?'🔁 Tekrar Gönder (zaten gönderilmişti)':'📤 Muhasebe\'ye Gönder';
 
   aModal('mIadeDetay');
  }catch(e){
@@ -2023,6 +2023,7 @@ function iadeGenelToplamHesapla(){
 
 async function iadeMuhasebeGonder(){
   const s=_iadeHavuzuData[_iadeAktifNo];if(!s)return;
+  if(s.gonderildiMuhasebe&&!confirm('Bu iade daha önce Muhasebe\'ye gönderilmişti. Tekrar gönderirsen Faturalar listesinde YENİ bir taslak kayıt daha oluşur (eski kayıt silinmez). Devam edilsin mi?'))return;
   const kalemler=s.kalemler||[];
   const fiyatlar=kalemler.map((_,i)=>parseFloat(document.getElementById('iade-fk-fiyat-'+i)?.value)||0);
   if(!fiyatlar.every(p=>p>0)){
