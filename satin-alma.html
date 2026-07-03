@@ -2029,19 +2029,56 @@ async function iadeMuhasebeGonder(){
     if(!confirm('Bazı kalemlerin birim fiyatı girilmemiş. Yine de Muhasebe\'ye göndermek istiyor musunuz?'))return;
   }
   sLD();
-  s.kalemler=kalemler.map((k,i)=>({...k,birimFiyat:fiyatlar[i],toplam:fiyatlar[i]*(parseFloat(k.miktar)||0)}));
-  s.bagliFaturalar=_iadeBagliFaturalar.filter(b=>b.no);
+  const kalemlerFiyatli=kalemler.map((k,i)=>({...k,birimFiyat:fiyatlar[i],toplam:fiyatlar[i]*(parseFloat(k.miktar)||0)}));
+  const bagliFaturalar=_iadeBagliFaturalar.filter(b=>b.no);
+  let araToplam=0;kalemlerFiyatli.forEach(k=>araToplam+=k.toplam);
+
+  s.kalemler=kalemlerFiyatli;
+  s.bagliFaturalar=bagliFaturalar;
   s.fiyatlandirildi=true;
   s.fiyatlandiranAd=CU.ad;
   s.fiyatlandirmaTarihi=Date.now();
   s.gonderildiMuhasebe=true;
   s.gonderilmeTarihi=Date.now();
-  await save('siparisHavuzu/'+s.siparisNo,s);
-  _iadeHavuzuData[s.siparisNo]=s;
-  hLD();
-  kModal('mIadeDetay');
-  toast('📤 Muhasebe\'ye gönderildi');
-  renderIadeTakip();
+
+  // Muhasebe'nin Faturalar listesinde görünecek TASLAK iade faturası oluştur
+  // (Muhasebe LN Sipariş No + kalemleri burada hazır bulur, kontrol edip onaylar/KDV işler)
+  const faturaId='FAT_IADE_'+Date.now();
+  const fatura={
+    id:faturaId,
+    no:'', // Gerçek iade fatura no'su kesilince Muhasebe girecek
+    tur:'alis',
+    iade:true,
+    cariAd:s.firma,
+    tarih:new Date().toISOString().split('T')[0],
+    olusturmaTarih:Date.now(),
+    siparisNo:s.siparisNo,
+    bagliFaturalar,
+    kalemler:kalemlerFiyatli.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
+      birimFiyat:k.birimFiyat,kdvOran:20,iskonto:0})),
+    araToplam:Math.round(araToplam*100)/100,
+    kdvToplam:0, // Muhasebe hesaplayacak
+    genelToplam:Math.round(araToplam*100)/100,
+    durum:'bekliyor',
+    not:(s.not||'')+' — İade nedeni: '+(s.donusSekli||''),
+    olusturanAd:CU.ad
+  };
+  s.muhasebeFaturaId=faturaId;
+
+  try{
+    await Promise.all([
+      fetch(FB+'/siparisHavuzu/'+s.siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)}),
+      fetch(FB+`/muhasebe/faturalar/${faturaId}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fatura)})
+    ]);
+    _iadeHavuzuData[s.siparisNo]=s;
+    hLD();
+    kModal('mIadeDetay');
+    toast(`📤 Muhasebe'ye gönderildi — Faturalar listesinde ↩️ İade olarak görünecek`);
+    renderIadeTakip();
+  }catch(e){
+    hLD();
+    toast('⚠️ Hata: '+e.message);
+  }
 }
 
 function iadeBelgeYazdir(){
