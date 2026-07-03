@@ -310,6 +310,19 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 </div>
 
+<!-- MODAL: İade Detay / Fiyat Belirle -->
+<div class="mo" id="mIadeDetay">
+  <div class="mbox" style="max-height:95vh">
+    <div class="mtitle">↩️ İade Siparişi <button class="mclose" onclick="kModal('mIadeDetay')">✕</button></div>
+    <div id="iade-modal-content"></div>
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-gray" onclick="kModal('mIadeDetay')">Kapat</button>
+      <button class="btn btn-gray" onclick="iadeBelgeYazdir()">🖨️ Belge Yazdır</button>
+      <button class="btn btn-success" style="flex:1" id="iade-muhasebe-btn" onclick="iadeMuhasebeGonder()">📤 Muhasebe'ye Gönder</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Yeni İç Talep -->
 <div class="mo" id="mYeniTalep">
   <div class="mbox" style="max-height:95vh">
@@ -1852,7 +1865,7 @@ function renderIadeTakip(){
   const nedenMap={depozito:'Depozito İadesi',bozuk:'Bozuk/Hasarlı',skt:'SKT',fazla:'Fazla Sipariş',diger:'Diğer'};
 
   c.innerHTML=liste.map(s=>`
-    <div class="card" style="margin-bottom:8px;border-left:4px solid var(--danger)">
+    <div class="card" style="margin-bottom:8px;border-left:4px solid var(--danger);cursor:pointer" onclick="iadeDetayAc('${s.siparisNo}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--primary)">${s.firma||'—'}</div>
@@ -1866,12 +1879,222 @@ function renderIadeTakip(){
           ${kaynakChip[s.kaynak]||''}
         </div>
       </div>
-      <div style="font-size:11px;color:var(--gray-600);margin-bottom:4px">↩️ ${nedenMap[s.donusSekli]||s.donusSekli||'—'}${s.orijinalFaturaNo?' • Orj. No: '+s.orijinalFaturaNo:''}</div>
-      ${(s.kalemler||[]).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — ${k.miktar} ${k.birim}</div>`).join('')}
+      <div style="font-size:11px;color:var(--gray-600);margin-bottom:4px">↩️ ${nedenMap[s.donusSekli]||s.donusSekli||'—'}${(s.bagliFaturalar&&s.bagliFaturalar.length)?' • '+s.bagliFaturalar.length+' fatura bağlı':(s.orijinalFaturaNo?' • Orj. No: '+s.orijinalFaturaNo:'')}</div>
+      ${(s.kalemler||[]).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — ${k.miktar} ${k.birim}${k.birimFiyat?' • '+fmt(k.birimFiyat)+' ₺':''}</div>`).join('')}
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        ${s.fiyatlandirildi?'<span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyatlandırıldı</span>':'<span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyat Bekliyor</span>'}
+        ${s.gonderildiMuhasebe?'<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📤 Muhasebe\'de</span>':''}
+      </div>
     </div>`).join('');
 }
 
 function spSifirla(){SP_SATIRLAR=[];renderSPSatirlar();document.getElementById('sp-firma-inp').value='';document.getElementById('sp-firma-id').value='';document.getElementById('sp-not').value='';}
+
+// ============================================================
+// İADE DETAY — Bağlı fatura yönetimi + Satın Alma fiyat belirleme + Muhasebe'ye gönderme
+// ============================================================
+let _iadeAktifNo=null;
+let _iadeBagliFaturalar=[];
+
+function iadeDetayAc(siparisNo){
+  const s=_iadeHavuzuData[siparisNo];if(!s)return;
+  _iadeAktifNo=siparisNo;
+  _iadeBagliFaturalar=(s.bagliFaturalar&&s.bagliFaturalar.length)?[...s.bagliFaturalar]:(s.orijinalFaturaNo?[{no:s.orijinalFaturaNo,tarih:''}]:[]);
+  const nedenMap={depozito:'Depozito İadesi',bozuk:'Bozuk/Hasarlı Ürün',skt:'SKT Yaklaşan/Geçen',fazla:'Fazla Sipariş',diger:'Diğer'};
+  const otelAd=s.otelId==='811'?'Ali Bey Resort Sorgun':'Ali Bey Club Manavgat';
+
+  document.getElementById('iade-modal-content').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;font-size:12px">
+      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px">İADE SİPARİŞ NO</div>
+        <div style="font-family:monospace;font-weight:800;color:var(--primary)">${s.siparisNo}</div>
+      </div>
+      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px">FİRMA</div>
+        <div style="font-weight:700">${s.firma}</div>
+      </div>
+      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px">OTEL</div>
+        <div style="font-weight:700">${otelAd}</div>
+      </div>
+      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px">İADE NEDENİ</div>
+        <div style="font-weight:700">${nedenMap[s.donusSekli]||s.donusSekli||'—'}</div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📎 Bağlı Fatura Numaraları
+      <span style="font-size:11px;color:var(--gray-500);font-weight:400">(depoya bu ürünlerin geldiği orijinal alış faturaları)</span>
+    </div>
+    <div id="iade-bagli-faturalar"></div>
+    <button class="btn btn-sm btn-gray" style="margin-bottom:14px" onclick="iadeBagliFaturaEkle()">+ Fatura Ekle</button>
+
+    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📦 Kalemler — Birim Fiyat Girişi</div>
+    <div id="iade-fk-urun-listesi">
+      ${(s.kalemler||[]).map((k,i)=>{
+        const fiyat=k.birimFiyat||0;
+        const toplam=fiyat*(parseFloat(k.miktar)||0);
+        return`<div style="padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-bottom:8px;${fiyat>0?'border-color:var(--success);background:#f0fdf4':''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div>
+              <div style="font-size:13px;font-weight:700">${k.ad}</div>
+              <div style="font-size:11px;color:var(--gray-400)">${k.miktar} ${k.birim}</div>
+            </div>
+            ${fiyat>0?`<div style="text-align:right"><div style="font-size:13px;font-weight:800;color:var(--success)">${fmt(toplam)} ₺</div></div>`:''}
+          </div>
+          <label style="font-size:10px;font-weight:600;color:var(--gray-500)">BİRİM FİYAT (₺, KDV hariç)</label>
+          <input type="number" id="iade-fk-fiyat-${i}" value="${fiyat||''}" placeholder="0.00" min="0" step="0.01"
+            oninput="iadeFiyatHesapla(${i})"
+            style="width:100%;margin-top:4px;padding:10px;border:1.5px solid ${fiyat>0?'var(--success)':'var(--gray-300)'};border-radius:6px;font-size:14px;font-weight:600;outline:none">
+          <div id="iade-fk-satir-toplam-${i}" style="margin-top:6px;font-size:11px;color:var(--gray-500)">
+            ${fiyat>0?`${fmt(fiyat)} ₺ × ${k.miktar} ${k.birim} = <b>${fmt(toplam)} ₺</b> (KDV hariç)`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div style="background:var(--primary);color:white;border-radius:8px;padding:12px;margin-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:700">TOPLAM (KDV HARİÇ)</div>
+          <div style="font-size:11px;opacity:.7;margin-top:2px">KDV Muhasebe tarafından işlenecek</div>
+        </div>
+        <div id="iade-fk-genel-toplam" style="font-size:18px;font-weight:800">— ₺</div>
+      </div>
+    </div>
+  `;
+  renderIadeBagliFaturalar();
+  iadeGenelToplamHesapla();
+
+  const gonderildi=!!s.gonderildiMuhasebe;
+  const btn=document.getElementById('iade-muhasebe-btn');
+  btn.disabled=gonderildi;
+  btn.textContent=gonderildi?'✅ Muhasebe\'ye Gönderildi':'📤 Muhasebe\'ye Gönder';
+
+  aModal('mIadeDetay');
+}
+
+function renderIadeBagliFaturalar(){
+  const c=document.getElementById('iade-bagli-faturalar');
+  if(!c)return;
+  if(!_iadeBagliFaturalar.length){c.innerHTML=`<div style="font-size:11px;color:var(--gray-400);margin-bottom:8px">Henüz fatura bağlanmadı</div>`;return;}
+  c.innerHTML=_iadeBagliFaturalar.map((b,i)=>`
+    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <input type="text" value="${(b.no||'').replace(/"/g,'&quot;')}" placeholder="Fatura No" oninput="_iadeBagliFaturalar[${i}].no=this.value"
+        style="flex:1.4;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none">
+      <input type="date" value="${b.tarih||''}" oninput="_iadeBagliFaturalar[${i}].tarih=this.value"
+        style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none">
+      <button onclick="_iadeBagliFaturalar.splice(${i},1);renderIadeBagliFaturalar()" style="background:none;border:none;color:var(--danger);font-size:16px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+function iadeBagliFaturaEkle(){_iadeBagliFaturalar.push({no:'',tarih:''});renderIadeBagliFaturalar();}
+
+function iadeFiyatHesapla(i){
+  const s=_iadeHavuzuData[_iadeAktifNo];if(!s)return;
+  const k=(s.kalemler||[])[i];if(!k)return;
+  const fiyat=parseFloat(document.getElementById('iade-fk-fiyat-'+i)?.value)||0;
+  const miktar=parseFloat(k.miktar)||0;
+  const toplam=fiyat*miktar;
+  const el=document.getElementById('iade-fk-satir-toplam-'+i);
+  if(el)el.innerHTML=fiyat>0?`${fmt(fiyat)} ₺ × ${miktar} ${k.birim} = <b>${fmt(toplam)} ₺</b> (KDV hariç)`:'';
+  const inp=document.getElementById('iade-fk-fiyat-'+i);
+  if(inp)inp.style.borderColor=fiyat>0?'var(--success)':'var(--gray-300)';
+  iadeGenelToplamHesapla();
+}
+
+function iadeGenelToplamHesapla(){
+  const s=_iadeHavuzuData[_iadeAktifNo];if(!s)return;
+  const kalemler=s.kalemler||[];
+  let genel=0;
+  kalemler.forEach((k,i)=>{
+    const fiyat=parseFloat(document.getElementById('iade-fk-fiyat-'+i)?.value)||0;
+    genel+=fiyat*(parseFloat(k.miktar)||0);
+  });
+  const el=document.getElementById('iade-fk-genel-toplam');
+  if(el)el.textContent=genel>0?fmt(genel)+' ₺':'— ₺';
+}
+
+async function iadeMuhasebeGonder(){
+  const s=_iadeHavuzuData[_iadeAktifNo];if(!s)return;
+  const kalemler=s.kalemler||[];
+  const fiyatlar=kalemler.map((_,i)=>parseFloat(document.getElementById('iade-fk-fiyat-'+i)?.value)||0);
+  if(!fiyatlar.every(p=>p>0)){
+    if(!confirm('Bazı kalemlerin birim fiyatı girilmemiş. Yine de Muhasebe\'ye göndermek istiyor musunuz?'))return;
+  }
+  sLD();
+  s.kalemler=kalemler.map((k,i)=>({...k,birimFiyat:fiyatlar[i],toplam:fiyatlar[i]*(parseFloat(k.miktar)||0)}));
+  s.bagliFaturalar=_iadeBagliFaturalar.filter(b=>b.no);
+  s.fiyatlandirildi=true;
+  s.fiyatlandiranAd=CU.ad;
+  s.fiyatlandirmaTarihi=Date.now();
+  s.gonderildiMuhasebe=true;
+  s.gonderilmeTarihi=Date.now();
+  await save('siparisHavuzu/'+s.siparisNo,s);
+  _iadeHavuzuData[s.siparisNo]=s;
+  hLD();
+  kModal('mIadeDetay');
+  toast('📤 Muhasebe\'ye gönderildi');
+  renderIadeTakip();
+}
+
+function iadeBelgeYazdir(){
+  const s=_iadeHavuzuData[_iadeAktifNo];if(!s)return;
+  // Ekrandaki güncel fiyat/fatura girişlerini geçici olarak yansıt (henüz kaydedilmemiş olsa da belgeye yazsın)
+  const kalemler=(s.kalemler||[]).map((k,i)=>{
+    const fiyat=parseFloat(document.getElementById('iade-fk-fiyat-'+i)?.value)||k.birimFiyat||0;
+    return{...k,birimFiyat:fiyat,toplam:fiyat*(parseFloat(k.miktar)||0)};
+  });
+  const genelToplam=kalemler.reduce((t,k)=>t+k.toplam,0);
+  const nedenMap={depozito:'DEPOZİTO İADESİ',bozuk:'BOZUK / HASARLI ÜRÜN',skt:'SKT YAKLAŞAN/GEÇEN',fazla:'FAZLA SİPARİŞ',diger:'DİĞER'};
+  const otelAd=s.otelId==='811'?'GUROK TUR MAD.A.S. (RESORT SORGUN)':'GUROK TUR MAD.A.S. (CLUB MANAVGAT)';
+  const bugun=new Date().toLocaleDateString('tr-TR');
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>İade Faturası — ${s.siparisNo}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;color:#1a2744}
+    h1{font-size:16px;text-align:center;margin-bottom:4px}
+    .tarih{text-align:right;font-size:12px;margin-bottom:10px}
+    table{width:100%;border-collapse:collapse;margin-bottom:10px}
+    th,td{border:1px solid #999;padding:6px 8px;font-size:12px;text-align:left}
+    th{background:#f1f3f5}
+    .center{text-align:center}.right{text-align:right}
+    .neden{background:#f1f3f5;font-weight:700;text-align:center;padding:6px}
+    .toplam-row td{font-weight:800;background:#f8f9fa}
+    .footer-row td{font-weight:700}
+  </style></head><body>
+  <h1>İADE FATURASI KESİLECEK BİLGİLER</h1>
+  <div class="tarih">${bugun}</div>
+  <table>
+    <tr><th>FİRMA İSMİ</th><th>İADE SİPARİŞ NUMARASI</th><th>İADE SİPARİŞ TARİHİ</th><th>FATURA NUMARASI</th><th>FATURA TARİHİ</th></tr>
+    <tr>
+      <td rowspan="${Math.max(1,s.bagliFaturalar?.length||1)}">${s.firma||'—'}</td>
+      <td rowspan="${Math.max(1,s.bagliFaturalar?.length||1)}" class="center">${s.siparisNo}</td>
+      <td rowspan="${Math.max(1,s.bagliFaturalar?.length||1)}" class="center">${s.tarih||'—'}</td>
+      <td>${s.bagliFaturalar?.[0]?.no||'—'}</td>
+      <td>${s.bagliFaturalar?.[0]?.tarih||'—'}</td>
+    </tr>
+    ${(s.bagliFaturalar||[]).slice(1).map(b=>`<tr><td>${b.no||'—'}</td><td>${b.tarih||'—'}</td></tr>`).join('')}
+  </table>
+  <table><tr><td class="neden">İADE NEDENİ : ${nedenMap[s.donusSekli]||(s.donusSekli||'—').toUpperCase()}</td></tr></table>
+  <table>
+    <tr><th>SIRA NO</th><th>İADE EDİLEN MALZEME ADI</th><th>MİKTAR (KG/AD)</th><th>BİRİM FİYAT</th><th>TOPLAM</th></tr>
+    ${kalemler.map((k,i)=>`<tr>
+      <td class="center">${i+1}</td>
+      <td>${k.kod?k.kod+'<br>':''}${k.ad}</td>
+      <td class="center">${k.miktar}</td>
+      <td class="right">${fmt(k.birimFiyat)} TL</td>
+      <td class="right">${fmt(k.toplam)} TL</td>
+    </tr>`).join('')}
+    <tr class="toplam-row"><td colspan="4" class="right">TOPLAM</td><td class="right">${fmt(genelToplam)} TL</td></tr>
+  </table>
+  <table>
+    <tr class="footer-row"><td colspan="4">${otelAd}</td><td class="center">KDV EKLENECEKTİR</td></tr>
+  </table>
+  </body></html>`);
+  w.document.close();
+  w.print();
+}
 
 async function spKaydet(){
   const firmaAd=document.getElementById('sp-firma-inp').value;
