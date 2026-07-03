@@ -293,15 +293,29 @@ async function auditLogYaz(action,entityType,entityId,detail){
 function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
 
 async function yeniFisNo(){
+  const yil=new Date().getFullYear();
+  const sayacYol=FB+'/muhasebe/sayaclar/yevmiye_'+yil+'.json';
   try{
-    const r=await fetch(FB+'/muhasebe/yevmiye.json?shallow=true');
-    if(r.ok){
-      const d=await r.json();
-      const sayi=(d?Object.keys(d).length:0)+1;
-      return `YEV-${new Date().getFullYear()}-${String(sayi).padStart(5,'0')}`;
+    let n=null;
+    const r=await fetch(sayacYol);
+    if(r.ok){const d=await r.json();if(typeof d==='number')n=d;}
+    if(n===null){
+      // İlk kullanım: mevcut fişlerin en yüksek numarasından devral (çakışma olmasın)
+      n=0;
+      const yR=await fetch(FB+'/muhasebe/yevmiye.json');
+      if(yR.ok){
+        const yd=await yR.json();
+        if(yd)Object.values(yd).forEach(y=>{
+          const m=(y?.no||'').match(new RegExp('^YEV-'+yil+'-(\\d+)$'));
+          if(m){const v=parseInt(m[1]);if(v>n)n=v;}
+        });
+      }
     }
+    n++;
+    await fetch(sayacYol,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(n)});
+    return `YEV-${yil}-${String(n).padStart(5,'0')}`;
   }catch(e){}
-  return `YEV-${new Date().getFullYear()}-${Date.now()}`;
+  return `YEV-${yil}-${Date.now()}`;
 }
 
 async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs,otelId){
