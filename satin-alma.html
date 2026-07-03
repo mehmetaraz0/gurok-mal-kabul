@@ -521,8 +521,32 @@ function filterYTUrun(i,val){
       const m=document.getElementById('ytm'+idx);if(m)m.focus();
     });
   });
+  // Scroll konteyneri (overflow-y:auto) dropdown'ı kesmesin diye ekrana göre (fixed) konumla.
+  // Alt kenara sığmıyorsa input'un ÜSTÜNE aç.
+  const inp=document.getElementById('yta'+i);
+  const rect=inp.getBoundingClientRect();
+  const ddYukseklik=Math.min(200,res.length*38+8);
+  const altBosluk=window.innerHeight-rect.bottom;
+  dd.style.position='fixed';
+  dd.style.left=rect.left+'px';
+  dd.style.width=Math.max(rect.width,280)+'px';
+  dd.style.right='auto';
+  if(altBosluk<ddYukseklik&&rect.top>ddYukseklik){
+    dd.style.top='auto';
+    dd.style.bottom=(window.innerHeight-rect.top)+'px';
+    dd.style.borderRadius='8px 8px 0 0';
+  }else{
+    dd.style.bottom='auto';
+    dd.style.top=rect.bottom+'px';
+    dd.style.borderRadius='0 0 8px 8px';
+  }
   dd.style.display='block';
 }
+
+// Satır alanı kaydırılınca açık dropdown'ı kapat (fixed konum kayma ile eskir)
+document.getElementById('yt-satirlar')?.addEventListener('scroll',()=>{
+  YT_SATIRLAR.forEach((_,i)=>{const dd=document.getElementById('ytdd'+i);if(dd)dd.style.display='none';});
+});
 
 // Dropdown dışına tıklanınca kapat
 document.addEventListener('pointerdown',e=>{
