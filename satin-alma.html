@@ -168,6 +168,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
           <div class="field"><label>Sipariş Tarihi</label><input type="date" id="sp-tarih"></div>
           <div class="field"><label>Termin Tarihi</label><input type="date" id="sp-termin"></div>
         </div>
+        <div class="field" style="margin-top:8px"><label>Otel *</label>
+          <select id="sp-otel">
+            <option value="810">🏨 810 — Ali Bey Club Manavgat (C siparişi)</option>
+            <option value="811">🏨 811 — Ali Bey Resort Sorgun (R siparişi)</option>
+          </select>
+        </div>
       </div>
       <div class="brow" style="margin-bottom:16px">
         <button class="btn btn-gray" onclick="spSifirla()">🗑️ Temizle</button>
@@ -850,24 +856,27 @@ document.addEventListener('pointerdown',e=>{
 function spGeriDon(){document.getElementById('spAdim1').style.display='block';document.getElementById('spAdim2').style.display='none';}
 
 // ============================================================
-// SİPARİŞ NO ÜRET — C00091111 formatı, kendi havuzumuzdan
+// SİPARİŞ NO ÜRET — Club: C00091111, Resort: R00091111 formatı, kendi havuzumuzdan.
+// Her önekin kendi sayacı vardır; en yüksek mevcut no bulunup +1 verilir.
 // ============================================================
-async function yeniSiparisNoUret(){
+async function yeniSiparisNoUret(prefix){
+  const p = prefix === 'R' ? 'R' : 'C';
   try{
     const r=await fetch(FB+'/siparisHavuzu.json?shallow=true');
     let maxNo=91110; // başlangıç noktası
     if(r.ok){
       const d=await r.json();
       if(d){
+        const re=new RegExp('^'+p+'(\\d+)$');
         Object.keys(d).forEach(k=>{
-          const m=k.match(/^C(\d+)$/);
+          const m=k.match(re);
           if(m){const n=parseInt(m[1]);if(n>maxNo)maxNo=n;}
         });
       }
     }
-    return 'C'+String(maxNo+1).padStart(8,'0');
+    return p+String(maxNo+1).padStart(8,'0');
   }catch(e){
-    return 'C'+String(91111+Math.floor(Math.random()*1000)).padStart(8,'0');
+    return p+String(91111+Math.floor(Math.random()*1000)).padStart(8,'0');
   }
 }
 
@@ -885,12 +894,14 @@ async function spGrupla(){
 
   const tarih=document.getElementById('sp-tarih').value;
   const termin=document.getElementById('sp-termin').value;
+  const otelId=document.getElementById('sp-otel')?.value||'810';
+  const sipPrefix=otelId==='811'?'R':'C';
   const grupListesi=Object.values(gruplar).sort((a,b)=>a.firmaAd.localeCompare(b.firmaAd));
 
   sLD();
   // Her firma grubuna ayrı sipariş no ata
   for(const g of grupListesi){
-    g.siparisNo = await yeniSiparisNoUret();
+    g.siparisNo = await yeniSiparisNoUret(sipPrefix);
     // Hemen havuza yaz ki bir sonraki grup farklı no alsın (çakışma önleme)
     await fetch(FB+'/siparisHavuzu/'+g.siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({rezerve:true,ts:Date.now()})});
   }
@@ -936,6 +947,7 @@ async function spGrupla(){
       siparisNo:g.siparisNo,
       firma:g.firmaAd,firmaId:g.firmaId,
       tarih,termin,
+      otelId,
       kalemler:g.kalemler.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
         gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0})),
       durum:'bekleyen', // bekleyen | kismi | tamamlandi | iptal
