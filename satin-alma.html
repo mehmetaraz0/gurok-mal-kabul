@@ -117,6 +117,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('firmalar',this)">🏢 Firmalar</button>
     <button class="tabbtn" onclick="gTab('siparisTakip',this)">📊 Sipariş Takip</button>
     <button class="tabbtn" onclick="gTab('fiyatKontrol',this)" id="tab-btn-fiyatKontrol">💰 Fiyat Kontrolü <span id="fk-badge" style="display:none;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+    <button class="tabbtn" onclick="gTab('iade',this)">↩️ İade</button>
   </div>
 
   <!-- İÇ TALEPLER -->
@@ -236,6 +237,64 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" id="fk-tab-tumu" onclick="filterFiyatKontrol('tumu',this)">Tümü</button>
     </div>
     <div id="fiyat-kontrol-liste"></div>
+  </div>
+
+  <!-- İADE -->
+  <div class="sc" id="tab-iade">
+    <div class="card">
+      <div class="card-title">↩️ Yeni İade Siparişi</div>
+      <div class="rfields" style="margin-bottom:8px">
+        <div class="field"><label>Otel *</label>
+          <select id="iade-otel">
+            <option value="810">🏨 810 — Ali Bey Club Manavgat (C)</option>
+            <option value="811">🏨 811 — Ali Bey Resort Sorgun (R)</option>
+          </select>
+        </div>
+        <div class="field"><label>Dönüş Şekli *</label>
+          <select id="iade-donus-sekli">
+            <option value="depozito">Depozito İadesi</option>
+            <option value="bozuk">Bozuk / Hasarlı Ürün</option>
+            <option value="skt">SKT Yaklaşan/Geçen</option>
+            <option value="fazla">Fazla Sipariş</option>
+            <option value="diger">Diğer</option>
+          </select>
+        </div>
+      </div>
+      <div style="position:relative;margin-bottom:8px">
+        <label style="font-size:11px;font-weight:600;color:var(--gray-600)">FİRMA *</label>
+        <input type="text" id="iade-firma-inp" placeholder="Firma ara..." autocomplete="off" oninput="filterIadeFirma(this.value)"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
+        <input type="hidden" id="iade-firma-id">
+        <div id="iade-firma-dd" class="udd"></div>
+      </div>
+      <div class="rfields" style="margin-bottom:8px">
+        <div class="field"><label>Orijinal Fatura/İrsaliye No</label><input type="text" id="iade-fatura-no" placeholder="Opsiyonel"></div>
+        <div class="field"><label>Not</label><input type="text" id="iade-not" placeholder="Opsiyonel"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📦 İade Kalemleri
+        <button class="btn btn-sm" style="margin-left:auto;background:var(--accent);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addIadeSatir()">+ Ekle</button>
+      </div>
+      <div id="iade-satirlar"></div>
+    </div>
+    <div class="brow" style="margin-bottom:16px">
+      <button class="btn btn-gray" onclick="iadeSifirla()">🗑️ Temizle</button>
+      <button class="btn btn-danger" onclick="iadeOlustur()">↩️ İade Siparişi Oluştur</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 İade Takip
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadIadeTakip()">🔄 Yenile</button>
+      </div>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" id="it-tab-tumu" onclick="filterIadeTakip('tumu',this)">Tümü</button>
+      <button class="ftab" id="it-tab-bekleyen" onclick="filterIadeTakip('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="ftab" id="it-tab-tamamlandi" onclick="filterIadeTakip('tamamlandi',this)">✅ Tamamlandı</button>
+    </div>
+    <div id="iade-takip-liste"></div>
   </div>
 </div>
 
@@ -436,6 +495,10 @@ function gTab(tab,el){
     document.getElementById('sp-tarih').value=new Date().toISOString().split('T')[0];
     document.getElementById('sp-termin').value='';
     if(SP_SATIRLAR.length===0)addSPSatir();
+  }
+  if(tab==='iade'){
+    if(IADE_SATIRLAR.length===0)addIadeSatir();
+    loadIadeTakip();
   }
 }
 
@@ -1599,6 +1662,214 @@ document.addEventListener('pointerdown',e=>{
     if(fdd&&finp&&!fdd.contains(e.target)&&e.target!==finp)fdd.style.display='none';
   });
 });
+
+// ============================================================
+// İADE — Depo'nun elindeki malzemeyi tedarikçiye iade siparişi olarak açar
+// Aynı C/R havuzunu (yeniSiparisNoUret) kullanır, tip:'iade' ile yazar.
+// ============================================================
+let IADE_SATIRLAR=[];
+
+function addIadeSatir(){
+  IADE_SATIRLAR.push({ad:'',kod:'',miktar:'',birim:''});
+  renderIadeSatirlar();
+}
+
+function renderIadeSatirlar(){
+  const c=document.getElementById('iade-satirlar');
+  if(!c)return;
+  if(!IADE_SATIRLAR.length){c.innerHTML='<div style="text-align:center;color:var(--gray-400);padding:16px;font-size:13px">Kalem eklemek için + Ekle butonuna basın</div>';return;}
+  c.innerHTML=IADE_SATIRLAR.map((u,i)=>`
+    <div class="usatir">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="background:var(--danger);color:white;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">${i+1}</div>
+        <div style="font-size:13px;font-weight:600;flex:1">${u.ad||'Kalem '+(i+1)}</div>
+        <button onclick="IADE_SATIRLAR.splice(${i},1);renderIadeSatirlar()" style="background:none;border:none;color:var(--gray-400);font-size:16px;cursor:pointer">✕</button>
+      </div>
+      <div style="position:relative;margin-bottom:8px">
+        <input type="text" id="ia${i}" value="${(u.ad||'').replace(/"/g,'&quot;')}" placeholder="Ürün adı veya LN kodu..."
+          autocomplete="off" oninput="filterIadeUrun(${i},this.value)"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
+        <div id="iadd${i}" class="udd"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label style="font-size:11px;font-weight:600;color:var(--gray-600)">MİKTAR</label>
+          <input type="number" value="${u.miktar}" placeholder="0" oninput="IADE_SATIRLAR[${i}].miktar=this.value"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none"></div>
+        <div><label style="font-size:11px;font-weight:600;color:var(--gray-600)">BİRİM</label>
+          <input type="text" id="ib${i}" value="${u.birim||''}" placeholder="—" oninput="IADE_SATIRLAR[${i}].birim=this.value"
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none"></div>
+      </div>
+    </div>`).join('');
+}
+
+function filterIadeUrun(i,val){
+  IADE_SATIRLAR[i].ad=val;
+  const dd=document.getElementById('iadd'+i);
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const urunDB=DB.urunler||(window.URUN_DB||[]);
+  const res=urunDB.filter(u=>u.ad?.toLowerCase().includes(val.toLowerCase())||u.kod?.toLowerCase().includes(val.toLowerCase())).slice(0,15);
+  if(!res.length){dd.style.display='none';return;}
+  dd.innerHTML=res.map(u=>`<div class="uddi" data-i="${i}" data-kod="${u.kod}" data-ad="${(u.ad||'').replace(/"/g,'&quot;')}" data-birim="${u.birim||''}">
+    ${u.ad} <span style="font-size:10px;color:var(--gray-400)">${u.kod}</span>
+  </div>`).join('');
+  dd.querySelectorAll('[data-kod]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      const idx=parseInt(this.dataset.i);
+      IADE_SATIRLAR[idx]={...IADE_SATIRLAR[idx],ad:this.dataset.ad,kod:this.dataset.kod,birim:this.dataset.birim};
+      dd.style.display='none';
+      const inp=document.getElementById('ia'+idx);if(inp)inp.value=this.dataset.ad;
+      const binp=document.getElementById('ib'+idx);if(binp)binp.value=this.dataset.birim||'';
+    });
+  });
+  dd.style.display='block';
+}
+
+function filterIadeFirma(val){
+  const dd=document.getElementById('iade-firma-dd');
+  document.getElementById('iade-firma-id').value='';
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const res=(DB.firmalar||[]).filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,12);
+  if(!res.length){dd.style.display='none';return;}
+  dd.innerHTML=res.map(f=>`<div class="uddi" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">${f.ad}</div>`).join('');
+  dd.querySelectorAll('[data-id]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      document.getElementById('iade-firma-id').value=this.dataset.id;
+      const finp=document.getElementById('iade-firma-inp');
+      finp.value=this.dataset.ad;finp.style.borderColor='var(--success)';finp.style.color='var(--success)';finp.style.fontWeight='600';
+      dd.style.display='none';
+    });
+  });
+  dd.style.display='block';
+}
+document.addEventListener('pointerdown',e=>{
+  IADE_SATIRLAR.forEach((_,i)=>{
+    const dd=document.getElementById('iadd'+i);const inp=document.getElementById('ia'+i);
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+  });
+  const fdd=document.getElementById('iade-firma-dd');const finp=document.getElementById('iade-firma-inp');
+  if(fdd&&finp&&!fdd.contains(e.target)&&e.target!==finp)fdd.style.display='none';
+});
+
+function iadeSifirla(){
+  IADE_SATIRLAR=[];renderIadeSatirlar();
+  document.getElementById('iade-firma-inp').value='';
+  document.getElementById('iade-firma-id').value='';
+  document.getElementById('iade-fatura-no').value='';
+  document.getElementById('iade-not').value='';
+}
+
+async function iadeOlustur(){
+  const otelId=document.getElementById('iade-otel').value;
+  const donusSekli=document.getElementById('iade-donus-sekli').value;
+  const firmaAd=document.getElementById('iade-firma-inp').value;
+  const firmaId=document.getElementById('iade-firma-id').value;
+  const faturaNo=document.getElementById('iade-fatura-no').value;
+  const not=document.getElementById('iade-not').value;
+
+  if(!firmaAd){toast('⚠️ Firma seçin');return;}
+  const dolu=IADE_SATIRLAR.filter(u=>u.ad&&u.miktar);
+  if(!dolu.length){toast('⚠️ En az bir kalem ekleyin');return;}
+
+  sLD();
+  const prefix=otelId==='811'?'R':'C';
+  const siparisNo=await yeniSiparisNoUret(prefix);
+  await fetch(FB+'/siparisHavuzu/'+siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({rezerve:true,ts:Date.now()})});
+
+  const siparis={
+    siparisNo,
+    tip:'iade',
+    firma:firmaAd,firmaId,
+    otelId,
+    donusSekli,
+    orijinalFaturaNo:faturaNo||'',
+    not:not||'',
+    tarih:new Date().toISOString().split('T')[0],
+    kalemler:dolu.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
+      gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0})),
+    durum:'bekleyen',
+    kaynak:'satinalma', // Depo tarafından açılan iadeler kaynak:'depo' ile gelir
+    olusturanAd:CU.ad,
+    olusturmaTarih:Date.now()
+  };
+  await fetch(FB+'/siparisHavuzu/'+siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(siparis)});
+  hLD();
+
+  iadeSifirla();
+  toast(`✅ İade siparişi oluşturuldu — ${siparisNo}`);
+  loadIadeTakip();
+}
+
+// ============================================================
+// İADE TAKİP
+// ============================================================
+let _itFilter='tumu';
+let _iadeHavuzuData={};
+
+async function loadIadeTakip(){
+  try{
+    const r=await fetch(FB+'/siparisHavuzu.json');
+    if(r.ok){
+      const d=await r.json();
+      if(d&&typeof d==='object')_iadeHavuzuData=d;
+    }
+  }catch(e){}
+  renderIadeTakip();
+}
+
+function filterIadeTakip(f,el){
+  _itFilter=f;
+  document.querySelectorAll('#tab-iade .ftabs .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderIadeTakip();
+}
+
+function renderIadeTakip(){
+  const c=document.getElementById('iade-takip-liste');
+  if(!c)return;
+  let liste=Object.values(_iadeHavuzuData).filter(s=>s&&!s.rezerve&&s.tip==='iade');
+  if(_itFilter!=='tumu')liste=liste.filter(s=>s.durum===_itFilter);
+  liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+
+  if(!liste.length){
+    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:var(--gray-400)">
+      <div style="font-size:40px;margin-bottom:12px">↩️</div>
+      <div style="font-size:13px">İade siparişi yok</div>
+    </div>`;
+    return;
+  }
+
+  const durumChip={
+    bekleyen:'<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ Bekliyor</span>',
+    kismi:'<span style="background:#fed7aa;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🔶 Kısmen</span>',
+    tamamlandi:'<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">✅ Tamamlandı</span>'
+  };
+  const kaynakChip={
+    depo:'<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📦 Depo</span>',
+    satinalma:'<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">🛒 Satın Alma</span>'
+  };
+  const nedenMap={depozito:'Depozito İadesi',bozuk:'Bozuk/Hasarlı',skt:'SKT',fazla:'Fazla Sipariş',diger:'Diğer'};
+
+  c.innerHTML=liste.map(s=>`
+    <div class="card" style="margin-bottom:8px;border-left:4px solid var(--danger)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--primary)">${s.firma||'—'}</div>
+          <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
+            <span style="font-family:monospace;font-weight:700;color:#5b21b6">${s.siparisNo}</span>
+            ${s.tarih?' • '+s.tarih:''} ${s.olusturanAd?' • '+s.olusturanAd:''}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          ${durumChip[s.durum]||''}
+          ${kaynakChip[s.kaynak]||''}
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--gray-600);margin-bottom:4px">↩️ ${nedenMap[s.donusSekli]||s.donusSekli||'—'}${s.orijinalFaturaNo?' • Orj. No: '+s.orijinalFaturaNo:''}</div>
+      ${(s.kalemler||[]).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — ${k.miktar} ${k.birim}</div>`).join('')}
+    </div>`).join('');
+}
 
 function spSifirla(){SP_SATIRLAR=[];renderSPSatirlar();document.getElementById('sp-firma-inp').value='';document.getElementById('sp-firma-id').value='';document.getElementById('sp-not').value='';}
 
