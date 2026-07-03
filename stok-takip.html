@@ -824,6 +824,40 @@ document.addEventListener('pointerdown',e=>{
   });
 });
 
+// İade Başlat ürün araması — depoda kayıtlı stoktan değil, tüm ürün kataloğundan (URUN_DB) arar,
+// çünkü iade edilecek ürün depo stok kaydında olmayabilir. Birim de katalogdan otomatik gelir.
+function filterIadeUrunDD(inputId,ddId,kodId,birimId,val){
+  const dd=document.getElementById(ddId);
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const katalog=typeof URUN_DB!=='undefined'?URUN_DB:[];
+  const v=val.toLowerCase();
+  let results=katalog.filter(u=>u.ad?.toLowerCase().includes(v)||u.kod?.toLowerCase().includes(v)).slice(0,15);
+  if(!results.length){dd.style.display='none';return;}
+  dd.innerHTML=results.map(u=>
+    `<div class="urun-dd-item" data-kod="${u.kod}" data-ad="${(u.ad||'').replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}">
+      ${u.ad} <span style="font-size:10px;color:var(--gray-500);font-family:monospace;">${u.kod}</span>
+    </div>`
+  ).join('');
+  dd.querySelectorAll('[data-kod]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      document.getElementById(inputId).value=this.dataset.ad;
+      document.getElementById(kodId).value=this.dataset.kod;
+      document.getElementById(birimId).value=this.dataset.birim;
+      dd.style.display='none';
+      const idx=parseInt(inputId.split('-').pop());
+      if(!isNaN(idx))iadeKalemGuncelle(idx);
+    });
+  });
+  dd.style.display='block';
+}
+document.addEventListener('pointerdown',e=>{
+  document.querySelectorAll('[id^="iade-urun-dd-"]').forEach(dd=>{
+    const inp=document.getElementById(dd.id.replace('-dd-','-inp-'));
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+  });
+});
+
 // ============================================================
 // MANUEL ÇIKIŞ
 // ============================================================
@@ -987,7 +1021,7 @@ function renderIadeKalemler(){
         <label>Ürün *</label>
         <div style="position:relative;">
           <input type="text" id="iade-urun-inp-${i}" value="${(k.ad||'').replace(/"/g,'&quot;')}" placeholder="2+ harf yazın..." autocomplete="off"
-            oninput="filterUrunDD('iade-urun-inp-${i}','iade-urun-dd-${i}','iade-urun-kod-${i}','iade-birim-${i}',this.value,'iade-depo');iadeKalemGuncelle(${i})">
+            oninput="filterIadeUrunDD('iade-urun-inp-${i}','iade-urun-dd-${i}','iade-urun-kod-${i}','iade-birim-${i}',this.value);iadeKalemGuncelle(${i})">
           <div id="iade-urun-dd-${i}" class="urun-dd"></div>
         </div>
         <input type="hidden" id="iade-urun-kod-${i}" value="${k.kod||''}">
