@@ -1881,9 +1881,10 @@ function renderIadeTakip(){
       </div>
       <div style="font-size:11px;color:var(--gray-600);margin-bottom:4px">↩️ ${nedenMap[s.donusSekli]||s.donusSekli||'—'}${(s.bagliFaturalar&&s.bagliFaturalar.length)?' • '+s.bagliFaturalar.length+' fatura bağlı':(s.orijinalFaturaNo?' • Orj. No: '+s.orijinalFaturaNo:'')}</div>
       ${(s.kalemler||[]).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — ${k.miktar} ${k.birim}${k.birimFiyat?' • '+fmt(k.birimFiyat)+' ₺':''}</div>`).join('')}
-      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${s.fiyatlandirildi?'<span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyatlandırıldı</span>':'<span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyat Bekliyor</span>'}
         ${s.gonderildiMuhasebe?'<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📤 Muhasebe\'de</span>':''}
+        <button class="btn btn-sm btn-primary" style="margin-left:auto;padding:5px 12px;min-height:26px" onclick="event.stopPropagation();iadeDetayAc('${s.siparisNo}')">📝 Detay / Fiyatlandır →</button>
       </div>
     </div>`).join('');
 }
@@ -1897,7 +1898,9 @@ let _iadeAktifNo=null;
 let _iadeBagliFaturalar=[];
 
 function iadeDetayAc(siparisNo){
-  const s=_iadeHavuzuData[siparisNo];if(!s)return;
+ try{
+  const s=_iadeHavuzuData[siparisNo];
+  if(!s){toast('⚠️ Sipariş bulunamadı: '+siparisNo);return;}
   _iadeAktifNo=siparisNo;
   _iadeBagliFaturalar=(s.bagliFaturalar&&s.bagliFaturalar.length)?[...s.bagliFaturalar]:(s.orijinalFaturaNo?[{no:s.orijinalFaturaNo,tarih:''}]:[]);
   const nedenMap={depozito:'Depozito İadesi',bozuk:'Bozuk/Hasarlı Ürün',skt:'SKT Yaklaşan/Geçen',fazla:'Fazla Sipariş',diger:'Diğer'};
@@ -1972,6 +1975,10 @@ function iadeDetayAc(siparisNo){
   btn.textContent=gonderildi?'✅ Muhasebe\'ye Gönderildi':'📤 Muhasebe\'ye Gönder';
 
   aModal('mIadeDetay');
+ }catch(e){
+   console.error('iadeDetayAc hata:',e);
+   toast('❌ Detay açılamadı: '+e.message);
+ }
 }
 
 function renderIadeBagliFaturalar(){
