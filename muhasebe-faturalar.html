@@ -158,7 +158,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="rfields">
       <div class="field"><label>Vade Tarihi</label><input type="date" id="f-vade"></div>
-      <div class="field"><label>LN Sipariş No</label><input type="text" id="f-siparis" placeholder="C000..."></div>
+      <div class="field"><label>LN Sipariş No</label><input type="text" id="f-siparis" placeholder="C000... / R000..." oninput="siparisNoOtelTuret(this.value)"></div>
+    </div>
+    <div class="field">
+      <label>Otel *</label>
+      <select id="f-otel">
+        <option value="810">🏨 810 — Ali Bey Club Manavgat</option>
+        <option value="811">🏨 811 — Ali Bey Resort Sorgun</option>
+      </select>
     </div>
     <!-- Kalemler -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -232,6 +239,21 @@ let kalemler=[];
 let alisFilter='tumu',satisFilter='tumu';
 
 // ============================================================
+// OTEL SABİTLERİ (LN finans şirket kodlarıyla hizalı)
+// Sipariş no öneki: C -> 810 Club, R -> 811 Resort
+// ============================================================
+const OTEL_ISIMLERI={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'};
+const OTEL_KISA={'810':'Club','811':'Resort'};
+
+function siparisNoOtelTuret(siparisNo){
+  const ilk=(siparisNo||'').trim().toUpperCase().charAt(0);
+  const sel=document.getElementById('f-otel');
+  if(!sel)return;
+  if(ilk==='C')sel.value='810';
+  else if(ilk==='R')sel.value='811';
+}
+
+// ============================================================
 // DÖNEM KONTROLÜ & DENETİM İZİ
 // ============================================================
 async function donemAcikMi(tarihMs){
@@ -282,7 +304,7 @@ async function yeniFisNo(){
   return `YEV-${new Date().getFullYear()}-${Date.now()}`;
 }
 
-async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs){
+async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs,otelId){
   const topBorc=kalemler.reduce((t,k)=>t+(k.borc||0),0);
   const topAlacak=kalemler.reduce((t,k)=>t+(k.alacak||0),0);
   const no=await yeniFisNo();
@@ -292,6 +314,7 @@ async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs){
     tarihStr:new Date(tarihMs).toISOString().split('T')[0],
     tip,belge,aciklama,
     kalemler,
+    otelId:otelId||'810',
     toplamBorc:round2(topBorc),toplamAlacak:round2(topAlacak),
     onaylandi:true,
     otomatik:true,
@@ -384,6 +407,7 @@ function renderFaturalar(tur){
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         ${durumChip[f.durum]||''}
         ${f.siparisNo?`<span class="chip chip-purple">📋 ${f.siparisNo}</span>`:''}
+        ${f.otelId?`<span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[f.otelId]||f.otelId}</span>`:''}
         ${f.vade?`<span style="font-size:11px;color:${new Date(f.vade)<new Date()&&f.durum!=='odendi'?'var(--danger)':'var(--gray-500)'}">Vade: ${f.vade}</span>`:''}
       </div>
     </div>`).join('');
@@ -419,7 +443,7 @@ function openFaturaDetay(id){
       </div>
       ${durumChip[f.durum]||''}
     </div>
-    ${f.siparisNo?`<div style="margin-bottom:8px"><span class="chip chip-purple">📋 LN Sipariş: ${f.siparisNo}</span></div>`:''}
+    ${f.siparisNo||f.otelId?`<div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">${f.siparisNo?`<span class="chip chip-purple">📋 LN Sipariş: ${f.siparisNo}</span>`:''}${f.otelId?`<span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_ISIMLERI[f.otelId]||f.otelId}</span>`:''}</div>`:''}
     <!-- Kalemler -->
     <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
       <tr style="background:var(--gray-100)">
@@ -467,6 +491,7 @@ function openYeniFatura(tur){
   document.getElementById('f-cari-id').value='';
   document.getElementById('f-siparis').value='';
   document.getElementById('f-not').value='';
+  document.getElementById('f-otel').value='810';
   document.getElementById('f-cari-label').textContent=tur==='alis'?'Tedarikçi *':'Müşteri *';
   // Vade = bugün + 30
   const vade=new Date();vade.setDate(vade.getDate()+30);
@@ -490,6 +515,7 @@ function openDuzenleFatura(id){
   document.getElementById('f-vade').value=f.vade||'';
   document.getElementById('f-siparis').value=f.siparisNo||'';
   document.getElementById('f-not').value=f.not||'';
+  document.getElementById('f-otel').value=f.otelId||'810';
   document.getElementById('f-sil-btn').style.display='flex';
   renderKalemler();
   aModal('mFatura');
@@ -623,6 +649,7 @@ async function faturaKaydet(durum){
     kalemler:doluKalemler,
     araToplam:ara,kdvToplam:kdv,genelToplam:ara+kdv,
     not:document.getElementById('f-not').value||'',
+    otelId:document.getElementById('f-otel').value||'810',
     durum,
     olusturmaTarih:faturalar[id]?.olusturmaTarih||Date.now(),
     guncellemeTarih:Date.now()
@@ -631,7 +658,7 @@ async function faturaKaydet(durum){
   const yeniKayit=!editId;
   faturalar[id]=fatura;
   await saveFatura(fatura);
-  await auditLogYaz(yeniKayit?'create':'update','fatura',id,`Fatura ${yeniKayit?'oluşturuldu':'güncellendi'}: ${no} — ${cariAd} (${fmt(ara+kdv)} ₺) [${durum}]`);
+  await auditLogYaz(yeniKayit?'create':'update','fatura',id,`Fatura ${yeniKayit?'oluşturuldu':'güncellendi'}: ${no} — ${cariAd} (${fmt(ara+kdv)} ₺) [${durum}] [${OTEL_KISA[fatura.otelId]||fatura.otelId}]`);
   // Cari hareketi oluştur
   if(durum==='bekliyor'||durum==='onaylandi'){
     const har={
@@ -640,6 +667,7 @@ async function faturaKaydet(durum){
       tarih:new Date(tarih).getTime(),tarihStr:tarih,
       belge:no,vade:fatura.vade,
       tutar:ara+kdv,kdv,
+      otelId:fatura.otelId,
       aciklama:`Fatura: ${no}`,
       olusturmaTarih:Date.now()
     };
@@ -660,7 +688,7 @@ async function faturaKaydet(durum){
         {hesapKod:'391',aciklama:'Hesaplanan KDV: '+no,borc:0,alacak:round2(kdv)}
       ];
     }
-    await yevmiyeFisiPostla('YEV_FAT_'+id,yevKalemler,'fatura',no,`Fatura: ${no} — ${cariAd}`,new Date(tarih).getTime());
+    await yevmiyeFisiPostla('YEV_FAT_'+id,yevKalemler,'fatura',no,`Fatura: ${no} — ${cariAd}`,new Date(tarih).getTime(),fatura.otelId);
   }
   hLD();
   kModal('mFatura');
@@ -722,6 +750,7 @@ async function odemeKaydet(){
     id:'HAR_ODE_'+Date.now(),cariId:f.cariId,
     tip:'alacak',tarih:Date.now(),tarihStr:document.getElementById('od-tarih').value,
     belge:'ÖD-'+f.no,tutar,
+    otelId:f.otelId||'810',
     aciklama:document.getElementById('od-aciklama').value||'Ödeme: '+f.no,
     olusturmaTarih:Date.now()
   };
@@ -737,7 +766,7 @@ async function odemeKaydet(){
     {hesapKod:'320',aciklama:'Ödeme: '+f.no+' — '+f.cariAd,borc:round2(tutar),alacak:0},
     {hesapKod:nakitMi?'100':'102',aciklama:(nakitMi?'Kasadan ödeme: ':'Bankadan ödeme ('+yontem+'): ')+f.no,borc:0,alacak:round2(tutar)}
   ];
-  await yevmiyeFisiPostla('YEV_ODE_'+id,yevKalemler,'odeme','ÖD-'+f.no,`Ödeme: ${f.no} — ${f.cariAd}`,Date.now());
+  await yevmiyeFisiPostla('YEV_ODE_'+id,yevKalemler,'odeme','ÖD-'+f.no,`Ödeme: ${f.no} — ${f.cariAd}`,Date.now(),f.otelId);
 
   hLD();
   kModal('mOdeme');
