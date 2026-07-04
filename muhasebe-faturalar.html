@@ -158,7 +158,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="rfields">
       <div class="field"><label>Vade Tarihi</label><input type="date" id="f-vade"></div>
-      <div class="field"><label>LN Sipariş No</label><input type="text" id="f-siparis" placeholder="C000... / R000..." oninput="siparisNoOtelTuret(this.value)"></div>
+      <div class="field"><label>LN Sipariş No</label><input type="text" id="f-siparis" placeholder="C000... / R000..." oninput="siparisNoOtelTuret(this.value);document.getElementById('f-iade-uyari').style.display=(document.getElementById('f-iade').checked&&!this.value)?'block':'none'"></div>
     </div>
     <div class="field">
       <label>Otel *</label>
@@ -169,7 +169,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="field" id="f-iade-alan">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px">
-        <input type="checkbox" id="f-iade" style="width:18px;height:18px" onchange="document.getElementById('f-iade-uyari').style.display=this.checked?'block':'none'">
+        <input type="checkbox" id="f-iade" style="width:18px;height:18px" onchange="document.getElementById('f-iade-uyari').style.display=(this.checked&&!document.getElementById('f-siparis').value)?'block':'none'">
         ↩️ İade Faturası (tedarikçiye kesilen — cari borcu azaltır, KDV hesaplanan tarafa yazılır)
       </label>
       <div id="f-iade-uyari" style="display:none;background:#fff3cd;color:#856404;border-radius:8px;padding:8px 10px;font-size:12px;margin-top:6px">
@@ -544,7 +544,7 @@ function openDuzenleFatura(id){
   document.getElementById('f-not').value=f.not||'';
   document.getElementById('f-otel').value=f.otelId||'810';
   document.getElementById('f-iade').checked=!!f.iade;
-  document.getElementById('f-iade-uyari').style.display=f.iade?'block':'none';
+  document.getElementById('f-iade-uyari').style.display=(f.iade&&!f.siparisNo)?'block':'none';
   document.getElementById('f-iade-alan').style.display=f.tur==='alis'?'block':'none';
   document.getElementById('f-sil-btn').style.display='flex';
   renderKalemler();
