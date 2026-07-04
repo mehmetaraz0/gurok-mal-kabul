@@ -48,7 +48,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
   <div class="sc">
     <div class="uyari-bar">
-      ⚠️ <b>Bu işlem geri alınamaz ve resmi muhasebe sonucunu etkiler.</b> Çalıştırmadan önce mali müşavirinle mutlaka görüş. Sistem, hesap bakiyelerini <b>kümülatif</b> tuttuğu için Bilanço hesapları (kasa/banka/cari/stok) zaten otomatik yeni yıla taşınmış durumda — bu araç sadece <b>Gelir Tablosu ve Maliyet hesaplarını sıfırlayıp</b> net kâr/zararı özkaynağa aktarır (gerçek muhasebede "kapanış kaydı" olarak bilinir). Vergi hesaplaması burada <b>otomatik yapılmaz</b> — mali müşavirin belirlediği tutarı elle girmen gerekir.
+      ⚠️ Bu, ciddi bir muhasebe işlemidir — çalıştırmadan önce mali müşavirinle mutlaka görüş. Sistem, hesap bakiyelerini <b>kümülatif</b> tuttuğu için Bilanço hesapları (kasa/banka/cari/stok) zaten otomatik yeni yıla taşınmış durumda — bu araç sadece <b>Gelir Tablosu ve Maliyet hesaplarını sıfırlayıp</b> net kâr/zararı özkaynağa aktarır (gerçek muhasebede "kapanış kaydı" olarak bilinir). Vergi hesaplaması burada <b>otomatik yapılmaz</b> — mali müşavirin belirlediği tutarı elle girmen gerekir. <b>Yanlışlıkla kapatırsan aşağıdaki "Geçmiş Kapanışlar" listesinden "↩️ Geri Al" ile geri alabilirsin</b> — ama bu arada dönemle ilgili yeni fatura/fiş girdiysen karışıklık çıkabilir, o yüzden geri almadan önce de dikkatli ol.
     </div>
 
     <div class="card">
@@ -245,9 +245,9 @@ async function donemiKapat(){
   if(!onizleme)return;
   const vergi=parseFloat(document.getElementById('ss-vergi')?.value)||0;
 
-  const onayMetni=`${onizleme.yil} yılı KAPATILACAK.\n\nBrüt Sonuç: ${fmt(Math.abs(onizleme.brutKarZarar))} ₺ (${onizleme.brutKarZarar>=0?'Kâr':'Zarar'})\n${vergi>0?'Vergi Karşılığı: '+fmt(vergi)+' ₺\n':''}\nBu işlem GERİ ALINAMAZ. Mali müşavirinden onay aldın mı?`;
+  const onayMetni=`${onizleme.yil} yılı KAPATILACAK.\n\nBrüt Sonuç: ${fmt(Math.abs(onizleme.brutKarZarar))} ₺ (${onizleme.brutKarZarar>=0?'Kâr':'Zarar'})\n${vergi>0?'Vergi Karşılığı: '+fmt(vergi)+' ₺\n':''}\nYanlışlıkla kapatırsan "Geçmiş Kapanışlar" listesinden geri alabilirsin, ama bu ciddi bir işlemdir. Mali müşavirinden onay aldın mı?`;
   if(!confirm(onayMetni))return;
-  if(!confirm('Son kez soruyorum — kesinlikle emin misin? Yevmiye defterine kalıcı kapanış fişleri yazılacak.'))return;
+  if(!confirm('Son kez soruyorum — kesinlikle emin misin? Yevmiye defterine kalıcı kapanış fişleri yazılacak (istersen sonra geri alabilirsin).'))return;
 
   sLD();
   const yilSonuMs=new Date(onizleme.yil,11,31,23,59,59).getTime();
@@ -299,10 +299,35 @@ function renderGecmisKapanislar(){
   const liste=Object.values(kapanmisYillar).sort((a,b)=>b.yil-a.yil);
   const c=document.getElementById('gecmis-kapanislar');
   if(!liste.length){c.innerHTML='<div style="text-align:center;padding:16px;color:var(--gray-400);font-size:12px">Henüz kapatılmış dönem yok</div>';return;}
-  c.innerHTML=liste.map(k=>`<div class="hesap-satir">
+  c.innerHTML=liste.map(k=>`<div class="hesap-satir" style="align-items:center">
     <span>${k.yil} <span style="color:var(--gray-400)">(${new Date(k.kapanmaTarihi).toLocaleDateString('tr-TR')})</span></span>
-    <span style="font-weight:700;color:${k.netSonuc>=0?'var(--success)':'var(--danger)'}">${fmt(Math.abs(k.netSonuc))} ₺</span>
+    <span style="display:flex;align-items:center;gap:10px">
+      <span style="font-weight:700;color:${k.netSonuc>=0?'var(--success)':'var(--danger)'}">${fmt(Math.abs(k.netSonuc))} ₺</span>
+      <button class="btn btn-gray" style="padding:4px 10px;font-size:11px;min-height:28px" onclick="kapanmisYiliGeriAl(${k.yil})">↩️ Geri Al</button>
+    </span>
   </div>`).join('');
+}
+
+async function kapanmisYiliGeriAl(yil){
+  const mesaj=`${yil} yılının kapanışı GERİ ALINACAK.\n\nBu işlem:\n• ${yil} dönem sonu kapanış fişini siler\n• Vergi karşılığı fişini (varsa) siler\n• Net sonuç aktarım fişini siler\n• Dönemi tekrar "açık" duruma getirir\n\nHesap bakiyeleri kapanış öncesi haline döner. Devam edilsin mi?`;
+  if(!confirm(mesaj))return;
+  if(!confirm('Emin misin? Bu geri alma işlemi de kendisi kalıcıdır (fişler tamamen silinir, arşivlenmez).'))return;
+
+  sLD();
+  const silinecekFisIdler=['YEV_KAPANIS_'+yil,'YEV_VERGI_'+yil,'YEV_NETSONUC_'+yil];
+  for(const fisId of silinecekFisIdler){
+    if(yevmiyeler[fisId]){
+      await fetch(FB+'/muhasebe/yevmiye/'+fisId+'.json',{method:'DELETE'});
+      delete yevmiyeler[fisId];
+    }
+  }
+  delete kapanmisYillar[yil];
+  await fetch(FB+'/muhasebe/seneSonuKapatildi/'+yil+'.json',{method:'DELETE'});
+  await auditLogYaz('delete','sene_sonu',String(yil),`${yil} dönem kapanışı GERİ ALINDI — kapanış fişleri silindi`);
+  hLD();
+  donemDurumGoster();
+  renderGecmisKapanislar();
+  toast(`✅ ${yil} kapanışı geri alındı`);
 }
 
 // ============================================================
