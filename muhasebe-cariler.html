@@ -32,7 +32,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-info{background:var(--info);color:white}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
 .brow{display:flex;gap:8px}.brow .btn{flex:1}
 .chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
-.chip-blue{background:#dbeafe;color:#1e40af}.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-orange{background:#fed7aa;color:#92400e}
+.chip-blue{background:#dbeafe;color:#1e40af}.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-orange{background:#fed7aa;color:#92400e}.chip-purple{background:#ede9fe;color:#5b21b6}
 .ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
 .ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
 .ftab.active{background:var(--primary);border-color:var(--primary);color:white}
@@ -163,7 +163,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="rfields" style="margin-bottom:0">
       <div class="field"><label>Cari Kodu *</label><input type="text" id="c-kod" placeholder="C001"></div>
       <div class="field"><label>Tip *</label>
-        <select id="c-tip">
+        <select id="c-tip" onchange="tipDegisti()">
           <option value="tedarikci">🏭 Tedarikçi</option>
           <option value="musteri">👤 Müşteri</option>
           <option value="her_ikisi">🔄 Her İkisi</option>
@@ -203,6 +203,16 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field" id="c-alias-field" style="display:none">
       <label>e-Fatura Alias (KEP)</label>
       <input type="text" id="c-alias" placeholder="urn:mail:...">
+    </div>
+    <div class="field" id="c-acente-field" style="display:none">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px;margin-bottom:8px">
+        <input type="checkbox" id="c-acente" style="width:18px;height:18px" onchange="document.getElementById('c-komisyon-alan').style.display=this.checked?'block':'none'">
+        🏨 Acente / Tur Operatörü (komisyonlu satış)
+      </label>
+      <div id="c-komisyon-alan" style="display:none">
+        <label>Komisyon Oranı (%)</label>
+        <input type="number" id="c-komisyon-oran" placeholder="10" min="0" max="100" step="0.1">
+      </div>
     </div>
     <div class="field"><label>Not</label><input type="text" id="c-not" placeholder="Opsiyonel"></div>
     <div class="brow">
@@ -370,6 +380,7 @@ function renderCariler(){
       <div style="display:flex;gap:6px;align-items:center">
         ${tipChip}
         ${cari.efatura==='evet'?'<span class="chip chip-green">e-Fatura</span>':''}
+        ${cari.acente?`<span class="chip chip-purple">🏨 Acente %${cari.komisyonOrani||0}</span>`:''}
         ${cari.vade?`<span style="font-size:11px;color:var(--gray-500)">${cari.vade} gün vade</span>`:''}
       </div>
     </div>`;
@@ -440,6 +451,11 @@ function openCariDetay(id){
 // ============================================================
 // CARİ KAYDET
 // ============================================================
+function tipDegisti(){
+  const tip=document.getElementById('c-tip').value;
+  document.getElementById('c-acente-field').style.display=(tip==='musteri'||tip==='her_ikisi')?'block':'none';
+}
+
 function openYeniCari(){
   document.getElementById('mCariTitle').innerHTML='➕ Yeni Cari <button class="mclose" onclick="kModal(\'mCari\')">✕</button>';
   document.getElementById('c-id').value='';
@@ -449,8 +465,12 @@ function openYeniCari(){
   document.getElementById('c-efatura').value='hayir';
   document.getElementById('c-vade').value='30';
   document.getElementById('c-limit').value='0';
+  document.getElementById('c-acente').checked=false;
+  document.getElementById('c-komisyon-oran').value='';
+  document.getElementById('c-komisyon-alan').style.display='none';
   document.getElementById('c-sil-btn').style.display='none';
   document.getElementById('c-alias-field').style.display='none';
+  tipDegisti();
   aModal('mCari');
 }
 
@@ -473,7 +493,11 @@ function openDuzenleCari(id){
   document.getElementById('c-not').value=c.not||'';
   document.getElementById('c-alias').value=c.alias||'';
   document.getElementById('c-alias-field').style.display=c.efatura==='evet'?'block':'none';
+  document.getElementById('c-acente').checked=!!c.acente;
+  document.getElementById('c-komisyon-oran').value=c.komisyonOrani||'';
+  document.getElementById('c-komisyon-alan').style.display=c.acente?'block':'none';
   document.getElementById('c-sil-btn').style.display='flex';
+  tipDegisti();
   aModal('mCari');
 }
 
@@ -500,6 +524,8 @@ async function cariKaydet(){
     alias:document.getElementById('c-alias').value||'',
     vade:parseInt(document.getElementById('c-vade').value)||30,
     limit:parseFloat(document.getElementById('c-limit').value)||0,
+    acente:document.getElementById('c-acente').checked,
+    komisyonOrani:parseFloat(document.getElementById('c-komisyon-oran').value)||0,
     not:document.getElementById('c-not').value||'',
     olusturmaTarih:cariler[id]?.olusturmaTarih||Date.now(),
     guncellemeTarih:Date.now()
