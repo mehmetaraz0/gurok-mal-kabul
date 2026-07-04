@@ -68,6 +68,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn active" onclick="gTab('yevmiye',this)">📒 Yevmiye</button>
     <button class="tabbtn" onclick="gTab('kebir',this)">📗 Defteri Kebir</button>
     <button class="tabbtn" onclick="gTab('mizan',this)">📊 Mizan</button>
+    <button class="tabbtn" onclick="gTab('masrafmerkezi',this)">🏢 Masraf Merkezi</button>
   </div>
 
   <!-- YEVMİYE -->
@@ -114,6 +115,27 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       </div>
     </div>
     <div id="mizan-tablo"></div>
+  </div>
+
+  <!-- MASRAF MERKEZİ -->
+  <div class="sc" id="tab-masrafmerkezi">
+    <div class="card">
+      <div class="card-title">🏢 Departman Bazlı Maliyet Raporu</div>
+      <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Yevmiye kalemlerine işaretlenen masraf merkezine göre gider dağılımı. Sadece "Masraf Merkezi" alanı doldurulmuş satırlar dahildir.</p>
+      <div class="rfields">
+        <div class="field"><label>Dönem Başı</label><input type="date" id="mm-bas" onchange="renderMasrafMerkezi()"></div>
+        <div class="field"><label>Dönem Sonu</label><input type="date" id="mm-bit" onchange="renderMasrafMerkezi()"></div>
+      </div>
+      <div class="field" style="margin-top:8px"><label>Otel</label>
+        <select id="mm-otel" onchange="renderMasrafMerkezi()">
+          <option value="">Tümü</option>
+          <option value="810">🏨 810 — Ali Bey Club Manavgat</option>
+          <option value="811">🏨 811 — Ali Bey Resort Sorgun</option>
+        </select>
+      </div>
+    </div>
+    <div class="stats-grid" id="mm-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px"></div>
+    <div id="mm-tablo"></div>
   </div>
 </div>
 
@@ -323,7 +345,7 @@ function openYevmiyeDetay(id){
       </tr>
       ${(y.kalemler||[]).map(k=>`<tr style="border-bottom:1px solid var(--gray-100)">
         <td style="padding:6px;font-family:monospace;font-weight:700">${k.hesapKod}</td>
-        <td style="padding:6px">${k.hesapAd||k.aciklama||'—'}</td>
+        <td style="padding:6px">${k.hesapAd||k.aciklama||'—'}${k.masrafMerkezi?` <span style="display:inline-block;padding:1px 6px;border-radius:6px;font-size:10px;background:var(--gray-200);color:var(--gray-700)">🏢 ${(MASRAF_MERKEZLERI.find(m=>m.kod===k.masrafMerkezi)||{}).ad||k.masrafMerkezi}</span>`:''}</td>
         <td style="padding:6px;text-align:right;color:var(--danger)">${k.borc>0?fmt(k.borc)+' ₺':''}</td>
         <td style="padding:6px;text-align:right;color:var(--success)">${k.alacak>0?fmt(k.alacak)+' ₺':''}</td>
       </tr>`).join('')}
@@ -380,14 +402,30 @@ function openDuzenleYevmiye(id){
 // YEVMİYE KALEMLERİ
 // ============================================================
 function addYevmiyeKalem(){
-  yevKalemler.push({hesapKod:'',hesapAd:'',aciklama:'',borc:0,alacak:0});
+  yevKalemler.push({hesapKod:'',hesapAd:'',aciklama:'',borc:0,alacak:0,masrafMerkezi:''});
   renderYevmiyeKalemler();
 }
+
+const MASRAF_MERKEZLERI=[
+  {kod:'',ad:'—'},
+  {kod:'ONB',ad:'Ön Büro'},
+  {kod:'KAT',ad:'Kat Hizmetleri'},
+  {kod:'MTF',ad:'Mutfak'},
+  {kod:'FB',ad:'Restoran/F&B'},
+  {kod:'BAR',ad:'Bar'},
+  {kod:'TEK',ad:'Teknik Servis'},
+  {kod:'SAT',ad:'Satış & Pazarlama'},
+  {kod:'GYD',ad:'Genel Yönetim'},
+  {kod:'INS',ad:'İnsan Kaynakları'},
+  {kod:'GUV',ad:'Güvenlik'},
+  {kod:'ANI',ad:'Animasyon'},
+  {kod:'DIGER',ad:'Diğer/Ortak'}
+];
 
 function renderYevmiyeKalemler(){
   const c=document.getElementById('y-kalemler');
   c.innerHTML=yevKalemler.map((k,i)=>`
-    <div style="display:grid;grid-template-columns:85px 1fr 90px 90px 24px;gap:4px;margin-bottom:4px;align-items:center">
+    <div style="display:grid;grid-template-columns:75px 1fr 85px 85px 24px;gap:4px;margin-bottom:2px;align-items:center">
       <div style="position:relative">
         <input type="text" id="yk-hesap-${i}" value="${k.hesapKod}" placeholder="100"
           oninput="filterHesapDD(this.value,'yk-dd-${i}','',${i})"
@@ -405,7 +443,10 @@ function renderYevmiyeKalemler(){
         style="width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;text-align:right;outline:none;color:var(--success)">
       <button onclick="yevKalemler.splice(${i},1);renderYevmiyeKalemler()"
         style="background:none;border:none;color:var(--gray-400);cursor:pointer;font-size:14px;padding:0;width:24px;text-align:center">✕</button>
-    </div>`).join('');
+    </div>
+    <select onchange="yevKalemler[${i}].masrafMerkezi=this.value" style="width:100%;padding:5px 6px;border:1px solid var(--gray-200);border-radius:6px;font-size:11px;margin-bottom:6px;color:var(--gray-600)">
+      ${MASRAF_MERKEZLERI.map(m=>`<option value="${m.kod}"${(k.masrafMerkezi||'')===m.kod?' selected':''}>${m.kod?'🏢 '+m.ad:'Masraf merkezi yok'}</option>`).join('')}
+    </select>`).join('');
   hesaplaDenge();
 }
 
@@ -639,8 +680,63 @@ function renderMizan(){
 }
 
 // ============================================================
-// YARDIMCI
+// MASRAF MERKEZİ RAPORU
 // ============================================================
+function renderMasrafMerkezi(){
+  const bas=document.getElementById('mm-bas').value;
+  const bit=document.getElementById('mm-bit').value;
+  const otelFiltre=document.getElementById('mm-otel').value;
+  const basTs=bas?new Date(bas).getTime():0;
+  const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
+
+  const dagitim={}; // masrafMerkezi kodu -> {ad, borc, alacak, net}
+  let genelToplam=0;
+
+  Object.values(yevmiyeler).filter(Boolean).forEach(y=>{
+    if(y.tarih<basTs||y.tarih>bitTs)return;
+    if(otelFiltre&&y.otelId!==otelFiltre)return;
+    (y.kalemler||[]).forEach(k=>{
+      if(!k.masrafMerkezi)return; // sadece işaretlenmiş satırlar
+      const mm=MASRAF_MERKEZLERI.find(m=>m.kod===k.masrafMerkezi);
+      const ad=mm?mm.ad:k.masrafMerkezi;
+      if(!dagitim[k.masrafMerkezi])dagitim[k.masrafMerkezi]={ad,borc:0,alacak:0};
+      dagitim[k.masrafMerkezi].borc+=parseFloat(k.borc)||0;
+      dagitim[k.masrafMerkezi].alacak+=parseFloat(k.alacak)||0;
+      genelToplam+=parseFloat(k.borc)||0;
+    });
+  });
+
+  const satirlar=Object.entries(dagitim).sort((a,b)=>b[1].borc-a[1].borc);
+
+  document.getElementById('mm-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num" style="color:var(--primary)">${satirlar.length}</div><div class="stat-lbl">İşaretli Departman</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${fmt(genelToplam)} ₺</div><div class="stat-lbl">Toplam Dağıtılan Gider</div></div>`;
+
+  const c=document.getElementById('mm-tablo');
+  if(!satirlar.length){
+    c.innerHTML='<div class="es"><div class="ei">🏢</div><div class="et">Bu dönemde masraf merkezi işaretlenmiş kayıt yok</div></div>';
+    return;
+  }
+
+  c.innerHTML=`<div class="card" style="padding:0;overflow:hidden">
+    <div style="display:grid;grid-template-columns:1fr 100px 40px;padding:8px 12px;background:var(--primary);color:white;font-size:11px;font-weight:700">
+      <span>DEPARTMAN</span><span style="text-align:right">GİDER</span><span style="text-align:right">%</span>
+    </div>
+    ${satirlar.map(([kod,d])=>{
+      const oran=genelToplam>0?(d.borc/genelToplam*100):0;
+      return`<div style="padding:8px 12px;border-bottom:1px solid var(--gray-100)">
+        <div style="display:grid;grid-template-columns:1fr 100px 40px;font-size:13px;align-items:center">
+          <span style="font-weight:600">🏢 ${d.ad}</span>
+          <span style="text-align:right;font-weight:700;color:var(--danger)">${fmt(d.borc)}</span>
+          <span style="text-align:right;color:var(--gray-500);font-size:11px">%${oran.toFixed(0)}</span>
+        </div>
+        <div style="background:var(--gray-200);border-radius:4px;height:5px;margin-top:5px;overflow:hidden">
+          <div style="background:var(--primary);height:100%;width:${oran}%"></div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
 function gTab(tab,el){
   document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
   document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
@@ -649,6 +745,14 @@ function gTab(tab,el){
   if(tab==='yevmiye')renderYevmiye();
   if(tab==='kebir')renderKebir();
   if(tab==='mizan')renderMizan();
+  if(tab==='masrafmerkezi'){
+    if(!document.getElementById('mm-bas').value){
+      const ayBasi=new Date();ayBasi.setDate(1);
+      document.getElementById('mm-bas').value=ayBasi.toISOString().split('T')[0];
+      document.getElementById('mm-bit').value=new Date().toISOString().split('T')[0];
+    }
+    renderMasrafMerkezi();
+  }
 }
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function aModal(id){document.getElementById(id).classList.add('open');}
