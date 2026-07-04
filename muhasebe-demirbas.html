@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Demirbaş</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.tab-bar{background:white;display:flex;border-bottom:2px solid var(--gray-200);flex-shrink:0;overflow-x:auto}
+.tab-bar::-webkit-scrollbar{display:none}
+.tabbtn{padding:12px 16px;border:none;background:none;font-size:12px;font-weight:600;color:var(--gray-500);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;flex-shrink:0}
+.tabbtn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:none}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-info{background:var(--info);color:white}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-blue{background:#dbeafe;color:#1e40af}.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-orange{background:#fed7aa;color:#92400e}.chip-purple{background:#ede9fe;color:#5b21b6}
+.ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.ftab.active{background:var(--primary);border-color:var(--primary);color:white}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.mo.open{display:flex}
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:92vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+.search-bar{position:relative;margin-bottom:10px}
+.search-bar input{width:100%;padding:10px 40px 10px 14px;border:1.5px solid var(--gray-300);border-radius:24px;font-size:14px;outline:none;background:white}
+.search-icon{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gray-500)}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat-kart{background:white;border-radius:var(--radius-sm);padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:16px;font-weight:800}
+.stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
+.db-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-300);cursor:pointer}
+.db-kart.aktif{border-left-color:var(--success)}
+.db-kart.elden_cikarildi{border-left-color:var(--gray-400);opacity:.6}
+.progress-bar{background:var(--gray-200);border-radius:4px;height:6px;overflow:hidden;margin-top:6px}
+.progress-fill{background:var(--primary);height:100%}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Demirbaş / Sabit Kıymet</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Amortisman ve zimmet takibi</span></div>
+    <button class="hbtn" onclick="openYeniDemirbas()">➕</button>
+  </div>
+  <div class="tab-bar">
+    <button class="tabbtn active" onclick="gTab('liste',this)">📋 Envanter</button>
+    <button class="tabbtn" onclick="gTab('amortisman',this)">📉 Amortisman</button>
+  </div>
+
+  <!-- LİSTE -->
+  <div class="sc" id="tab-liste" style="display:block">
+    <div class="stats-grid" id="db-stats"></div>
+    <div class="search-bar">
+      <input type="text" id="db-ara" placeholder="Demirbaş adı, kod veya zimmet ara..." oninput="renderDemirbaslar()">
+      <span class="search-icon">🔍</span>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterDemirbas('tumu',this)">Tümü</button>
+      <button class="ftab" onclick="filterDemirbas('aktif',this)">✅ Aktif</button>
+      <button class="ftab" onclick="filterDemirbas('elden_cikarildi',this)">🗑️ Elden Çıkarılan</button>
+    </div>
+    <div id="demirbas-liste"></div>
+  </div>
+
+  <!-- AMORTİSMAN -->
+  <div class="sc" id="tab-amortisman">
+    <div class="card">
+      <div class="card-title">📉 Aylık Amortisman Çalıştır</div>
+      <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Seçilen ay için tüm aktif demirbaşların amortismanını hesaplar, birikmiş amortismanı günceller ve otomatik yevmiye fişi oluşturur. Aynı ay için ikinci kez çalıştırılamaz.</p>
+      <div class="rfields">
+        <div class="field"><label>Yıl</label><input type="number" id="am-yil" min="2020" max="2100"></div>
+        <div class="field"><label>Ay</label>
+          <select id="am-ay">
+            <option value="1">Ocak</option><option value="2">Şubat</option><option value="3">Mart</option>
+            <option value="4">Nisan</option><option value="5">Mayıs</option><option value="6">Haziran</option>
+            <option value="7">Temmuz</option><option value="8">Ağustos</option><option value="9">Eylül</option>
+            <option value="10">Ekim</option><option value="11">Kasım</option><option value="12">Aralık</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px" onclick="amortismanOnizle()">🔍 Önizle</button>
+    </div>
+    <div id="amortisman-onizleme"></div>
+    <div class="card">
+      <div class="card-title">📜 Geçmiş Çalıştırmalar</div>
+      <div id="amortisman-gecmis"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni/Düzenle Demirbaş -->
+<div class="mo" id="mDemirbas">
+  <div class="mbox">
+    <div class="mtitle" id="mDemirbasTitle">➕ Yeni Demirbaş <button class="mclose" onclick="kModal('mDemirbas')">✕</button></div>
+    <input type="hidden" id="d-id">
+    <div class="field"><label>Kategori *</label>
+      <select id="d-kategori" onchange="kategoriDegisti()">
+        <option value="demirbas">🪑 Demirbaş (Mobilya/Ekipman) — %20</option>
+        <option value="bilgisayar">💻 Bilgisayar/Donanım — %33,3</option>
+        <option value="tesis_makine">⚙️ Tesis, Makine ve Cihazlar — %20</option>
+        <option value="tasit">🚗 Taşıt — %20</option>
+        <option value="bina">🏢 Bina — %2</option>
+        <option value="haklar">📜 Haklar/Yazılım Lisansı — %20</option>
+      </select>
+    </div>
+    <div class="field"><label>Demirbaş Adı *</label><input type="text" id="d-ad" placeholder="Örn. Mutfak Fırını"></div>
+    <div class="rfields">
+      <div class="field"><label>Kod</label><input type="text" id="d-kod" placeholder="Opsiyonel — otomatik verilir"></div>
+      <div class="field"><label>Seri No</label><input type="text" id="d-seri" placeholder="Opsiyonel"></div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Alım Tarihi *</label><input type="date" id="d-alim-tarih"></div>
+      <div class="field"><label>Alım Tutarı (KDV Hariç) *</label><input type="number" id="d-alim-tutar" placeholder="0.00" min="0" step="0.01"></div>
+    </div>
+    <div class="field"><label>Yıllık Amortisman Oranı (%)</label><input type="number" id="d-oran" placeholder="20" min="0" max="100" step="0.1"></div>
+    <div class="rfields">
+      <div class="field"><label>Otel *</label>
+        <select id="d-otel">
+          <option value="810">🏨 810 — Ali Bey Club Manavgat</option>
+          <option value="811">🏨 811 — Ali Bey Resort Sorgun</option>
+        </select>
+      </div>
+      <div class="field"><label>Zimmetli Kişi</label><input type="text" id="d-zimmet" placeholder="Opsiyonel"></div>
+    </div>
+    <div class="field"><label>Not</label><input type="text" id="d-not" placeholder="Opsiyonel"></div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mDemirbas')">İptal</button>
+      <button class="btn btn-danger btn-sm" id="d-sil-btn" onclick="demirbasSil()" style="display:none">🗑️</button>
+      <button class="btn btn-primary" onclick="demirbasKaydet()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Detay -->
+<div class="mo" id="mDetay">
+  <div class="mbox">
+    <div class="mtitle" id="mDetayTitle">Detay <button class="mclose" onclick="kModal('mDetay')">✕</button></div>
+    <div id="mDetayIc"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let demirbaslar={},amortismanKosustuler={};
+let dbFilter='tumu';
+
+const OTEL_ISIMLERI={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'};
+const OTEL_KISA={'810':'Club','811':'Resort'};
+
+const KATEGORILER={
+  demirbas:{ad:'Demirbaş',hesapKod:'255',amortismanHesapKod:'257',oran:20},
+  bilgisayar:{ad:'Bilgisayar/Donanım',hesapKod:'255',amortismanHesapKod:'257',oran:33.3},
+  tesis_makine:{ad:'Tesis, Makine ve Cihazlar',hesapKod:'253',amortismanHesapKod:'257',oran:20},
+  tasit:{ad:'Taşıt',hesapKod:'254',amortismanHesapKod:'257',oran:20},
+  bina:{ad:'Bina',hesapKod:'252',amortismanHesapKod:'257',oran:2},
+  haklar:{ad:'Haklar/Yazılım',hesapKod:'260',amortismanHesapKod:'268',oran:20}
+};
+
+// ============================================================
+// DENETİM İZİ
+// ============================================================
+async function auditLogYaz(action,entityType,entityId,detail){
+  const log={
+    id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
+    action,entityType,entityId:String(entityId||''),detail:detail||'',
+    userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',
+    timestamp:Date.now()
+  };
+  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}
+  catch(e){console.warn('Audit log kaydedilemedi:',e);}
+}
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadDB(){
+  sLD();
+  try{
+    const [dR,aR]=await Promise.all([
+      fetch(FB+'/muhasebe/demirbaslar.json'),
+      fetch(FB+'/muhasebe/amortismanKosustu.json'),
+    ]);
+    if(dR.ok){const d=await dR.json();if(d&&typeof d==='object')demirbaslar=d;}
+    if(aR.ok){const d=await aR.json();if(d&&typeof d==='object')amortismanKosustuler=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+async function saveDemirbas(d){
+  try{await fetch(FB+'/muhasebe/demirbaslar/'+d.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});}
+  catch(e){console.warn(e);}
+}
+
+// ============================================================
+// YEVMİYE FİŞİ ORTAK YARDIMCILAR
+// ============================================================
+function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
+
+async function yeniFisNo(){
+  const yil=new Date().getFullYear();
+  const sayacYol=FB+'/muhasebe/sayaclar/yevmiye_'+yil+'.json';
+  try{
+    let n=null;
+    const r=await fetch(sayacYol);
+    if(r.ok){const d=await r.json();if(typeof d==='number')n=d;}
+    if(n===null){
+      n=0;
+      const yR=await fetch(FB+'/muhasebe/yevmiye.json');
+      if(yR.ok){
+        const yd=await yR.json();
+        if(yd)Object.values(yd).forEach(y=>{
+          const m=(y?.no||'').match(new RegExp('^YEV-'+yil+'-(\\d+)$'));
+          if(m){const v=parseInt(m[1]);if(v>n)n=v;}
+        });
+      }
+    }
+    n++;
+    await fetch(sayacYol,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(n)});
+    return `YEV-${yil}-${String(n).padStart(5,'0')}`;
+  }catch(e){}
+  return `YEV-${yil}-${Date.now()}`;
+}
+
+async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,otelId){
+  const topBorc=yevKalemler.reduce((t,k)=>t+(k.borc||0),0);
+  const topAlacak=yevKalemler.reduce((t,k)=>t+(k.alacak||0),0);
+  const no=await yeniFisNo();
+  const yev={
+    id:fisId,no,tarih:tarihMs,tarihStr:new Date(tarihMs).toISOString().split('T')[0],
+    tip,belge,aciklama,kalemler:yevKalemler,otelId:otelId||'810',
+    toplamBorc:round2(topBorc),toplamAlacak:round2(topAlacak),
+    onaylandi:true,otomatik:true,olusturmaTarih:Date.now(),guncellemeTarih:Date.now()
+  };
+  try{
+    await fetch(FB+'/muhasebe/yevmiye/'+fisId+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(yev)});
+    await auditLogYaz('create','yevmiye',fisId,`Otomatik yevmiye fişi: ${no} — ${aciklama} (${fmt(topBorc)} ₺)`);
+  }catch(e){console.warn('Yevmiye fişi oluşturulamadı:',e);}
+}
+
+// ============================================================
+// AMORTİSMAN HESAPLAMA
+// ============================================================
+function aylikAmortismanTutari(d){
+  const yillik=(parseFloat(d.alimTutari)||0)*((parseFloat(d.oran)||0)/100);
+  return yillik/12;
+}
+
+function netDefterDegeri(d){
+  return Math.max(0,(parseFloat(d.alimTutari)||0)-(parseFloat(d.birikmisAmortisman)||0));
+}
+
+function demirbasKaydiSayisi(){return Object.keys(demirbaslar).length;}
+
+// ============================================================
+// RENDER — LİSTE
+// ============================================================
+function renderDemirbaslar(){
+  const ara=(document.getElementById('db-ara')?.value||'').toLowerCase();
+  let liste=Object.values(demirbaslar).filter(Boolean);
+  if(dbFilter!=='tumu')liste=liste.filter(d=>d.durum===dbFilter);
+  if(ara)liste=liste.filter(d=>d.ad?.toLowerCase().includes(ara)||d.kod?.toLowerCase().includes(ara)||d.zimmet?.toLowerCase().includes(ara));
+  liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+
+  const toplamMaliyet=liste.reduce((t,d)=>t+(parseFloat(d.alimTutari)||0),0);
+  const toplamBirikmis=liste.reduce((t,d)=>t+(parseFloat(d.birikmisAmortisman)||0),0);
+  const toplamNet=toplamMaliyet-toplamBirikmis;
+  document.getElementById('db-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num">${liste.length}</div><div class="stat-lbl">Toplam Kayıt</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--gray-600)">${fmt(toplamMaliyet)}</div><div class="stat-lbl">Alım Maliyeti</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamNet)}</div><div class="stat-lbl">Net Defter Değeri</div></div>`;
+
+  const c=document.getElementById('demirbas-liste');
+  if(!liste.length){c.innerHTml='';c.innerHTML='<div class="es"><div class="ei">🪑</div><div class="et">Demirbaş bulunamadı</div></div>';return;}
+
+  c.innerHTML=liste.map(d=>{
+    const kat=KATEGORILER[d.kategori]||{};
+    const net=netDefterDegeri(d);
+    const oranTuketilmis=d.alimTutari>0?((parseFloat(d.birikmisAmortisman)||0)/d.alimTutari*100):0;
+    return`<div class="db-kart ${d.durum}" onclick="openDetay('${d.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${d.ad}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${d.kod||'—'} • ${kat.ad||d.kategori}${d.zimmet?' • 👤 '+d.zimmet:''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:800;color:var(--primary)">${fmt(net)} ₺</div>
+          <div style="font-size:10px;color:var(--gray-400)">Net Değer</div>
+        </div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,oranTuketilmis)}%;background:${oranTuketilmis>=100?'var(--danger)':'var(--primary)'}"></div></div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
+        <span class="chip ${d.durum==='aktif'?'chip-green':'chip-gray'}">${d.durum==='aktif'?'✅ Aktif':'🗑️ Elden Çıkarıldı'}</span>
+        ${d.otelId?`<span class="chip ${d.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[d.otelId]||d.otelId}</span>`:''}
+        <span class="chip chip-purple">%${d.oran} yıllık</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterDemirbas(f,el){
+  dbFilter=f;
+  document.querySelectorAll('#tab-liste .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderDemirbaslar();
+}
+
+// ============================================================
+// YENİ / DÜZENLE
+// ============================================================
+function kategoriDegisti(){
+  const kat=KATEGORILER[document.getElementById('d-kategori').value];
+  if(kat)document.getElementById('d-oran').value=kat.oran;
+}
+
+function yeniDemirbasKodUret(){
+  const n=demirbasKaydiSayisi()+1;
+  return 'DB-'+String(n).padStart(4,'0');
+}
+
+function openYeniDemirbas(){
+  document.getElementById('mDemirbasTitle').innerHTML='➕ Yeni Demirbaş <button class="mclose" onclick="kModal(\'mDemirbas\')">✕</button>';
+  document.getElementById('d-id').value='';
+  document.getElementById('d-kategori').value='demirbas';
+  document.getElementById('d-ad').value='';
+  document.getElementById('d-kod').value='';
+  document.getElementById('d-seri').value='';
+  document.getElementById('d-alim-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('d-alim-tutar').value='';
+  document.getElementById('d-oran').value='20';
+  document.getElementById('d-otel').value='810';
+  document.getElementById('d-zimmet').value='';
+  document.getElementById('d-not').value='';
+  document.getElementById('d-sil-btn').style.display='none';
+  aModal('mDemirbas');
+}
+
+function openDuzenleDemirbas(id){
+  const d=demirbaslar[id];if(!d)return;
+  document.getElementById('mDemirbasTitle').innerHTML='✏️ Demirbaş Düzenle <button class="mclose" onclick="kModal(\'mDemirbas\')">✕</button>';
+  document.getElementById('d-id').value=id;
+  document.getElementById('d-kategori').value=d.kategori;
+  document.getElementById('d-ad').value=d.ad;
+  document.getElementById('d-kod').value=d.kod||'';
+  document.getElementById('d-seri').value=d.seriNo||'';
+  document.getElementById('d-alim-tarih').value=d.alimTarihi||'';
+  document.getElementById('d-alim-tutar').value=d.alimTutari||'';
+  document.getElementById('d-oran').value=d.oran||20;
+  document.getElementById('d-otel').value=d.otelId||'810';
+  document.getElementById('d-zimmet').value=d.zimmet||'';
+  document.getElementById('d-not').value=d.not||'';
+  document.getElementById('d-sil-btn').style.display='flex';
+  aModal('mDemirbas');
+}
+
+async function demirbasKaydet(){
+  const ad=document.getElementById('d-ad').value.trim();
+  const alimTarihi=document.getElementById('d-alim-tarih').value;
+  const alimTutari=parseFloat(document.getElementById('d-alim-tutar').value);
+  if(!ad||!alimTarihi||!alimTutari||alimTutari<=0){toast('⚠️ Ad, alım tarihi ve tutar zorunlu');return;}
+
+  const editId=document.getElementById('d-id').value;
+  const id=editId||('DEMB_'+Date.now());
+  const kategori=document.getElementById('d-kategori').value;
+  const kat=KATEGORILER[kategori];
+  const demirbas={
+    id,
+    kod:document.getElementById('d-kod').value.trim()||yeniDemirbasKodUret(),
+    ad,kategori,
+    hesapKodu:kat.hesapKod,amortismanHesapKodu:kat.amortismanHesapKod,
+    seriNo:document.getElementById('d-seri').value||'',
+    alimTarihi,alimTutari,
+    oran:parseFloat(document.getElementById('d-oran').value)||kat.oran,
+    otelId:document.getElementById('d-otel').value||'810',
+    zimmet:document.getElementById('d-zimmet').value||'',
+    not:document.getElementById('d-not').value||'',
+    birikmisAmortisman:demirbaslar[id]?.birikmisAmortisman||0,
+    durum:demirbaslar[id]?.durum||'aktif',
+    olusturmaTarih:demirbaslar[id]?.olusturmaTarih||Date.now(),
+    guncellemeTarih:Date.now()
+  };
+  sLD();
+  const yeniKayit=!editId;
+  demirbaslar[id]=demirbas;
+  await saveDemirbas(demirbas);
+  await auditLogYaz(yeniKayit?'create':'update','demirbas',id,`Demirbaş ${yeniKayit?'eklendi':'güncellendi'}: ${demirbas.kod} — ${ad} (${fmt(alimTutari)} ₺)`);
+  hLD();
+  kModal('mDemirbas');
+  renderDemirbaslar();
+  toast(`✅ ${ad} kaydedildi`);
+}
+
+async function demirbasSil(){
+  const id=document.getElementById('d-id').value;
+  const d=demirbaslar[id];if(!d)return;
+  if(!confirm(`"${d.ad}" tamamen silinsin mi? (Elden çıkarma için bunun yerine "Elden Çıkar" kullanmanı öneririz)`))return;
+  sLD();
+  delete demirbaslar[id];
+  await fetch(FB+'/muhasebe/demirbaslar/'+id+'.json',{method:'DELETE'});
+  await auditLogYaz('delete','demirbas',id,`Demirbaş silindi: ${d.kod} — ${d.ad}`);
+  hLD();
+  kModal('mDemirbas');
+  renderDemirbaslar();
+  toast('🗑️ Silindi');
+}
+
+// ============================================================
+// DETAY / ELDEN ÇIKARMA
+// ============================================================
+function openDetay(id){
+  const d=demirbaslar[id];if(!d)return;
+  const kat=KATEGORILER[d.kategori]||{};
+  const net=netDefterDegeri(d);
+  document.getElementById('mDetayTitle').textContent=d.ad;
+  document.getElementById('mDetayIc').innerHTML=`
+    <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><div style="font-size:10px;color:var(--gray-500)">ALIM TUTARI</div><div style="font-size:15px;font-weight:800">${fmt(d.alimTutari)} ₺</div></div>
+        <div><div style="font-size:10px;color:var(--gray-500)">NET DEFTER DEĞERİ</div><div style="font-size:15px;font-weight:800;color:var(--success)">${fmt(net)} ₺</div></div>
+        <div><div style="font-size:10px;color:var(--gray-500)">BİRİKMİŞ AMORTİSMAN</div><div style="font-size:13px;font-weight:700;color:var(--danger)">${fmt(d.birikmisAmortisman)} ₺</div></div>
+        <div><div style="font-size:10px;color:var(--gray-500)">AYLIK AMORTİSMAN</div><div style="font-size:13px;font-weight:700">${fmt(aylikAmortismanTutari(d))} ₺</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--gray-600)">${kat.ad} • Hesap: ${d.hesapKodu} / ${d.amortismanHesapKodu} • %${d.oran} yıllık</div>
+      <div style="font-size:12px;color:var(--gray-600)">Alım: ${d.alimTarihi} • Otel: ${OTEL_ISIMLERI[d.otelId]||d.otelId}</div>
+      ${d.zimmet?`<div style="font-size:12px;color:var(--gray-600)">Zimmetli: 👤 ${d.zimmet}</div>`:''}
+      ${d.seriNo?`<div style="font-size:12px;color:var(--gray-600)">Seri No: ${d.seriNo}</div>`:''}
+      ${d.not?`<div style="font-size:12px;color:var(--gray-600);margin-top:4px">Not: ${d.not}</div>`:''}
+    </div>
+    <div class="brow" style="flex-wrap:wrap;gap:6px">
+      <button class="btn btn-primary btn-sm" onclick="kModal('mDetay');openDuzenleDemirbas('${id}')">✏️ Düzenle</button>
+      ${d.durum==='aktif'?`<button class="btn btn-danger btn-sm" onclick="eldenCikar('${id}')">🗑️ Elden Çıkar</button>`:''}
+    </div>
+    <button class="btn btn-gray btn-block btn-sm" style="margin-top:8px" onclick="kModal('mDetay')">Kapat</button>`;
+  aModal('mDetay');
+}
+
+async function eldenCikar(id){
+  const d=demirbaslar[id];if(!d)return;
+  const net=netDefterDegeri(d);
+  const satisBedeliStr=prompt(`"${d.ad}" elden çıkarılıyor.\nNet defter değeri: ${fmt(net)} ₺\n\nSatış bedeli (₺) — satılmıyorsa 0 gir (hurda/zayi):`,'0');
+  if(satisBedeliStr===null)return;
+  const satisBedeli=parseFloat(satisBedeliStr)||0;
+  const fark=satisBedeli-net; // pozitifse kar, negatifse zarar
+
+  sLD();
+  d.durum='elden_cikarildi';
+  d.eldenCikarmaTarihi=Date.now();
+  d.satisBedeli=satisBedeli;
+  d.guncellemeTarih=Date.now();
+  await saveDemirbas(d);
+  await auditLogYaz('update','demirbas',id,`Elden çıkarıldı: ${d.kod} — ${d.ad} (Satış: ${fmt(satisBedeli)} ₺, Net değer: ${fmt(net)} ₺)`);
+
+  // Yevmiye fişi: aktif hesabı ve birikmiş amortismanı kapat, satış bedeli kadar kasa/banka, fark kar/zarar hesabına
+  const yevKalemler=[
+    {hesapKod:d.amortismanHesapKodu,aciklama:'Birikmiş amortisman kapatma: '+d.ad,borc:round2(d.birikmisAmortisman),alacak:0},
+  ];
+  if(satisBedeli>0){
+    yevKalemler.push({hesapKod:'100',aciklama:'Satış bedeli tahsilatı: '+d.ad,borc:round2(satisBedeli),alacak:0});
+  }
+  yevKalemler.push({hesapKod:d.hesapKodu,aciklama:'Aktiften çıkış: '+d.ad,borc:0,alacak:round2(d.alimTutari)});
+  if(Math.abs(fark)>0.01){
+    if(fark>0)yevKalemler.push({hesapKod:'679',aciklama:'Sabit kıymet satış karı: '+d.ad,borc:0,alacak:round2(fark)});
+    else yevKalemler.push({hesapKod:'689',aciklama:'Sabit kıymet satış zararı: '+d.ad,borc:round2(-fark),alacak:0});
+  }
+  await yevmiyeFisiPostla('YEV_DB_CIKIS_'+id,yevKalemler,'demirbas_cikis',d.kod,`Demirbaş elden çıkarma: ${d.ad}`,Date.now(),d.otelId);
+
+  hLD();
+  kModal('mDetay');
+  renderDemirbaslar();
+  toast('✅ Elden çıkarıldı, yevmiye fişi oluşturuldu');
+}
+
+// ============================================================
+// AMORTİSMAN — ÖNİZLE VE ÇALIŞTIR
+// ============================================================
+function amortismanDonemAnahtari(yil,ay){return yil+'-'+String(ay).padStart(2,'0');}
+
+function amortismanOnizle(){
+  const yil=parseInt(document.getElementById('am-yil').value);
+  const ay=parseInt(document.getElementById('am-ay').value);
+  if(!yil){toast('⚠️ Yıl girin');return;}
+  const donemAnahtari=amortismanDonemAnahtari(yil,ay);
+  const donemSonuMs=new Date(yil,ay,0,23,59,59).getTime(); // ayın son günü
+
+  if(amortismanKosustuler[donemAnahtari]){
+    document.getElementById('amortisman-onizleme').innerHTML=`<div class="card" style="border-left:4px solid var(--danger)">
+      <div style="color:var(--danger);font-weight:700;font-size:13px">⚠️ Bu dönem (${donemAnahtari}) için amortisman zaten çalıştırılmış.</div>
+      <div style="font-size:12px;color:var(--gray-600);margin-top:4px">Çalıştırma tarihi: ${new Date(amortismanKosustuler[donemAnahtari].calistirmaTarihi).toLocaleString('tr-TR')}</div>
+    </div>`;
+    return;
+  }
+
+  const uygunDemirbaslar=Object.values(demirbaslar).filter(d=>d&&d.durum==='aktif'&&new Date(d.alimTarihi).getTime()<=donemSonuMs&&netDefterDegeri(d)>0.01);
+  if(!uygunDemirbaslar.length){
+    document.getElementById('amortisman-onizleme').innerHTML='<div class="es"><div class="ei">📉</div><div class="et">Bu dönem için amortisman ayrılacak aktif demirbaş yok</div></div>';
+    return;
+  }
+
+  let toplamTutar=0;
+  const satirlar=uygunDemirbaslar.map(d=>{
+    const aylik=Math.min(aylikAmortismanTutari(d),netDefterDegeri(d));
+    toplamTutar+=aylik;
+    return{d,aylik};
+  });
+
+  document.getElementById('amortisman-onizleme').innerHTML=`
+    <div class="card">
+      <div class="card-title">🔍 Önizleme — ${donemAnahtari}</div>
+      <div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">${satirlar.length} demirbaş, toplam <b>${fmt(toplamTutar)} ₺</b> amortisman gideri</div>
+      ${satirlar.map(s=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12px">
+        <span>${s.d.ad}</span><span style="font-weight:700">${fmt(s.aylik)} ₺</span>
+      </div>`).join('')}
+      <button class="btn btn-success btn-block" style="margin-top:10px" onclick="amortismanCalistir(${yil},${ay})">✅ Onayla ve Çalıştır</button>
+    </div>`;
+}
+
+async function amortismanCalistir(yil,ay){
+  const donemAnahtari=amortismanDonemAnahtari(yil,ay);
+  if(amortismanKosustuler[donemAnahtari]){toast('⚠️ Bu dönem zaten çalıştırılmış');return;}
+  if(!confirm(`${donemAnahtari} dönemi için amortisman çalıştırılacak. Bu işlem geri alınamaz. Devam edilsin mi?`))return;
+
+  const donemSonuMs=new Date(yil,ay,0,23,59,59).getTime();
+  const uygunDemirbaslar=Object.values(demirbaslar).filter(d=>d&&d.durum==='aktif'&&new Date(d.alimTarihi).getTime()<=donemSonuMs&&netDefterDegeri(d)>0.01);
+  if(!uygunDemirbaslar.length){toast('⚠️ Uygun demirbaş yok');return;}
+
+  sLD();
+  // Otel bazında grupla (her otel için ayrı fiş)
+  const otelGruplari={};
+  uygunDemirbaslar.forEach(d=>{
+    const aylik=round2(Math.min(aylikAmortismanTutari(d),netDefterDegeri(d)));
+    if(aylik<=0)return;
+    const otelId=d.otelId||'810';
+    if(!otelGruplari[otelId])otelGruplari[otelId]=[];
+    otelGruplari[otelId].push({d,aylik});
+    d.birikmisAmortisman=round2((parseFloat(d.birikmisAmortisman)||0)+aylik);
+  });
+
+  for(const [otelId,satirlar] of Object.entries(otelGruplari)){
+    // Amortisman hesabına göre grupla (257 / 268 ayrı satır)
+    const hesapGruplari={};
+    satirlar.forEach(s=>{
+      const kod=s.d.amortismanHesapKodu;
+      hesapGruplari[kod]=(hesapGruplari[kod]||0)+s.aylik;
+    });
+    const toplamOtel=satirlar.reduce((t,s)=>t+s.aylik,0);
+    const yevKalemler=[{hesapKod:'770',aciklama:`${donemAnahtari} dönemi amortisman gideri (geçici hesap — netleştirilecek)`,borc:round2(toplamOtel),alacak:0}];
+    Object.entries(hesapGruplari).forEach(([kod,tutar])=>{
+      yevKalemler.push({hesapKod:kod,aciklama:`${donemAnahtari} birikmiş amortisman`,borc:0,alacak:round2(tutar)});
+    });
+    await yevmiyeFisiPostla('YEV_AMORT_'+donemAnahtari+'_'+otelId,yevKalemler,'amortisman',donemAnahtari,`${donemAnahtari} dönemi amortisman — ${OTEL_KISA[otelId]}`,donemSonuMs,otelId);
+  }
+
+  // Demirbaşları güncelle
+  for(const d of uygunDemirbaslar){await saveDemirbas(d);}
+
+  // Dönemi "çalıştırıldı" olarak işaretle
+  const kayit={donem:donemAnahtari,calistirmaTarihi:Date.now(),demirbasSayisi:uygunDemirbaslar.length,
+    toplamTutar:round2(Object.values(otelGruplari).flat().reduce((t,s)=>t+s.aylik,0))};
+  amortismanKosustuler[donemAnahtari]=kayit;
+  await fetch(FB+'/muhasebe/amortismanKosustu/'+donemAnahtari+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(kayit)});
+  await auditLogYaz('create','amortisman',donemAnahtari,`Amortisman çalıştırıldı: ${donemAnahtari} — ${uygunDemirbaslar.length} demirbaş, ${fmt(kayit.toplamTutar)} ₺`);
+
+  hLD();
+  document.getElementById('amortisman-onizleme').innerHTML='';
+  renderDemirbaslar();
+  renderAmortismanGecmis();
+  toast(`✅ ${donemAnahtari} amortismanı işlendi — ${fmt(kayit.toplamTutar)} ₺`);
+}
+
+function renderAmortismanGecmis(){
+  const liste=Object.values(amortismanKosustuler).sort((a,b)=>b.donem.localeCompare(a.donem));
+  const c=document.getElementById('amortisman-gecmis');
+  if(!liste.length){c.innerHTML='<div style="text-align:center;padding:16px;color:var(--gray-400);font-size:12px">Henüz çalıştırma yok</div>';return;}
+  c.innerHTML=liste.map(k=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-100);font-size:12px">
+    <span>${k.donem} <span style="color:var(--gray-400)">(${k.demirbasSayisi} demirbaş)</span></span>
+    <span style="font-weight:700">${fmt(k.toplamTutar)} ₺</span>
+  </div>`).join('');
+}
+
+// ============================================================
+// TAB & YARDIMCI
+// ============================================================
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='amortisman'){
+    if(!document.getElementById('am-yil').value)document.getElementById('am-yil').value=new Date().getFullYear();
+    renderAmortismanGecmis();
+  }
+}
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function aModal(id){document.getElementById(id).classList.add('open');}
+function kModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  renderDemirbaslar();
+})();
+</script>
+</body>
+</html>
