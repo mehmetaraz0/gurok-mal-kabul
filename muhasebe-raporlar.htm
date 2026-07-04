@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Raporlar</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.tab-bar{background:white;display:flex;border-bottom:2px solid var(--gray-200);flex-shrink:0;overflow-x:auto}
+.tab-bar::-webkit-scrollbar{display:none}
+.tabbtn{padding:12px 14px;border:none;background:none;font-size:12px;font-weight:600;color:var(--gray-500);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;flex-shrink:0}
+.tabbtn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:none}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:10px 16px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn-primary{background:var(--primary);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
+.stat-kart{background:white;border-radius:var(--radius-sm);padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:17px;font-weight:800}
+.stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
+.grup-baslik{background:var(--primary);color:white;padding:8px 12px;font-size:12px;font-weight:700;border-radius:8px 8px 0 0;margin-top:10px}
+.hesap-satir{display:flex;justify-content:space-between;padding:7px 12px;border-bottom:1px solid var(--gray-100);font-size:12px;background:white}
+.hesap-satir:last-child{border-radius:0 0 8px 8px}
+.toplam-satir{display:flex;justify-content:space-between;padding:9px 12px;font-size:13px;font-weight:800;background:var(--gray-100);border-radius:0 0 8px 8px}
+.udd{display:none;position:fixed;background:white;border:1.5px solid var(--primary);border-radius:8px;max-height:220px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.uddi{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:13px}
+.uddi:active{background:var(--gray-100)}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-gray{background:var(--gray-200);color:var(--gray-700)}
+.es{text-align:center;padding:30px 20px;color:var(--gray-400)}.ei{font-size:40px;margin-bottom:10px}.et{font-size:13px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media print{
+  .header,.tab-bar,.no-print{display:none!important}
+  .sc{display:block!important;overflow:visible;padding:0}
+  body{background:white}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Raporlar</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Özet, bilanço, KDV, ekstre</span></div>
+    <button class="hbtn" onclick="window.print()">🖨️</button>
+  </div>
+  <div class="tab-bar">
+    <button class="tabbtn active" onclick="gTab('ozet',this)">📊 Özet</button>
+    <button class="tabbtn" onclick="gTab('bilanco',this)">⚖️ Bilanço</button>
+    <button class="tabbtn" onclick="gTab('gelirtablosu',this)">📈 Gelir Tablosu</button>
+    <button class="tabbtn" onclick="gTab('kdv',this)">🧾 KDV Raporu</button>
+    <button class="tabbtn" onclick="gTab('ekstre',this)">📄 Cari Ekstresi</button>
+  </div>
+
+  <!-- ÖZET -->
+  <div class="sc" id="tab-ozet" style="display:block">
+    <div class="card no-print">
+      <div class="card-title">📅 Genel Durum</div>
+      <p style="font-size:11px;color:var(--gray-500)">Anlık durum — tüm modüllerden özet</p>
+    </div>
+    <div id="ozet-icerik"></div>
+  </div>
+
+  <!-- BİLANÇO -->
+  <div class="sc" id="tab-bilanco">
+    <div class="card no-print">
+      <div class="card-title">⚖️ Bilanço</div>
+      <p style="font-size:11px;color:var(--gray-500);margin-bottom:8px">Hesapların kümülatif (tüm zamanlar) bakiyesi — belirli bir tarihe kadar.</p>
+      <div class="field"><label>Tarih (bu tarihe kadar)</label><input type="date" id="bl-tarih" onchange="renderBilanco()"></div>
+    </div>
+    <div id="bilanco-icerik"></div>
+  </div>
+
+  <!-- GELİR TABLOSU -->
+  <div class="sc" id="tab-gelirtablosu">
+    <div class="card no-print">
+      <div class="card-title">📈 Gelir Tablosu (Basitleştirilmiş)</div>
+      <p style="font-size:11px;color:var(--gray-500);margin-bottom:8px">Seçilen dönem için gelir/gider hesap grupları.</p>
+      <div class="rfields">
+        <div class="field"><label>Başlangıç</label><input type="date" id="gt-bas" onchange="renderGelirTablosu()"></div>
+        <div class="field"><label>Bitiş</label><input type="date" id="gt-bit" onchange="renderGelirTablosu()"></div>
+      </div>
+    </div>
+    <div id="gelirtablosu-icerik"></div>
+  </div>
+
+  <!-- KDV RAPORU -->
+  <div class="sc" id="tab-kdv">
+    <div class="card no-print">
+      <div class="card-title">🧾 KDV Özeti</div>
+      <p style="font-size:11px;color:var(--gray-500);margin-bottom:8px">191 İndirilecek KDV ile 391 Hesaplanan KDV karşılaştırması — resmi beyanname yerine geçmez, sadece iç takip.</p>
+      <div class="rfields">
+        <div class="field"><label>Başlangıç</label><input type="date" id="kdv-bas" onchange="renderKdv()"></div>
+        <div class="field"><label>Bitiş</label><input type="date" id="kdv-bit" onchange="renderKdv()"></div>
+      </div>
+    </div>
+    <div id="kdv-icerik"></div>
+  </div>
+
+  <!-- CARİ EKSTRESİ -->
+  <div class="sc" id="tab-ekstre">
+    <div class="card no-print">
+      <div class="card-title">📄 Cari Hesap Ekstresi</div>
+      <div class="field">
+        <label>Cari Seç</label>
+        <div style="position:relative">
+          <input type="text" id="ek-cari-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterCariDD(this.value)">
+          <div id="ek-cari-dd" class="udd"></div>
+        </div>
+        <input type="hidden" id="ek-cari-id">
+      </div>
+      <div class="rfields">
+        <div class="field"><label>Başlangıç</label><input type="date" id="ek-bas" onchange="renderEkstre()"></div>
+        <div class="field"><label>Bitiş</label><input type="date" id="ek-bit" onchange="renderEkstre()"></div>
+      </div>
+    </div>
+    <div id="ekstre-icerik"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let hesaplar={},yevmiyeler={},cariler={},cariHareketler={},faturalar={},demirbaslar={},cekSenet={};
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadDB(){
+  sLD();
+  try{
+    const [hR,yR,cR,hrR,fR,dR,csR]=await Promise.all([
+      fetch(FB+'/muhasebe/hesapPlani.json'),
+      fetch(FB+'/muhasebe/yevmiye.json'),
+      fetch(FB+'/muhasebe/cariler.json'),
+      fetch(FB+'/muhasebe/cariHareketler.json'),
+      fetch(FB+'/muhasebe/faturalar.json'),
+      fetch(FB+'/muhasebe/demirbaslar.json'),
+      fetch(FB+'/muhasebe/cekSenet.json'),
+    ]);
+    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hesaplar=d;}
+    if(yR.ok){const d=await yR.json();if(d&&typeof d==='object')yevmiyeler=d;}
+    if(cR.ok){const d=await cR.json();if(d&&typeof d==='object')cariler=d;}
+    if(hrR.ok){const d=await hrR.json();if(d&&typeof d==='object')cariHareketler=d;}
+    if(fR.ok){const d=await fR.json();if(d&&typeof d==='object')faturalar=d;}
+    if(dR.ok){const d=await dR.json();if(d&&typeof d==='object')demirbaslar=d;}
+    if(csR.ok){const d=await csR.json();if(d&&typeof d==='object')cekSenet=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+// ============================================================
+// HESAP BAKİYE YARDIMCI
+// ============================================================
+function hesapBakiyesi(hesapKod,basMs,bitMs){
+  let borc=0,alacak=0;
+  Object.values(yevmiyeler).filter(Boolean).forEach(y=>{
+    if(basMs!==null&&y.tarih<basMs)return;
+    if(bitMs!==null&&y.tarih>bitMs)return;
+    (y.kalemler||[]).forEach(k=>{
+      if(k.hesapKod!==hesapKod)return;
+      borc+=parseFloat(k.borc)||0;
+      alacak+=parseFloat(k.alacak)||0;
+    });
+  });
+  return{borc,alacak,net:borc-alacak};
+}
+
+function anaSinifToplami(sinifBaslangic,basMs,bitMs){
+  // sinifBaslangic örn "1" -> 1xx tüm hesaplar
+  let toplamBorc=0,toplamAlacak=0;
+  const kodlar=new Set();
+  Object.values(yevmiyeler).filter(Boolean).forEach(y=>{
+    if(basMs!==null&&y.tarih<basMs)return;
+    if(bitMs!==null&&y.tarih>bitMs)return;
+    (y.kalemler||[]).forEach(k=>{
+      if(!k.hesapKod||!k.hesapKod.startsWith(sinifBaslangic))return;
+      toplamBorc+=parseFloat(k.borc)||0;
+      toplamAlacak+=parseFloat(k.alacak)||0;
+      kodlar.add(k.hesapKod);
+    });
+  });
+  return{borc:toplamBorc,alacak:toplamAlacak,net:toplamBorc-toplamAlacak,kodlar:[...kodlar]};
+}
+
+// ============================================================
+// ÖZET
+// ============================================================
+function renderOzet(){
+  const toplamCari=Object.keys(cariler).length;
+  let toplamBorcCari=0,toplamAlacakCari=0;
+  Object.values(cariler).filter(Boolean).forEach(c=>{
+    let b=0,a=0;
+    Object.values(cariHareketler).filter(h=>h?.cariId===c.id).forEach(h=>{
+      if(h.tip==='borc')b+=parseFloat(h.tutar)||0;else a+=parseFloat(h.tutar)||0;
+    });
+    const net=b-a;
+    if(net>0)toplamBorcCari+=net;else toplamAlacakCari+=Math.abs(net);
+  });
+
+  const buAy=new Date();buAy.setDate(1);buAy.setHours(0,0,0,0);
+  const buAyFaturalar=Object.values(faturalar).filter(f=>f&&new Date(f.olusturmaTarih)>=buAy);
+  const buAyToplam=buAyFaturalar.reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0);
+
+  const aktifDemirbas=Object.values(demirbaslar).filter(d=>d&&d.durum==='aktif');
+  const demirbasNet=aktifDemirbas.reduce((t,d)=>t+Math.max(0,(parseFloat(d.alimTutari)||0)-(parseFloat(d.birikmisAmortisman)||0)),0);
+
+  const acikCekSenet=Object.values(cekSenet).filter(k=>k&&(k.durum==='portfoyde'||k.durum==='tahsilde'));
+  const acikAlinan=acikCekSenet.filter(k=>k.yon==='alinan').reduce((t,k)=>t+(parseFloat(k.tutar)||0),0);
+  const acikVerilen=acikCekSenet.filter(k=>k.yon==='verilen').reduce((t,k)=>t+(parseFloat(k.tutar)||0),0);
+
+  const kasaBanka=anaSinifToplami('10',null,Date.now());
+
+  document.getElementById('ozet-icerik').innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-kart"><div class="stat-num">${toplamCari}</div><div class="stat-lbl">Toplam Cari</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--info)">${fmt(kasaBanka.net)}</div><div class="stat-lbl">Kasa+Banka (100)</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${fmt(toplamBorcCari)}</div><div class="stat-lbl">Cari Borç</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamAlacakCari)}</div><div class="stat-lbl">Cari Alacak</div></div>
+      <div class="stat-kart"><div class="stat-num">${buAyFaturalar.length}</div><div class="stat-lbl">Bu Ay Fatura</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--primary)">${fmt(buAyToplam)}</div><div class="stat-lbl">Bu Ay Tutar</div></div>
+      <div class="stat-kart"><div class="stat-num">${aktifDemirbas.length}</div><div class="stat-lbl">Aktif Demirbaş</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--gray-600)">${fmt(demirbasNet)}</div><div class="stat-lbl">Demirbaş Net Değer</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${fmt(acikAlinan)}</div><div class="stat-lbl">Açık Alınan Çek/Senet</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${fmt(acikVerilen)}</div><div class="stat-lbl">Açık Verilen Çek/Senet</div></div>
+    </div>
+    <div class="card" style="text-align:center;padding:16px">
+      <div style="font-size:11px;color:var(--gray-500)">NET NAKİT POZİSYONU (Kasa/Banka − Açık Verilen Çek/Senet)</div>
+      <div style="font-size:24px;font-weight:800;color:${(kasaBanka.net-acikVerilen)>=0?'var(--success)':'var(--danger)'}">${fmt(kasaBanka.net-acikVerilen)} ₺</div>
+    </div>`;
+}
+
+// ============================================================
+// BİLANÇO
+// ============================================================
+function renderBilanco(){
+  const tarihStr=document.getElementById('bl-tarih').value;
+  const bitMs=tarihStr?new Date(tarihStr+'T23:59:59').getTime():Date.now();
+
+  const aktifSiniflari=[{kod:'1',ad:'DÖNEN VARLIKLAR'},{kod:'2',ad:'DURAN VARLIKLAR'}];
+  const pasifSiniflari=[{kod:'3',ad:'KISA VADELİ YABANCI KAYNAKLAR'},{kod:'4',ad:'UZUN VADELİ YABANCI KAYNAKLAR'},{kod:'5',ad:'ÖZKAYNAKLAR'}];
+
+  function grupHTML(sinif,pasifMi){
+    const detaylar=[];
+    let toplam=0;
+    const hesapListesi=Object.values(hesaplar).filter(h=>h&&h.kod.startsWith(sinif.kod)&&h.kod.length>=3);
+    hesapListesi.forEach(h=>{
+      const bak=hesapBakiyesi(h.kod,null,bitMs);
+      const gosterilecek=pasifMi?-bak.net:bak.net; // pasif hesaplar alacak yönlü, negatif net alacak demek pozitif bakiye
+      if(Math.abs(gosterilecek)<0.01)return;
+      detaylar.push({kod:h.kod,ad:h.ad,tutar:gosterilecek});
+      toplam+=gosterilecek;
+    });
+    if(!detaylar.length)return{html:'',toplam:0};
+    detaylar.sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
+    return{
+      html:`<div class="grup-baslik">${sinif.ad}</div>
+        ${detaylar.map(d=>`<div class="hesap-satir"><span>${d.kod} — ${d.ad}</span><span style="font-weight:700">${fmt(d.tutar)} ₺</span></div>`).join('')}
+        <div class="toplam-satir"><span>${sinif.ad} TOPLAM</span><span>${fmt(toplam)} ₺</span></div>`,
+      toplam
+    };
+  }
+
+  let aktifHTML='',aktifToplam=0;
+  aktifSiniflari.forEach(s=>{const g=grupHTML(s,false);aktifHTML+=g.html;aktifToplam+=g.toplam;});
+  let pasifHTML='',pasifToplam=0;
+  pasifSiniflari.forEach(s=>{const g=grupHTML(s,true);pasifHTML+=g.html;pasifToplam+=g.toplam;});
+
+  const fark=aktifToplam-pasifToplam;
+
+  document.getElementById('bilanco-icerik').innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-kart"><div class="stat-num" style="color:var(--info)">${fmt(aktifToplam)}</div><div class="stat-lbl">TOPLAM AKTİF</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--primary)">${fmt(pasifToplam)}</div><div class="stat-lbl">TOPLAM PASİF</div></div>
+    </div>
+    ${Math.abs(fark)>1?`<div class="card" style="border-left:4px solid var(--danger)"><div style="color:var(--danger);font-size:12px;font-weight:700">⚠️ Aktif ≠ Pasif — fark: ${fmt(Math.abs(fark))} ₺ (Dönem sonucu henüz özkaynağa aktarılmamış olabilir — Sene Sonu Devir modülüne bakın, veya bu normal bir ara-dönem farkı olabilir)</div></div>`:'<div class="card" style="border-left:4px solid var(--success)"><div style="color:var(--success);font-size:12px;font-weight:700">✅ Bilanço dengeli</div></div>'}
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:10px 12px;background:var(--gray-100);font-size:11px;font-weight:700;color:var(--gray-600)">AKTİF</div>
+      ${aktifHTML||'<div class="es"><div class="et">Hareket yok</div></div>'}
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:10px 12px;background:var(--gray-100);font-size:11px;font-weight:700;color:var(--gray-600)">PASİF</div>
+      ${pasifHTML||'<div class="es"><div class="et">Hareket yok</div></div>'}
+    </div>`;
+}
+
+// ============================================================
+// GELİR TABLOSU (basitleştirilmiş)
+// ============================================================
+function renderGelirTablosu(){
+  const bas=document.getElementById('gt-bas').value;
+  const bit=document.getElementById('gt-bit').value;
+  const basMs=bas?new Date(bas).getTime():null;
+  const bitMs=bit?new Date(bit+'T23:59:59').getTime():Date.now();
+
+  const brutSatis=anaSinifToplami('60',basMs,bitMs).net*-1; // 60 alacak yönlü, net negatif -> pozitif satış
+  const satisIndirim=anaSinifToplami('61',basMs,bitMs).net;
+  const netSatis=brutSatis-satisIndirim;
+  const satisMaliyeti=anaSinifToplami('62',basMs,bitMs).net;
+  const brutKar=netSatis-satisMaliyeti;
+  const faaliyetGideri=anaSinifToplami('63',basMs,bitMs).net;
+  const faaliyetKari=brutKar-faaliyetGideri;
+  const digerGelir=anaSinifToplami('64',basMs,bitMs).net*-1;
+  const digerGider=anaSinifToplami('65',basMs,bitMs).net;
+  const finansmanGideri=anaSinifToplami('66',basMs,bitMs).net;
+  const olaganKar=faaliyetKari+digerGelir-digerGider-finansmanGideri;
+
+  const satirlar=[
+    {ad:'Brüt Satışlar (60)',tutar:brutSatis,ana:false},
+    {ad:'Satış İndirimleri (61)',tutar:-satisIndirim,ana:false},
+    {ad:'NET SATIŞLAR',tutar:netSatis,ana:true},
+    {ad:'Satışların Maliyeti (62)',tutar:-satisMaliyeti,ana:false},
+    {ad:'BRÜT SATIŞ KARI/ZARARI',tutar:brutKar,ana:true},
+    {ad:'Faaliyet Giderleri (63)',tutar:-faaliyetGideri,ana:false},
+    {ad:'FAALİYET KARI/ZARARI',tutar:faaliyetKari,ana:true},
+    {ad:'Diğer Faaliyet Gelirleri (64)',tutar:digerGelir,ana:false},
+    {ad:'Diğer Faaliyet Giderleri (65)',tutar:-digerGider,ana:false},
+    {ad:'Finansman Giderleri (66)',tutar:-finansmanGideri,ana:false},
+    {ad:'OLAĞAN KAR/ZARAR (Vergi Öncesi)',tutar:olaganKar,ana:true},
+  ];
+
+  document.getElementById('gelirtablosu-icerik').innerHTML=`
+    <div class="card" style="padding:0;overflow:hidden">
+      ${satirlar.map(s=>s.ana
+        ?`<div class="toplam-satir" style="border-radius:0"><span>${s.ad}</span><span style="color:${s.tutar>=0?'var(--success)':'var(--danger)'}">${fmt(Math.abs(s.tutar))} ₺</span></div>`
+        :`<div class="hesap-satir"><span>${s.ad}</span><span>${s.tutar>=0?'':'-'}${fmt(Math.abs(s.tutar))} ₺</span></div>`
+      ).join('')}
+    </div>
+    <div class="card" style="text-align:center;padding:16px">
+      <div style="font-size:11px;color:var(--gray-500)">DÖNEM SONUCU</div>
+      <div style="font-size:24px;font-weight:800;color:${olaganKar>=0?'var(--success)':'var(--danger)'}">${olaganKar>=0?'✅ KAR':'⚠️ ZARAR'}: ${fmt(Math.abs(olaganKar))} ₺</div>
+    </div>`;
+}
+
+// ============================================================
+// KDV RAPORU
+// ============================================================
+function renderKdv(){
+  const bas=document.getElementById('kdv-bas').value;
+  const bit=document.getElementById('kdv-bit').value;
+  const basMs=bas?new Date(bas).getTime():null;
+  const bitMs=bit?new Date(bit+'T23:59:59').getTime():Date.now();
+
+  const indirilecek=hesapBakiyesi('191',basMs,bitMs); // borç yönlü — alış KDV
+  const hesaplanan=hesapBakiyesi('391',basMs,bitMs); // alacak yönlü — satış KDV
+
+  const indTutar=indirilecek.borc-indirilecek.alacak; // net borç bakiyesi
+  const hesTutar=hesaplanan.alacak-hesaplanan.borc; // net alacak bakiyesi
+  const fark=hesTutar-indTutar; // pozitifse ödenecek KDV, negatifse devreden KDV
+
+  document.getElementById('kdv-icerik').innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-kart"><div class="stat-num" style="color:var(--info)">${fmt(indTutar)}</div><div class="stat-lbl">191 İndirilecek KDV</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${fmt(hesTutar)}</div><div class="stat-lbl">391 Hesaplanan KDV</div></div>
+    </div>
+    <div class="card" style="text-align:center;padding:16px">
+      <div style="font-size:11px;color:var(--gray-500)">${fark>=0?'ÖDENECEK KDV':'DEVREDEN KDV'}</div>
+      <div style="font-size:24px;font-weight:800;color:${fark>=0?'var(--danger)':'var(--success)'}">${fmt(Math.abs(fark))} ₺</div>
+    </div>
+    <div class="card" style="border-left:4px solid var(--warning)">
+      <div style="font-size:11px;color:var(--gray-600)">⚠️ Bu, iç takip amaçlıdır. Resmi KDV beyannamesi mali müşavirin kendi sisteminde hazırlanmalıdır — burada tevkifat, istisna, matrah düzeltmeleri gibi detaylar hesaba katılmaz.</div>
+    </div>`;
+}
+
+// ============================================================
+// CARİ EKSTRESİ
+// ============================================================
+function filterCariDD(val){
+  const dd=document.getElementById('ek-cari-dd');
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const res=Object.values(cariler).filter(c=>c&&c.ad&&c.ad.toLowerCase().includes(val.toLowerCase())).slice(0,15);
+  if(!res.length){dd.style.display='none';return;}
+  dd.innerHTML=res.map(c=>`<div class="uddi" data-id="${c.id}" data-ad="${c.ad.replace(/"/g,'&quot;')}">${c.ad}</div>`).join('');
+  dd.querySelectorAll('[data-id]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      document.getElementById('ek-cari-inp').value=this.dataset.ad;
+      document.getElementById('ek-cari-id').value=this.dataset.id;
+      dd.style.display='none';
+      renderEkstre();
+    });
+  });
+  const inp=document.getElementById('ek-cari-inp');
+  const rect=inp.getBoundingClientRect();
+  dd.style.left=rect.left+'px';dd.style.top=rect.bottom+'px';dd.style.width=rect.width+'px';
+  dd.style.display='block';
+}
+document.addEventListener('pointerdown',e=>{
+  const dd=document.getElementById('ek-cari-dd');
+  const inp=document.getElementById('ek-cari-inp');
+  if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+});
+
+function renderEkstre(){
+  const cariId=document.getElementById('ek-cari-id').value;
+  const c=cariler[cariId];
+  const c1=document.getElementById('ekstre-icerik');
+  if(!c){c1.innerHTML='<div class="es"><div class="ei">📄</div><div class="et">Önce bir cari seçin</div></div>';return;}
+
+  const bas=document.getElementById('ek-bas').value;
+  const bit=document.getElementById('ek-bit').value;
+  const basTs=bas?new Date(bas).getTime():0;
+  const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
+
+  const hareketler=Object.values(cariHareketler).filter(h=>h&&h.cariId===cariId&&h.tarih>=basTs&&h.tarih<=bitTs).sort((a,b)=>a.tarih-b.tarih);
+  let bakiye=0;
+  const satirlar=hareketler.map(h=>{
+    const tutar=parseFloat(h.tutar)||0;
+    if(h.tip==='borc')bakiye+=tutar;else bakiye-=tutar;
+    return{...h,bakiye};
+  });
+
+  c1.innerHTML=`
+    <div class="card">
+      <div style="font-size:15px;font-weight:800">${c.ad}</div>
+      <div style="font-size:11px;color:var(--gray-500)">${c.kod||''} ${c.vkn?'• VKN: '+c.vkn:''} ${c.tel?'• '+c.tel:''}</div>
+      <div style="font-size:11px;color:var(--gray-500)">Dönem: ${bas||'başlangıç'} — ${bit||'bugün'}</div>
+    </div>
+    ${satirlar.length?`<div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:70px 1fr 70px 70px 80px;padding:8px 10px;background:var(--gray-100);font-size:10px;font-weight:700;color:var(--gray-600)">
+        <span>TARİH</span><span>BELGE</span><span style="text-align:right">BORÇ</span><span style="text-align:right">ALACAK</span><span style="text-align:right">BAKİYE</span>
+      </div>
+      ${satirlar.map(h=>`<div style="display:grid;grid-template-columns:70px 1fr 70px 70px 80px;padding:7px 10px;border-bottom:1px solid var(--gray-100);font-size:11px">
+        <span>${new Date(h.tarih).toLocaleDateString('tr-TR')}</span>
+        <span>${h.belge||h.aciklama||'—'}</span>
+        <span style="text-align:right;color:var(--danger)">${h.tip==='borc'?fmt(h.tutar):''}</span>
+        <span style="text-align:right;color:var(--success)">${h.tip!=='borc'?fmt(h.tutar):''}</span>
+        <span style="text-align:right;font-weight:700;color:${h.bakiye>0?'var(--danger)':h.bakiye<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(h.bakiye))}</span>
+      </div>`).join('')}
+    </div>
+    <div class="card" style="text-align:center;padding:16px">
+      <div style="font-size:11px;color:var(--gray-500)">DÖNEM SONU BAKİYE</div>
+      <div style="font-size:22px;font-weight:800;color:${bakiye>0?'var(--danger)':bakiye<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(bakiye))} ₺ ${bakiye>0?'(Borçlu)':bakiye<0?'(Alacaklı)':''}</div>
+    </div>`:'<div class="es"><div class="ei">📄</div><div class="et">Bu dönemde hareket yok</div></div>'}
+    <button class="btn btn-primary btn-block no-print" style="margin-top:8px" onclick="window.print()">🖨️ Yazdır</button>`;
+}
+
+// ============================================================
+// TAB & YARDIMCI
+// ============================================================
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='ozet')renderOzet();
+  if(tab==='bilanco')renderBilanco();
+  if(tab==='gelirtablosu')renderGelirTablosu();
+  if(tab==='kdv')renderKdv();
+  if(tab==='ekstre')renderEkstre();
+}
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  const today=new Date().toISOString().split('T')[0];
+  const ayBasi=new Date();ayBasi.setDate(1);
+  document.getElementById('bl-tarih').value=today;
+  document.getElementById('gt-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('gt-bit').value=today;
+  document.getElementById('kdv-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('kdv-bit').value=today;
+  document.getElementById('ek-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('ek-bit').value=today;
+  renderOzet();
+})();
+</script>
+</body>
+</html>
