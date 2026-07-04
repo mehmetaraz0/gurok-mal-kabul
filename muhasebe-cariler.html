@@ -80,6 +80,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn active" onclick="gTab('cariler',this)">👥 Cariler</button>
     <button class="tabbtn" onclick="gTab('hareketler',this)">📋 Hareketler</button>
     <button class="tabbtn" onclick="gTab('mutabakat',this)">✅ Mutabakat</button>
+    <button class="tabbtn" onclick="gTab('yaslandirma',this)">⏳ Yaşlandırma</button>
   </div>
 
   <!-- CARİLER -->
@@ -129,6 +130,28 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       </div>
     </div>
     <div id="mutabakat-sonuc"></div>
+  </div>
+  <!-- YAŞLANDIRMA -->
+  <div class="sc" id="tab-yaslandirma">
+    <div class="card">
+      <div class="card-title">⏳ Yaşlandırma Analizi</div>
+      <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Vadesi geçmiş borç/alacakları gün bazında gruplar. Sadece ödenmemiş faturalara bağlı ya da açık (durumu belli olmayan) hareketler dahildir — ödenmiş/iptal faturaların hareketleri hariç tutulur.</p>
+      <div class="ftabs">
+        <button class="ftab active" onclick="filterYaslandirma('tumu',this)">Tümü</button>
+        <button class="ftab" onclick="filterYaslandirma('tedarikci',this)">🏭 Tedarikçi (Borç)</button>
+        <button class="ftab" onclick="filterYaslandirma('musteri',this)">👤 Müşteri (Alacak)</button>
+      </div>
+    </div>
+    <div class="stats-grid" id="yasl-stats" style="grid-template-columns:repeat(5,1fr)"></div>
+    <div id="yaslandirma-liste"></div>
+  </div>
+</div>
+
+<!-- MODAL: Cari Yaşlandırma Detay -->
+<div class="mo" id="mYaslDetay">
+  <div class="mbox">
+    <div class="mtitle" id="mYaslDetayTitle">Yaşlandırma Detayı <button class="mclose" onclick="kModal('mYaslDetay')">✕</button></div>
+    <div id="mYaslDetayIc"></div>
   </div>
 </div>
 
@@ -245,7 +268,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 const FB = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
 let cariler = {};
 let hareketler = {};
+let faturalar = {};
 let cariFilter = 'tumu';
+let yaslFilter = 'tumu';
 
 // ============================================================
 // DENETİM İZİ
@@ -264,12 +289,14 @@ async function auditLogYaz(action,entityType,entityId,detail){
 async function loadDB(){
   sLD();
   try{
-    const [cR,hR]=await Promise.all([
+    const [cR,hR,fR]=await Promise.all([
       fetch(FB+'/muhasebe/cariler.json'),
       fetch(FB+'/muhasebe/cariHareketler.json'),
+      fetch(FB+'/muhasebe/faturalar.json'),
     ]);
     if(cR.ok){const d=await cR.json();if(d&&typeof d==='object')cariler=d;}
     if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hareketler=d;}
+    if(fR.ok){const d=await fR.json();if(d&&typeof d==='object')faturalar=d;}
   }catch(e){console.warn(e);}
   hLD();
 }
@@ -694,9 +721,127 @@ function gTab(tab,el){
   el.classList.add('active');
   if(tab==='hareketler')renderHareketler();
   if(tab==='mutabakat')renderMutabakat();
+  if(tab==='yaslandirma')renderYaslandirma();
 }
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
+
+// ============================================================
+// YAŞLANDIRMA ANALİZİ
+// Sadece "açık" hareketler dahil edilir:
+//   - belge no'suyla eşleşen bir fatura varsa ve o fatura odendi/iptal ise HARİÇ
+//   - eşleşen fatura yoksa (elle girilmiş hareket) veya durumu bekliyor/onaylandi ise DAHİL
+// Vade tarihi olmayan hareketlerde hareketin kendi tarihi vade sayılır.
+// ============================================================
+const YASL_BUCKETLAR=[
+  {key:'gelecek',ad:'Vadesi Gelmemiş',min:-99999,max:-1},
+  {key:'g0_30',ad:'0-30 Gün',min:0,max:30},
+  {key:'g31_60',ad:'31-60 Gün',min:31,max:60},
+  {key:'g61_90',ad:'61-90 Gün',min:61,max:90},
+  {key:'g90p',ad:'90+ Gün',min:91,max:99999}
+];
+
+function hareketAcikMi(h){
+  const fatura=Object.values(faturalar).find(f=>f&&(f.no===h.belge||('ÖD-'+f.no)===h.belge));
+  if(!fatura)return true; // elle girilmiş / eşleşmeyen hareket -> ihtiyatlı davran, dahil et
+  return fatura.durum!=='odendi'&&fatura.durum!=='iptal';
+}
+
+function gunGecikme(h){
+  const vadeMs=h.vade?new Date(h.vade).getTime():h.tarih;
+  return Math.floor((Date.now()-vadeMs)/86400000);
+}
+
+function hesaplaYaslandirma(){
+  const sonuc={}; // cariId -> {cari, bucketlar:{key:tutar}, toplam}
+  Object.values(hareketler).filter(Boolean).forEach(h=>{
+    if(h.tip!=='borc')return; // sadece borç yönlü (tedarikçiye borç / müşteriden alacak) hareketler yaşlandırılır
+    if(!hareketAcikMi(h))return;
+    const cari=cariler[h.cariId];
+    if(!cari)return;
+    if(yaslFilter==='tedarikci'&&cari.tip!=='tedarikci'&&cari.tip!=='her_ikisi')return;
+    if(yaslFilter==='musteri'&&cari.tip!=='musteri'&&cari.tip!=='her_ikisi')return;
+    const gun=gunGecikme(h);
+    const bucket=YASL_BUCKETLAR.find(b=>gun>=b.min&&gun<=b.max)||YASL_BUCKETLAR[YASL_BUCKETLAR.length-1];
+    if(!sonuc[h.cariId])sonuc[h.cariId]={cari,bucketlar:{},toplam:0,hareketler:[]};
+    sonuc[h.cariId].bucketlar[bucket.key]=(sonuc[h.cariId].bucketlar[bucket.key]||0)+(parseFloat(h.tutar)||0);
+    sonuc[h.cariId].toplam+=parseFloat(h.tutar)||0;
+    sonuc[h.cariId].hareketler.push({...h,gun,bucketKey:bucket.key});
+  });
+  return sonuc;
+}
+
+function renderYaslandirma(){
+  const veri=hesaplaYaslandirma();
+  const cariListesi=Object.values(veri).sort((a,b)=>b.toplam-a.toplam);
+
+  // Genel toplamlar
+  const genelBucket={};YASL_BUCKETLAR.forEach(b=>genelBucket[b.key]=0);
+  let genelToplam=0;
+  cariListesi.forEach(c=>{
+    YASL_BUCKETLAR.forEach(b=>genelBucket[b.key]+=(c.bucketlar[b.key]||0));
+    genelToplam+=c.toplam;
+  });
+
+  document.getElementById('yasl-stats').innerHTML=YASL_BUCKETLAR.map(b=>`
+    <div class="stat-kart">
+      <div class="stat-num" style="color:${b.key==='gelecek'?'var(--gray-500)':b.key==='g90p'?'var(--danger)':b.key==='g0_30'?'var(--warning)':'var(--danger)'}">${fmt(genelBucket[b.key])}</div>
+      <div class="stat-lbl">${b.ad}</div>
+    </div>`).join('');
+
+  const liste=document.getElementById('yaslandirma-liste');
+  if(!cariListesi.length){liste.innerHTML='<div class="es"><div class="ei">⏳</div><div class="et">Açık (ödenmemiş) hareket bulunamadı</div></div>';return;}
+
+  liste.innerHTML=cariListesi.map(c=>{
+    const enKotu=YASL_BUCKETLAR.slice().reverse().find(b=>(c.bucketlar[b.key]||0)>0);
+    const renk=enKotu?.key==='g90p'?'var(--danger)':enKotu?.key==='g61_90'?'var(--danger)':enKotu?.key==='g31_60'?'var(--warning)':enKotu?.key==='g0_30'?'var(--warning)':'var(--gray-400)';
+    return`<div class="cari-kart borc" style="border-left-color:${renk}" onclick="openYaslDetay('${c.cari.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:700">${c.cari.ad}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${c.cari.kod||''}</div>
+        </div>
+        <div style="font-size:15px;font-weight:800;color:${renk}">${fmt(c.toplam)} ₺</div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        ${YASL_BUCKETLAR.filter(b=>(c.bucketlar[b.key]||0)>0).map(b=>`<span class="chip ${b.key==='gelecek'?'chip-gray':b.key==='g0_30'?'chip-yellow':'chip-red'}">${b.ad}: ${fmt(c.bucketlar[b.key])}₺</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterYaslandirma(f,el){
+  yaslFilter=f;
+  document.querySelectorAll('#tab-yaslandirma .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderYaslandirma();
+}
+
+function openYaslDetay(cariId){
+  const veri=hesaplaYaslandirma()[cariId];if(!veri)return;
+  document.getElementById('mYaslDetayTitle').textContent=veri.cari.ad;
+  const satirlar=veri.hareketler.sort((a,b)=>b.gun-a.gun);
+  document.getElementById('mYaslDetayIc').innerHTML=`
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:var(--gray-100)">
+        <th style="text-align:left;padding:6px">Belge</th>
+        <th style="text-align:left;padding:6px">Vade</th>
+        <th style="text-align:center;padding:6px">Gecikme</th>
+        <th style="text-align:right;padding:6px">Tutar</th>
+      </tr>
+      ${satirlar.map(h=>`<tr style="border-bottom:1px solid var(--gray-100)">
+        <td style="padding:6px">${h.belge||'—'}</td>
+        <td style="padding:6px">${h.vade||new Date(h.tarih).toLocaleDateString('tr-TR')}</td>
+        <td style="padding:6px;text-align:center;color:${h.gun>60?'var(--danger)':h.gun>0?'var(--warning)':'var(--gray-500)'}">${h.gun>0?h.gun+' gün':'—'}</td>
+        <td style="padding:6px;text-align:right;font-weight:700">${fmt(h.tutar)}₺</td>
+      </tr>`).join('')}
+    </table>
+    <div class="brow" style="margin-top:12px">
+      <button class="btn btn-gray btn-sm" onclick="kModal('mYaslDetay')">Kapat</button>
+      <button class="btn btn-primary btn-sm" onclick="kModal('mYaslDetay');openCariDetay('${cariId}')">Cari Detayına Git</button>
+    </div>`;
+  aModal('mYaslDetay');
+}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
 function sLD(){document.getElementById('ld').classList.add('show');}
