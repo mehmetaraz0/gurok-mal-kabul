@@ -193,6 +193,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700">
         <span>Genel Toplam</span><span id="f-genelToplam" style="color:var(--primary)">0,00 ₺</span>
       </div>
+      <div id="f-komisyon-satir" style="display:none;border-top:1px dashed var(--gray-300);margin-top:8px;padding-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-600);margin-bottom:4px">
+          <span>🏨 Acente Komisyonu (<span id="f-komisyon-oran-goster">0</span>%)</span><span id="f-komisyonTutar" style="color:var(--danger)">-0,00 ₺</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700">
+          <span>Net Alacak</span><span id="f-netAlacak" style="color:var(--success)">0,00 ₺</span>
+        </div>
+      </div>
     </div>
     <div class="field" style="margin-top:10px"><label>Not</label><input type="text" id="f-not" placeholder="Opsiyonel"></div>
     <div class="brow" style="margin-top:8px">
@@ -613,6 +621,21 @@ function hesaplaToplamlar(){
   document.getElementById('f-araToplam').textContent=fmt(ara)+' ₺';
   document.getElementById('f-kdvToplam').textContent=fmt(kdv)+' ₺';
   document.getElementById('f-genelToplam').textContent=fmt(ara+kdv)+' ₺';
+
+  // Acente komisyonu — sadece satış faturasında, cari acente işaretliyse
+  const tur=document.getElementById('f-tur').value;
+  const cariId=document.getElementById('f-cari-id').value;
+  const cari=cariler[cariId];
+  const komisyonSatir=document.getElementById('f-komisyon-satir');
+  if(tur==='satis'&&cari&&cari.acente&&cari.komisyonOrani>0){
+    const komisyonTutar=ara*(cari.komisyonOrani/100);
+    document.getElementById('f-komisyon-oran-goster').textContent=cari.komisyonOrani;
+    document.getElementById('f-komisyonTutar').textContent='-'+fmt(komisyonTutar)+' ₺';
+    document.getElementById('f-netAlacak').textContent=fmt(ara+kdv-komisyonTutar)+' ₺';
+    komisyonSatir.style.display='block';
+  }else{
+    komisyonSatir.style.display='none';
+  }
 }
 
 // ============================================================
@@ -671,6 +694,10 @@ async function faturaKaydet(durum){
 
   const editId=document.getElementById('f-id').value;
   const id=editId||('FAT_'+Date.now());
+  const cariAcente=cariler[cariId];
+  const acenteMi=document.getElementById('f-tur').value==='satis'&&cariAcente&&cariAcente.acente;
+  const komisyonOrani=acenteMi?(cariAcente.komisyonOrani||0):0;
+  const komisyonTutari=round2(ara*(komisyonOrani/100));
   const fatura={
     id,no,tur:document.getElementById('f-tur').value,
     tarih,vade:document.getElementById('f-vade').value||'',
@@ -678,6 +705,8 @@ async function faturaKaydet(durum){
     siparisNo:document.getElementById('f-siparis').value||'',
     kalemler:doluKalemler,
     araToplam:ara,kdvToplam:kdv,genelToplam:ara+kdv,
+    komisyonOrani:document.getElementById('f-tur').value==='satis'?komisyonOrani:0,
+    komisyonTutari:document.getElementById('f-tur').value==='satis'?komisyonTutari:0,
     not:document.getElementById('f-not').value||'',
     otelId:document.getElementById('f-otel').value||'810',
     iade:document.getElementById('f-tur').value==='alis'&&document.getElementById('f-iade').checked,
@@ -725,6 +754,10 @@ async function faturaKaydet(durum){
         {hesapKod:'600',aciklama:'Satış geliri (geçici — netleştirilecek): '+no,borc:0,alacak:round2(ara)},
         {hesapKod:'391',aciklama:'Hesaplanan KDV: '+no,borc:0,alacak:round2(kdv)}
       ];
+      if(fatura.komisyonTutari>0){
+        yevKalemler.push({hesapKod:'760',aciklama:'Acente komisyonu (%'+fatura.komisyonOrani+'): '+cariAd+' — '+no,borc:round2(fatura.komisyonTutari),alacak:0});
+        yevKalemler.push({hesapKod:'120',aciklama:'Komisyon mahsubu — alıcıdan düşülen: '+no,borc:0,alacak:round2(fatura.komisyonTutari)});
+      }
     }
     await yevmiyeFisiPostla('YEV_FAT_'+id,yevKalemler,'fatura',no,`Fatura: ${no} — ${cariAd}`,new Date(tarih).getTime(),fatura.otelId);
   }
@@ -941,6 +974,7 @@ function filterCariDD(val){
       document.getElementById('f-cari-inp').value=this.dataset.ad;
       document.getElementById('f-cari-id').value=this.dataset.id;
       dd.style.display='none';
+      hesaplaToplamlar();
     });
   });
   dd.style.display='block';
