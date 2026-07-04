@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Sene Sonu Devir</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.uyari-bar{background:#fff3cd;color:#856404;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:1.5;border:1.5px solid #fcd34d}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.stat-kart{background:white;border-radius:var(--radius-sm);padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:18px;font-weight:800}
+.stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
+.hesap-satir{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100);font-size:12px}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-gray{background:var(--gray-200);color:var(--gray-700)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Sene Sonu Devir</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Dönem kapanış işlemi</span></div>
+  </div>
+  <div class="sc">
+    <div class="uyari-bar">
+      ⚠️ <b>Bu işlem geri alınamaz ve resmi muhasebe sonucunu etkiler.</b> Çalıştırmadan önce mali müşavirinle mutlaka görüş. Sistem, hesap bakiyelerini <b>kümülatif</b> tuttuğu için Bilanço hesapları (kasa/banka/cari/stok) zaten otomatik yeni yıla taşınmış durumda — bu araç sadece <b>Gelir Tablosu ve Maliyet hesaplarını sıfırlayıp</b> net kâr/zararı özkaynağa aktarır (gerçek muhasebede "kapanış kaydı" olarak bilinir). Vergi hesaplaması burada <b>otomatik yapılmaz</b> — mali müşavirin belirlediği tutarı elle girmen gerekir.
+    </div>
+
+    <div class="card">
+      <div class="card-title">📅 Kapatılacak Dönem</div>
+      <div class="field"><label>Yıl</label><input type="number" id="ss-yil" min="2020" max="2100" onchange="donemDurumGoster()"></div>
+      <div id="donem-durum"></div>
+    </div>
+
+    <div id="onizleme-alani"></div>
+
+    <div class="card">
+      <div class="card-title">📜 Geçmiş Kapanışlar</div>
+      <div id="gecmis-kapanislar"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let hesaplar={},yevmiyeler={},kapanmisYillar={};
+
+// ============================================================
+// DENETİM İZİ
+// ============================================================
+async function auditLogYaz(action,entityType,entityId,detail){
+  const log={id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),action,entityType,entityId:String(entityId||''),detail:detail||'',userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',timestamp:Date.now()};
+  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}catch(e){}
+}
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadDB(){
+  sLD();
+  try{
+    const [hR,yR,kR]=await Promise.all([
+      fetch(FB+'/muhasebe/hesapPlani.json'),
+      fetch(FB+'/muhasebe/yevmiye.json'),
+      fetch(FB+'/muhasebe/seneSonuKapatildi.json'),
+    ]);
+    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hesaplar=d;}
+    if(yR.ok){const d=await yR.json();if(d&&typeof d==='object')yevmiyeler=d;}
+    if(kR.ok){const d=await kR.json();if(d&&typeof d==='object')kapanmisYillar=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+// ============================================================
+// YEVMİYE FİŞİ ORTAK YARDIMCILAR
+// ============================================================
+function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
+
+async function yeniFisNo(){
+  const yil=new Date().getFullYear();
+  const sayacYol=FB+'/muhasebe/sayaclar/yevmiye_'+yil+'.json';
+  try{
+    let n=null;
+    const r=await fetch(sayacYol);
+    if(r.ok){const d=await r.json();if(typeof d==='number')n=d;}
+    if(n===null){
+      n=0;
+      Object.values(yevmiyeler).forEach(y=>{
+        const m=(y?.no||'').match(new RegExp('^YEV-'+yil+'-(\\d+)$'));
+        if(m){const v=parseInt(m[1]);if(v>n)n=v;}
+      });
+    }
+    n++;
+    await fetch(sayacYol,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(n)});
+    return `YEV-${yil}-${String(n).padStart(5,'0')}`;
+  }catch(e){}
+  return `YEV-${yil}-${Date.now()}`;
+}
+
+async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,otelId){
+  const topBorc=yevKalemler.reduce((t,k)=>t+(k.borc||0),0);
+  const topAlacak=yevKalemler.reduce((t,k)=>t+(k.alacak||0),0);
+  const no=await yeniFisNo();
+  const yev={id:fisId,no,tarih:tarihMs,tarihStr:new Date(tarihMs).toISOString().split('T')[0],tip,belge,aciklama,kalemler:yevKalemler,otelId:otelId||'810',
+    toplamBorc:round2(topBorc),toplamAlacak:round2(topAlacak),onaylandi:true,otomatik:true,olusturmaTarih:Date.now(),guncellemeTarih:Date.now()};
+  await fetch(FB+'/muhasebe/yevmiye/'+fisId+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(yev)});
+  await auditLogYaz('create','yevmiye',fisId,`Kapanış fişi: ${no} — ${aciklama} (${fmt(topBorc)} ₺)`);
+  return yev;
+}
+
+// ============================================================
+// HESAP BAKİYESİ (belirli yıl için Gelir Tablosu/Maliyet; tüm zamanlar Bilanço)
+// ============================================================
+function hesapBakiyesi(hesapKod,yilFiltresi){
+  let borc=0,alacak=0;
+  Object.values(yevmiyeler).filter(Boolean).forEach(y=>{
+    if(yilFiltresi&&new Date(y.tarih).getFullYear()!==yilFiltresi)return;
+    (y.kalemler||[]).forEach(k=>{
+      if(k.hesapKod!==hesapKod)return;
+      borc+=parseFloat(k.borc)||0;
+      alacak+=parseFloat(k.alacak)||0;
+    });
+  });
+  return{borc:round2(borc),alacak:round2(alacak),net:round2(borc-alacak)};
+}
+
+// ============================================================
+// DÖNEM DURUMU
+// ============================================================
+function donemDurumGoster(){
+  const yil=parseInt(document.getElementById('ss-yil').value);
+  const el=document.getElementById('donem-durum');
+  if(!yil){el.innerHTML='';return;}
+  const buYil=new Date().getFullYear();
+  if(yil>=buYil){
+    el.innerHTML=`<div class="chip chip-red">⚠️ ${yil} henüz tamamlanmamış olabilir — sadece geçmiş, bitmiş yılları kapat</div>`;
+  }else if(kapanmisYillar[yil]){
+    el.innerHTML=`<div class="chip chip-gray">✅ ${yil} zaten kapatılmış — ${new Date(kapanmisYillar[yil].kapanmaTarihi).toLocaleString('tr-TR')}</div>`;
+  }else{
+    el.innerHTML=`<div class="chip chip-green">Kapatılmaya hazır</div>`;
+  }
+  document.getElementById('onizleme-alani').innerHTML='';
+  window._kapanisOnizleme=null;
+}
+
+// ============================================================
+// ÖNİZLEME
+// ============================================================
+function onizlemeYap(){
+  const yil=parseInt(document.getElementById('ss-yil').value);
+  if(!yil){toast('⚠️ Yıl girin');return;}
+  if(kapanmisYillar[yil]){toast('⚠️ Bu yıl zaten kapatılmış');return;}
+
+  const gelirGiderHesaplar=Object.values(hesaplar).filter(h=>h&&(h.tip==='Gelir Tablosu'||h.tip==='Maliyet'));
+  let toplamGelir=0,toplamGider=0;
+  const kapanisKalemleri=[];
+
+  gelirGiderHesaplar.forEach(h=>{
+    const bak=hesapBakiyesi(h.kod,yil);
+    if(Math.abs(bak.net)<0.01)return; // hareketsiz hesap
+    if(h.yon==='Alacak'){ // gelir hesabı — net alacak bakiyesi kapatılır (borçlandırılır)
+      toplamGelir+=Math.abs(bak.net);
+      kapanisKalemleri.push({hesapKod:h.kod,hesapAd:h.ad,tip:'gelir',bakiye:Math.abs(bak.net),
+        borc:round2(Math.abs(bak.net)),alacak:0});
+    }else{ // gider hesabı — net borç bakiyesi kapatılır (alacaklandırılır)
+      toplamGider+=Math.abs(bak.net);
+      kapanisKalemleri.push({hesapKod:h.kod,hesapAd:h.ad,tip:'gider',bakiye:Math.abs(bak.net),
+        borc:0,alacak:round2(Math.abs(bak.net))});
+    }
+  });
+
+  const brutKarZarar=round2(toplamGelir-toplamGider);
+  window._kapanisOnizleme={yil,kapanisKalemleri,toplamGelir,toplamGider,brutKarZarar};
+
+  if(!kapanisKalemleri.length){
+    document.getElementById('onizleme-alani').innerHTML='<div class="card"><div style="text-align:center;color:var(--gray-400);padding:20px">Bu yıl için hareketli gelir/gider hesabı bulunamadı</div></div>';
+    return;
+  }
+
+  document.getElementById('onizleme-alani').innerHTML=`
+    <div class="card">
+      <div class="card-title">🔍 Önizleme — ${yil}</div>
+      <div class="stats-grid">
+        <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamGelir)}</div><div class="stat-lbl">Toplam Gelir</div></div>
+        <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${fmt(toplamGider)}</div><div class="stat-lbl">Toplam Gider</div></div>
+      </div>
+      <div style="text-align:center;padding:10px;background:${brutKarZarar>=0?'#d4edda':'#fde8e8'};border-radius:8px;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--gray-600)">${brutKarZarar>=0?'BRÜT DÖNEM KARI':'BRÜT DÖNEM ZARARI'}</div>
+        <div style="font-size:22px;font-weight:800;color:${brutKarZarar>=0?'var(--success)':'var(--danger)'}">${fmt(Math.abs(brutKarZarar))} ₺</div>
+      </div>
+      <div style="max-height:200px;overflow-y:auto;margin-bottom:12px">
+        ${kapanisKalemleri.map(k=>`<div class="hesap-satir"><span>${k.hesapKod} — ${k.hesapAd}</span><span style="font-weight:700;color:${k.tip==='gelir'?'var(--success)':'var(--danger)'}">${fmt(k.bakiye)} ₺</span></div>`).join('')}
+      </div>
+      <div class="field"><label>Kurumlar Vergisi Karşılığı (₺) — opsiyonel, mali müşavirden alın</label>
+        <input type="number" id="ss-vergi" placeholder="0.00" min="0" step="0.01" oninput="netKarGuncelle()">
+      </div>
+      <div id="net-kar-goster" style="text-align:center;padding:10px;background:var(--gray-100);border-radius:8px;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--gray-600)">VERGİ SONRASI NET DÖNEM SONUCU</div>
+        <div style="font-size:20px;font-weight:800;color:${brutKarZarar>=0?'var(--success)':'var(--danger)'}" id="net-kar-tutar">${fmt(Math.abs(brutKarZarar))} ₺</div>
+      </div>
+      <button class="btn btn-danger btn-block" onclick="donemiKapat()">🔒 Onayla ve Dönemi Kapat</button>
+    </div>`;
+}
+
+function netKarGuncelle(){
+  if(!window._kapanisOnizleme)return;
+  const vergi=parseFloat(document.getElementById('ss-vergi').value)||0;
+  const net=window._kapanisOnizleme.brutKarZarar-(window._kapanisOnizleme.brutKarZarar>0?vergi:0);
+  document.getElementById('net-kar-tutar').textContent=fmt(Math.abs(net))+' ₺';
+}
+
+// ============================================================
+// DÖNEMİ KAPAT
+// ============================================================
+async function donemiKapat(){
+  const onizleme=window._kapanisOnizleme;
+  if(!onizleme)return;
+  const vergi=parseFloat(document.getElementById('ss-vergi')?.value)||0;
+
+  const onayMetni=`${onizleme.yil} yılı KAPATILACAK.\n\nBrüt Sonuç: ${fmt(Math.abs(onizleme.brutKarZarar))} ₺ (${onizleme.brutKarZarar>=0?'Kâr':'Zarar'})\n${vergi>0?'Vergi Karşılığı: '+fmt(vergi)+' ₺\n':''}\nBu işlem GERİ ALINAMAZ. Mali müşavirinden onay aldın mı?`;
+  if(!confirm(onayMetni))return;
+  if(!confirm('Son kez soruyorum — kesinlikle emin misin? Yevmiye defterine kalıcı kapanış fişleri yazılacak.'))return;
+
+  sLD();
+  const yilSonuMs=new Date(onizleme.yil,11,31,23,59,59).getTime();
+
+  // 1) Gelir/gider kapanış fişi — her hesabı sıfırla, karşı taraf 690
+  const kapanisFisKalemleri=onizleme.kapanisKalemleri.map(k=>({hesapKod:k.hesapKod,aciklama:onizleme.yil+' dönem sonu kapanışı: '+k.hesapAd,borc:k.borc,alacak:k.alacak}));
+  const toplam690=onizleme.toplamGelir-onizleme.toplamGider; // pozitifse 690 alacak (kâr), negatifse borç (zarar)
+  if(toplam690>=0)kapanisFisKalemleri.push({hesapKod:'690',aciklama:onizleme.yil+' dönem karı',borc:0,alacak:round2(toplam690)});
+  else kapanisFisKalemleri.push({hesapKod:'690',aciklama:onizleme.yil+' dönem zararı',borc:round2(-toplam690),alacak:0});
+  await yevmiyeFisiPostla('YEV_KAPANIS_'+onizleme.yil,kapanisFisKalemleri,'donem_kapanis',String(onizleme.yil),`${onizleme.yil} dönem sonu gelir/gider kapanışı`,yilSonuMs,'810');
+
+  // 2) Vergi karşılığı fişi (girilmişse, sadece kâr durumunda anlamlı)
+  let netSonuc=toplam690;
+  if(vergi>0&&toplam690>0){
+    await yevmiyeFisiPostla('YEV_VERGI_'+onizleme.yil,[
+      {hesapKod:'691',aciklama:onizleme.yil+' kurumlar vergisi karşılığı',borc:round2(vergi),alacak:0},
+      {hesapKod:'370',aciklama:onizleme.yil+' ödenecek kurumlar vergisi',borc:0,alacak:round2(vergi)}
+    ],'donem_kapanis',String(onizleme.yil),`${onizleme.yil} vergi karşılığı`,yilSonuMs,'810');
+    netSonuc=round2(toplam690-vergi);
+  }
+
+  // 3) 690 (ve varsa 691 sonrası net) -> 692 Dönem Net Karı/Zararı -> 590/580 Özkaynak aktarımı
+  const netKalemler=[];
+  if(toplam690>=0){
+    netKalemler.push({hesapKod:'690',aciklama:onizleme.yil+' 690 kapatma',borc:round2(toplam690),alacak:0});
+    if(vergi>0)netKalemler.push({hesapKod:'691',aciklama:onizleme.yil+' 691 kapatma',borc:0,alacak:round2(vergi)});
+    netKalemler.push({hesapKod:'590',aciklama:onizleme.yil+' dönem net karı — özkaynağa aktarım',borc:0,alacak:round2(netSonuc)});
+  }else{
+    netKalemler.push({hesapKod:'690',aciklama:onizleme.yil+' 690 kapatma',borc:0,alacak:round2(-toplam690)});
+    netKalemler.push({hesapKod:'580',aciklama:onizleme.yil+' geçmiş yıl zararı — özkaynaktan düşüm',borc:round2(-toplam690),alacak:0});
+  }
+  await yevmiyeFisiPostla('YEV_NETSONUC_'+onizleme.yil,netKalemler,'donem_kapanis',String(onizleme.yil),`${onizleme.yil} net dönem sonucunun özkaynağa aktarımı`,yilSonuMs,'810');
+
+  // Dönemi "kapatıldı" olarak işaretle
+  const kayit={yil:onizleme.yil,kapanmaTarihi:Date.now(),brutKarZarar:onizleme.brutKarZarar,vergi,netSonuc,
+    kullanan:localStorage.getItem('gurok_user_name')||'Bilinmeyen'};
+  kapanmisYillar[onizleme.yil]=kayit;
+  await fetch(FB+'/muhasebe/seneSonuKapatildi/'+onizleme.yil+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(kayit)});
+  await auditLogYaz('create','sene_sonu',String(onizleme.yil),`${onizleme.yil} dönemi kapatıldı — Net sonuç: ${fmt(netSonuc)} ₺`);
+
+  hLD();
+  document.getElementById('onizleme-alani').innerHTML='';
+  donemDurumGoster();
+  renderGecmisKapanislar();
+  toast(`✅ ${onizleme.yil} kapatıldı — Net sonuç: ${fmt(netSonuc)} ₺`);
+}
+
+function renderGecmisKapanislar(){
+  const liste=Object.values(kapanmisYillar).sort((a,b)=>b.yil-a.yil);
+  const c=document.getElementById('gecmis-kapanislar');
+  if(!liste.length){c.innerHTML='<div style="text-align:center;padding:16px;color:var(--gray-400);font-size:12px">Henüz kapatılmış dönem yok</div>';return;}
+  c.innerHTML=liste.map(k=>`<div class="hesap-satir">
+    <span>${k.yil} <span style="color:var(--gray-400)">(${new Date(k.kapanmaTarihi).toLocaleDateString('tr-TR')})</span></span>
+    <span style="font-weight:700;color:${k.netSonuc>=0?'var(--success)':'var(--danger)'}">${fmt(Math.abs(k.netSonuc))} ₺</span>
+  </div>`).join('');
+}
+
+// ============================================================
+// YARDIMCI
+// ============================================================
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  document.getElementById('ss-yil').value=new Date().getFullYear()-1;
+  donemDurumGoster();
+  renderGecmisKapanislar();
+  // Basit önizleme tetikleyici — yıl girildiğinde otomatik önizleme yapılmasın, kullanıcı bilinçli tetiklesin
+  document.getElementById('ss-yil').insertAdjacentHTML('afterend','<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="onizlemeYap()">🔍 Önizle</button>');
+})();
+</script>
+</body>
+</html>
