@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Bütçe</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.tab-bar{background:white;display:flex;border-bottom:2px solid var(--gray-200);flex-shrink:0;overflow-x:auto}
+.tab-bar::-webkit-scrollbar{display:none}
+.tabbtn{padding:12px 16px;border:none;background:none;font-size:12px;font-weight:600;color:var(--gray-500);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;flex-shrink:0}
+.tabbtn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:none}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-blue{background:#dbeafe;color:#1e40af}.chip-orange{background:#fed7aa;color:#92400e}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat-kart{background:white;border-radius:var(--radius-sm);padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:16px;font-weight:800}
+.stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
+.udd{display:none;position:fixed;background:white;border:1.5px solid var(--primary);border-radius:8px;max-height:220px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.uddi{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:13px}
+.uddi:active{background:var(--gray-100)}
+.ay-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.ay-hucre label{font-size:10px;color:var(--gray-500);text-transform:uppercase;display:block;margin-bottom:3px}
+.ay-hucre input{width:100%;padding:7px 8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none;text-align:right}
+.rapor-satir{padding:10px 12px;border-bottom:1px solid var(--gray-100);background:white}
+.progress-bar{background:var(--gray-200);border-radius:4px;height:6px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%}
+.bh-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>Bütçe</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Plan / Gerçekleşen karşılaştırması</span></div>
+    <button class="hbtn" onclick="openYeniButce()">➕</button>
+  </div>
+  <div class="tab-bar">
+    <button class="tabbtn active" onclick="gTab('rapor',this)">📊 Bütçe/Gerçekleşen</button>
+    <button class="tabbtn" onclick="gTab('girisler',this)">📋 Bütçe Girişleri</button>
+  </div>
+
+  <!-- RAPOR -->
+  <div class="sc" id="tab-rapor" style="display:block">
+    <div class="card">
+      <div class="rfields">
+        <div class="field"><label>Yıl</label><input type="number" id="rp-yil" min="2020" max="2100" onchange="renderRapor()"></div>
+        <div class="field"><label>Ay</label>
+          <select id="rp-ay" onchange="renderRapor()">
+            <option value="1">Ocak</option><option value="2">Şubat</option><option value="3">Mart</option>
+            <option value="4">Nisan</option><option value="5">Mayıs</option><option value="6">Haziran</option>
+            <option value="7">Temmuz</option><option value="8">Ağustos</option><option value="9">Eylül</option>
+            <option value="10">Ekim</option><option value="11">Kasım</option><option value="12">Aralık</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-top:8px"><label>Otel</label>
+        <select id="rp-otel" onchange="renderRapor()">
+          <option value="">Tümü (Konsolide)</option>
+          <option value="810">🏨 810 — Ali Bey Club Manavgat</option>
+          <option value="811">🏨 811 — Ali Bey Resort Sorgun</option>
+        </select>
+      </div>
+    </div>
+    <div class="stats-grid" id="rp-stats"></div>
+    <div id="rapor-liste"></div>
+  </div>
+
+  <!-- BÜTÇE GİRİŞLERİ -->
+  <div class="sc" id="tab-girisler">
+    <div id="butce-liste"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni/Düzenle Bütçe -->
+<div class="mo" id="mButce" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:92vh;overflow-y:auto">
+    <div style="font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px" id="mButceTitle">
+      ➕ Bütçe Kalemi <button onclick="kModal()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)">✕</button>
+    </div>
+    <input type="hidden" id="b-id">
+    <div class="rfields" style="margin-bottom:12px">
+      <div class="field"><label>Yıl *</label><input type="number" id="b-yil" min="2020" max="2100"></div>
+      <div class="field"><label>Otel *</label>
+        <select id="b-otel">
+          <option value="810">🏨 810 — Club</option>
+          <option value="811">🏨 811 — Resort</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Hesap *</label>
+      <div style="position:relative">
+        <input type="text" id="b-hesap-inp" placeholder="Hesap kodu veya adı yazın..." autocomplete="off" oninput="filterHesapDD(this.value)">
+        <div id="b-hesap-dd" class="udd"></div>
+      </div>
+      <input type="hidden" id="b-hesap-kod">
+    </div>
+    <div class="card-title" style="margin-top:12px">Aylık Bütçe Tutarları (₺)</div>
+    <div class="ay-grid" id="b-aylar"></div>
+    <div class="brow" style="margin-top:16px">
+      <button class="btn btn-gray" onclick="kModal()">İptal</button>
+      <button class="btn btn-danger btn-sm" id="b-sil-btn" onclick="butceSil()" style="display:none">🗑️</button>
+      <button class="btn btn-primary" onclick="butceKaydet()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let butceler={},hesaplar={},yevmiyeler={};
+const AY_ADLARI=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const OTEL_KISA={'810':'Club','811':'Resort'};
+
+// ============================================================
+// DENETİM İZİ
+// ============================================================
+async function auditLogYaz(action,entityType,entityId,detail){
+  const log={id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),action,entityType,entityId:String(entityId||''),detail:detail||'',userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',timestamp:Date.now()};
+  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}catch(e){}
+}
+
+// ============================================================
+// FIREBASE
+// ============================================================
+async function loadDB(){
+  sLD();
+  try{
+    const [bR,hR,yR]=await Promise.all([
+      fetch(FB+'/muhasebe/butce.json'),
+      fetch(FB+'/muhasebe/hesapPlani.json'),
+      fetch(FB+'/muhasebe/yevmiye.json'),
+    ]);
+    if(bR.ok){const d=await bR.json();if(d&&typeof d==='object')butceler=d;}
+    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hesaplar=d;}
+    if(yR.ok){const d=await yR.json();if(d&&typeof d==='object')yevmiyeler=d;}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+async function saveButce(b){
+  try{await fetch(FB+'/muhasebe/butce/'+b.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});}catch(e){}
+}
+
+// ============================================================
+// GERÇEKLEŞEN HESAPLAMA (Yevmiye'den)
+// ============================================================
+function hesapBul(kod){return Object.values(hesaplar).find(h=>h&&h.kod===kod);}
+
+function gerceklesenTutar(hesapKod,yil,ay,otelId){
+  const hesap=hesapBul(hesapKod);
+  const yon=hesap?.yon||'Borç'; // hesabın normal çalışma yönü — o yöndeki tutar "gerçekleşen" sayılır
+  let toplam=0;
+  Object.values(yevmiyeler).filter(Boolean).forEach(y=>{
+    const tarih=new Date(y.tarih);
+    if(tarih.getFullYear()!==yil||(tarih.getMonth()+1)!==ay)return;
+    if(otelId&&y.otelId!==otelId)return;
+    (y.kalemler||[]).forEach(k=>{
+      if(k.hesapKod!==hesapKod)return;
+      toplam+=yon==='Alacak'?(parseFloat(k.alacak)||0):(parseFloat(k.borc)||0);
+    });
+  });
+  return toplam;
+}
+
+// ============================================================
+// RENDER — BÜTÇE/GERÇEKLEŞEN RAPORU
+// ============================================================
+function renderRapor(){
+  const yil=parseInt(document.getElementById('rp-yil').value);
+  const ay=parseInt(document.getElementById('rp-ay').value);
+  const otelFiltre=document.getElementById('rp-otel').value;
+  if(!yil)return;
+
+  let kayitlar=Object.values(butceler).filter(b=>b&&b.yil===yil);
+  if(otelFiltre)kayitlar=kayitlar.filter(b=>b.otelId===otelFiltre);
+
+  // Aynı hesap birden fazla otelde bütçelenmiş olabilir (Tümü seçiliyse) — hesap koduna göre grupla
+  const gruplar={};
+  kayitlar.forEach(b=>{
+    if(!gruplar[b.hesapKodu])gruplar[b.hesapKodu]={hesapKodu:b.hesapKodu,hesapAd:b.hesapAd,butce:0};
+    gruplar[b.hesapKodu].butce+=parseFloat(b.aylar?.[ay-1])||0;
+  });
+
+  const satirlar=Object.values(gruplar).map(g=>{
+    const gerc=otelFiltre?gerceklesenTutar(g.hesapKodu,yil,ay,otelFiltre):(gerceklesenTutar(g.hesapKodu,yil,ay,'810')+gerceklesenTutar(g.hesapKodu,yil,ay,'811'));
+    const fark=g.butce-gerc;
+    const farkYuzde=g.butce>0?(fark/g.butce*100):(gerc>0?-100:0);
+    return{...g,gerc,fark,farkYuzde};
+  }).sort((a,b)=>b.butce-a.butce);
+
+  const toplamButce=satirlar.reduce((t,s)=>t+s.butce,0);
+  const toplamGerc=satirlar.reduce((t,s)=>t+s.gerc,0);
+  document.getElementById('rp-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num">${fmt(toplamButce)}</div><div class="stat-lbl">Toplam Bütçe</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--info)">${fmt(toplamGerc)}</div><div class="stat-lbl">Gerçekleşen</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:${toplamButce-toplamGerc>=0?'var(--success)':'var(--danger)'}">${fmt(Math.abs(toplamButce-toplamGerc))}</div><div class="stat-lbl">${toplamButce-toplamGerc>=0?'Altında':'Üstünde'}</div></div>`;
+
+  const c=document.getElementById('rapor-liste');
+  if(!satirlar.length){c.innerHTML='<div class="es"><div class="ei">📊</div><div class="et">Bu yıl için bütçe girişi yok</div></div>';return;}
+
+  c.innerHTML=satirlar.map(s=>{
+    const oran=s.butce>0?Math.min(150,(s.gerc/s.butce*100)):(s.gerc>0?150:0);
+    const asimVar=s.gerc>s.butce&&s.butce>0;
+    return`<div class="rapor-satir" style="border-radius:8px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+        <span style="font-size:13px;font-weight:700">${s.hesapKodu} — ${s.hesapAd||''}</span>
+        <span class="chip ${asimVar?'chip-red':'chip-green'}">${asimVar?'⚠️ Aşım':'✅ Normal'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-600)">
+        <span>Bütçe: <b>${fmt(s.butce)} ₺</b></span>
+        <span>Gerçekleşen: <b style="color:${asimVar?'var(--danger)':'var(--primary)'}">${fmt(s.gerc)} ₺</b></span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,oran)}%;background:${asimVar?'var(--danger)':'var(--success)'}"></div></div>
+      <div style="font-size:11px;color:${s.fark>=0?'var(--success)':'var(--danger)'};margin-top:4px;text-align:right">${s.fark>=0?'Bütçenin altında':'Bütçeyi aştı'}: ${fmt(Math.abs(s.fark))} ₺ (%${Math.abs(s.farkYuzde).toFixed(0)})</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// RENDER — BÜTÇE GİRİŞLERİ LİSTESİ
+// ============================================================
+function renderButceListesi(){
+  const liste=Object.values(butceler).sort((a,b)=>b.yil-a.yil||a.hesapKodu.localeCompare(b.hesapKodu));
+  const c=document.getElementById('butce-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Henüz bütçe girişi yok</div></div>';return;}
+  c.innerHTML=liste.map(b=>{
+    const toplamYillik=(b.aylar||[]).reduce((t,v)=>t+(parseFloat(v)||0),0);
+    return`<div class="bh-kart" onclick="openDuzenleButce('${b.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:13px;font-weight:700">${b.hesapKodu} — ${b.hesapAd||''}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${b.yil} • <span class="chip ${b.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[b.otelId]||b.otelId}</span></div>
+        </div>
+        <div style="font-size:14px;font-weight:800;color:var(--primary)">${fmt(toplamYillik)} ₺</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// YENİ / DÜZENLE
+// ============================================================
+function ayHucreleriOlustur(degerler){
+  document.getElementById('b-aylar').innerHTML=AY_ADLARI.map((ad,i)=>`
+    <div class="ay-hucre">
+      <label>${ad}</label>
+      <input type="number" id="b-ay-${i}" value="${degerler?.[i]||''}" placeholder="0.00" min="0" step="0.01">
+    </div>`).join('');
+}
+
+function openYeniButce(){
+  document.getElementById('mButceTitle').innerHTML='➕ Bütçe Kalemi <button onclick="kModal()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)">✕</button>';
+  document.getElementById('b-id').value='';
+  document.getElementById('b-yil').value=new Date().getFullYear();
+  document.getElementById('b-otel').value='810';
+  document.getElementById('b-hesap-inp').value='';
+  document.getElementById('b-hesap-kod').value='';
+  document.getElementById('b-sil-btn').style.display='none';
+  ayHucreleriOlustur([]);
+  aModal();
+}
+
+function openDuzenleButce(id){
+  const b=butceler[id];if(!b)return;
+  document.getElementById('mButceTitle').innerHTML='✏️ Bütçe Düzenle <button onclick="kModal()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)">✕</button>';
+  document.getElementById('b-id').value=id;
+  document.getElementById('b-yil').value=b.yil;
+  document.getElementById('b-otel').value=b.otelId;
+  document.getElementById('b-hesap-inp').value=b.hesapKodu+' — '+(b.hesapAd||'');
+  document.getElementById('b-hesap-kod').value=b.hesapKodu;
+  document.getElementById('b-sil-btn').style.display='flex';
+  ayHucreleriOlustur(b.aylar||[]);
+  aModal();
+}
+
+async function butceKaydet(){
+  const yil=parseInt(document.getElementById('b-yil').value);
+  const otelId=document.getElementById('b-otel').value;
+  const hesapKod=document.getElementById('b-hesap-kod').value;
+  if(!yil||!otelId||!hesapKod){toast('⚠️ Yıl, otel ve hesap seçimi zorunlu');return;}
+  const hesap=hesapBul(hesapKod);
+  const aylar=AY_ADLARI.map((_,i)=>parseFloat(document.getElementById('b-ay-'+i).value)||0);
+
+  const editId=document.getElementById('b-id').value;
+  const id=editId||('BUTCE_'+yil+'_'+otelId+'_'+hesapKod.replace(/\./g,'_'));
+  const butce={id,yil,otelId,hesapKodu:hesapKod,hesapAd:hesap?.ad||'',aylar,olusturmaTarih:butceler[id]?.olusturmaTarih||Date.now(),guncellemeTarih:Date.now()};
+  sLD();
+  butceler[id]=butce;
+  await saveButce(butce);
+  await auditLogYaz(editId?'update':'create','butce',id,`Bütçe ${editId?'güncellendi':'oluşturuldu'}: ${hesapKod} — ${yil} [${OTEL_KISA[otelId]}]`);
+  hLD();
+  kModal();
+  renderButceListesi();
+  toast('✅ Bütçe kaydedildi');
+}
+
+async function butceSil(){
+  const id=document.getElementById('b-id').value;
+  if(!confirm('Bu bütçe kaydı silinsin mi?'))return;
+  sLD();
+  delete butceler[id];
+  await fetch(FB+'/muhasebe/butce/'+id+'.json',{method:'DELETE'});
+  hLD();
+  kModal();
+  renderButceListesi();
+  toast('🗑️ Silindi');
+}
+
+// ============================================================
+// HESAP DROPDOWN
+// ============================================================
+function filterHesapDD(val){
+  const dd=document.getElementById('b-hesap-dd');
+  if(!val||val.length<1){dd.style.display='none';return;}
+  const res=Object.values(hesaplar).filter(h=>h&&(h.tip==='Gelir Tablosu'||h.tip==='Maliyet')&&(h.kod.includes(val)||h.ad?.toLowerCase().includes(val.toLowerCase()))).slice(0,15);
+  if(!res.length){dd.style.display='none';return;}
+  dd.innerHTML=res.map(h=>`<div class="uddi" data-kod="${h.kod}" data-ad="${(h.ad||'').replace(/"/g,'&quot;')}">${h.kod} — ${h.ad}</div>`).join('');
+  dd.querySelectorAll('[data-kod]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      document.getElementById('b-hesap-inp').value=this.dataset.kod+' — '+this.dataset.ad;
+      document.getElementById('b-hesap-kod').value=this.dataset.kod;
+      dd.style.display='none';
+    });
+  });
+  const inp=document.getElementById('b-hesap-inp');
+  const rect=inp.getBoundingClientRect();
+  dd.style.left=rect.left+'px';dd.style.top=rect.bottom+'px';dd.style.width=rect.width+'px';
+  dd.style.display='block';
+}
+document.addEventListener('pointerdown',e=>{
+  const dd=document.getElementById('b-hesap-dd');
+  const inp=document.getElementById('b-hesap-inp');
+  if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+});
+
+// ============================================================
+// TAB & YARDIMCI
+// ============================================================
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='rapor')renderRapor();
+  if(tab==='girisler')renderButceListesi();
+}
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function aModal(){document.getElementById('mButce').style.display='flex';}
+function kModal(){document.getElementById('mButce').style.display='none';}
+document.getElementById('mButce').addEventListener('click',e=>{if(e.target.id==='mButce')kModal();});
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  await loadDB();
+  document.getElementById('rp-yil').value=new Date().getFullYear();
+  document.getElementById('rp-ay').value=new Date().getMonth()+1;
+  renderRapor();
+})();
+</script>
+</body>
+</html>
