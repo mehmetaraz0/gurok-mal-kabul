@@ -141,6 +141,7 @@ const ADIMLAR=[
   {id:'doviz',baslik:'11. Döviz Kurları',aciklama:'Bağımlılık yok',fn:migrateDoviz},
   {id:'audit',baslik:'12. Denetim İzi (Audit Log)',aciklama:'Bağımlılık yok',fn:migrateAudit},
   {id:'banka',baslik:'13. Banka / Kasa',aciklama:'Hesaplar + hareketler',fn:migrateBanka},
+  {id:'kullanicilar',baslik:'14. Kullanıcılar',aciklama:'PIN girişi — kritik, dikkatli kontrol et',fn:migrateKullanicilar},
 ];
 
 function renderAdimlar(){
@@ -636,6 +637,22 @@ async function migrateBanka(){
     }
     logYaz(`${satirlar.length} banka/kasa hareketi eklendi`);
   }
+}
+
+// ============================================================
+// 14) KULLANICILAR (PIN girişi — Firebase'de düz dizi olarak tutuluyor)
+// ============================================================
+async function migrateKullanicilar(){
+  const data=await fbOku('kullanicilar');
+  if(!data||!Array.isArray(data)||!data.length){logYaz('⚠️ Kullanıcı verisi bulunamadı (dizi bekleniyordu), atlanıyor');return;}
+  logYaz(`${data.length} kullanıcı bulundu`);
+  const satirlar=data.filter(Boolean).map(u=>({
+    ad:u.ad,pin:String(u.pin||''),rol:u.rol==='personel'?'depo':u.rol,
+    departman:u.departman||null,otel_id:u.otelId?otelKontrol(u.otelId):null,aktif:true
+  }));
+  await sbInsert('kullanicilar',satirlar,false);
+  logYaz(`${satirlar.length} kullanıcı eklendi`);
+  logYaz(`⚠️ ÖNEMLİ: Login modüllerini (index.html, satin-alma.html vb.) Supabase'e bağlamadan önce Table Editor'de kullanicilar tablosunu aç, PIN'lerin doğru geldiğini gözle kontrol et.`);
 }
 
 // ============================================================
