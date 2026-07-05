@@ -406,6 +406,23 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 // CONFIG & DEPOLAR
 // ============================================================
 const FIREBASE_URL = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+
+const ROL_INDIRGEME={
+  yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalite:'kalite',mutfak:'mutfak',bar:'bar',
+  muhasebe_muduru:'yonetici',muhasebe_calisani:'yonetici',cost_control:'yonetici'
+};
+async function loadKullanicilarFromSupabase(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS});
+    if(!r.ok)return null;
+    const rows=await r.json();
+    if(!rows||!rows.length)return null;
+    return rows.map(u=>({id:u.id,ad:u.ad,pin:u.pin||'',rol:ROL_INDIRGEME[u.rol]||'depo',departman:u.departman||''}));
+  }catch(e){console.warn(e);return null;}
+}
 
 // Depo listesi — ileride Firebase'den çekilebilir, şimdi sabit
 const DEPOLAR = [
@@ -485,28 +502,62 @@ function checkSession(){
 async function loadDB(){
   showLoading();
   try{
-    const [stokR,harR,minR,kulR]=await Promise.all([
-      fetch(FIREBASE_URL+'/stok.json'),
-      fetch(FIREBASE_URL+'/hareketler.json'),
-      fetch(FIREBASE_URL+'/minimumlar.json'),
-      fetch(FIREBASE_URL+'/kullanicilar.json'),
+    const [stokR,harR,minR,kul]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/stok?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/stok_hareketleri?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/stok_minimumlar?select=*',{headers:SB_HEADERS}),
+      loadKullanicilarFromSupabase(),
     ]);
-    if(stokR.ok){const d=await stokR.json();if(d&&typeof d==='object')db.stok=d;}
-    if(harR.ok){const d=await harR.json();if(d&&typeof d==='object'&&!Array.isArray(d))db.hareketler=d;}
-    if(minR.ok){const d=await minR.json();if(d)db.minimumlar=d;}
-    if(kulR.ok){const d=await kulR.json();if(Array.isArray(d)&&d.length)db.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol}));}
-  }catch(e){console.warn('Firebase yükleme:',e);}
+    db.stok={};
+    if(stokR.ok){
+      (await stokR.json()).forEach(r=>{
+        if(!db.stok[r.depo_kodu])db.stok[r.depo_kodu]={};
+        db.stok[r.depo_kodu][r.urun_kodu]={miktar:parseFloat(r.miktar)||0,_id:r.id};
+      });
+    }
+    db.hareketler={};
+    if(harR.ok){
+      (await harR.json()).forEach(r=>{
+        db.hareketler[r.id]={id:r.id,lnKod:r.urun_kodu,depoId:r.depo_kodu,tip:r.tip,miktar:parseFloat(r.miktar)||0,
+          belge:r.belge_no||'',tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),aciklama:r.aciklama||''};
+      });
+    }
+    db.minimumlar={};
+    if(minR.ok){
+      (await minR.json()).forEach(r=>{
+        // Firebase'de tek global minimum tutuluyordu (depo ayrımı yoktu) — birden fazla depo satırı varsa en yükseğini al
+        const mevcut=db.minimumlar[r.urun_kodu]||0;
+        db.minimumlar[r.urun_kodu]=Math.max(mevcut,parseFloat(r.min_miktar)||0);
+      });
+    }
+    if(kul&&kul.length)db.kullanicilar=kul;
+  }catch(e){console.warn('Supabase yükleme:',e);}
   if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
   hideLoading();
 }
 
 async function saveStok(){
-  try{await fetch(FIREBASE_URL+'/stok.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(db.stok)});}
-  catch(e){console.warn(e);}
+  // db.stok[depoId][urunKodu]={miktar,_id} — her satırı ayrı ayrı upsert et
+  try{
+    for(const depoId of Object.keys(db.stok)){
+      const urunler=db.stok[depoId];
+      for(const kod of Object.keys(urunler)){
+        const s=urunler[kod];
+        await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
+          method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+          body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:depoId.startsWith('3')||depoId.startsWith('4')?'811':'810',miktar:s.miktar})
+        });
+      }
+    }
+  }catch(e){console.warn(e);}
 }
 async function saveHareket(h){
-  try{await fetch(FIREBASE_URL+'/hareketler/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}
-  catch(e){console.warn(e);}
+  try{
+    await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      urun_kodu:h.lnKod,depo_kodu:h.depoId,otel_id:h.depoId?.toString().startsWith('3')||h.depoId?.toString().startsWith('4')?'811':'810',
+      tip:h.tip,miktar:h.miktar,belge_no:h.belge||null,aciklama:h.aciklama||null
+    })});
+  }catch(e){console.warn(e);}
 }
 
 // ============================================================
@@ -1054,13 +1105,13 @@ function iadeKalemGuncelle(i){
 async function yeniSiparisNoUret(prefix){
   const p=prefix==='R'?'R':'C';
   try{
-    const r=await fetch(FIREBASE_URL+'/siparisHavuzu.json?shallow=true');
+    const r=await fetch(SB_URL+`/rest/v1/siparisler?siparis_no=like.${p}*&select=siparis_no&order=siparis_no.desc&limit=1`,{headers:SB_HEADERS});
     let maxNo=91110;
     if(r.ok){
       const d=await r.json();
-      if(d){
-        const re=new RegExp('^'+p+'(\\d+)$');
-        Object.keys(d).forEach(k=>{const m=k.match(re);if(m){const n=parseInt(m[1]);if(n>maxNo)maxNo=n;}});
+      if(d&&d.length){
+        const m=d[0].siparis_no.match(new RegExp('^'+p+'(\\d+)$'));
+        if(m)maxNo=parseInt(m[1]);
       }
     }
     return p+String(maxNo+1).padStart(8,'0');
@@ -1094,27 +1145,22 @@ async function iadeSiparisiOlustur(){
   showLoading();
   const prefix=otelId==='811'?'R':'C';
   const siparisNo=await yeniSiparisNoUret(prefix);
-  // Havuzda numarayı hemen rezerve et (çakışma önleme)
-  await fetch(FIREBASE_URL+'/siparisHavuzu/'+siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({rezerve:true,ts:Date.now()})});
 
-  const siparis={
-    siparisNo,
-    tip:'iade',
-    firma:firmaAd,firmaId,
-    otelId,
-    donusSekli:neden,
-    orijinalFaturaNo:faturaNo||'',
-    not:not||'',
-    tarih:new Date().toISOString().split('T')[0],
-    kalemler:dolu.map(k=>({ad:k.ad,kod:k.kod,miktar:parseFloat(k.miktar)||0,birim:k.birim,
-      gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0})),
-    durum:'bekleyen',
-    kaynak:'depo', // satın alma değil, depo tarafından başlatıldı
-    depoId,
-    olusturanAd:currentUser?.ad||'—',
-    olusturmaTarih:Date.now()
-  };
-  await fetch(FIREBASE_URL+'/siparisHavuzu/'+siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(siparis)});
+  const kalemler=dolu.map(k=>({ad:k.ad,kod:k.kod,miktar:parseFloat(k.miktar)||0,birim:k.birim,
+    gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));
+
+  try{
+    await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      siparis_no:siparisNo,firma_ad:firmaAd,otel_id:otelId,tarih:new Date().toISOString().split('T')[0],
+      durum:'bekleyen',tip:'iade',iade_nedeni:neden,orijinal_fatura_no:faturaNo||null,
+      not_alani:not||null,kaynak:'depo',depo_kodu:depoId,olusturan_ad:currentUser?.ad||'—'
+    })});
+    const kalemSatirlar=kalemler.map(k=>({
+      siparis_no:siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
+      miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar
+    }));
+    await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+  }catch(e){console.warn(e);}
 
   // Stoktan anında düş
   const hareketler=[];
