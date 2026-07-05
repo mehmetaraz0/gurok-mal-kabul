@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — Yetki Yönetimi</title>
+<style>
+:root{--primary:#1a2744;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-500:#adb5bd;--gray-600:#6c757d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);font-size:12px}
+.header{background:var(--primary);color:white;padding:14px 20px;display:flex;align-items:center;gap:10px}
+.header h1{font-size:16px}
+.header p{font-size:11px;opacity:.8;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;flex-shrink:0}
+.uyari{background:#fff3cd;color:#856404;padding:10px 20px;font-size:12px;border-bottom:1px solid #fcd34d}
+.wrap{overflow:auto;height:calc(100vh - 100px)}
+table{border-collapse:collapse;min-width:100%;background:white}
+th,td{border:1px solid var(--gray-300);padding:6px 8px;white-space:nowrap;text-align:center}
+th{background:var(--primary);color:white;position:sticky;top:0;z-index:2;font-size:11px}
+th.kat-depo{background:#1e3a8a}
+th.kat-satinalma{background:#92400e}
+th.kat-muhasebe{background:#065f46}
+th.kat-sistem{background:#5b21b6}
+td.rol-ad{position:sticky;left:0;background:var(--gray-100);text-align:left;font-weight:700;z-index:1;min-width:180px}
+td.rol-seviye{position:sticky;left:180px;background:var(--gray-100);z-index:1;font-size:10px;color:var(--gray-600);min-width:60px}
+tr:nth-child(even) td.rol-ad, tr:nth-child(even) td.rol-seviye{background:#e9ecef}
+.yetki-hucre{cursor:pointer;font-weight:700;font-size:10px;padding:6px 4px;user-select:none}
+.yetki-yok{color:var(--gray-300)}
+.yetki-goruntule{background:#fff3cd;color:#856404}
+.yetki-kayit{background:#dbeafe;color:#1e40af}
+.yetki-tam{background:#d4edda;color:#155724}
+.legend{display:flex;gap:14px;padding:8px 20px;background:white;border-bottom:1px solid var(--gray-300);font-size:11px;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend i{width:14px;height:14px;border-radius:3px;display:inline-block}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:9px 18px;border-radius:18px;font-size:12px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="header">
+  <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+  <div><h1>🔐 Rol / Yetki Yönetimi</h1><p>Bir hücreye tıkla, yetki seviyesi otomatik sırayla değişir: Yok → Görüntüle → Kayıt → Tam</p></div>
+</div>
+<div class="uyari">⚠️ Bu ekran şu an herkes tarafından değiştirilebilir — gerçek kullanıcı girişi/rol kontrolü kurulana kadar bu sayfanın linkini sadece güvendiğin kişilerle paylaş. Değişiklikler anında kaydedilir.</div>
+<div class="legend">
+  <span><i style="background:#f1f3f5"></i> Yok</span>
+  <span><i style="background:#fff3cd"></i> Görüntüle</span>
+  <span><i style="background:#dbeafe"></i> Kayıt (ekle/düzenle)</span>
+  <span><i style="background:#d4edda"></i> Tam (onay/silme dahil)</span>
+</div>
+<div class="wrap"><table id="tablo"><tr><td>Yükleniyor...</td></tr></table></div>
+<div id="toast"></div>
+
+<script>
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+const SIRALAMA=['yok','goruntule','kayit','tam'];
+const KAT_ADLARI={depo:'DEPO OPERASYONLARI',satinalma:'SATIN ALMA',muhasebe:'MUHASEBE',sistem:'SİSTEM'};
+
+let roller=[],moduller=[],matris={}; // matris[rolId+'_'+modulId] = {id,yetki}
+
+async function yukle(){
+  const [rR,mR,yR]=await Promise.all([
+    fetch(SB_URL+'/rest/v1/roller?select=*&order=sira',{headers:SB_HEADERS}),
+    fetch(SB_URL+'/rest/v1/moduller?select=*&order=sira',{headers:SB_HEADERS}),
+    fetch(SB_URL+'/rest/v1/yetki_matrisi?select=*',{headers:SB_HEADERS}),
+  ]);
+  roller=rR.ok?await rR.json():[];
+  moduller=mR.ok?await mR.json():[];
+  matris={};
+  if(yR.ok){(await yR.json()).forEach(y=>{matris[y.rol_id+'_'+y.modul_id]={id:y.id,yetki:y.yetki};});}
+  render();
+}
+
+function render(){
+  const kategoriler=[...new Set(moduller.map(m=>m.kategori))];
+  let thead1='<tr><th rowspan="2" style="left:0;position:sticky;z-index:3">ROL</th><th rowspan="2" style="left:180px;position:sticky;z-index:3">KAPSAM</th>';
+  kategoriler.forEach(k=>{
+    const say=moduller.filter(m=>m.kategori===k).length;
+    thead1+=`<th colspan="${say}" class="kat-${k}">${KAT_ADLARI[k]||k}</th>`;
+  });
+  thead1+='</tr><tr>';
+  moduller.forEach(m=>{thead1+=`<th class="kat-${m.kategori}">${m.ad}</th>`;});
+  thead1+='</tr>';
+
+  let gövde='';
+  roller.forEach(r=>{
+    gövde+=`<tr><td class="rol-ad">${r.ad}</td><td class="rol-seviye">${r.seviye==='grup'?'🌐 Grup':'🏨 Otel'}</td>`;
+    moduller.forEach(m=>{
+      const key=r.id+'_'+m.id;
+      const yetki=matris[key]?.yetki||'yok';
+      gövde+=`<td class="yetki-hucre yetki-${yetki}" onclick="hucreDegistir('${r.id}','${m.id}')" id="h-${key}">${etiket(yetki)}</td>`;
+    });
+    gövde+='</tr>';
+  });
+
+  document.getElementById('tablo').innerHTML=thead1+gövde;
+}
+
+function etiket(yetki){
+  return{yok:'—',goruntule:'GÖRÜNTÜLE',kayit:'KAYIT',tam:'TAM'}[yetki]||'—';
+}
+
+async function hucreDegistir(rolId,modulId){
+  const key=rolId+'_'+modulId;
+  const mevcut=matris[key];
+  const suankiYetki=mevcut?.yetki||'yok';
+  const siradakiIndex=(SIRALAMA.indexOf(suankiYetki)+1)%SIRALAMA.length;
+  const yeniYetki=SIRALAMA[siradakiIndex];
+
+  const hucre=document.getElementById('h-'+key);
+  hucre.className='yetki-hucre yetki-'+yeniYetki;
+  hucre.textContent=etiket(yeniYetki);
+
+  try{
+    if(mevcut?.id){
+      await fetch(SB_URL+'/rest/v1/yetki_matrisi?id=eq.'+mevcut.id,{
+        method:'PATCH',headers:SB_HEADERS,
+        body:JSON.stringify({yetki:yeniYetki,guncelleme_tarihi:new Date().toISOString()})
+      });
+      matris[key]={id:mevcut.id,yetki:yeniYetki};
+    }else{
+      const r=await fetch(SB_URL+'/rest/v1/yetki_matrisi',{
+        method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
+        body:JSON.stringify({rol_id:rolId,modul_id:modulId,yetki:yeniYetki})
+      });
+      const d=await r.json();
+      matris[key]={id:d[0].id,yetki:yeniYetki};
+    }
+    toast('✅ Kaydedildi: '+etiket(yeniYetki));
+  }catch(e){
+    toast('⚠️ Kaydedilemedi, tekrar dene');
+    console.warn(e);
+  }
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1500);
+}
+
+yukle();
+</script>
+</body>
+</html>
