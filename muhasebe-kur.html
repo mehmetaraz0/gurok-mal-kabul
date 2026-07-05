@@ -104,6 +104,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let guncelKur=null;
 let gunlukKurlar={};
 
@@ -119,12 +122,22 @@ const PARA_META={
 async function loadDB(){
   sLD();
   try{
-    const [gR,hR]=await Promise.all([
-      fetch(FB+'/muhasebe/kurlar/guncel.json'),
-      fetch(FB+'/muhasebe/kurlar/gunluk.json'),
-    ]);
-    if(gR.ok){const d=await gR.json();if(d)guncelKur=d;}
-    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')gunlukKurlar=d;}
+    const r=await fetch(SB_URL+'/rest/v1/doviz_kurlari?select=*&order=tarih.asc',{headers:SB_HEADERS});
+    gunlukKurlar={};
+    if(r.ok){
+      const rows=await r.json();
+      rows.forEach(row=>{
+        const tarihKey=row.tarih;
+        if(!gunlukKurlar[tarihKey])gunlukKurlar[tarihKey]={tarih:tarihKey,tarihStr:new Date(tarihKey).toLocaleDateString('tr-TR'),kaynak:row.kaynak,kurlar:{},guncellemeTarihi:row.guncelleme_tarihi};
+        gunlukKurlar[tarihKey].kurlar[row.para_birimi]={
+          dovizAlis:parseFloat(row.doviz_alis),dovizSatis:row.doviz_satis?parseFloat(row.doviz_satis):null,
+          efektifAlis:row.efektif_alis?parseFloat(row.efektif_alis):null,efektifSatis:row.efektif_satis?parseFloat(row.efektif_satis):null
+        };
+        if(row.kaynak==='Manuel')gunlukKurlar[tarihKey].kaynak='Manuel'; // o gün en az bir manuel girdiyse "Manuel" say
+      });
+    }
+    const tarihler=Object.keys(gunlukKurlar).sort();
+    guncelKur=tarihler.length?gunlukKurlar[tarihler[tarihler.length-1]]:null;
   }catch(e){console.warn(e);}
   hLD();
 }
@@ -206,9 +219,10 @@ function render(){
 // ============================================================
 async function bugunuSifirla(){
   const today=new Date();
-  const tarihKey=today.toISOString().split('T')[0].split('-').join('-');
-  const oncekiler=Object.values(gunlukKurlar).filter(g=>g&&g.tarih!==tarihKey).sort((a,b)=>b.tarih.localeCompare(a.tarih));
-  const yerineGecen=oncekiler[0];
+  const tarihKey=today.toISOString().split('T')[0];
+  const oncekiTarihler=Object.keys(gunlukKurlar).filter(t=>t!==tarihKey).sort();
+  const yerineGecenTarih=oncekiTarihler[oncekiTarihler.length-1];
+  const yerineGecen=yerineGecenTarih?gunlukKurlar[yerineGecenTarih]:null;
   const mesaj=yerineGecen
     ? `Bugünün (${tarihKey}) kaydı silinecek. Ekranda tekrar ${yerineGecen.tarihStr} tarihli (${yerineGecen.kaynak}) kur gösterilecek — USD ${fmt(yerineGecen.kurlar?.USD?.dovizAlis)}, EUR ${fmt(yerineGecen.kurlar?.EUR?.dovizAlis)}, GBP ${fmt(yerineGecen.kurlar?.GBP?.dovizAlis)}.\n\nDevam edilsin mi?`
     : `Bugünün (${tarihKey}) kaydı silinecek ve gösterilecek başka bir kayıt kalmayacak. Devam edilsin mi?`;
@@ -216,12 +230,7 @@ async function bugunuSifirla(){
 
   sLD();
   try{
-    await fetch(FB+'/muhasebe/kurlar/gunluk/'+tarihKey+'.json',{method:'DELETE'});
-    if(yerineGecen){
-      await fetch(FB+'/muhasebe/kurlar/guncel.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(yerineGecen)});
-    }else{
-      await fetch(FB+'/muhasebe/kurlar/guncel.json',{method:'DELETE'});
-    }
+    await fetch(SB_URL+'/rest/v1/doviz_kurlari?tarih=eq.'+tarihKey,{method:'DELETE',headers:SB_HEADERS});
   }catch(e){console.warn(e);}
   hLD();
   await loadDB();
@@ -261,7 +270,6 @@ async function manuelKurKaydet(){
   const satisInp=document.getElementById('mk-satis').value;
   let alis=alisInp?parseFloat(alisInp):null;
   let satis=satisInp?parseFloat(satisInp):null;
-  // İkisinden biri boşsa diğerinden türet (piyasada alış/satış çok yakın olur)
   if(!alis&&satis)alis=satis;
   if(!satis&&alis)satis=alis;
   if(!alis||alis<=0){
@@ -274,28 +282,22 @@ async function manuelKurKaydet(){
   document.getElementById('mk-satis').style.borderColor='';
 
   const today=new Date();
-  const tarihKey=today.toISOString().split('T')[0].split('-').join('-'); // YYYY-MM-DD
-  const tarihStr=today.toLocaleDateString('tr-TR');
+  const tarihKey=today.toISOString().split('T')[0];
 
-  // Mevcut günkü kaydı koru, sadece girilen para birimini güncelle/ekle
-  const mevcut=gunlukKurlar[tarihKey]||{tarih:tarihKey,tarihStr,kurlar:{},kaynak:'Manuel'};
-  const eskiKur=mevcut.kurlar?.[kod];
+  const eskiKur=gunlukKurlar[tarihKey]?.kurlar?.[kod];
   if(eskiKur){
-    const kaynakMetin=mevcut.kaynak==='TCMB'?'TCMB otomasyonundan gelen':'mevcut manuel';
+    const kaynakMetin=gunlukKurlar[tarihKey].kaynak==='TCMB'?'TCMB otomasyonundan gelen':'mevcut manuel';
     const onayMsg=`${kod} için ${kaynakMetin} kur zaten var:\nAlış ${fmt(eskiKur.dovizAlis)} — Satış ${fmt(eskiKur.dovizSatis)}\n\nBunun üzerine\nAlış ${fmt(alis)} — Satış ${fmt(satis)}\nyazılsın mı?`;
     if(!confirm(onayMsg))return;
   }
-  mevcut.kurlar[kod]={dovizAlis:alis,dovizSatis:satis,efektifAlis:null,efektifSatis:null};
-  mevcut.kaynak='Manuel';
-  mevcut.guncellemeTarih=Date.now();
 
   sLD();
   try{
-    await fetch(FB+'/muhasebe/kurlar/gunluk/'+tarihKey+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(mevcut)});
-    // Bugünkü kayıt en güncel olanla aynıysa veya daha yeniyse "güncel" olarak da işaretle
-    if(!guncelKur||gunFarki(guncelKur.tarih)>=0){
-      await fetch(FB+'/muhasebe/kurlar/guncel.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(mevcut)});
-    }
+    await fetch(SB_URL+'/rest/v1/doviz_kurlari?on_conflict=tarih,para_birimi',{
+      method:'POST',
+      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({tarih:tarihKey,para_birimi:kod,doviz_alis:alis,doviz_satis:satis,kaynak:'Manuel'})
+    });
   }catch(e){console.warn(e);}
   hLD();
   document.getElementById('mk-alis').value='';
