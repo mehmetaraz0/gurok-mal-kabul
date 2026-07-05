@@ -131,7 +131,8 @@ const ADIMLAR=[
   {id:'urunler',baslik:'2. Ürün Kataloğu',aciklama:'gurok_veritabani.js → URUN_DB',fn:migrateUrunler},
   {id:'tedarikci_urun',baslik:'3. Tedarikçi-Ürün Eşleşmesi',aciklama:'FIRMA_DB (212 firma → ürün listeleri)',fn:migrateTedarikciUrun},
   {id:'cariler',baslik:'4. Cariler',aciklama:'Tedarikçi/Müşteri kayıtları — ID eşleştirmesi kritik',fn:migrateCariler},
-  {id:'faturalar',baslik:'5. Faturalar + Kalemler',aciklama:'Cariler tablosuna bağımlı',fn:migrateFaturalar},
+  {id:'siparisler',baslik:'4b. Siparişler',aciklama:'siparisHavuzu → Faturalar buna bağımlı',fn:migrateSiparisler},
+  {id:'faturalar',baslik:'5. Faturalar + Kalemler',aciklama:'Cariler ve Siparişler tablosuna bağımlı',fn:migrateFaturalar},
   {id:'cari_hareketler',baslik:'6. Cari Hareketleri',aciklama:'Cariler ve Faturalar tablosuna bağımlı',fn:migrateCariHareketler},
   {id:'yevmiye',baslik:'7. Yevmiye Fişleri + Kalemler',aciklama:'Hesap Planı\'na bağımlı',fn:migrateYevmiye},
   {id:'cek_senet',baslik:'8. Çek / Senet',aciklama:'Cariler tablosuna bağımlı',fn:migrateCekSenet},
@@ -321,6 +322,58 @@ async function migrateCariler(){
 }
 
 // ============================================================
+// 4b) SİPARİŞLER (siparisHavuzu — Faturalar buna bağımlı)
+// ============================================================
+async function siparisNoTrim(v){return(v||'').toString().trim();}
+
+async function cariUuidBul(firmaAd){
+  if(!firmaAd)return null;
+  const r=await fetch(`${SB_URL}/rest/v1/cariler?ad=eq.${encodeURIComponent(firmaAd.trim())}&select=id`,{
+    headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+  });
+  if(!r.ok)return null;
+  const d=await r.json();
+  return d.length?d[0].id:null;
+}
+
+async function migrateSiparisler(){
+  const data=await fbOku('siparisHavuzu');
+  if(!data){logYaz('⚠️ Sipariş verisi (siparisHavuzu) bulunamadı, atlanıyor');return;}
+  const siparisler=Object.entries(data).filter(([,s])=>s);
+  logYaz(`${siparisler.length} sipariş bulundu`);
+  let sayac=0,atlanan=0;
+  for(const [fbKod,s] of siparisler){
+    const siparisNo=(fbKod||'').toString().trim();
+    const cariUuid=await cariUuidBul(s.firma);
+    const otelId=siparisNo.toUpperCase().startsWith('R')?'811':'810';
+    const satir={
+      siparis_no:siparisNo,cari_id:cariUuid,firma_ad:s.firma||'Bilinmeyen',
+      otel_id:otelId,tarih:s.tarih||new Date().toISOString().split('T')[0],
+      termin_tarihi:s.termin||null,durum:s.durum||'islemde',
+      tip:s.iadeNedeni?'iade':'normal',iade_nedeni:s.iadeNedeni||null,
+      olusturan_ad:s.olusturanAd||null
+    };
+    try{
+      await sbInsert('siparisler',satir,true);
+      if(s.kalemler&&s.kalemler.length){
+        const kalemSatirlar=s.kalemler.map(k=>({
+          siparis_no:siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,
+          birim:k.birim||'KG',miktar:k.miktar||0,gelen_miktar:k.gelenMiktar||0,
+          kalan_miktar:k.kalanMiktar||0,birim_fiyat:k.birimFiyat||null
+        }));
+        await sbInsert('siparis_kalemleri',kalemSatirlar,false);
+      }
+      sayac++;
+    }catch(e){
+      atlanan++;
+      logYaz(`  ⚠️ Sipariş atlandı (${siparisNo}): ${e.message.slice(0,150)}`);
+    }
+    if((sayac+atlanan)%10===0)logYaz(`  ${sayac+atlanan}/${siparisler.length} işlendi`);
+  }
+  logYaz(`${sayac} sipariş eklendi, ${atlanan} atlandı`);
+}
+
+// ============================================================
 // 5) FATURALAR + KALEMLER
 // ============================================================
 async function migrateFaturalar(){
@@ -336,7 +389,7 @@ async function migrateFaturalar(){
     const satir={
       no:f.no||null,tur:f.tur,tarih:tarihISO(new Date(f.tarih).getTime())||f.tarih,
       vade_tarihi:f.vade||null,cari_id:cariUuid,cari_ad:f.cariAd||'Bilinmeyen',
-      siparis_no:f.siparisNo||null,ara_toplam:f.araToplam||0,kdv_toplam:f.kdvToplam||0,
+      siparis_no:f.siparisNo?f.siparisNo.toString().trim():null,ara_toplam:f.araToplam||0,kdv_toplam:f.kdvToplam||0,
       genel_toplam:f.genelToplam||0,komisyon_orani:f.komisyonOrani||0,komisyon_tutari:f.komisyonTutari||0,
       iade:!!f.iade,otel_id:otelKontrol(f.otelId),not_alani:f.not||null,durum:f.durum||'taslak',
       odeme_tarihi:f.odemeTarih?new Date(f.odemeTarih).toISOString():null,
