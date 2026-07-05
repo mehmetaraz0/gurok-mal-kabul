@@ -171,6 +171,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let demirbaslar={},amortismanKosustuler={};
 let dbFilter='tumu';
 
@@ -191,34 +194,67 @@ const KATEGORILER={
 // ============================================================
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={
-    id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
-    action,entityType,entityId:String(entityId||''),detail:detail||'',
-    userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',
-    timestamp:Date.now()
+    action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',
+    kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'
   };
-  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}
+  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}
   catch(e){console.warn('Audit log kaydedilemedi:',e);}
 }
 
 // ============================================================
-// FIREBASE
+// DÖNÜŞTÜRME YARDIMCILARI
 // ============================================================
+function demirbasSbdenCamele(r){
+  return{
+    id:r.id,kod:r.kod,ad:r.ad,kategori:r.kategori,hesapKodu:r.hesap_kodu,
+    amortismanHesapKodu:r.amortisman_hesap_kodu,seriNo:r.seri_no||'',
+    alimTarihi:r.alim_tarihi,alimTutari:parseFloat(r.alim_tutari)||0,
+    oran:parseFloat(r.oran_yillik)||0,birikmisAmortisman:parseFloat(r.birikmis_amortisman)||0,
+    otelId:r.otel_id,zimmet:r.zimmet||'',durum:r.durum,
+    eldenCikarmaTarihi:r.elden_cikarma_tarihi?new Date(r.elden_cikarma_tarihi).getTime():null,
+    satisBedeli:r.satis_bedeli?parseFloat(r.satis_bedeli):null,not:r.not_alani||''
+  };
+}
+function amortKosustuSbdenCamele(r){
+  return{
+    donem:r.donem,calistirmaTarihi:new Date(r.calistirma_tarihi).getTime(),
+    demirbasSayisi:r.demirbas_sayisi,toplamTutar:parseFloat(r.toplam_tutar)||0,kullanan:r.kullanan||''
+  };
+}
+
 async function loadDB(){
   sLD();
   try{
     const [dR,aR]=await Promise.all([
-      fetch(FB+'/muhasebe/demirbaslar.json'),
-      fetch(FB+'/muhasebe/amortismanKosustu.json'),
+      fetch(SB_URL+'/rest/v1/demirbaslar?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/amortisman_kosustu?select=*',{headers:SB_HEADERS}),
     ]);
-    if(dR.ok){const d=await dR.json();if(d&&typeof d==='object')demirbaslar=d;}
-    if(aR.ok){const d=await aR.json();if(d&&typeof d==='object')amortismanKosustuler=d;}
+    demirbaslar={};amortismanKosustuler={};
+    if(dR.ok){(await dR.json()).forEach(r=>{demirbaslar[r.id]=demirbasSbdenCamele(r);});}
+    if(aR.ok){(await aR.json()).forEach(r=>{amortismanKosustuler[r.donem]=amortKosustuSbdenCamele(r);});}
   }catch(e){console.warn(e);}
   hLD();
 }
 
 async function saveDemirbas(d){
-  try{await fetch(FB+'/muhasebe/demirbaslar/'+d.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});}
-  catch(e){console.warn(e);}
+  const satir={
+    kod:d.kod,ad:d.ad,kategori:d.kategori,hesap_kodu:d.hesapKodu,
+    amortisman_hesap_kodu:d.amortismanHesapKodu,seri_no:d.seriNo||null,
+    alim_tarihi:d.alimTarihi,alim_tutari:d.alimTutari,oran_yillik:d.oran,
+    birikmis_amortisman:d.birikmisAmortisman||0,otel_id:d.otelId||'810',
+    zimmet:d.zimmet||null,durum:d.durum||'aktif',
+    elden_cikarma_tarihi:d.eldenCikarmaTarihi?new Date(d.eldenCikarmaTarihi).toISOString():null,
+    satis_bedeli:d.satisBedeli||null,not_alani:d.not||null
+  };
+  try{
+    if(d.id){
+      await fetch(SB_URL+'/rest/v1/demirbaslar?id=eq.'+d.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+    }else{
+      const r=await fetch(SB_URL+'/rest/v1/demirbaslar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+      const data=await r.json();
+      if(data&&data[0])d.id=data[0].id;
+    }
+  }catch(e){console.warn(e);}
 }
 
 // ============================================================
@@ -228,24 +264,17 @@ function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/10
 
 async function yeniFisNo(){
   const yil=new Date().getFullYear();
-  const sayacYol=FB+'/muhasebe/sayaclar/yevmiye_'+yil+'.json';
   try{
-    let n=null;
-    const r=await fetch(sayacYol);
-    if(r.ok){const d=await r.json();if(typeof d==='number')n=d;}
-    if(n===null){
-      n=0;
-      const yR=await fetch(FB+'/muhasebe/yevmiye.json');
-      if(yR.ok){
-        const yd=await yR.json();
-        if(yd)Object.values(yd).forEach(y=>{
-          const m=(y?.no||'').match(new RegExp('^YEV-'+yil+'-(\\d+)$'));
-          if(m){const v=parseInt(m[1]);if(v>n)n=v;}
-        });
+    const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?no=like.YEV-${yil}-*&select=no&order=no.desc&limit=1`,{headers:SB_HEADERS});
+    let n=0;
+    if(r.ok){
+      const d=await r.json();
+      if(d&&d.length){
+        const m=d[0].no.match(new RegExp('^YEV-'+yil+'-(\\d+)$'));
+        if(m)n=parseInt(m[1]);
       }
     }
     n++;
-    await fetch(sayacYol,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(n)});
     return `YEV-${yil}-${String(n).padStart(5,'0')}`;
   }catch(e){}
   return `YEV-${yil}-${Date.now()}`;
@@ -254,16 +283,34 @@ async function yeniFisNo(){
 async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,otelId){
   const topBorc=yevKalemler.reduce((t,k)=>t+(k.borc||0),0);
   const topAlacak=yevKalemler.reduce((t,k)=>t+(k.alacak||0),0);
-  const no=await yeniFisNo();
-  const yev={
-    id:fisId,no,tarih:tarihMs,tarihStr:new Date(tarihMs).toISOString().split('T')[0],
-    tip,belge,aciklama,kalemler:yevKalemler,otelId:otelId||'810',
-    toplamBorc:round2(topBorc),toplamAlacak:round2(topAlacak),
-    onaylandi:true,otomatik:true,olusturmaTarih:Date.now(),guncellemeTarih:Date.now()
+  let mevcutId=null,no=null;
+  try{
+    const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.${encodeURIComponent(tip)}&belge_no=eq.${encodeURIComponent(belge)}&select=id,no`,{headers:SB_HEADERS});
+    if(r.ok){const d=await r.json();if(d&&d.length){mevcutId=d[0].id;no=d[0].no;}}
+  }catch(e){}
+  if(!no)no=await yeniFisNo();
+
+  const yevSatir={
+    no,tarih:new Date(tarihMs).toISOString().split('T')[0],tip,belge_no:belge,aciklama,
+    otel_id:otelId||'810',toplam_borc:round2(topBorc),toplam_alacak:round2(topAlacak),
+    onaylandi:true,otomatik:true
   };
   try{
-    await fetch(FB+'/muhasebe/yevmiye/'+fisId+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(yev)});
-    await auditLogYaz('create','yevmiye',fisId,`Otomatik yevmiye fişi: ${no} — ${aciklama} (${fmt(topBorc)} ₺)`);
+    let fisUuid=mevcutId;
+    if(mevcutId){
+      await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+mevcutId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(yevSatir)});
+      await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri?fis_id=eq.'+mevcutId,{method:'DELETE',headers:SB_HEADERS});
+    }else{
+      const r=await fetch(SB_URL+'/rest/v1/yevmiye_fisler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(yevSatir)});
+      const d=await r.json();
+      fisUuid=d[0].id;
+    }
+    const kalemSatirlar=yevKalemler.map(k=>({
+      fis_id:fisUuid,hesap_kodu:k.hesapKod,masraf_merkezi:k.masrafMerkezi||null,
+      aciklama:k.aciklama||null,borc:k.borc||0,alacak:k.alacak||0
+    }));
+    await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    await auditLogYaz('create','yevmiye',fisUuid,`Otomatik yevmiye fişi: ${no} — ${aciklama} (${fmt(topBorc)} ₺)`);
   }catch(e){console.warn('Yevmiye fişi oluşturulamadı:',e);}
 }
 
@@ -389,11 +436,10 @@ async function demirbasKaydet(){
   if(!ad||!alimTarihi||!alimTutari||alimTutari<=0){toast('⚠️ Ad, alım tarihi ve tutar zorunlu');return;}
 
   const editId=document.getElementById('d-id').value;
-  const id=editId||('DEMB_'+Date.now());
   const kategori=document.getElementById('d-kategori').value;
   const kat=KATEGORILER[kategori];
   const demirbas={
-    id,
+    id:editId||null,
     kod:document.getElementById('d-kod').value.trim()||yeniDemirbasKodUret(),
     ad,kategori,
     hesapKodu:kat.hesapKod,amortismanHesapKodu:kat.amortismanHesapKod,
@@ -403,15 +449,14 @@ async function demirbasKaydet(){
     otelId:document.getElementById('d-otel').value||'810',
     zimmet:document.getElementById('d-zimmet').value||'',
     not:document.getElementById('d-not').value||'',
-    birikmisAmortisman:demirbaslar[id]?.birikmisAmortisman||0,
-    durum:demirbaslar[id]?.durum||'aktif',
-    olusturmaTarih:demirbaslar[id]?.olusturmaTarih||Date.now(),
-    guncellemeTarih:Date.now()
+    birikmisAmortisman:editId?demirbaslar[editId]?.birikmisAmortisman:0,
+    durum:editId?demirbaslar[editId]?.durum:'aktif'
   };
   sLD();
   const yeniKayit=!editId;
+  await saveDemirbas(demirbas); // yeni kayıtta demirbas.id burada gerçek UUID ile doldurulur
+  const id=demirbas.id;
   demirbaslar[id]=demirbas;
-  await saveDemirbas(demirbas);
   await auditLogYaz(yeniKayit?'create':'update','demirbas',id,`Demirbaş ${yeniKayit?'eklendi':'güncellendi'}: ${demirbas.kod} — ${ad} (${fmt(alimTutari)} ₺)`);
   hLD();
   kModal('mDemirbas');
@@ -425,7 +470,7 @@ async function demirbasSil(){
   if(!confirm(`"${d.ad}" tamamen silinsin mi? (Elden çıkarma için bunun yerine "Elden Çıkar" kullanmanı öneririz)`))return;
   sLD();
   delete demirbaslar[id];
-  await fetch(FB+'/muhasebe/demirbaslar/'+id+'.json',{method:'DELETE'});
+  try{await fetch(SB_URL+'/rest/v1/demirbaslar?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
   await auditLogYaz('delete','demirbas',id,`Demirbaş silindi: ${d.kod} — ${d.ad}`);
   hLD();
   kModal('mDemirbas');
@@ -586,7 +631,13 @@ async function amortismanCalistir(yil,ay){
   const kayit={donem:donemAnahtari,calistirmaTarihi:Date.now(),demirbasSayisi:uygunDemirbaslar.length,
     toplamTutar:round2(Object.values(otelGruplari).flat().reduce((t,s)=>t+s.aylik,0))};
   amortismanKosustuler[donemAnahtari]=kayit;
-  await fetch(FB+'/muhasebe/amortismanKosustu/'+donemAnahtari+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(kayit)});
+  try{
+    await fetch(SB_URL+'/rest/v1/amortisman_kosustu?on_conflict=donem',{
+      method:'POST',
+      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({donem:donemAnahtari,demirbas_sayisi:kayit.demirbasSayisi,toplam_tutar:kayit.toplamTutar,kullanan:localStorage.getItem('gurok_user_name')||'Bilinmeyen'})
+    });
+  }catch(e){console.warn(e);}
   await auditLogYaz('create','amortisman',donemAnahtari,`Amortisman çalıştırıldı: ${donemAnahtari} — ${uygunDemirbaslar.length} demirbaş, ${fmt(kayit.toplamTutar)} ₺`);
 
   hLD();
