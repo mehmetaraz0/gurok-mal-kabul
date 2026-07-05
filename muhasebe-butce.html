@@ -138,38 +138,64 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let butceler={},hesaplar={},yevmiyeler={};
 const AY_ADLARI=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const AY_ALANLARI=['ocak','subat','mart','nisan','mayis','haziran','temmuz','agustos','eylul','ekim','kasim','aralik'];
 const OTEL_KISA={'810':'Club','811':'Resort'};
 
 // ============================================================
 // DENETİM İZİ
 // ============================================================
 async function auditLogYaz(action,entityType,entityId,detail){
-  const log={id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),action,entityType,entityId:String(entityId||''),detail:detail||'',userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',timestamp:Date.now()};
-  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}catch(e){}
+  const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'};
+  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){}
 }
 
 // ============================================================
-// FIREBASE
+// DÖNÜŞTÜRME YARDIMCILARI
 // ============================================================
+function butceSbdenCamele(r){
+  const aylar=AY_ALANLARI.map(a=>parseFloat(r[a])||0);
+  return{id:r.id,yil:r.yil,otelId:r.otel_id,hesapKodu:r.hesap_kodu,hesapAd:r.hesap_ad||'',aylar};
+}
+function yevSbdenCamele(r){
+  return{
+    id:r.id,tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),otelId:r.otel_id,
+    kalemler:(r.yevmiye_kalemleri||[]).map(k=>({hesapKod:k.hesap_kodu,borc:parseFloat(k.borc)||0,alacak:parseFloat(k.alacak)||0}))
+  };
+}
+
 async function loadDB(){
   sLD();
   try{
     const [bR,hR,yR]=await Promise.all([
-      fetch(FB+'/muhasebe/butce.json'),
-      fetch(FB+'/muhasebe/hesapPlani.json'),
-      fetch(FB+'/muhasebe/yevmiye.json'),
+      fetch(SB_URL+'/rest/v1/butce_kayitlari?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad,yon,tip',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=id,tarih,otel_id,yevmiye_kalemleri(hesap_kodu,borc,alacak)',{headers:SB_HEADERS}),
     ]);
-    if(bR.ok){const d=await bR.json();if(d&&typeof d==='object')butceler=d;}
-    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hesaplar=d;}
-    if(yR.ok){const d=await yR.json();if(d&&typeof d==='object')yevmiyeler=d;}
+    butceler={};hesaplar={};yevmiyeler={};
+    if(bR.ok){(await bR.json()).forEach(r=>{butceler[r.id]=butceSbdenCamele(r);});}
+    if(hR.ok){(await hR.json()).forEach(r=>{hesaplar[r.kod]=r;});}
+    if(yR.ok){(await yR.json()).forEach(r=>{yevmiyeler[r.id]=yevSbdenCamele(r);});}
   }catch(e){console.warn(e);}
   hLD();
 }
 
 async function saveButce(b){
-  try{await fetch(FB+'/muhasebe/butce/'+b.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});}catch(e){}
+  const satir={yil:b.yil,otel_id:b.otelId,hesap_kodu:b.hesapKodu,hesap_ad:b.hesapAd||null};
+  AY_ALANLARI.forEach((ad,i)=>{satir[ad]=b.aylar?.[i]||0;});
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/butce_kayitlari?on_conflict=yil,otel_id,hesap_kodu',{
+      method:'POST',
+      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates,return=representation'},
+      body:JSON.stringify(satir)
+    });
+    const d=await r.json();
+    if(d&&d[0])b.id=d[0].id;
+  }catch(e){console.warn(e);}
 }
 
 // ============================================================
@@ -313,11 +339,11 @@ async function butceKaydet(){
   const aylar=AY_ADLARI.map((_,i)=>parseFloat(document.getElementById('b-ay-'+i).value)||0);
 
   const editId=document.getElementById('b-id').value;
-  const id=editId||('BUTCE_'+yil+'_'+otelId+'_'+hesapKod.replace(/\./g,'_'));
-  const butce={id,yil,otelId,hesapKodu:hesapKod,hesapAd:hesap?.ad||'',aylar,olusturmaTarih:butceler[id]?.olusturmaTarih||Date.now(),guncellemeTarih:Date.now()};
+  const butce={id:editId||null,yil,otelId,hesapKodu:hesapKod,hesapAd:hesap?.ad||'',aylar};
   sLD();
+  await saveButce(butce); // yıl+otel+hesap kombinasyonu zaten benzersiz, üzerine yazma/ekleme otomatik
+  const id=butce.id;
   butceler[id]=butce;
-  await saveButce(butce);
   await auditLogYaz(editId?'update':'create','butce',id,`Bütçe ${editId?'güncellendi':'oluşturuldu'}: ${hesapKod} — ${yil} [${OTEL_KISA[otelId]}]`);
   hLD();
   kModal();
@@ -330,7 +356,7 @@ async function butceSil(){
   if(!confirm('Bu bütçe kaydı silinsin mi?'))return;
   sLD();
   delete butceler[id];
-  await fetch(FB+'/muhasebe/butce/'+id+'.json',{method:'DELETE'});
+  try{await fetch(SB_URL+'/rest/v1/butce_kayitlari?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
   hLD();
   kModal();
   renderButceListesi();
