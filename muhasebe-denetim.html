@@ -112,21 +112,35 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let auditLogs={},donemler={};
 let logFilter='tumu';
 
 // ============================================================
-// FIREBASE
+// DÖNÜŞTÜRME YARDIMCILARI
 // ============================================================
+function logSbdenCamele(r){
+  return{
+    id:r.id,action:r.action,entityType:r.entity_type,entityId:r.entity_id,
+    detail:r.detail||'',userName:r.kullanici_ad||'Bilinmeyen',timestamp:new Date(r.zaman).getTime()
+  };
+}
+function donemSbdenCamele(r){
+  return{id:r.id,ad:r.ad,baslangic:r.baslangic,bitis:r.bitis,durum:r.durum};
+}
+
 async function loadDB(){
   sLD();
   try{
     const [aR,dR]=await Promise.all([
-      fetch(FB+'/muhasebe/auditLog.json'),
-      fetch(FB+'/muhasebe/donemler.json'),
+      fetch(SB_URL+'/rest/v1/audit_log?select=*&order=zaman.desc&limit=500',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/mali_donemler?select=*',{headers:SB_HEADERS}),
     ]);
-    if(aR.ok){const d=await aR.json();if(d&&typeof d==='object')auditLogs=d;}
-    if(dR.ok){const d=await dR.json();if(d&&typeof d==='object')donemler=d;}
+    auditLogs={};donemler={};
+    if(aR.ok){(await aR.json()).forEach(r=>{auditLogs[r.id]=logSbdenCamele(r);});}
+    if(dR.ok){(await dR.json()).forEach(r=>{donemler[r.id]=donemSbdenCamele(r);});}
   }catch(e){console.warn(e);}
   hLD();
 }
@@ -134,16 +148,11 @@ async function loadDB(){
 // Dışarıdan çağrılabilir global fonksiyon — diğer modüller bunu kullanacak
 window.gurokAuditLog = async function(action, entityType, entityId, detail, userName){
   const log = {
-    id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
-    action, // create, update, delete, approve, period
-    entityType, // hesap, cari, fatura, yevmiye, banka, donem
-    entityId: String(entityId||''),
-    detail: detail||'',
-    userName: userName||(localStorage.getItem('gurok_user_name')||'Bilinmeyen'),
-    timestamp: Date.now()
+    action:action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',
+    kullanici_ad:userName||(localStorage.getItem('gurok_user_name')||'Bilinmeyen')
   };
   try{
-    await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});
+    await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});
   }catch(e){console.warn('Audit log kaydedilemedi:',e);}
   return log;
 };
@@ -151,13 +160,12 @@ window.gurokAuditLog = async function(action, entityType, entityId, detail, user
 // Dönem kontrolü — diğer modüller işlem öncesi bunu çağırır
 window.gurokDonemAcikMi = async function(tarihMs){
   try{
-    const r = await fetch(FB+'/muhasebe/donemler.json');
+    const r = await fetch(SB_URL+'/rest/v1/mali_donemler?select=*',{headers:SB_HEADERS});
     if(!r.ok) return {acik:true}; // veri yoksa engelleme
-    const d = await r.json();
-    if(!d) return {acik:true};
+    const donemListesi = await r.json();
+    if(!donemListesi||!donemListesi.length) return {acik:true};
     const tarih = new Date(tarihMs);
-    for(const key in d){
-      const don = d[key];
+    for(const don of donemListesi){
       if(!don) continue;
       const bas = new Date(don.baslangic).getTime();
       const bit = new Date(don.bitis+'T23:59:59').getTime();
@@ -238,15 +246,18 @@ function renderDonemler(){
 
 async function donemOlustur(){
   const ad=document.getElementById('d-ad').value.trim();
-  const yil=document.getElementById('d-yil').value;
   const bas=document.getElementById('d-bas').value;
   const bit=document.getElementById('d-bit').value;
   if(!ad||!bas||!bit){toast('⚠️ Tüm alanları doldurun');return;}
-  const id='DON_'+Date.now();
-  const donem={id,ad,yil:parseInt(yil)||new Date().getFullYear(),baslangic:bas,bitis:bit,durum:'acik',olusturmaTarih:Date.now()};
+  const satir={ad,baslangic:bas,bitis:bit,durum:'acik'};
   sLD();
-  donemler[id]=donem;
-  await fetch(FB+'/muhasebe/donemler/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(donem)});
+  let id=null;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/mali_donemler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+    const d=await r.json();
+    id=d[0].id;
+    donemler[id]={id,...satir};
+  }catch(e){console.warn(e);}
   await window.gurokAuditLog('create','donem',id,`Mali dönem oluşturuldu: ${ad} (${bas} - ${bit})`);
   hLD();
   document.getElementById('d-ad').value='';
@@ -266,8 +277,7 @@ async function donemDurumDegistir(id,yeniDurum){
   if(!confirm(mesaj))return;
   sLD();
   d.durum=yeniDurum;
-  donemler[id]=d;
-  await fetch(FB+'/muhasebe/donemler/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+  try{await fetch(SB_URL+'/rest/v1/mali_donemler?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:yeniDurum})});}catch(e){console.warn(e);}
   await window.gurokAuditLog('period',d.id,id,`Mali dönem ${yeniDurum==='kapali'?'kapatıldı':'açıldı'}: ${d.ad}`);
   hLD();
   renderDonemler();
