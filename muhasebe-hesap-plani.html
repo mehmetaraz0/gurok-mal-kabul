@@ -261,6 +261,9 @@ td:first-child{min-width:90px}
 
 <script>
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let hesaplar={};
 let tipFilter='';
 let grupFilter='';
@@ -669,21 +672,47 @@ const GUROK_OZEL=[
 ];
 
 // ============================================================
-// FIREBASE
+// SUPABASE
 // ============================================================
+function sbdenCamele(r){
+  // Supabase satırı (snake_case) -> uygulamanın kullandığı camelCase nesne
+  return{
+    kod:r.kod,ad:r.ad,tip:r.tip,anaGrup:r.ana_grup,yon:r.yon,
+    altSeviye:r.alt_seviye,ozellik:r.ozellik,doviz:r.doviz,durum:r.durum,
+    aciklama:r.aciklama,olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
+    guncellemeTarih:r.guncelleme_tarihi?new Date(r.guncelleme_tarihi).getTime():Date.now()
+  };
+}
+
 async function loadDB(){
   sLD();
   try{
-    const r=await fetch(FB+'/muhasebe/hesapPlani.json');
-    if(r.ok){const d=await r.json();if(d&&typeof d==='object')hesaplar=d;}
-  }catch(e){}
+    const r=await fetch(SB_URL+'/rest/v1/hesap_plani?select=*&order=kod',{headers:SB_HEADERS});
+    if(r.ok){
+      const rows=await r.json();
+      hesaplar={};
+      rows.forEach(row=>{hesaplar[row.kod.replace(/\./g,'_')]=sbdenCamele(row);});
+    }
+  }catch(e){console.warn(e);}
   hLD();
 }
 
 async function saveHesap(h){
-  const key=h.kod.replace(/\./g,'_');
-  try{await fetch(FB+'/muhasebe/hesapPlani/'+key+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}
-  catch(e){}
+  // Üst kodu da hesaplayıp Supabase'deki ust_kod sütununu güncel tutuyoruz (bilgi amaçlı;
+  // uygulamanın kendi ağaç mantığı hâlâ getUstKod() ile anlık hesaplanır, buna bağımlı değil)
+  const ustKod=getUstKod(h.kod);
+  const satir={
+    kod:h.kod,ust_kod:ustKod,ad:h.ad,tip:h.tip,ana_grup:h.anaGrup||null,
+    yon:h.yon||'Borç',alt_seviye:h.altSeviye||null,ozellik:h.ozellik||null,
+    doviz:h.doviz||'TRY',durum:h.durum||'aktif',aciklama:h.aciklama||null
+  };
+  try{
+    await fetch(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
+      method:'POST',
+      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify(satir)
+    });
+  }catch(e){console.warn(e);}
 }
 
 async function thpYukle(skipConfirm){
@@ -1014,7 +1043,7 @@ async function hesapSilModal(){
   if(!confirm(`"${kod}" silinsin mi?`))return;
   const key=kod.replace(/\./g,'_');
   sLD();delete hesaplar[key];
-  await fetch(FB+'/muhasebe/hesapPlani/'+key+'.json',{method:'DELETE'});
+  try{await fetch(SB_URL+'/rest/v1/hesap_plani?kod=eq.'+encodeURIComponent(kod),{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
   hLD();kModal('mHesap');seciliKod=null;renderTablo();toast('🗑️ Silindi');
 }
 
