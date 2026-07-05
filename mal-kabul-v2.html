@@ -185,17 +185,23 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="field" style="margin-top:8px">
       <label>LN Sipariş No (opsiyonel — seçersen kalemler otomatik gelir)</label>
-      <div style="position:relative">
-        <input type="text" id="f-siparis-inp" placeholder="C000... / R000..." autocomplete="off" oninput="filterSiparisDD(this.value)">
-        <div id="f-siparis-dd" class="udd"></div>
+      <div style="display:flex;gap:6px">
+        <div style="position:relative;flex:1">
+          <input type="text" id="f-siparis-inp" placeholder="C000... / R000..." autocomplete="off" oninput="filterSiparisDD(this.value)">
+          <div id="f-siparis-dd" class="udd"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openSiparisSecEkrani()">📋 Seç</button>
       </div>
       <input type="hidden" id="f-siparis-no">
     </div>
     <div class="field">
       <label>Tedarikçi *</label>
-      <div style="position:relative">
-        <input type="text" id="f-firma-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterFirmaDD(this.value)">
-        <div id="f-firma-dd" class="udd"></div>
+      <div style="display:flex;gap:6px">
+        <div style="position:relative;flex:1">
+          <input type="text" id="f-firma-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterFirmaDD(this.value)">
+          <div id="f-firma-dd" class="udd"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openFirmaSecEkrani()">📋 Seç</button>
       </div>
     </div>
     <div class="rfields">
@@ -228,6 +234,17 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="mbox">
     <div class="mtitle" id="mDetayTitle">Detay <button class="mclose" onclick="kModal('mDetay')">✕</button></div>
     <div id="mDetayIc"></div>
+  </div>
+</div>
+
+<!-- MODAL: Sipariş/Firma Seç (eski sistemdeki gibi tam liste, dokunarak seçim) -->
+<div class="mo" id="mSecEkrani">
+  <div class="mbox" style="max-height:85vh">
+    <div class="mtitle" id="mSecTitle">Seç <button class="mclose" onclick="kModal('mSecEkrani')">✕</button></div>
+    <div class="field" style="margin-bottom:10px">
+      <input type="text" id="sec-arama" placeholder="Ara..." oninput="secListesiFiltrele(this.value)">
+    </div>
+    <div id="sec-liste" style="max-height:60vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -446,6 +463,77 @@ document.addEventListener('pointerdown',e=>{
     if(!dd.contains(e.target))dd.style.display='none';
   });
 });
+
+// ============================================================
+// SEÇ EKRANI — eski sistemdeki gibi tam liste, yazmadan dokunarak seçim
+// ============================================================
+let secModu=null; // 'siparis' | 'firma'
+let secTumVeri=[];
+
+function openSiparisSecEkrani(){
+  secModu='siparis';
+  const otelId=document.getElementById('f-otel').value;
+  secTumVeri=Object.values(siparisler).filter(s=>s.otelId===otelId&&s.durum==='bekleyen').sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
+  document.getElementById('mSecTitle').innerHTML='📦 Açık Sipariş Seç <button class="mclose" onclick="kModal(\'mSecEkrani\')">✕</button>';
+  document.getElementById('sec-arama').value='';
+  document.getElementById('sec-arama').placeholder='Sipariş no veya firma ara...';
+  renderSecListesi(secTumVeri);
+  aModal('mSecEkrani');
+}
+
+function openFirmaSecEkrani(){
+  secModu='firma';
+  secTumVeri=[...cariler].sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+  document.getElementById('mSecTitle').innerHTML='🏢 Tedarikçi Seç <button class="mclose" onclick="kModal(\'mSecEkrani\')">✕</button>';
+  document.getElementById('sec-arama').value='';
+  document.getElementById('sec-arama').placeholder='Firma adı ara...';
+  renderSecListesi(secTumVeri);
+  aModal('mSecEkrani');
+}
+
+function secListesiFiltrele(val){
+  const v=val.toLowerCase();
+  if(!v){renderSecListesi(secTumVeri);return;}
+  if(secModu==='siparis'){
+    renderSecListesi(secTumVeri.filter(s=>s.siparisNo.toLowerCase().includes(v)||s.firma.toLowerCase().includes(v)));
+  }else{
+    renderSecListesi(secTumVeri.filter(c=>c.ad.toLowerCase().includes(v)));
+  }
+}
+
+function renderSecListesi(liste){
+  const c=document.getElementById('sec-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🔍</div><div class="et">Kayıt bulunamadı</div></div>';return;}
+  if(secModu==='siparis'){
+    c.innerHTML=liste.map(s=>`<div class="mk-kart bekleyen" onclick="siparisSecildi('${s.siparisNo}')">
+      <div style="display:flex;justify-content:space-between">
+        <div><div style="font-size:14px;font-weight:700">${s.siparisNo}</div><div style="font-size:12px;color:var(--gray-500)">${s.firma}</div></div>
+        <span class="chip chip-gray">${s.kalemler.length} kalem</span>
+      </div>
+    </div>`).join('');
+  }else{
+    c.innerHTML=liste.map(cr=>`<div class="mk-kart" onclick="firmaSecildi('${cr.id}','${cr.ad.replace(/'/g,"\\'")}')">
+      <div style="font-size:14px;font-weight:700">${cr.ad}</div>
+      ${cr.kod?`<div style="font-size:11px;color:var(--gray-500)">${cr.kod}</div>`:''}
+    </div>`).join('');
+  }
+}
+
+function siparisSecildi(siparisNo){
+  const s=siparisler[siparisNo];if(!s)return;
+  document.getElementById('f-siparis-inp').value=s.siparisNo;
+  document.getElementById('f-siparis-no').value=s.siparisNo;
+  document.getElementById('f-firma-inp').value=s.firma;
+  formKalemleri=s.kalemler.map(k=>({kod:k.kod,ad:k.ad,birim:k.birim,miktar:k.kalanMiktar||k.miktar,sktTarihi:'',uygunsuz:false}));
+  renderKalemler();
+  kModal('mSecEkrani');
+  toast('📦 Sipariş kalemleri forma aktarıldı');
+}
+function firmaSecildi(id,ad){
+  document.getElementById('f-firma-inp').value=ad;
+  document.getElementById('f-firma-inp').dataset.id=id;
+  kModal('mSecEkrani');
+}
 
 function yeniMkNoUret(){
   const yil=new Date().getFullYear();
