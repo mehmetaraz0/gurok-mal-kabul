@@ -158,11 +158,19 @@ function renderAdimlar(){
 }
 
 async function adimCalistir(id){
-  if(!SB_URL||!SB_KEY){alert('Önce Supabase bağlantı bilgilerini kaydet');return;}
+  // Her çalıştırmada güncel değerleri doğrudan ekrandan oku (hafızadaki eski değere güvenme)
+  SB_URL=document.getElementById('sb-url').value.trim().replace(/\/$/,'');
+  SB_KEY=document.getElementById('sb-key').value.trim();
+  if(!SB_URL||!SB_KEY){alert('Önce Supabase bağlantı bilgilerini gir (Project URL ve Service Role Key)');return;}
+  if(!SB_URL.startsWith('https://')||!SB_URL.includes('.supabase.co')){
+    alert('Project URL formatı hatalı görünüyor. Şöyle olmalı:\nhttps://xxxxx.supabase.co\n(sonunda / veya başka bir şey olmadan)');
+    return;
+  }
   const adim=ADIMLAR.find(a=>a.id===id);
   document.getElementById('durum-'+id).className='durum durum-calisiyor';
   document.getElementById('durum-'+id).textContent='⏳ Çalışıyor';
   logYaz(`\n=== ${adim.baslik} başladı ===`);
+  logYaz(`(Bağlantı: URL ${SB_URL.length} karakter, Key ${SB_KEY.length} karakter)`);
   try{
     await adim.fn();
     localStorage.setItem('durum_'+id,'tamam');
