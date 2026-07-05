@@ -246,20 +246,23 @@ async function migrateHesapPlani(){
 // 2) ÜRÜNLER (gurok_veritabani.js'ten yükle)
 // ============================================================
 async function urunVeritabaniniYukle(){
-  if(window.URUN_DB&&window.FIRMA_DB)return;
+  if(typeof URUN_DB!=='undefined'&&typeof FIRMA_DB!=='undefined')return;
   await new Promise((resolve,reject)=>{
     const s=document.createElement('script');
     s.src='gurok_veritabani.js';
-    s.onload=resolve;s.onerror=reject;
+    s.onload=resolve;
+    s.onerror=()=>reject(new Error('gurok_veritabani.js indirilemedi (404/ağ hatası) — dosya adı ve konumu doğru mu kontrol et'));
     document.head.appendChild(s);
   });
+  if(typeof URUN_DB==='undefined'||typeof FIRMA_DB==='undefined'){
+    throw new Error('gurok_veritabani.js yüklendi ama içinde URUN_DB/FIRMA_DB bulunamadı — dosya içeriği beklenenden farklı olabilir');
+  }
 }
 
 async function migrateUrunler(){
   await urunVeritabaniniYukle();
-  if(!window.URUN_DB){throw new Error('URUN_DB yüklenemedi — gurok_veritabani.js bu dosyayla aynı klasörde mi?');}
-  logYaz(`${window.URUN_DB.length} ürün bulundu`);
-  const satirlar=window.URUN_DB.map(u=>({
+  logYaz(`${URUN_DB.length} ürün bulundu`);
+  const satirlar=URUN_DB.map(u=>({
     kod:u.kod,ad:u.ad,birim:u.birim||'KG',grup:u.grup||null,
     sicaklik_kriteri:u.sicaklikKriter||null
   }));
@@ -275,10 +278,9 @@ async function migrateUrunler(){
 // ============================================================
 async function migrateTedarikciUrun(){
   await urunVeritabaniniYukle();
-  if(!window.FIRMA_DB){throw new Error('FIRMA_DB yüklenemedi');}
-  const urunKodlari=new Set(window.URUN_DB.map(u=>u.kod));
+  const urunKodlari=new Set(URUN_DB.map(u=>u.kod));
   const satirlar=[];
-  window.FIRMA_DB.forEach(f=>{
+  FIRMA_DB.forEach(f=>{
     (f.urunler||[]).forEach(urunKod=>{
       if(!urunKodlari.has(urunKod))return; // ürün kataloğunda yoksa atla
       satirlar.push({firma_ad:f.ad,firma_kod:f.kod||null,cari_id:null,urun_kodu:urunKod});
