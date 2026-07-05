@@ -117,17 +117,23 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:0,maximumFractionDigits:0});}
 (async function(){
   try{
-    const [cR,hR]=await Promise.all([fetch(FB+'/muhasebe/cariler.json'),fetch(FB+'/muhasebe/cariHareketler.json')]);
-    const cariler=cR.ok?(await cR.json()||{}):{};
-    const hareketler=hR.ok?(await hR.json()||{}):{};
-    const cariSayisi=Object.keys(cariler).length;
+    const [cR,hR]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/cariler?select=id',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cari_hareketler?select=cari_id,tip,tutar',{headers:SB_HEADERS}),
+    ]);
+    const cariler=cR.ok?(await cR.json()):[];
+    const hareketler=hR.ok?(await hR.json()):[];
+    const cariSayisi=cariler.length;
     let topBorc=0,topAlacak=0;
-    Object.values(cariler).filter(Boolean).forEach(c=>{
+    cariler.forEach(c=>{
       let b=0,a=0;
-      Object.values(hareketler).filter(h=>h?.cariId===c.id).forEach(h=>{
+      hareketler.filter(h=>h?.cari_id===c.id).forEach(h=>{
         if(h.tip==='borc')b+=parseFloat(h.tutar)||0;
         else a+=parseFloat(h.tutar)||0;
       });
