@@ -194,10 +194,24 @@ async function migrateHesapPlani(){
   const hesaplar=Object.values(data).filter(Boolean);
   logYaz(`${hesaplar.length} hesap bulundu`);
 
+  const GECERLI_TIPLER=['Bilanço','Gelir Tablosu','Maliyet','Nazım'];
+  const GECERLI_YONLER=['Borç','Alacak','İkisi de'];
+  let duzeltilen=0;
+  hesaplar.forEach(h=>{
+    if(!GECERLI_TIPLER.includes(h.tip)){
+      logYaz(`  ⚠️ ${h.kod} (${h.ad}) — geçersiz tip: "${h.tip}" → "Bilanço" olarak düzeltildi`);
+      h.tip='Bilanço';duzeltilen++;
+    }
+    if(!GECERLI_YONLER.includes(h.yon)){
+      h.yon='Borç';
+    }
+  });
+  if(duzeltilen>0)logYaz(`⚠️ ${duzeltilen} hesabın tip alanı düzeltildi — migration bitince bunları Hesap Planı ekranından elle kontrol et`);
+
   // Önce üst_kod olmadan ekle (kendine referans zincirini kırmamak için 2 aşamalı)
   const satirlar=hesaplar.map(h=>({
     kod:h.kod,ust_kod:null,ad:h.ad,tip:h.tip,ana_grup:h.anaGrup||null,
-    yon:h.yon||'Borç',alt_seviye:h.altSeviye||null,ozellik:h.ozellik||null,
+    yon:h.yon,alt_seviye:h.altSeviye||null,ozellik:h.ozellik||null,
     doviz:h.doviz||'TRY',durum:h.durum||'aktif',aciklama:h.aciklama||null
   }));
   await sbInsert('hesap_plani',satirlar,false);
