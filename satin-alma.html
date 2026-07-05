@@ -460,6 +460,28 @@ const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
 const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 
+// kullanicilar.rol zaten basit enum (yonetici/depo/satinalma/kalite/muhasebe_muduru/muhasebe_calisani/
+// cost_control/mutfak/bar) — bu dosya 6 değer anlıyor, geri kalanları en yakınına indirger.
+const ROL_INDIRGEME={
+  yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalite:'kalite',mutfak:'mutfak',bar:'bar',
+  muhasebe_muduru:'yonetici',muhasebe_calisani:'yonetici',cost_control:'yonetici'
+};
+
+async function loadKullanicilarFromSupabase(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS});
+    if(!r.ok)return null;
+    const rows=await r.json();
+    if(!rows||!rows.length)return null;
+    return rows.map(u=>({
+      id:u.id,ad:u.ad,pin:u.pin||'',
+      rol:ROL_INDIRGEME[u.rol]||'depo',
+      departman:u.departman||'',
+      otelId:u.otel_id||''
+    }));
+  }catch(e){console.warn('Supabase kullanıcı listesi çekilemedi:',e);return null;}
+}
+
 // ====== FIREBASE ======
 async function loadDB(){
   sLD();
@@ -467,7 +489,7 @@ async function loadDB(){
     const [tR,lnR,kulR,sipR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/satin_alma_talepleri?select=*,satin_alma_talep_kalemleri(*)',{headers:SB_HEADERS}),
       fetch(FB+'/siparisler.json'), // "LN Siparişleri" — eski ERP'den içe aktarılan referans veri, henüz Supabase'e taşınmadı
-      fetch(FB+'/kullanicilar.json'), // ⚠️ BİLEREK Firebase'de bırakıldı — Supabase kullanicilar tablosu henüz veri içermiyor
+      loadKullanicilarFromSupabase(),
       fetch(FB+'/satinAlmaSiparisler.json'), // legacy/geriye-dönük-uyumluluk koleksiyonu, gerçek akış siparisHavuzu (artık Supabase siparisler tablosu)
     ]);
     DB.talepler={};
@@ -483,7 +505,7 @@ async function loadDB(){
       });
     }
     if(lnR.ok){const d=await lnR.json();if(d&&typeof d==='object')DB.lnSiparisler=Array.isArray(d)?Object.fromEntries(d.filter(Boolean).map(s=>[s.siparisNo||s.id,s])):d;}
-    if(kulR.ok){const d=await kulR.json();if(Array.isArray(d)&&d.length)DB.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol}));}
+    if(kulR&&kulR.length)DB.kullanicilar=kulR;
     if(sipR.ok){const d=await sipR.json();if(d&&typeof d==='object')DB.siparisler=d;}
   }catch(e){console.warn(e);}
   hLD();
