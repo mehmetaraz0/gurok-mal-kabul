@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — Supabase Migration</title>
+<style>
+:root{--primary:#1a2744;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-500:#adb5bd;--gray-600:#6c757d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);font-size:13px}
+.header{background:var(--primary);color:white;padding:14px 20px}
+.header h1{font-size:16px}
+.header p{font-size:12px;opacity:.8;margin-top:2px}
+.content{padding:16px;max-width:800px;margin:0 auto}
+.uyari{background:#fff3cd;color:#856404;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.5;border:1.5px solid #fcd34d}
+.card{background:white;border-radius:10px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px;text-transform:uppercase}
+.field input{width:100%;padding:9px 11px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none}
+.btn{padding:9px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-primary{background:var(--primary);color:white}
+.btn-primary:disabled{background:var(--gray-300);cursor:not-allowed}
+.adim{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-100)}
+.adim:last-child{border-bottom:none}
+.adim-bilgi{flex:1}
+.adim-baslik{font-size:13px;font-weight:600}
+.adim-aciklama{font-size:11px;color:var(--gray-500);margin-top:2px}
+.durum{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;margin-right:8px}
+.durum-bekliyor{background:var(--gray-200);color:var(--gray-600)}
+.durum-calisiyor{background:#fff3cd;color:#856404}
+.durum-tamam{background:#d4edda;color:#155724}
+.durum-hata{background:#fde8e8;color:#9b1c1c}
+#log{background:#0d1117;color:#7ee787;font-family:monospace;font-size:11px;padding:12px;border-radius:8px;margin-top:12px;max-height:350px;overflow-y:auto;white-space:pre-wrap;display:none}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🔄 Gürok ERP — Firebase → Supabase Migration</h1>
+  <p>Tek seferlik veri aktarım aracı. Her adımı sırayla, yukarıdan aşağıya çalıştır.</p>
+</div>
+<div class="content">
+  <div class="uyari">
+    ⚠️ Bu araç Firebase'deki verini okuyup Supabase'e yazar. <b>Önce 01_schema.sql dosyasını Supabase SQL Editor'de çalıştırmış olman gerekir.</b> Adımlar birbirine bağımlıdır (örn. Cariler önce gitmeli ki Faturalar onlara bağlanabilsin) — sırayı bozma. Bir adım hata verirse, düzeltip sadece o adımı tekrar çalıştırabilirsin.
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔑 Supabase Bağlantı Bilgileri</div>
+    <div class="field"><label>Supabase Project URL</label><input type="text" id="sb-url" placeholder="https://xxxxx.supabase.co"></div>
+    <div class="field"><label>Service Role Key (Settings → API'den al — anon key DEĞİL)</label><input type="password" id="sb-key" placeholder="eyJhbG..."></div>
+    <button class="btn btn-primary" onclick="baglantiKaydet()">💾 Kaydet (bu tarayıcıda saklanır)</button>
+    <span id="baglanti-durum" style="margin-left:10px;font-size:12px"></span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Migration Adımları</div>
+    <div id="adimlar"></div>
+  </div>
+
+  <div id="log"></div>
+</div>
+
+<script>
+const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+let SB_URL='',SB_KEY='';
+
+// ID eşleştirme haritaları (Firebase id -> Supabase UUID) — localStorage'da kalıcı
+function haritaGetir(ad){try{return JSON.parse(localStorage.getItem('map_'+ad)||'{}');}catch(e){return{};}}
+function haritaKaydet(ad,harita){localStorage.setItem('map_'+ad,JSON.stringify(harita));}
+
+function baglantiKaydet(){
+  SB_URL=document.getElementById('sb-url').value.trim().replace(/\/$/,'');
+  SB_KEY=document.getElementById('sb-key').value.trim();
+  if(!SB_URL||!SB_KEY){document.getElementById('baglanti-durum').textContent='⚠️ İkisini de gir';return;}
+  localStorage.setItem('sb_url',SB_URL);
+  localStorage.setItem('sb_key',SB_KEY);
+  document.getElementById('baglanti-durum').textContent='✅ Kaydedildi';
+}
+
+function logYaz(msg){
+  const el=document.getElementById('log');
+  el.style.display='block';
+  el.textContent+=msg+'\n';
+  el.scrollTop=el.scrollHeight;
+}
+
+// ============================================================
+// SUPABASE REST YARDIMCILARI
+// ============================================================
+async function sbInsert(tablo,satirlar,tekTekMi){
+  if(!Array.isArray(satirlar))satirlar=[satirlar];
+  if(!satirlar.length)return[];
+  if(!tekTekMi){
+    const r=await fetch(`${SB_URL}/rest/v1/${tablo}`,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+      body:JSON.stringify(satirlar)
+    });
+    if(!r.ok){const t=await r.text();throw new Error(`${tablo} toplu ekleme hatası: ${r.status} ${t.slice(0,300)}`);}
+    return await r.json();
+  }
+  // Tek tek (ID eşleştirmesi gereken tablolar için — sıra garantili)
+  const sonuclar=[];
+  for(const satir of satirlar){
+    const r=await fetch(`${SB_URL}/rest/v1/${tablo}`,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
+      body:JSON.stringify(satir)
+    });
+    if(!r.ok){const t=await r.text();throw new Error(`${tablo} ekleme hatası: ${r.status} ${t.slice(0,300)}`);}
+    const d=await r.json();
+    sonuclar.push(d[0]);
+  }
+  return sonuclar;
+}
+
+async function fbOku(yol){
+  const r=await fetch(FB+'/'+yol+'.json');
+  if(!r.ok)return null;
+  return await r.json();
+}
+
+function otelKontrol(v){return(v==='810'||v==='811')?v:'810';}
+function tarihISO(ms){return ms?new Date(ms).toISOString().split('T')[0]:null;}
+
+// ============================================================
+// ADIM TANIMLARI
+// ============================================================
+const ADIMLAR=[
+  {id:'hesap_plani',baslik:'1. Hesap Planı',aciklama:'389 hesap — bağımlılık yok',fn:migrateHesapPlani},
+  {id:'urunler',baslik:'2. Ürün Kataloğu',aciklama:'gurok_veritabani.js → URUN_DB',fn:migrateUrunler},
+  {id:'tedarikci_urun',baslik:'3. Tedarikçi-Ürün Eşleşmesi',aciklama:'FIRMA_DB (212 firma → ürün listeleri)',fn:migrateTedarikciUrun},
+  {id:'cariler',baslik:'4. Cariler',aciklama:'Tedarikçi/Müşteri kayıtları — ID eşleştirmesi kritik',fn:migrateCariler},
+  {id:'faturalar',baslik:'5. Faturalar + Kalemler',aciklama:'Cariler tablosuna bağımlı',fn:migrateFaturalar},
+  {id:'cari_hareketler',baslik:'6. Cari Hareketleri',aciklama:'Cariler ve Faturalar tablosuna bağımlı',fn:migrateCariHareketler},
+  {id:'yevmiye',baslik:'7. Yevmiye Fişleri + Kalemler',aciklama:'Hesap Planı\'na bağımlı',fn:migrateYevmiye},
+  {id:'cek_senet',baslik:'8. Çek / Senet',aciklama:'Cariler tablosuna bağımlı',fn:migrateCekSenet},
+  {id:'demirbas',baslik:'9. Demirbaşlar',aciklama:'Hesap Planı\'na bağımlı',fn:migrateDemirbas},
+  {id:'butce',baslik:'10. Bütçe Kayıtları',aciklama:'Hesap Planı\'na bağımlı',fn:migrateButce},
+  {id:'doviz',baslik:'11. Döviz Kurları',aciklama:'Bağımlılık yok',fn:migrateDoviz},
+  {id:'audit',baslik:'12. Denetim İzi (Audit Log)',aciklama:'Bağımlılık yok',fn:migrateAudit},
+  {id:'banka',baslik:'13. Banka / Kasa',aciklama:'Hesaplar + hareketler',fn:migrateBanka},
+];
+
+function renderAdimlar(){
+  const c=document.getElementById('adimlar');
+  c.innerHTML=ADIMLAR.map(a=>{
+    const durum=localStorage.getItem('durum_'+a.id)||'bekliyor';
+    return`<div class="adim" id="adim-${a.id}">
+      <div class="adim-bilgi">
+        <div class="adim-baslik">${a.baslik}</div>
+        <div class="adim-aciklama">${a.aciklama}</div>
+      </div>
+      <span class="durum durum-${durum}" id="durum-${a.id}">${durum==='tamam'?'✅ Tamam':durum==='hata'?'❌ Hata':durum==='calisiyor'?'⏳ Çalışıyor':'Bekliyor'}</span>
+      <button class="btn btn-primary" onclick="adimCalistir('${a.id}')">▶ Çalıştır</button>
+    </div>`;
+  }).join('');
+}
+
+async function adimCalistir(id){
+  if(!SB_URL||!SB_KEY){alert('Önce Supabase bağlantı bilgilerini kaydet');return;}
+  const adim=ADIMLAR.find(a=>a.id===id);
+  document.getElementById('durum-'+id).className='durum durum-calisiyor';
+  document.getElementById('durum-'+id).textContent='⏳ Çalışıyor';
+  logYaz(`\n=== ${adim.baslik} başladı ===`);
+  try{
+    await adim.fn();
+    localStorage.setItem('durum_'+id,'tamam');
+    document.getElementById('durum-'+id).className='durum durum-tamam';
+    document.getElementById('durum-'+id).textContent='✅ Tamam';
+    logYaz(`✅ ${adim.baslik} tamamlandı`);
+  }catch(e){
+    localStorage.setItem('durum_'+id,'hata');
+    document.getElementById('durum-'+id).className='durum durum-hata';
+    document.getElementById('durum-'+id).textContent='❌ Hata';
+    logYaz(`❌ HATA: ${e.message}`);
+  }
+}
+
+// ============================================================
+// 1) HESAP PLANI
+// ============================================================
+async function migrateHesapPlani(){
+  const data=await fbOku('muhasebe/hesapPlani');
+  if(!data){logYaz('⚠️ Hesap planı verisi bulunamadı, atlanıyor');return;}
+  const hesaplar=Object.values(data).filter(Boolean);
+  logYaz(`${hesaplar.length} hesap bulundu`);
+
+  // Önce üst_kod olmadan ekle (kendine referans zincirini kırmamak için 2 aşamalı)
+  const satirlar=hesaplar.map(h=>({
+    kod:h.kod,ust_kod:null,ad:h.ad,tip:h.tip,ana_grup:h.anaGrup||null,
+    yon:h.yon||'Borç',alt_seviye:h.altSeviye||null,ozellik:h.ozellik||null,
+    doviz:h.doviz||'TRY',durum:h.durum||'aktif',aciklama:h.aciklama||null
+  }));
+  await sbInsert('hesap_plani',satirlar,false);
+  logYaz(`${satirlar.length} hesap eklendi (üst_kod olmadan)`);
+
+  // Şimdi üst_kod'ları güncelle (en yakın var olan ata mantığıyla — hesap-plani.html'deki ile aynı)
+  const kodSet=new Set(hesaplar.map(h=>h.kod));
+  function ustKodBul(kod){
+    const parcalar=kod.split('.');
+    if(parcalar.length>1)return parcalar.slice(0,-1).join('.');
+    for(let i=kod.length-1;i>=1;i--){
+      const aday=kod.slice(0,i);
+      if(kodSet.has(aday))return aday;
+    }
+    return null;
+  }
+  let guncellenen=0;
+  for(const h of hesaplar){
+    const ust=ustKodBul(h.kod);
+    if(!ust)continue;
+    const r=await fetch(`${SB_URL}/rest/v1/hesap_plani?kod=eq.${encodeURIComponent(h.kod)}`,{
+      method:'PATCH',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({ust_kod:ust})
+    });
+    if(r.ok)guncellenen++;
+  }
+  logYaz(`${guncellenen} hesabın üst_kod bağlantısı kuruldu`);
+}
+
+// ============================================================
+// 2) ÜRÜNLER (gurok_veritabani.js'ten yükle)
+// ============================================================
+async function urunVeritabaniniYukle(){
+  if(window.URUN_DB&&window.FIRMA_DB)return;
+  await new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='gurok_veritabani.js';
+    s.onload=resolve;s.onerror=reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function migrateUrunler(){
+  await urunVeritabaniniYukle();
+  if(!window.URUN_DB){throw new Error('URUN_DB yüklenemedi — gurok_veritabani.js bu dosyayla aynı klasörde mi?');}
+  logYaz(`${window.URUN_DB.length} ürün bulundu`);
+  const satirlar=window.URUN_DB.map(u=>({
+    kod:u.kod,ad:u.ad,birim:u.birim||'KG',grup:u.grup||null,
+    sicaklik_kriteri:u.sicaklikKriter||null
+  }));
+  // 500'lük gruplar halinde toplu ekle (tek seferde çok büyük payload olmasın)
+  for(let i=0;i<satirlar.length;i+=500){
+    await sbInsert('urunler',satirlar.slice(i,i+500),false);
+    logYaz(`  ${Math.min(i+500,satirlar.length)}/${satirlar.length} ürün eklendi`);
+  }
+}
+
+// ============================================================
+// 3) TEDARİKÇİ-ÜRÜN EŞLEŞMESİ
+// ============================================================
+async function migrateTedarikciUrun(){
+  await urunVeritabaniniYukle();
+  if(!window.FIRMA_DB){throw new Error('FIRMA_DB yüklenemedi');}
+  const urunKodlari=new Set(window.URUN_DB.map(u=>u.kod));
+  const satirlar=[];
+  window.FIRMA_DB.forEach(f=>{
+    (f.urunler||[]).forEach(urunKod=>{
+      if(!urunKodlari.has(urunKod))return; // ürün kataloğunda yoksa atla
+      satirlar.push({firma_ad:f.ad,firma_kod:f.kod||null,cari_id:null,urun_kodu:urunKod});
+    });
+  });
+  logYaz(`${satirlar.length} eşleştirme kaydı hazırlandı`);
+  for(let i=0;i<satirlar.length;i+=500){
+    await sbInsert('tedarikci_urun_eslesme',satirlar.slice(i,i+500),false);
+    logYaz(`  ${Math.min(i+500,satirlar.length)}/${satirlar.length} eşleştirme eklendi`);
+  }
+}
+
+// ============================================================
+// 4) CARİLER (ID eşleştirmesi kritik — sonraki adımlar buna bağlı)
+// ============================================================
+async function migrateCariler(){
+  const data=await fbOku('muhasebe/cariler');
+  if(!data){logYaz('⚠️ Cari verisi bulunamadı, atlanıyor');return;}
+  const cariler=Object.entries(data).filter(([,c])=>c);
+  logYaz(`${cariler.length} cari bulundu`);
+  const harita=haritaGetir('cariler');
+  let sayac=0;
+  for(const [fbId,c] of cariler){
+    const satir={
+      kod:c.kod||fbId,ad:c.ad,tip:c.tip||'tedarikci',
+      vkn:c.vkn||null,vergi_dairesi:c.vd||null,telefon:c.tel||null,eposta:c.mail||null,
+      adres:c.adres||null,hesap_kodu:c.hesap||null,vade_gun:c.vade||30,
+      risk_limiti:c.limit||0,efatura_mukellefi:c.efatura==='evet',efatura_alias:c.alias||null,
+      acente:!!c.acente,komisyon_orani:c.komisyonOrani||0,not_alani:c.not||null
+    };
+    const sonuc=await sbInsert('cariler',satir,true);
+    harita[fbId]=sonuc[0].id;
+    sayac++;
+    if(sayac%20===0)logYaz(`  ${sayac}/${cariler.length} cari eklendi`);
+  }
+  haritaKaydet('cariler',harita);
+  logYaz(`${sayac} cari eklendi, ID haritası kaydedildi`);
+}
+
+// ============================================================
+// 5) FATURALAR + KALEMLER
+// ============================================================
+async function migrateFaturalar(){
+  const data=await fbOku('muhasebe/faturalar');
+  if(!data){logYaz('⚠️ Fatura verisi bulunamadı, atlanıyor');return;}
+  const cariHarita=haritaGetir('cariler');
+  const faturalar=Object.entries(data).filter(([,f])=>f);
+  logYaz(`${faturalar.length} fatura bulundu`);
+  const faturaHarita=haritaGetir('faturalar');
+  let sayac=0,atlanan=0;
+  for(const [fbId,f] of faturalar){
+    const cariUuid=f.cariId?cariHarita[f.cariId]:null;
+    const satir={
+      no:f.no||null,tur:f.tur,tarih:tarihISO(new Date(f.tarih).getTime())||f.tarih,
+      vade_tarihi:f.vade||null,cari_id:cariUuid,cari_ad:f.cariAd||'Bilinmeyen',
+      siparis_no:f.siparisNo||null,ara_toplam:f.araToplam||0,kdv_toplam:f.kdvToplam||0,
+      genel_toplam:f.genelToplam||0,komisyon_orani:f.komisyonOrani||0,komisyon_tutari:f.komisyonTutari||0,
+      iade:!!f.iade,otel_id:otelKontrol(f.otelId),not_alani:f.not||null,durum:f.durum||'taslak',
+      odeme_tarihi:f.odemeTarih?new Date(f.odemeTarih).toISOString():null,
+      odeme_tutari:f.odemeTutar||null,odeme_yontemi:f.odemeYontem||null
+    };
+    try{
+      const sonuc=await sbInsert('faturalar',satir,true);
+      faturaHarita[fbId]=sonuc[0].id;
+      // Kalemler
+      if(f.kalemler&&f.kalemler.length){
+        const kalemSatirlar=f.kalemler.map(k=>({
+          fatura_id:sonuc[0].id,urun_kodu:k.kod||null,urun_adi:k.ad,
+          miktar:k.miktar||0,birim:k.birim||'KG',birim_fiyat:k.birimFiyat||0,
+          iskonto_yuzde:k.iskonto||0,kdv_orani:k.kdvOran||20,toplam:k.toplam||0
+        }));
+        await sbInsert('fatura_kalemleri',kalemSatirlar,false);
+      }
+      sayac++;
+    }catch(e){
+      atlanan++;
+      logYaz(`  ⚠️ Fatura atlandı (${f.no||fbId}): ${e.message.slice(0,150)}`);
+    }
+    if((sayac+atlanan)%20===0)logYaz(`  ${sayac+atlanan}/${faturalar.length} işlendi`);
+  }
+  haritaKaydet('faturalar',faturaHarita);
+  logYaz(`${sayac} fatura eklendi, ${atlanan} atlandı`);
+}
+
+// ============================================================
+// 6) CARİ HAREKETLERİ
+// ============================================================
+async function migrateCariHareketler(){
+  const data=await fbOku('muhasebe/cariHareketler');
+  if(!data){logYaz('⚠️ Cari hareket verisi bulunamadı, atlanıyor');return;}
+  const cariHarita=haritaGetir('cariler');
+  const faturaHarita=haritaGetir('faturalar');
+  const hareketler=Object.values(data).filter(Boolean);
+  logYaz(`${hareketler.length} hareket bulundu`);
+
+  // fatura_id'yi belge no üzerinden bulmak için ters harita gerekiyor: fatura no -> fatura uuid
+  const faturaData=await fbOku('muhasebe/faturalar')||{};
+  const noToUuid={};
+  Object.entries(faturaData).forEach(([fbId,f])=>{
+    if(f&&f.no&&faturaHarita[fbId])noToUuid[f.no]=faturaHarita[fbId];
+  });
+
+  const satirlar=[];
+  let atlanan=0;
+  hareketler.forEach(h=>{
+    const cariUuid=cariHarita[h.cariId];
+    if(!cariUuid){atlanan++;return;} // eşleşmeyen cari varsa (nadir) atla
+    let faturaUuid=null;
+    if(h.belge){
+      faturaUuid=noToUuid[h.belge]||noToUuid[h.belge.replace('ÖD-','')]||null;
+    }
+    satirlar.push({
+      cari_id:cariUuid,tip:h.tip,tarih:tarihISO(h.tarih),belge_no:h.belge||null,
+      vade_tarihi:h.vade||null,tutar:h.tutar||0,kdv:h.kdv||0,otel_id:h.otelId?otelKontrol(h.otelId):null,
+      aciklama:h.aciklama||null,fatura_id:faturaUuid
+    });
+  });
+  logYaz(`${satirlar.length} hareket hazırlandı (${atlanan} eşleşmeyen cari nedeniyle atlandı)`);
+  for(let i=0;i<satirlar.length;i+=300){
+    await sbInsert('cari_hareketler',satirlar.slice(i,i+300),false);
+    logYaz(`  ${Math.min(i+300,satirlar.length)}/${satirlar.length} eklendi`);
+  }
+}
+
+// ============================================================
+// 7) YEVMİYE FİŞLERİ + KALEMLER
+// ============================================================
+async function migrateYevmiye(){
+  const data=await fbOku('muhasebe/yevmiye');
+  if(!data){logYaz('⚠️ Yevmiye verisi bulunamadı, atlanıyor');return;}
+  const fisler=Object.values(data).filter(Boolean);
+  logYaz(`${fisler.length} fiş bulundu`);
+  let sayac=0,atlanan=0;
+  for(const y of fisler){
+    if(!y.kalemler||!y.kalemler.length){atlanan++;continue;}
+    const toplamBorc=y.kalemler.reduce((t,k)=>t+(parseFloat(k.borc)||0),0);
+    const toplamAlacak=y.kalemler.reduce((t,k)=>t+(parseFloat(k.alacak)||0),0);
+    if(Math.abs(toplamBorc-toplamAlacak)>0.02){
+      logYaz(`  ⚠️ Dengesiz fiş atlandı: ${y.no} (Borç ${toplamBorc} ≠ Alacak ${toplamAlacak})`);
+      atlanan++;continue;
+    }
+    try{
+      const satir={
+        no:y.no,tarih:tarihISO(y.tarih),tip:y.tip||'manuel',belge_no:y.belge||null,
+        aciklama:y.aciklama||null,otel_id:otelKontrol(y.otelId),
+        toplam_borc:toplamBorc.toFixed(2),toplam_alacak:toplamAlacak.toFixed(2),
+        onaylandi:y.onaylandi!==false,otomatik:!!y.otomatik
+      };
+      const sonuc=await sbInsert('yevmiye_fisler',satir,true);
+      const kalemSatirlar=y.kalemler.map(k=>({
+        fis_id:sonuc[0].id,hesap_kodu:k.hesapKod,masraf_merkezi:k.masrafMerkezi||null,
+        aciklama:k.aciklama||null,borc:parseFloat(k.borc)||0,alacak:parseFloat(k.alacak)||0
+      }));
+      await sbInsert('yevmiye_kalemleri',kalemSatirlar,false);
+      sayac++;
+    }catch(e){
+      atlanan++;
+      logYaz(`  ⚠️ Fiş atlandı (${y.no}): ${e.message.slice(0,150)}`);
+    }
+    if((sayac+atlanan)%20===0)logYaz(`  ${sayac+atlanan}/${fisler.length} işlendi`);
+  }
+  logYaz(`${sayac} fiş eklendi, ${atlanan} atlandı`);
+}
+
+// ============================================================
+// 8) ÇEK / SENET
+// ============================================================
+async function migrateCekSenet(){
+  const data=await fbOku('muhasebe/cekSenet');
+  if(!data){logYaz('⚠️ Çek/Senet verisi bulunamadı, atlanıyor');return;}
+  const cariHarita=haritaGetir('cariler');
+  const kayitlar=Object.values(data).filter(Boolean);
+  const satirlar=kayitlar.map(k=>({
+    tur:k.tur,yon:k.yon,cari_id:cariHarita[k.cariId]||null,cari_ad:k.cariAd,
+    no:k.no||null,banka:k.banka||null,duzenleme_tarihi:k.duzenleme||null,
+    vade_tarihi:k.vade,tutar:k.tutar,otel_id:otelKontrol(k.otelId),
+    durum:k.durum||'portfoyde',not_alani:k.not||null
+  }));
+  logYaz(`${satirlar.length} çek/senet kaydı hazırlandı`);
+  await sbInsert('cek_senetler',satirlar,false);
+  logYaz(`${satirlar.length} kayıt eklendi`);
+}
+
+// ============================================================
+// 9) DEMİRBAŞLAR
+// ============================================================
+async function migrateDemirbas(){
+  const data=await fbOku('muhasebe/demirbaslar');
+  if(!data){logYaz('⚠️ Demirbaş verisi bulunamadı, atlanıyor');return;}
+  const demirbaslar=Object.values(data).filter(Boolean);
+  const satirlar=demirbaslar.map(d=>({
+    kod:d.kod,ad:d.ad,kategori:d.kategori,hesap_kodu:d.hesapKodu,
+    amortisman_hesap_kodu:d.amortismanHesapKodu,seri_no:d.seriNo||null,
+    alim_tarihi:d.alimTarihi,alim_tutari:d.alimTutari,oran_yillik:d.oran,
+    birikmis_amortisman:d.birikmisAmortisman||0,otel_id:otelKontrol(d.otelId),
+    zimmet:d.zimmet||null,durum:d.durum||'aktif',
+    elden_cikarma_tarihi:d.eldenCikarmaTarihi?new Date(d.eldenCikarmaTarihi).toISOString():null,
+    satis_bedeli:d.satisBedeli||null,not_alani:d.not||null
+  }));
+  logYaz(`${satirlar.length} demirbaş hazırlandı`);
+  await sbInsert('demirbaslar',satirlar,false);
+  logYaz(`${satirlar.length} demirbaş eklendi`);
+
+  const amortKosustu=await fbOku('muhasebe/amortismanKosustu');
+  if(amortKosustu){
+    const aSatirlar=Object.values(amortKosustu).filter(Boolean).map(a=>({
+      donem:a.donem,calistirma_tarihi:new Date(a.calistirmaTarihi).toISOString(),
+      demirbas_sayisi:a.demirbasSayisi,toplam_tutar:a.toplamTutar,kullanan:a.kullanan||null
+    }));
+    if(aSatirlar.length){await sbInsert('amortisman_kosustu',aSatirlar,false);logYaz(`${aSatirlar.length} amortisman dönemi eklendi`);}
+  }
+}
+
+// ============================================================
+// 10) BÜTÇE
+// ============================================================
+async function migrateButce(){
+  const data=await fbOku('muhasebe/butce');
+  if(!data){logYaz('⚠️ Bütçe verisi bulunamadı, atlanıyor');return;}
+  const kayitlar=Object.values(data).filter(Boolean);
+  const aylar=['ocak','subat','mart','nisan','mayis','haziran','temmuz','agustos','eylul','ekim','kasim','aralik'];
+  const satirlar=kayitlar.map(b=>{
+    const satir={yil:b.yil,otel_id:otelKontrol(b.otelId),hesap_kodu:b.hesapKodu};
+    aylar.forEach((ay,i)=>{satir[ay]=(b.aylar&&b.aylar[i])||0;});
+    return satir;
+  });
+  logYaz(`${satirlar.length} bütçe kaydı hazırlandı`);
+  await sbInsert('butce_kayitlari',satirlar,false);
+  logYaz(`${satirlar.length} bütçe kaydı eklendi`);
+}
+
+// ============================================================
+// 11) DÖVİZ KURLARI
+// ============================================================
+async function migrateDoviz(){
+  const data=await fbOku('muhasebe/kurlar/gunluk');
+  if(!data){logYaz('⚠️ Kur verisi bulunamadı, atlanıyor');return;}
+  const gunler=Object.values(data).filter(Boolean);
+  const satirlar=[];
+  gunler.forEach(g=>{
+    Object.entries(g.kurlar||{}).forEach(([paraBirimi,k])=>{
+      satirlar.push({
+        tarih:g.tarih,para_birimi:paraBirimi,doviz_alis:k.dovizAlis,doviz_satis:k.dovizSatis,
+        efektif_alis:k.efektifAlis||null,efektif_satis:k.efektifSatis||null,kaynak:g.kaynak||'TCMB'
+      });
+    });
+  });
+  logYaz(`${satirlar.length} kur kaydı hazırlandı`);
+  await sbInsert('doviz_kurlari',satirlar,false);
+  logYaz(`${satirlar.length} kur kaydı eklendi`);
+}
+
+// ============================================================
+// 12) AUDIT LOG
+// ============================================================
+async function migrateAudit(){
+  const data=await fbOku('muhasebe/auditLog');
+  if(!data){logYaz('⚠️ Audit log verisi bulunamadı, atlanıyor');return;}
+  const kayitlar=Object.values(data).filter(Boolean);
+  const satirlar=kayitlar.map(a=>({
+    action:a.action,entity_type:a.entityType,entity_id:String(a.entityId||''),
+    detail:a.detail||null,kullanici_ad:a.userName||null,zaman:new Date(a.timestamp).toISOString()
+  }));
+  logYaz(`${satirlar.length} audit log kaydı hazırlandı`);
+  for(let i=0;i<satirlar.length;i+=500){
+    await sbInsert('audit_log',satirlar.slice(i,i+500),false);
+    logYaz(`  ${Math.min(i+500,satirlar.length)}/${satirlar.length} eklendi`);
+  }
+}
+
+// ============================================================
+// 13) BANKA / KASA
+// ============================================================
+async function migrateBanka(){
+  const hesaplar=await fbOku('muhasebe/bankaKasaHesaplari');
+  if(!hesaplar){logYaz('⚠️ Banka/Kasa verisi bulunamadı, atlanıyor');return;}
+  const hesapHarita=haritaGetir('bankaKasaHesaplari');
+  const hesapListe=Object.entries(hesaplar).filter(([,h])=>h);
+  for(const [fbId,h] of hesapListe){
+    const satir={
+      ad:h.ad,tip:h.tip||'banka',iban:h.iban||null,otel_id:otelKontrol(h.otelId),
+      acilis_bakiye:h.acilisBakiye||0,durum:h.durum||'aktif'
+    };
+    const sonuc=await sbInsert('banka_kasa_hesaplari',satir,true);
+    hesapHarita[fbId]=sonuc[0].id;
+  }
+  haritaKaydet('bankaKasaHesaplari',hesapHarita);
+  logYaz(`${hesapListe.length} banka/kasa hesabı eklendi`);
+
+  const hareketler=await fbOku('muhasebe/bankaKasaHareketleri');
+  if(hareketler){
+    const satirlar=Object.values(hareketler).filter(Boolean)
+      .filter(h=>hesapHarita[h.hesapId])
+      .map(h=>({
+        hesap_id:hesapHarita[h.hesapId],tarih:tarihISO(h.tarih),tip:h.tip,tutar:h.tutar,
+        belge_no:h.belge||null,otel_id:h.otelId?otelKontrol(h.otelId):null,aciklama:h.aciklama||null
+      }));
+    for(let i=0;i<satirlar.length;i+=300){
+      await sbInsert('banka_kasa_hareketleri',satirlar.slice(i,i+300),false);
+    }
+    logYaz(`${satirlar.length} banka/kasa hareketi eklendi`);
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+(function(){
+  SB_URL=localStorage.getItem('sb_url')||'';
+  SB_KEY=localStorage.getItem('sb_key')||'';
+  if(SB_URL)document.getElementById('sb-url').value=SB_URL;
+  if(SB_KEY)document.getElementById('sb-key').value=SB_KEY;
+  if(SB_URL&&SB_KEY)document.getElementById('baglanti-durum').textContent='✅ Kayıtlı bağlantı yüklendi';
+  renderAdimlar();
+})();
+</script>
+</body>
+</html>
