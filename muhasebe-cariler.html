@@ -276,11 +276,58 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 const FB = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let cariler = {};
 let hareketler = {};
 let faturalar = {};
 let cariFilter = 'tumu';
 let yaslFilter = 'tumu';
+
+// ============================================================
+// SUPABASE <-> UYGULAMA MODELİ DÖNÜŞÜMÜ
+// (Uygulama içi obje şekli hiç değişmiyor — sadece DB'ye giderken/gelirken çeviriliyor)
+// ============================================================
+function sbdenCari(r){
+  return{
+    id:r.id, kod:r.kod, ad:r.ad, tip:r.tip,
+    vkn:r.vkn||'', vd:r.vd||'', tel:r.tel||'', mail:r.mail||'', adres:r.adres||'',
+    hesap:r.hesap_kod||'320', efatura:r.efatura||'hayir', alias:r.alias||'',
+    vade:r.vade_gun??30, limit:r.risk_limiti??0,
+    acente:!!r.acente, komisyonOrani:r.komisyon_orani??0,
+    not:r.not_metin||'',
+    olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
+    guncellemeTarih:r.guncelleme_tarihi?new Date(r.guncelleme_tarihi).getTime():Date.now()
+  };
+}
+function cariyeSb(c){
+  return{
+    kod:c.kod, ad:c.ad, tip:c.tip||'tedarikci',
+    vkn:c.vkn||null, vd:c.vd||null, tel:c.tel||null, mail:c.mail||null, adres:c.adres||null,
+    hesap_kod:c.hesap||'320', efatura:c.efatura||'hayir', alias:c.alias||null,
+    vade_gun:c.vade??30, risk_limiti:c.limit??0,
+    acente:!!c.acente, komisyon_orani:c.komisyonOrani??0,
+    not_metin:c.not||null
+  };
+}
+function sbdenHareket(r){
+  return{
+    id:r.id, cariId:r.cari_id, tip:r.tip,
+    tarih:new Date(r.tarih).getTime(), tarihStr:r.tarih,
+    belge:r.belge_no||'', vade:r.vade_tarihi||'',
+    tutar:parseFloat(r.tutar)||0, kdv:parseFloat(r.kdv)||0,
+    otelId:r.otel_id||'810', aciklama:r.aciklama||'',
+    olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now()
+  };
+}
+function hareketeSb(h){
+  return{
+    cari_id:h.cariId, tip:h.tip, tarih:h.tarihStr||new Date(h.tarih).toISOString().split('T')[0],
+    belge_no:h.belge||null, vade_tarihi:h.vade||null,
+    tutar:h.tutar, kdv:h.kdv||0, otel_id:h.otelId||null, aciklama:h.aciklama||null
+  };
+}
 
 // ============================================================
 // DENETİM İZİ
@@ -300,25 +347,58 @@ async function loadDB(){
   sLD();
   try{
     const [cR,hR,fR]=await Promise.all([
-      fetch(FB+'/muhasebe/cariler.json'),
-      fetch(FB+'/muhasebe/cariHareketler.json'),
-      fetch(FB+'/muhasebe/faturalar.json'),
+      fetch(SB_URL+'/rest/v1/cariler?select=*&order=ad',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cari_hareketler?select=*&order=tarih.desc',{headers:SB_HEADERS}),
+      fetch(FB+'/muhasebe/faturalar.json'), // Faturalar modülü henüz Supabase'e geçmedi
     ]);
-    if(cR.ok){const d=await cR.json();if(d&&typeof d==='object')cariler=d;}
-    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hareketler=d;}
+    cariler={};
+    if(cR.ok){(await cR.json()).forEach(row=>{cariler[row.id]=sbdenCari(row);});}
+    hareketler={};
+    if(hR.ok){(await hR.json()).forEach(row=>{hareketler[row.id]=sbdenHareket(row);});}
     if(fR.ok){const d=await fR.json();if(d&&typeof d==='object')faturalar=d;}
   }catch(e){console.warn(e);}
   hLD();
 }
 
-async function saveCari(c){
-  try{await fetch(FB+'/muhasebe/cariler/'+c.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)});}
-  catch(e){console.warn(e);}
+async function saveCari(c,editId){
+  try{
+    let r;
+    if(editId){
+      // Düzenleme: id sabit kalır, kod değişse bile aynı satır güncellenir (upsert-by-kod yeni satır açmasın diye)
+      r=await fetch(SB_URL+'/rest/v1/cariler?id=eq.'+encodeURIComponent(editId),{
+        method:'PATCH',
+        headers:{...SB_HEADERS,'Prefer':'return=representation'},
+        body:JSON.stringify(cariyeSb(c))
+      });
+    }else{
+      // Yeni kayıt: kod üzerinden upsert (aynı kod zaten varsa üzerine yazar, yinelenmeyi önler)
+      r=await fetch(SB_URL+'/rest/v1/cariler?on_conflict=kod',{
+        method:'POST',
+        headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates,return=representation'},
+        body:JSON.stringify(cariyeSb(c))
+      });
+    }
+    if(r.ok){
+      const rows=await r.json();
+      if(rows&&rows[0])return sbdenCari(rows[0]);
+    }
+  }catch(e){console.warn(e);}
+  return null;
 }
 
 async function saveHareket(h){
-  try{await fetch(FB+'/muhasebe/cariHareketler/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}
-  catch(e){console.warn(e);}
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/cari_hareketler',{
+      method:'POST',
+      headers:{...SB_HEADERS,'Prefer':'return=representation'},
+      body:JSON.stringify(hareketeSb(h))
+    });
+    if(r.ok){
+      const rows=await r.json();
+      if(rows&&rows[0])return sbdenHareket(rows[0]);
+    }
+  }catch(e){console.warn(e);}
+  return null;
 }
 
 // ============================================================
@@ -510,9 +590,8 @@ async function cariKaydet(){
   const kod=document.getElementById('c-kod').value.trim();
   if(!ad||!kod){toast('⚠️ Kod ve ad zorunlu');return;}
   const editId=document.getElementById('c-id').value;
-  const id=editId||('C_'+Date.now());
-  const cari={
-    id,kod,ad,
+  const cariTaslak={
+    id:editId||null,kod,ad,
     tip:document.getElementById('c-tip').value,
     vkn:document.getElementById('c-vkn').value||'',
     vd:document.getElementById('c-vd').value||'',
@@ -526,19 +605,19 @@ async function cariKaydet(){
     limit:parseFloat(document.getElementById('c-limit').value)||0,
     acente:document.getElementById('c-acente').checked,
     komisyonOrani:parseFloat(document.getElementById('c-komisyon-oran').value)||0,
-    not:document.getElementById('c-not').value||'',
-    olusturmaTarih:cariler[id]?.olusturmaTarih||Date.now(),
-    guncellemeTarih:Date.now()
+    not:document.getElementById('c-not').value||''
   };
   sLD();
   const yeniKayit=!editId;
-  cariler[id]=cari;
-  await saveCari(cari);
-  await auditLogYaz(yeniKayit?'create':'update','cari',id,`Cari ${yeniKayit?'oluşturuldu':'güncellendi'}: ${cari.kod} — ${cari.ad}`);
+  const kaydedilen=await saveCari(cariTaslak,editId);
   hLD();
+  if(!kaydedilen){toast('❌ Kaydedilemedi — bağlantıyı kontrol edin');return;}
+  if(editId&&editId!==kaydedilen.id)delete cariler[editId]; // teorik olarak olmaz ama güvenlik
+  cariler[kaydedilen.id]=kaydedilen;
+  await auditLogYaz(yeniKayit?'create':'update','cari',kaydedilen.id,`Cari ${yeniKayit?'oluşturuldu':'güncellendi'}: ${kaydedilen.kod} — ${kaydedilen.ad}`);
   kModal('mCari');
   renderCariler();
-  toast(`✅ ${cari.ad} kaydedildi`);
+  toast(`✅ ${kaydedilen.ad} kaydedildi`);
 }
 
 async function cariSil(){
@@ -546,15 +625,15 @@ async function cariSil(){
   const c=cariler[id];if(!c)return;
   if(!confirm(`"${c.ad}" silinsin mi? Hareketler de silinecek!`))return;
   sLD();
-  delete cariler[id];
-  await fetch(FB+'/muhasebe/cariler/'+id+'.json',{method:'DELETE'});
-  await auditLogYaz('delete','cari',id,`Cari silindi: ${c.kod} — ${c.ad}`);
-  // İlgili hareketleri sil
-  for(const hk of Object.keys(hareketler)){
-    if(hareketler[hk]?.cariId===id){
-      delete hareketler[hk];
-      await fetch(FB+'/muhasebe/cariHareketler/'+hk+'.json',{method:'DELETE'});
-    }
+  try{
+    // cari_hareketler.cari_id RESTRICT kısıtlı — önce hareketleri silmek zorundayız
+    await fetch(SB_URL+'/rest/v1/cari_hareketler?cari_id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:SB_HEADERS});
+    await fetch(SB_URL+'/rest/v1/cariler?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:SB_HEADERS});
+    Object.keys(hareketler).forEach(hk=>{if(hareketler[hk]?.cariId===id)delete hareketler[hk];});
+    delete cariler[id];
+    await auditLogYaz('delete','cari',id,`Cari silindi: ${c.kod} — ${c.ad}`);
+  }catch(e){
+    hLD();toast('❌ Silinemedi: '+e.message);return;
   }
   hLD();
   kModal('mCari');
@@ -590,8 +669,7 @@ async function hareketKaydet(){
   const tarih=document.getElementById('h-tarih').value;
   if(!tutar||tutar<=0){toast('⚠️ Tutar girin');return;}
   if(!tarih){toast('⚠️ Tarih girin');return;}
-  const har={
-    id:'HAR_'+Date.now(),
+  const harTaslak={
     cariId,
     tip:document.getElementById('h-tip').value,
     tarih:new Date(tarih).getTime(),
@@ -601,15 +679,15 @@ async function hareketKaydet(){
     tutar,
     kdv:parseFloat(document.getElementById('h-kdv').value)||0,
     otelId:document.getElementById('h-otel').value||'810',
-    aciklama:document.getElementById('h-aciklama').value||'',
-    olusturmaTarih:Date.now()
+    aciklama:document.getElementById('h-aciklama').value||''
   };
   sLD();
-  hareketler[har.id]=har;
-  await saveHareket(har);
-  const cariAd=cariler[cariId]?.ad||cariId;
-  await auditLogYaz('create','cari',har.id,`Cari hareket: ${cariAd} — ${har.tip==='borc'?'Borç':'Alacak'} ${fmt(tutar)} ₺`);
+  const kaydedilen=await saveHareket(harTaslak);
   hLD();
+  if(!kaydedilen){toast('❌ Kaydedilemedi — bağlantıyı kontrol edin');return;}
+  hareketler[kaydedilen.id]=kaydedilen;
+  const cariAd=cariler[cariId]?.ad||cariId;
+  await auditLogYaz('create','cari',kaydedilen.id,`Cari hareket: ${cariAd} — ${harTaslak.tip==='borc'?'Borç':'Alacak'} ${fmt(tutar)} ₺`);
   kModal('mHareket');
   renderCariler();
   toast(`✅ Hareket kaydedildi — ${fmt(tutar)} ₺`);
@@ -713,22 +791,20 @@ async function firmaDBaktar(){
     await new Promise(r=>{s.onload=r;s.onerror=r;setTimeout(r,5000);});
   }
   if(!window.FIRMA_DB||!window.FIRMA_DB.length){toast('⚠️ FIRMA_DB yüklenemedi');return;}
-  if(!confirm(`${window.FIRMA_DB.length} tedarikçi aktarılsın mı? Mevcut cariler korunur.`))return;
+  if(!confirm(`${window.FIRMA_DB.length} tedarikçi aktarılsın mı? Mevcut cariler (aynı koda sahip olanlar) güncellenir.`))return;
   sLD();
   let eklenen=0;
+  const varOlanKodlar=new Set(Object.values(cariler).map(c=>c.kod));
   for(const f of window.FIRMA_DB){
-    const id='C_FIRMA_'+f.id;
-    if(!cariler[id]){
-      const cari={
-        id,kod:'F'+String(f.id).padStart(4,'0'),
-        ad:f.ad,tip:'tedarikci',
+    const kod='F'+String(f.id).padStart(4,'0');
+    if(!varOlanKodlar.has(kod)){
+      const cariTaslak={
+        kod,ad:f.ad,tip:'tedarikci',
         vkn:'',vd:'',tel:'',mail:f.mail||'',adres:'',
-        hesap:'320',efatura:'hayir',alias:'',vade:30,limit:0,not:'',
-        olusturmaTarih:Date.now(),guncellemeTarih:Date.now()
+        hesap:'320',efatura:'hayir',alias:'',vade:30,limit:0,not:''
       };
-      cariler[id]=cari;
-      await saveCari(cari);
-      eklenen++;
+      const kaydedilen=await saveCari(cariTaslak,null);
+      if(kaydedilen){cariler[kaydedilen.id]=kaydedilen;eklenen++;}
     }
   }
   hLD();
