@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Kullanıcı Yönetimi</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.uyari{background:#fff3cd;color:#856404;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.5;border:1.5px solid #fcd34d}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn-primary{background:var(--primary);color:white}.btn-danger{background:var(--danger);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-blue{background:#dbeafe;color:#1e40af}.chip-orange{background:#fed7aa;color:#92400e}.chip-purple{background:#ede9fe;color:#5b21b6}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-red{background:#fde8e8;color:#9b1c1c}
+.u-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;display:flex;align-items:center;gap:10px}
+.u-kart.pasif{opacity:.5}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.mo.open{display:flex}
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:92vh;overflow-y:auto}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.es{text-align:center;padding:30px 20px;color:var(--gray-400)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>👥 Kullanıcı Yönetimi</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">PIN, rol ve otel ataması</span></div>
+    <button class="hbtn" onclick="openYeniKullanici()">➕</button>
+  </div>
+  <div class="sc">
+    <div class="uyari">⚠️ Bu ekran şu an herkes tarafından değiştirilebilir — gerçek giriş/rol kontrolü kurulana kadar linkini sadece güvendiğin kişilerle paylaş. Rol listesi (19 rol) <b>yetki-yonetimi.html</b> ekranındaki Excel matrisiyle aynı kaynaktan gelir.</div>
+    <div id="kullanici-liste"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni/Düzenle Kullanıcı -->
+<div class="mo" id="mKullanici">
+  <div class="mbox">
+    <div class="mtitle" id="mKullaniciTitle">➕ Yeni Kullanıcı <button class="mclose" onclick="kModal()">✕</button></div>
+    <input type="hidden" id="k-id">
+    <div class="field"><label>Ad Soyad *</label><input type="text" id="k-ad" placeholder="Ad Soyad"></div>
+    <div class="field"><label>Rol *</label>
+      <select id="k-rol-id"></select>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>PIN (6 hane) *</label><input type="text" id="k-pin" placeholder="123456" maxlength="6" inputmode="numeric"></div>
+      <div class="field"><label>Otel</label>
+        <select id="k-otel">
+          <option value="">🌐 Her İkisi (Grup rolü)</option>
+          <option value="810">🏨 810 — Club Manavgat</option>
+          <option value="811">🏨 811 — Resort Sorgun</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Departman (opsiyonel)</label><input type="text" id="k-departman" placeholder="Örn. Mutfak, Muhasebe"></div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px">
+        <input type="checkbox" id="k-aktif" checked style="width:18px;height:18px">
+        Aktif kullanıcı (kapatılırsa giriş yapamaz, silinmez)
+      </label>
+    </div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal()">İptal</button>
+      <button class="btn btn-danger btn-sm" id="k-sil-btn" onclick="kullaniciSil()" style="display:none">🗑️</button>
+      <button class="btn btn-primary" onclick="kullaniciKaydet()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+let kullanicilar={},roller=[];
+
+// Yeni zengin rol (roller.kod) -> eski basit enum (kullanicilar.rol) — geriye dönük uyumluluk için.
+// Diğer modüller (satin-alma.html, gurok_mal_kabul.html vb.) hâlâ bu eski 6-9 değerli alanı okuyor.
+const ROL_KODU_ESKI_ENUM={
+  grup_direktor:'yonetici',grup_finans:'muhasebe_muduru',grup_satinalma:'satinalma',grup_kalite:'kalite',
+  gm:'yonetici',mali_isler_mdr:'muhasebe_muduru',muhasebe_mdr:'muhasebe_muduru',muhasebe:'muhasebe_calisani',
+  cost_control_mdr:'cost_control',cost_control:'cost_control',satinalma_mdr:'satinalma',satinalma:'satinalma',
+  depo_sef:'depo',depo:'depo',kalite:'kalite',fb_mdr:'yonetici',mutfak:'mutfak',bar:'bar',it_admin:'yonetici'
+};
+
+const OTEL_ISIMLERI={'810':'Club Manavgat','811':'Resort Sorgun'};
+
+async function auditLogYaz(action,entityType,entityId,detail){
+  const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'};
+  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){}
+}
+
+async function loadDB(){
+  sLD();
+  try{
+    const [kR,rR]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/kullanicilar?select=*,roller(id,ad,kod,seviye)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/roller?select=*&order=sira',{headers:SB_HEADERS}),
+    ]);
+    kullanicilar={};roller=[];
+    if(rR.ok)roller=await rR.json();
+    if(kR.ok){
+      (await kR.json()).forEach(r=>{
+        kullanicilar[r.id]={
+          id:r.id,ad:r.ad,pin:r.pin||'',departman:r.departman||'',otelId:r.otel_id||'',
+          aktif:r.aktif!==false,rolId:r.rol_id||'',rolAd:r.roller?.ad||r.rol||'—',rolSeviye:r.roller?.seviye||''
+        };
+      });
+    }
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+function render(){
+  const liste=Object.values(kullanicilar).sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+  const c=document.getElementById('kullanici-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div style="font-size:40px;margin-bottom:10px">👥</div><div>Kullanıcı bulunamadı</div></div>';return;}
+  c.innerHTML=liste.map(u=>{
+    const bas=u.ad.split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
+    return`<div class="u-kart ${u.aktif?'':'pasif'}" onclick="openDuzenleKullanici('${u.id}')">
+      <div class="avatar">${bas}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700">${u.ad}</div>
+        <div style="font-size:11px;color:var(--gray-500)">${u.rolAd}${u.departman?' • '+u.departman:''}</div>
+        <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">
+          <span class="chip ${u.otelId==='811'?'chip-blue':u.otelId==='810'?'chip-orange':'chip-purple'}">${u.otelId?'🏨 '+OTEL_ISIMLERI[u.otelId]:'🌐 Grup'}</span>
+          ${!u.aktif?'<span class="chip chip-red">Pasif</span>':''}
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--gray-400);font-family:monospace">PIN ••${u.pin.slice(-2)}</div>
+    </div>`;
+  }).join('');
+}
+
+function rolSecenekleriDoldur(seciliId){
+  const sel=document.getElementById('k-rol-id');
+  sel.innerHTML=roller.map(r=>`<option value="${r.id}"${r.id===seciliId?' selected':''}>${r.seviye==='grup'?'🌐':'🏨'} ${r.ad}</option>`).join('');
+}
+
+function openYeniKullanici(){
+  document.getElementById('mKullaniciTitle').innerHTML='➕ Yeni Kullanıcı <button class="mclose" onclick="kModal()">✕</button>';
+  document.getElementById('k-id').value='';
+  document.getElementById('k-ad').value='';
+  document.getElementById('k-pin').value='';
+  document.getElementById('k-otel').value='';
+  document.getElementById('k-departman').value='';
+  document.getElementById('k-aktif').checked=true;
+  rolSecenekleriDoldur(roller[0]?.id);
+  document.getElementById('k-sil-btn').style.display='none';
+  aModal();
+}
+
+function openDuzenleKullanici(id){
+  const u=kullanicilar[id];if(!u)return;
+  document.getElementById('mKullaniciTitle').innerHTML='✏️ Kullanıcı Düzenle <button class="mclose" onclick="kModal()">✕</button>';
+  document.getElementById('k-id').value=id;
+  document.getElementById('k-ad').value=u.ad;
+  document.getElementById('k-pin').value=u.pin;
+  document.getElementById('k-otel').value=u.otelId||'';
+  document.getElementById('k-departman').value=u.departman||'';
+  document.getElementById('k-aktif').checked=u.aktif;
+  rolSecenekleriDoldur(u.rolId);
+  document.getElementById('k-sil-btn').style.display='flex';
+  aModal();
+}
+
+async function kullaniciKaydet(){
+  const ad=document.getElementById('k-ad').value.trim();
+  const pin=document.getElementById('k-pin').value.trim();
+  const rolId=document.getElementById('k-rol-id').value;
+  if(!ad||!pin||pin.length!==6||!/^\d{6}$/.test(pin)){toast('⚠️ Ad ve 6 haneli sayısal PIN girin');return;}
+  const rol=roller.find(r=>r.id===rolId);
+  const eskiEnum=ROL_KODU_ESKI_ENUM[rol?.kod]||'depo';
+
+  // Aynı PIN başka bir kullanıcıda var mı kontrol et (çakışma = iki kişi aynı PIN ile giremez)
+  const editId=document.getElementById('k-id').value;
+  const cakisan=Object.values(kullanicilar).find(u=>u.pin===pin&&u.id!==editId);
+  if(cakisan){toast(`⚠️ Bu PIN zaten "${cakisan.ad}" kullanıcısında kayıtlı`,3500);return;}
+
+  const satir={
+    ad,pin,rol_id:rolId,rol:eskiEnum,
+    otel_id:document.getElementById('k-otel').value||null,
+    departman:document.getElementById('k-departman').value||null,
+    aktif:document.getElementById('k-aktif').checked
+  };
+  sLD();
+  try{
+    if(editId){
+      await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+editId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+      await auditLogYaz('update','kullanici',editId,`Kullanıcı güncellendi: ${ad} (${rol?.ad||''})`);
+    }else{
+      const r=await fetch(SB_URL+'/rest/v1/kullanicilar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+      const d=await r.json();
+      await auditLogYaz('create','kullanici',d[0]?.id,`Kullanıcı oluşturuldu: ${ad} (${rol?.ad||''})`);
+    }
+  }catch(e){console.warn(e);toast('⚠️ Kaydedilemedi');hLD();return;}
+  hLD();
+  kModal();
+  await loadDB();
+  render();
+  toast(`✅ ${ad} kaydedildi`);
+}
+
+async function kullaniciSil(){
+  const id=document.getElementById('k-id').value;
+  const u=kullanicilar[id];if(!u)return;
+  if(!confirm(`"${u.ad}" tamamen silinsin mi?\n\n(Silmek yerine "Aktif kullanıcı" kutusunu kapatıp kaydetmen önerilir — geçmiş işlemlerdeki adı/izleri bozmaz, sadece girişini engeller.)`))return;
+  sLD();
+  try{
+    await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});
+    await auditLogYaz('delete','kullanici',id,`Kullanıcı silindi: ${u.ad}`);
+  }catch(e){console.warn(e);}
+  hLD();
+  kModal();
+  await loadDB();
+  render();
+  toast('🗑️ Silindi');
+}
+
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR');}
+function aModal(){document.getElementById('mKullanici').classList.add('open');}
+function kModal(){document.getElementById('mKullanici').classList.remove('open');}
+document.getElementById('mKullanici').addEventListener('click',e=>{if(e.target.id==='mKullanici')kModal();});
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+
+(async function(){
+  await loadDB();
+  render();
+})();
+</script>
+</body>
+</html>
