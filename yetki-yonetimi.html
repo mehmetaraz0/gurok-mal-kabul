@@ -61,16 +61,29 @@ const KAT_ADLARI={depo:'DEPO OPERASYONLARI',satinalma:'SATIN ALMA',muhasebe:'MUH
 let roller=[],moduller=[],matris={}; // matris[rolId+'_'+modulId] = {id,yetki}
 
 async function yukle(){
-  const [rR,mR,yR]=await Promise.all([
-    fetch(SB_URL+'/rest/v1/roller?select=*&order=sira',{headers:SB_HEADERS}),
-    fetch(SB_URL+'/rest/v1/moduller?select=*&order=sira',{headers:SB_HEADERS}),
-    fetch(SB_URL+'/rest/v1/yetki_matrisi?select=*',{headers:SB_HEADERS}),
-  ]);
-  roller=rR.ok?await rR.json():[];
-  moduller=mR.ok?await mR.json():[];
-  matris={};
-  if(yR.ok){(await yR.json()).forEach(y=>{matris[y.rol_id+'_'+y.modul_id]={id:y.id,yetki:y.yetki};});}
-  render();
+  try{
+    const [rR,mR,yR]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/roller?select=*&order=sira',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/moduller?select=*&order=sira',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/yetki_matrisi?select=*',{headers:SB_HEADERS}),
+    ]);
+    if(!rR.ok||!mR.ok||!yR.ok){
+      const hataMetni=await (rR.ok?(mR.ok?yR:mR):rR).text();
+      document.getElementById('tablo').innerHTML=`<tr><td style="padding:20px;color:red">❌ Veri çekilemedi: ${hataMetni.slice(0,300)}</td></tr>`;
+      return;
+    }
+    roller=await rR.json();
+    moduller=await mR.json();
+    matris={};
+    (await yR.json()).forEach(y=>{matris[y.rol_id+'_'+y.modul_id]={id:y.id,yetki:y.yetki};});
+    if(!roller.length||!moduller.length){
+      document.getElementById('tablo').innerHTML=`<tr><td style="padding:20px;color:#856404">⚠️ Tablolar boş görünüyor (roller: ${roller.length}, moduller: ${moduller.length}). 03_yetki_sistemi.sql ve/veya 04_yetki_gercek_veri.sql Supabase'de çalıştırıldı mı kontrol et.</td></tr>`;
+      return;
+    }
+    render();
+  }catch(e){
+    document.getElementById('tablo').innerHTML=`<tr><td style="padding:20px;color:red">❌ Bağlantı hatası: ${e.message}</td></tr>`;
+  }
 }
 
 function render(){
