@@ -75,7 +75,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
     <div style="flex:1"><h1>Faturalar</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px" id="hsub">Alış / Satış Faturaları</span></div>
-    <button class="hbtn" onclick="openYeniFatura(aktifTab==='satis'?'satis':'alis')">➕</button>
+    <button class="hbtn" onclick="openYeniFatura('alis')">➕</button>
   </div>
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('alis',this)">📥 Alış</button>
@@ -158,7 +158,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="rfields">
       <div class="field"><label>Vade Tarihi</label><input type="date" id="f-vade"></div>
-      <div class="field"><label>LN Sipariş No</label><input type="text" id="f-siparis" placeholder="C000... / R000..." oninput="siparisNoOtelTuret(this.value);document.getElementById('f-iade-uyari').style.display=(document.getElementById('f-iade').checked&&!this.value)?'block':'none'"></div>
+      <div class="field"><label>LN Sipariş No</label><input type="text" id="f-siparis" placeholder="C000... / R000..." oninput="siparisNoOtelTuret(this.value)"></div>
     </div>
     <div class="field">
       <label>Otel *</label>
@@ -169,7 +169,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="field" id="f-iade-alan">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px">
-        <input type="checkbox" id="f-iade" style="width:18px;height:18px" onchange="document.getElementById('f-iade-uyari').style.display=(this.checked&&!document.getElementById('f-siparis').value)?'block':'none'">
+        <input type="checkbox" id="f-iade" style="width:18px;height:18px" onchange="document.getElementById('f-iade-uyari').style.display=this.checked?'block':'none'">
         ↩️ İade Faturası (tedarikçiye kesilen — cari borcu azaltır, KDV hesaplanan tarafa yazılır)
       </label>
       <div id="f-iade-uyari" style="display:none;background:#fff3cd;color:#856404;border-radius:8px;padding:8px 10px;font-size:12px;margin-top:6px">
@@ -192,14 +192,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       </div>
       <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700">
         <span>Genel Toplam</span><span id="f-genelToplam" style="color:var(--primary)">0,00 ₺</span>
-      </div>
-      <div id="f-komisyon-satir" style="display:none;border-top:1px dashed var(--gray-300);margin-top:8px;padding-top:8px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-600);margin-bottom:4px">
-          <span>🏨 Acente Komisyonu (<span id="f-komisyon-oran-goster">0</span>%)</span><span id="f-komisyonTutar" style="color:var(--danger)">-0,00 ₺</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700">
-          <span>Net Alacak</span><span id="f-netAlacak" style="color:var(--success)">0,00 ₺</span>
-        </div>
       </div>
     </div>
     <div class="field" style="margin-top:10px"><label>Not</label><input type="text" id="f-not" placeholder="Opsiyonel"></div>
@@ -251,7 +243,110 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let faturalar={},cariler={},malKabulFormlar={},satinAlmaSiparisler={};
+
+// ============================================================
+// SUPABASE <-> UYGULAMA MODELİ DÖNÜŞÜMÜ
+// (Cariler modülüyle birebir aynı kolon adları — muhasebe-cariler.html ile tutarlı)
+// ============================================================
+function sbdenCari(r){
+  return{
+    id:r.id, kod:r.kod, ad:r.ad, tip:r.tip,
+    vkn:r.vkn||'', vd:r.vergi_dairesi||'', tel:r.telefon||'', mail:r.eposta||'', adres:r.adres||'',
+    hesap:r.hesap_kodu||'320', efatura:r.efatura_mukellefi?'evet':'hayir', alias:r.efatura_alias||'',
+    vade:r.vade_gun??30, limit:r.risk_limiti??0,
+    acente:!!r.acente, komisyonOrani:r.komisyon_orani??0,
+    not:r.not_alani||'',
+    olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
+    guncellemeTarih:r.guncelleme_tarihi?new Date(r.guncelleme_tarihi).getTime():Date.now()
+  };
+}
+function cariyeSb(c){
+  return{
+    kod:c.kod, ad:c.ad, tip:c.tip||'tedarikci',
+    vkn:c.vkn||null, vergi_dairesi:c.vd||null, telefon:c.tel||null, eposta:c.mail||null, adres:c.adres||null,
+    hesap_kodu:c.hesap||'320', efatura_mukellefi:c.efatura==='evet', efatura_alias:c.alias||null,
+    vade_gun:c.vade??30, risk_limiti:c.limit??0,
+    acente:!!c.acente, komisyon_orani:c.komisyonOrani??0,
+    not_alani:c.not||null
+  };
+}
+function sbdenFatura(r){
+  return{
+    id:r.id, no:r.no, tur:r.tur, tarih:r.tarih, vade:r.vade_tarihi||'',
+    cariId:r.cari_id, cariAd:r.cari_ad,
+    siparisNo:r.siparis_no||'',
+    kalemler:(r.fatura_kalemleri||[]).map(k=>({
+      kod:k.urun_kodu||'', ad:k.urun_adi, miktar:parseFloat(k.miktar)||0, birim:k.birim,
+      birimFiyat:parseFloat(k.birim_fiyat)||0, iskonto:parseFloat(k.iskonto_yuzde)||0,
+      kdvOran:parseFloat(k.kdv_orani)||20, toplam:parseFloat(k.toplam)||0
+    })),
+    araToplam:parseFloat(r.ara_toplam)||0, kdvToplam:parseFloat(r.kdv_toplam)||0, genelToplam:parseFloat(r.genel_toplam)||0,
+    komisyonOrani:parseFloat(r.komisyon_orani)||0, komisyonTutari:parseFloat(r.komisyon_tutari)||0,
+    iade:!!r.iade, otelId:r.otel_id||'810', not:r.not_alani||'', durum:r.durum||'taslak',
+    odemeTarih:r.odeme_tarihi?new Date(r.odeme_tarihi).getTime():null,
+    odemeTutar:r.odeme_tutari!=null?parseFloat(r.odeme_tutari):null,
+    odemeYontem:r.odeme_yontemi||null,
+    olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now()
+  };
+}
+function faturayaSb(f){
+  return{
+    no:f.no, tur:f.tur, tarih:f.tarih, vade_tarihi:f.vade||null,
+    cari_id:f.cariId||null, cari_ad:f.cariAd,
+    siparis_no:f.siparisNo||null,
+    ara_toplam:f.araToplam||0, kdv_toplam:f.kdvToplam||0, genel_toplam:f.genelToplam||0,
+    komisyon_orani:f.komisyonOrani||0, komisyon_tutari:f.komisyonTutari||0,
+    iade:!!f.iade, otel_id:f.otelId||'810', not_alani:f.not||null, durum:f.durum||'taslak',
+    odeme_tarihi:f.odemeTarih?new Date(f.odemeTarih).toISOString():null,
+    odeme_tutari:f.odemeTutar??null, odeme_yontemi:f.odemeYontem||null
+  };
+}
+function kalemeSb(k,faturaId){
+  return{
+    fatura_id:faturaId, urun_kodu:k.kod||null, urun_adi:k.ad,
+    miktar:k.miktar||0, birim:k.birim, birim_fiyat:k.birimFiyat||0,
+    iskonto_yuzde:k.iskonto||0, kdv_orani:k.kdvOran||20, toplam:k.toplam||0
+  };
+}
+
+// Cariler modülüyle birebir aynı davranış: yeni kayıt kod ile upsert, düzenleme id ile PATCH
+async function saveCariSB(c,editId){
+  try{
+    let r;
+    if(editId){
+      r=await fetch(SB_URL+'/rest/v1/cariler?id=eq.'+encodeURIComponent(editId),{
+        method:'PATCH',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(cariyeSb(c))
+      });
+    }else{
+      r=await fetch(SB_URL+'/rest/v1/cariler?on_conflict=kod',{
+        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(cariyeSb(c))
+      });
+    }
+    if(r.ok){const rows=await r.json();if(rows&&rows[0])return sbdenCari(rows[0]);}
+  }catch(e){console.warn(e);}
+  return null;
+}
+
+// cari_hareketler INSERT — fatura_id ile faturaya bağlanır (raporlarda/3-way match'te kullanılacak)
+async function saveHareketSB(h){
+  try{
+    const satir={
+      cari_id:h.cariId, tip:h.tip, tarih:h.tarihStr||new Date(h.tarih).toISOString().split('T')[0],
+      belge_no:h.belge||null, vade_tarihi:h.vade||null,
+      tutar:h.tutar, kdv:h.kdv||0, otel_id:h.otelId||null, aciklama:h.aciklama||null,
+      fatura_id:h.faturaId||null
+    };
+    const r=await fetch(SB_URL+'/rest/v1/cari_hareketler',{
+      method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)
+    });
+    if(r.ok){const rows=await r.json();return rows&&rows[0];}
+  }catch(e){console.warn(e);}
+  return null;
+}
 let kalemler=[];
 let alisFilter='tumu',satisFilter='tumu';
 
@@ -362,22 +457,49 @@ async function loadDB(){
   sLD();
   try{
     const [fR,cR,mkR,spR]=await Promise.all([
-      fetch(FB+'/muhasebe/faturalar.json'),
-      fetch(FB+'/muhasebe/cariler.json'),
-      fetch(FB+'/formlar.json'),
-      fetch(FB+'/siparisHavuzu.json'),
+      fetch(SB_URL+'/rest/v1/faturalar?select=*,fatura_kalemleri(*)&order=olusturma_tarihi.desc',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=*',{headers:SB_HEADERS}),
+      fetch(FB+'/formlar.json'),          // Mal Kabul henüz Supabase'e geçmedi
+      fetch(FB+'/siparisHavuzu.json'),    // Satın Alma henüz Supabase'e geçmedi
     ]);
-    if(fR.ok){const d=await fR.json();if(d&&typeof d==='object')faturalar=d;}
-    if(cR.ok){const d=await cR.json();if(d&&typeof d==='object')cariler=d;}
+    faturalar={};
+    if(fR.ok){(await fR.json()).forEach(row=>{faturalar[row.id]=sbdenFatura(row);});}
+    cariler={};
+    if(cR.ok){(await cR.json()).forEach(row=>{cariler[row.id]=sbdenCari(row);});}
     if(mkR.ok){const d=await mkR.json();if(d&&typeof d==='object'&&!Array.isArray(d))malKabulFormlar=d;}
     if(spR.ok){const d=await spR.json();if(d&&typeof d==='object'&&!Array.isArray(d))satinAlmaSiparisler=d;}
   }catch(e){console.warn(e);}
   hLD();
 }
 
-async function saveFatura(f){
-  try{await fetch(FB+'/muhasebe/faturalar/'+f.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(f)});}
-  catch(e){console.warn(e);}
+async function saveFatura(f,editId){
+  try{
+    let r;
+    if(editId){
+      r=await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+encodeURIComponent(editId),{
+        method:'PATCH',headers:{...SB_HEADERS,'Prefer':'return=representation'},
+        body:JSON.stringify(faturayaSb(f))
+      });
+    }else{
+      r=await fetch(SB_URL+'/rest/v1/faturalar?on_conflict=no,tur',{
+        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates,return=representation'},
+        body:JSON.stringify(faturayaSb(f))
+      });
+    }
+    if(!r.ok){console.warn('Fatura kaydedilemedi:',await r.text());return null;}
+    const rows=await r.json();
+    if(!rows||!rows[0])return null;
+    const faturaId=rows[0].id;
+    // Kalemleri değiştir: eskilerini sil, yenilerini ekle (dinamik liste, kalıcı satır ID'si yok)
+    await fetch(SB_URL+'/rest/v1/fatura_kalemleri?fatura_id=eq.'+encodeURIComponent(faturaId),{method:'DELETE',headers:SB_HEADERS});
+    if(f.kalemler&&f.kalemler.length){
+      await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{
+        method:'POST',headers:{...SB_HEADERS,'Prefer':'return=minimal'},
+        body:JSON.stringify(f.kalemler.map(k=>kalemeSb(k,faturaId)))
+      });
+    }
+    return sbdenFatura({...rows[0],fatura_kalemleri:f.kalemler.map(k=>kalemeSb(k,faturaId))});
+  }catch(e){console.warn(e);return null;}
 }
 
 // ============================================================
@@ -552,7 +674,7 @@ function openDuzenleFatura(id){
   document.getElementById('f-not').value=f.not||'';
   document.getElementById('f-otel').value=f.otelId||'810';
   document.getElementById('f-iade').checked=!!f.iade;
-  document.getElementById('f-iade-uyari').style.display=(f.iade&&!f.siparisNo)?'block':'none';
+  document.getElementById('f-iade-uyari').style.display=f.iade?'block':'none';
   document.getElementById('f-iade-alan').style.display=f.tur==='alis'?'block':'none';
   document.getElementById('f-sil-btn').style.display='flex';
   renderKalemler();
@@ -621,21 +743,6 @@ function hesaplaToplamlar(){
   document.getElementById('f-araToplam').textContent=fmt(ara)+' ₺';
   document.getElementById('f-kdvToplam').textContent=fmt(kdv)+' ₺';
   document.getElementById('f-genelToplam').textContent=fmt(ara+kdv)+' ₺';
-
-  // Acente komisyonu — sadece satış faturasında, cari acente işaretliyse
-  const tur=document.getElementById('f-tur').value;
-  const cariId=document.getElementById('f-cari-id').value;
-  const cari=cariler[cariId];
-  const komisyonSatir=document.getElementById('f-komisyon-satir');
-  if(tur==='satis'&&cari&&cari.acente&&cari.komisyonOrani>0){
-    const komisyonTutar=ara*(cari.komisyonOrani/100);
-    document.getElementById('f-komisyon-oran-goster').textContent=cari.komisyonOrani;
-    document.getElementById('f-komisyonTutar').textContent='-'+fmt(komisyonTutar)+' ₺';
-    document.getElementById('f-netAlacak').textContent=fmt(ara+kdv-komisyonTutar)+' ₺';
-    komisyonSatir.style.display='block';
-  }else{
-    komisyonSatir.style.display='none';
-  }
 }
 
 // ============================================================
@@ -660,16 +767,19 @@ async function faturaKaydet(durum){
       cariId=eslesen.id;
       if(eslesen.tip!==gerekliTip&&eslesen.tip!=='her_ikisi'){
         eslesen.tip='her_ikisi';
-        eslesen.guncellemeTarih=Date.now();
-        await fetch(FB+'/muhasebe/cariler/'+eslesen.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(eslesen)});
+        const guncellenen=await saveCariSB(eslesen,eslesen.id);
+        if(guncellenen)cariler[eslesen.id]=guncellenen;
       }
     }else{
-      cariId='CARI_'+Date.now();
-      const yeniCari={id:cariId,kod:cariId,ad:cariAd,tip:gerekliTip,durum:'aktif',olusturmaTarih:Date.now()};
-      cariler[cariId]=yeniCari;
-      await fetch(FB+'/muhasebe/cariler/'+cariId+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(yeniCari)});
-      await auditLogYaz('create','cari',cariId,`Fatura kaydında otomatik cari oluşturuldu: ${cariAd}`);
-      toast(`ℹ️ Yeni cari otomatik oluşturuldu: ${cariAd}`,3000);
+      const kod='CARI_'+Date.now();
+      const yeniCariTaslak={kod,ad:cariAd,tip:gerekliTip};
+      const kaydedilen=await saveCariSB(yeniCariTaslak,null);
+      if(kaydedilen){
+        cariId=kaydedilen.id;
+        cariler[cariId]=kaydedilen;
+        await auditLogYaz('create','cari',cariId,`Fatura kaydında otomatik cari oluşturuldu: ${cariAd}`);
+        toast(`ℹ️ Yeni cari otomatik oluşturuldu: ${cariAd}`,3000);
+      }
     }
     document.getElementById('f-cari-id').value=cariId;
   }
@@ -693,56 +803,48 @@ async function faturaKaydet(durum){
   });
 
   const editId=document.getElementById('f-id').value;
-  const id=editId||('FAT_'+Date.now());
-  const cariAcente=cariler[cariId];
-  const acenteMi=document.getElementById('f-tur').value==='satis'&&cariAcente&&cariAcente.acente;
-  const komisyonOrani=acenteMi?(cariAcente.komisyonOrani||0):0;
-  const komisyonTutari=round2(ara*(komisyonOrani/100));
-  const fatura={
-    id,no,tur:document.getElementById('f-tur').value,
+  const faturaTaslak={
+    no,tur:document.getElementById('f-tur').value,
     tarih,vade:document.getElementById('f-vade').value||'',
     cariId,cariAd,
     siparisNo:document.getElementById('f-siparis').value||'',
     kalemler:doluKalemler,
     araToplam:ara,kdvToplam:kdv,genelToplam:ara+kdv,
-    komisyonOrani:document.getElementById('f-tur').value==='satis'?komisyonOrani:0,
-    komisyonTutari:document.getElementById('f-tur').value==='satis'?komisyonTutari:0,
     not:document.getElementById('f-not').value||'',
     otelId:document.getElementById('f-otel').value||'810',
     iade:document.getElementById('f-tur').value==='alis'&&document.getElementById('f-iade').checked,
-    durum,
-    olusturmaTarih:faturalar[id]?.olusturmaTarih||Date.now(),
-    guncellemeTarih:Date.now()
+    durum
   };
   sLD();
   const yeniKayit=!editId;
-  faturalar[id]=fatura;
-  await saveFatura(fatura);
-  await auditLogYaz(yeniKayit?'create':'update','fatura',id,`Fatura ${yeniKayit?'oluşturuldu':'güncellendi'}: ${no} — ${cariAd} (${fmt(ara+kdv)} ₺) [${durum}] [${OTEL_KISA[fatura.otelId]||fatura.otelId}]`);
+  const kaydedilen=await saveFatura(faturaTaslak,editId);
+  if(!kaydedilen){hLD();toast('❌ Fatura kaydedilemedi — bağlantıyı kontrol edin');return;}
+  const id=kaydedilen.id;
+  faturalar[id]=kaydedilen;
+  await auditLogYaz(yeniKayit?'create':'update','fatura',id,`Fatura ${yeniKayit?'oluşturuldu':'güncellendi'}: ${no} — ${cariAd} (${fmt(ara+kdv)} ₺) [${durum}] [${OTEL_KISA[kaydedilen.otelId]||kaydedilen.otelId}]`);
   // Cari hareketi oluştur
   if(durum==='bekliyor'||durum==='onaylandi'){
     const har={
-      id:'HAR_FAT_'+id,cariId,
-      tip:fatura.iade?'iade':(fatura.tur==='alis'?'borc':'alacak'),
+      cariId,faturaId:id,
+      tip:kaydedilen.iade?'iade':(kaydedilen.tur==='alis'?'borc':'alacak'),
       tarih:new Date(tarih).getTime(),tarihStr:tarih,
-      belge:no,vade:fatura.vade,
+      belge:no,vade:kaydedilen.vade,
       tutar:ara+kdv,kdv,
-      otelId:fatura.otelId,
-      aciklama:`Fatura: ${no}`,
-      olusturmaTarih:Date.now()
+      otelId:kaydedilen.otelId,
+      aciklama:`Fatura: ${no}`
     };
-    await fetch(FB+'/muhasebe/cariHareketler/'+har.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(har)});
+    await saveHareketSB(har);
 
     // Otomatik yevmiye fişi — kalem bazlı hesap eşleştirmesi netleşene kadar geçici hesaplar kullanılır
     let yevKalemler;
-    if(fatura.iade){
+    if(kaydedilen.iade){
       // ALIŞ İADESİ — ters fiş: satıcıya borç azalır, gider ters düşer, KDV hesaplanan tarafa
       yevKalemler=[
         {hesapKod:'320',aciklama:'İade — Satıcı: '+cariAd+' — '+no,borc:round2(ara+kdv),alacak:0},
         {hesapKod:'770',aciklama:'Alış iadesi (geçici gider hesabı — netleştirilecek): '+no,borc:0,alacak:round2(ara)},
         {hesapKod:'391',aciklama:'Hesaplanan KDV (iade): '+no,borc:0,alacak:round2(kdv)}
       ];
-    }else if(fatura.tur==='alis'){
+    }else if(kaydedilen.tur==='alis'){
       yevKalemler=[
         {hesapKod:'770',aciklama:'Alış (geçici gider hesabı — netleştirilecek): '+no,borc:round2(ara),alacak:0},
         {hesapKod:'191',aciklama:'İndirilecek KDV: '+no,borc:round2(kdv),alacak:0},
@@ -754,23 +856,21 @@ async function faturaKaydet(durum){
         {hesapKod:'600',aciklama:'Satış geliri (geçici — netleştirilecek): '+no,borc:0,alacak:round2(ara)},
         {hesapKod:'391',aciklama:'Hesaplanan KDV: '+no,borc:0,alacak:round2(kdv)}
       ];
-      if(fatura.komisyonTutari>0){
-        yevKalemler.push({hesapKod:'760',aciklama:'Acente komisyonu (%'+fatura.komisyonOrani+'): '+cariAd+' — '+no,borc:round2(fatura.komisyonTutari),alacak:0});
-        yevKalemler.push({hesapKod:'120',aciklama:'Komisyon mahsubu — alıcıdan düşülen: '+no,borc:0,alacak:round2(fatura.komisyonTutari)});
-      }
     }
-    await yevmiyeFisiPostla('YEV_FAT_'+id,yevKalemler,'fatura',no,`Fatura: ${no} — ${cariAd}`,new Date(tarih).getTime(),fatura.otelId);
+    await yevmiyeFisiPostla('YEV_FAT_'+id,yevKalemler,'fatura',no,`Fatura: ${no} — ${cariAd}`,new Date(tarih).getTime(),kaydedilen.otelId);
   }
   hLD();
   kModal('mFatura');
-  renderFaturalar(fatura.tur);
+  renderFaturalar(kaydedilen.tur);
   toast(`✅ ${no} kaydedildi — ${fmt(ara+kdv)} ₺`);
 }
 
 async function onayla(id){
   const f=faturalar[id];if(!f)return;
   f.durum='onaylandi';f.onayTarih=Date.now();
-  sLD();await saveFatura(f);
+  sLD();
+  const guncellenen=await saveFatura(f,id);
+  if(guncellenen)faturalar[id]=guncellenen;
   await auditLogYaz('approve','fatura',id,`Fatura onaylandı: ${f.no} — ${f.cariAd} (${fmt(f.genelToplam)} ₺)`);
   hLD();
   renderFaturalar(f.tur);toast('✅ Fatura onaylandı');
@@ -780,7 +880,9 @@ async function iptalEt(id){
   const f=faturalar[id];if(!f)return;
   if(!confirm('Fatura iptal edilsin mi?'))return;
   f.durum='iptal';f.iptalTarih=Date.now();
-  sLD();await saveFatura(f);
+  sLD();
+  const guncellenen=await saveFatura(f,id);
+  if(guncellenen)faturalar[id]=guncellenen;
   await auditLogYaz('update','fatura',id,`Fatura iptal edildi: ${f.no}`);
   hLD();
   renderFaturalar(f.tur);toast('❌ Fatura iptal edildi');
@@ -790,9 +892,14 @@ async function faturaSil(){
   const id=document.getElementById('f-id').value;
   const f=faturalar[id];if(!f)return;
   if(!confirm(`"${f.no}" silinsin mi?`))return;
-  sLD();delete faturalar[id];
-  await fetch(FB+'/muhasebe/faturalar/'+id+'.json',{method:'DELETE'});
-  await auditLogYaz('delete','fatura',id,`Fatura silindi: ${f.no} — ${f.cariAd}`);
+  sLD();
+  try{
+    // fatura_kalemleri, fatura_id RESTRICT/CASCADE olabilir — güvenli olması için önce elle siliyoruz
+    await fetch(SB_URL+'/rest/v1/fatura_kalemleri?fatura_id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:SB_HEADERS});
+    await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:SB_HEADERS});
+    delete faturalar[id];
+    await auditLogYaz('delete','fatura',id,`Fatura silindi: ${f.no} — ${f.cariAd}`);
+  }catch(e){hLD();toast('❌ Silinemedi: '+e.message);return;}
   hLD();kModal('mFatura');
   renderFaturalar(f.tur);toast('🗑️ Fatura silindi');
 }
@@ -818,16 +925,16 @@ async function odemeKaydet(){
   f.durum='odendi';f.odemeTarih=Date.now();f.odemeTutar=tutar;f.odemeYontem=document.getElementById('od-yontem').value;
   // Cari alacak hareketi ekle
   const har={
-    id:'HAR_ODE_'+Date.now(),cariId:f.cariId,
+    cariId:f.cariId,faturaId:id,
     tip:'alacak',tarih:Date.now(),tarihStr:document.getElementById('od-tarih').value,
     belge:'ÖD-'+f.no,tutar,
     otelId:f.otelId||'810',
-    aciklama:document.getElementById('od-aciklama').value||'Ödeme: '+f.no,
-    olusturmaTarih:Date.now()
+    aciklama:document.getElementById('od-aciklama').value||'Ödeme: '+f.no
   };
   sLD();
-  await saveFatura(f);
-  await fetch(FB+'/muhasebe/cariHareketler/'+har.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(har)});
+  const guncellenen=await saveFatura(f,id);
+  if(guncellenen)faturalar[id]=guncellenen;
+  await saveHareketSB(har);
   await auditLogYaz('payment','fatura',id,`Ödeme yapıldı: ${f.no} — ${f.cariAd} (${fmt(tutar)} ₺, ${document.getElementById('od-yontem').value})`);
 
   // Otomatik yevmiye fişi — ödeme yöntemine göre kasa/banka hesabı
@@ -974,7 +1081,6 @@ function filterCariDD(val){
       document.getElementById('f-cari-inp').value=this.dataset.ad;
       document.getElementById('f-cari-id').value=this.dataset.id;
       dd.style.display='none';
-      hesaplaToplamlar();
     });
   });
   dd.style.display='block';
@@ -988,9 +1094,7 @@ document.addEventListener('pointerdown',e=>{
 // ============================================================
 // TAB & YARDIMCI
 // ============================================================
-let aktifTab='alis';
 function gTab(tab,el){
-  aktifTab=tab;
   document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
   document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+tab).style.display='block';
