@@ -209,21 +209,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
 let yevmiyeler={},hesapPlani={};
 let yevKalemler=[];
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 
-// ============================================================
-// FIREBASE
-// ============================================================
 // ============================================================
 // DÖNEM KONTROLÜ & DENETİM İZİ (paylaşılan mantık)
 // ============================================================
 async function donemAcikMi(tarihMs){
   try{
-    const r=await fetch(FB+'/muhasebe/donemler.json');
+    const r=await fetch(SB_URL+'/rest/v1/mali_donemler?select=*',{headers:SB_HEADERS});
     if(!r.ok)return{acik:true};
-    const d=await r.json();
-    if(!d)return{acik:true};
-    for(const key in d){
-      const don=d[key];if(!don)continue;
+    const donemler=await r.json();
+    if(!donemler||!donemler.length)return{acik:true};
+    for(const don of donemler){
       const bas=new Date(don.baslangic).getTime();
       const bit=new Date(don.bitis+'T23:59:59').getTime();
       if(tarihMs>=bas&&tarihMs<=bit)return{acik:don.durum!=='kapali',donem:don};
@@ -234,31 +233,67 @@ async function donemAcikMi(tarihMs){
 
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={
-    id:'LOG_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
-    action,entityType,entityId:String(entityId||''),detail:detail||'',
-    userName:localStorage.getItem('gurok_user_name')||'Bilinmeyen',
-    timestamp:Date.now()
+    action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',
+    kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'
   };
-  try{await fetch(FB+'/muhasebe/auditLog/'+log.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(log)});}
+  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}
   catch(e){console.warn('Audit log kaydedilemedi:',e);}
+}
+
+function yevSbdenCamele(r){
+  return{
+    id:r.id,no:r.no,tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),
+    tarihStr:r.tarih,tip:r.tip,belge:r.belge_no||'',aciklama:r.aciklama||'',
+    otelId:r.otel_id,toplamBorc:parseFloat(r.toplam_borc)||0,toplamAlacak:parseFloat(r.toplam_alacak)||0,
+    onaylandi:!!r.onaylandi,otomatik:!!r.otomatik,
+    kalemler:(r.yevmiye_kalemleri||[]).map(k=>({
+      hesapKod:k.hesap_kodu,hesapAd:'',masrafMerkezi:k.masraf_merkezi||'',
+      aciklama:k.aciklama||'',borc:parseFloat(k.borc)||0,alacak:parseFloat(k.alacak)||0
+    }))
+  };
 }
 
 async function loadDB(){
   sLD();
   try{
     const [yR,hR]=await Promise.all([
-      fetch(FB+'/muhasebe/yevmiye.json'),
-      fetch(FB+'/muhasebe/hesapPlani.json'),
+      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=*,yevmiye_kalemleri(*)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad',{headers:SB_HEADERS}),
     ]);
-    if(yR.ok){const d=await yR.json();if(d&&typeof d==='object')yevmiyeler=d;}
-    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hesapPlani=d;}
+    yevmiyeler={};hesapPlani={};
+    if(yR.ok){(await yR.json()).forEach(r=>{yevmiyeler[r.id]=yevSbdenCamele(r);});}
+    if(hR.ok){(await hR.json()).forEach(r=>{hesapPlani[r.kod.replace(/\./g,'_')]={kod:r.kod,ad:r.ad};});}
   }catch(e){console.warn(e);}
   hLD();
 }
 
+// y: camelCase yevmiye fişi. Yeni ise (id yoksa) POST ile ekler, gerçek UUID'yi y.id'ye yazar.
 async function saveYevmiye(y){
-  try{await fetch(FB+'/muhasebe/yevmiye/'+y.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(y)});}
-  catch(e){console.warn(e);}
+  const satir={
+    no:y.no,tarih:y.tarihStr||new Date(y.tarih).toISOString().split('T')[0],
+    tip:y.tip,belge_no:y.belge||null,aciklama:y.aciklama||null,otel_id:y.otelId||'810',
+    toplam_borc:y.toplamBorc,toplam_alacak:y.toplamAlacak,
+    onaylandi:y.onaylandi!==false,otomatik:!!y.otomatik
+  };
+  try{
+    let fisUuid=y.id;
+    if(y.id){
+      await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+y.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+      await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri?fis_id=eq.'+y.id,{method:'DELETE',headers:SB_HEADERS});
+    }else{
+      const r=await fetch(SB_URL+'/rest/v1/yevmiye_fisler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+      const d=await r.json();
+      fisUuid=d[0].id;
+      y.id=fisUuid;
+    }
+    if(y.kalemler&&y.kalemler.length){
+      const kalemSatirlar=y.kalemler.map(k=>({
+        fis_id:fisUuid,hesap_kodu:k.hesapKod,masraf_merkezi:k.masrafMerkezi||null,
+        aciklama:k.aciklama||null,borc:k.borc||0,alacak:k.alacak||0
+      }));
+      await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    }
+  }catch(e){console.warn(e);}
 }
 
 // ============================================================
@@ -266,21 +301,17 @@ async function saveYevmiye(y){
 // ============================================================
 async function yeniFisNo(){
   const yil=new Date().getFullYear();
-  const sayacYol=FB+'/muhasebe/sayaclar/yevmiye_'+yil+'.json';
   try{
-    let n=null;
-    const r=await fetch(sayacYol);
-    if(r.ok){const d=await r.json();if(typeof d==='number')n=d;}
-    if(n===null){
-      // İlk kullanım: mevcut fişlerin en yüksek numarasından devral
-      n=0;
-      Object.values(yevmiyeler).forEach(y=>{
-        const m=(y?.no||'').match(new RegExp('^YEV-'+yil+'-(\\d+)$'));
-        if(m){const v=parseInt(m[1]);if(v>n)n=v;}
-      });
+    const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?no=like.YEV-${yil}-*&select=no&order=no.desc&limit=1`,{headers:SB_HEADERS});
+    let n=0;
+    if(r.ok){
+      const d=await r.json();
+      if(d&&d.length){
+        const m=d[0].no.match(new RegExp('^YEV-'+yil+'-(\\d+)$'));
+        if(m)n=parseInt(m[1]);
+      }
     }
     n++;
-    await fetch(sayacYol,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(n)});
     return `YEV-${yil}-${String(n).padStart(5,'0')}`;
   }catch(e){}
   return `YEV-${yil}-${Date.now()}`;
@@ -523,9 +554,8 @@ async function yevmiyeKaydet(onayla){
   }
 
   const editId=document.getElementById('y-id').value;
-  const id=editId||('YEV_'+Date.now());
   const yev={
-    id,no:document.getElementById('y-no').value||await yeniFisNo(),
+    id:editId||null,no:document.getElementById('y-no').value||await yeniFisNo(),
     tarih:new Date(tarihStr).getTime(),
     tarihStr,
     tip:document.getElementById('y-tip').value,
@@ -534,11 +564,12 @@ async function yevmiyeKaydet(onayla){
     kalemler:doluKalemler,
     otelId:document.getElementById('y-otel').value||'810',
     toplamBorc:topBorc,toplamAlacak:topAlacak,
-    onaylandi:onayla,
-    olusturmaTarih:yevmiyeler[id]?.olusturmaTarih||Date.now(),
-    guncellemeTarih:Date.now()
+    onaylandi:onayla
   };
-  sLD();yevmiyeler[id]=yev;await saveYevmiye(yev);
+  sLD();
+  await saveYevmiye(yev); // yeni kayıtta yev.id burada gerçek UUID ile doldurulur
+  const id=yev.id;
+  yevmiyeler[id]=yev;
   await auditLogYaz(onayla?'approve':'create','yevmiye',id,`Yevmiye fişi ${onayla?'onaylandı':'taslak kaydedildi'}: ${yev.no} (Tutar: ${fmt(topBorc)} ₺)`);
   hLD();
   kModal('mYevmiye');renderYevmiye();
@@ -550,7 +581,7 @@ async function yevmiyeSil(){
   if(!id)return;
   if(!confirm('Yevmiye kaydı silinsin mi?'))return;
   sLD();delete yevmiyeler[id];
-  await fetch(FB+'/muhasebe/yevmiye/'+id+'.json',{method:'DELETE'});
+  try{await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
   hLD();kModal('mYevmiye');renderYevmiye();toast('🗑️ Silindi');
 }
 
