@@ -1660,6 +1660,33 @@ const URUN_DB = [{"kod": "YIY01000001", "ad": "DONER DANA HAZIR BATON (212)", "b
 // FIREBASE CONFIG
 // ============================================================
 const FIREBASE_URL = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+
+// kullanicilar.rol zaten basit enum (yonetici/depo/satinalma/kalite/muhasebe_muduru/muhasebe_calisani/
+// cost_control/mutfak/bar) — bu dosya sadece 6 değer anlıyor, geri kalanları en yakınına indirger.
+const ROL_INDIRGEME={
+  yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalite:'kalite',mutfak:'mutfak',bar:'bar',
+  muhasebe_muduru:'yonetici',muhasebe_calisani:'yonetici',cost_control:'yonetici'
+};
+
+// Supabase'deki kullanicilar tablosunu çekip bu dosyanın beklediği eski formata çevirir.
+// Kullanıcı Yönetimi ekranından eklenen YENİ kullanıcılar buradan gelir.
+async function loadKullanicilarFromSupabase(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS});
+    if(!r.ok)return null;
+    const rows=await r.json();
+    if(!rows||!rows.length)return null;
+    return rows.map(u=>({
+      id:u.id,ad:u.ad,pin:u.pin||'',
+      rol:ROL_INDIRGEME[u.rol]||'depo',
+      departman:u.departman||'',
+      depoId:u.otel_id==='811'?'RESORT':u.otel_id==='810'?'CLUB':''
+    }));
+  }catch(e){console.warn('Supabase kullanıcı listesi çekilemedi:',e);return null;}
+}
 
 // ============================================================
 // STATE
@@ -1800,6 +1827,10 @@ async function loadDB() {
     if (remoteMeta.kullanicilar) db.kullanicilar = remoteMeta.kullanicilar;
     if (remoteMeta.barkodlar) db.barkodlar = remoteMeta.barkodlar;
     if (remoteMeta.sktKayitlar) db.sktKayitlar = remoteMeta.sktKayitlar;
+
+    // Supabase kullanıcı listesi öncelikli — Kullanıcı Yönetimi ekranından eklenenler burada
+    const sbKullanicilar = await loadKullanicilarFromSupabase();
+    if (sbKullanicilar) db.kullanicilar = sbKullanicilar;
 
     lsSave();
     renderAll();
