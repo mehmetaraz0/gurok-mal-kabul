@@ -455,17 +455,33 @@ function getSession(){
   }return null;
 }
 
+// ====== SUPABASE ======
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+
 // ====== FIREBASE ======
 async function loadDB(){
   sLD();
   try{
     const [tR,lnR,kulR,sipR]=await Promise.all([
-      fetch(FB+'/satinAlmaTalepleri.json'),
-      fetch(FB+'/siparisler.json'),
-      fetch(FB+'/kullanicilar.json'),
-      fetch(FB+'/satinAlmaSiparisler.json'),
+      fetch(SB_URL+'/rest/v1/satin_alma_talepleri?select=*,satin_alma_talep_kalemleri(*)',{headers:SB_HEADERS}),
+      fetch(FB+'/siparisler.json'), // "LN Siparişleri" — eski ERP'den içe aktarılan referans veri, henüz Supabase'e taşınmadı
+      fetch(FB+'/kullanicilar.json'), // ⚠️ BİLEREK Firebase'de bırakıldı — Supabase kullanicilar tablosu henüz veri içermiyor
+      fetch(FB+'/satinAlmaSiparisler.json'), // legacy/geriye-dönük-uyumluluk koleksiyonu, gerçek akış siparisHavuzu (artık Supabase siparisler tablosu)
     ]);
-    if(tR.ok){const d=await tR.json();if(d&&typeof d==='object')DB.talepler=d;}
+    DB.talepler={};
+    if(tR.ok){
+      (await tR.json()).forEach(r=>{
+        DB.talepler[r.id]={
+          id:r.id,tarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).toISOString().split('T')[0]:'',
+          olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
+          departman:r.departman,personel:r.talep_eden||'',aciliyet:r.aciliyet,not:r.not_alani||'',
+          durum:r.durum,
+          satirlar:(r.satin_alma_talep_kalemleri||[]).map(k=>({ad:k.urun_adi,kod:k.urun_kodu||'',miktar:k.miktar,birim:k.birim}))
+        };
+      });
+    }
     if(lnR.ok){const d=await lnR.json();if(d&&typeof d==='object')DB.lnSiparisler=Array.isArray(d)?Object.fromEntries(d.filter(Boolean).map(s=>[s.siparisNo||s.id,s])):d;}
     if(kulR.ok){const d=await kulR.json();if(Array.isArray(d)&&d.length)DB.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol}));}
     if(sipR.ok){const d=await sipR.json();if(d&&typeof d==='object')DB.siparisler=d;}
@@ -633,7 +649,7 @@ document.addEventListener('pointerdown',e=>{
   });
 });
 
-function ytKaydet(){
+async function ytKaydet(){
   const doluSatirlar=YT_SATIRLAR.filter(u=>u.ad&&u.miktar&&parseFloat(u.miktar)>0);
   if(!doluSatirlar.length){toast('⚠️ En az bir ürün ekleyin');return;}
 
@@ -641,20 +657,17 @@ function ytKaydet(){
   const aciliyet=document.getElementById('yt-aciliyet').value;
   const not=document.getElementById('yt-not').value;
 
-  const talep={
-    id:'TAL_'+Date.now(),
-    tarih:new Date().toISOString().split('T')[0],
-    olusturmaTarih:Date.now(),
-    departman:dept,
-    personel:CU.ad,
-    satirlar:doluSatirlar,
-    // Geriye dönük uyumluluk için urunler alanı da doldur
-    urunler:doluSatirlar.map(u=>`${u.ad} — ${u.miktar} ${u.birim}`).join('\n'),
-    aciliyet,not,
-    durum:'bekleyen'
-  };
-  DB.talepler[talep.id]=talep;
-  save('satinAlmaTalepleri/'+talep.id,talep);
+  const satir={departman:dept,aciliyet,not_alani:not||null,durum:'bekleyen',talep_eden:CU.ad,otel_id:'810'};
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/satin_alma_talepleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+    const d=await r.json();
+    const talepId=d[0].id;
+    const kalemSatirlar=doluSatirlar.map(u=>({talep_id:talepId,urun_adi:u.ad,urun_kodu:u.kod||null,miktar:u.miktar,birim:u.birim}));
+    await fetch(SB_URL+'/rest/v1/satin_alma_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    DB.talepler[talepId]={id:talepId,tarih:new Date().toISOString().split('T')[0],olusturmaTarih:Date.now(),departman:dept,personel:CU.ad,satirlar:doluSatirlar,aciliyet,not,durum:'bekleyen'};
+  }catch(e){console.warn(e);toast('⚠️ Talep kaydedilemedi');}
+  hLD();
   kModal('mYeniTalep');
   YT_SATIRLAR=[];
   document.getElementById('yt-not').value='';
@@ -701,7 +714,7 @@ function renderTalepler(){
         </div>
         ${chipMap[t.durum]||''}
       </div>
-      <div style="font-size:12px;color:var(--gray-600);white-space:pre-line">${(t.urunler||'').split('\n').slice(0,3).join('\n')}${(t.urunler||'').split('\n').length>3?'\n...':''}</div>
+      <div style="font-size:12px;color:var(--gray-600);white-space:pre-line">${(t.satirlar||[]).slice(0,3).map(u=>`${u.ad} — ${u.miktar} ${u.birim}`).join('\n')}${(t.satirlar||[]).length>3?'\n...':''}</div>
     </div>`).join('');
 }
 
@@ -727,7 +740,7 @@ function openTalepDetay(id){
             <td style="padding:5px 6px;color:var(--gray-500)">${u.birim||'KG'}</td>
           </tr>`).join('')}
         </table>`
-        :`<div style="white-space:pre-line;font-size:13px">${t.urunler||'—'}</div>`
+        :`<div style="white-space:pre-line;font-size:13px">—</div>`
       }
     </div>
     ${t.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${t.not}</div>`:''}
@@ -743,29 +756,29 @@ function openTalepDetay(id){
 async function talepOnayla(id){
   const t=DB.talepler[id];if(!t)return;
   t.durum='onaylandi';t.onaylayanAd=CU.ad;t.onayTarih=Date.now();
-  await save('satinAlmaTalepleri/'+id,t);
+  try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});}catch(e){console.warn(e);}
   kModal('mTalepDetay');toast('✅ Talep onaylandı');renderTalepler();
 }
 
 async function talepReddet(id){
   const t=DB.talepler[id];if(!t)return;
   t.durum='reddedildi';t.reddeden=CU.ad;
-  await save('satinAlmaTalepleri/'+id,t);
+  try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'reddedildi'})});}catch(e){console.warn(e);}
   kModal('mTalepDetay');toast('❌ Talep reddedildi');renderTalepler();
 }
 
-function talepSipariseDonustur(id){
+async function talepSipariseDonustur(id){
   const t=DB.talepler[id];if(!t)return;
-  // Sipariş Oluştur sekmesine geç, ürünleri oraya aktar
+  // Sipariş Oluştur sekmesine geç, ürünleri oraya aktar (artık yapılandırılmış satırlardan — miktar/birim de gelir)
   kModal('mTalepDetay');
   SP_SATIRLAR=[];
-  (t.urunler||'').split('\n').filter(Boolean).forEach(satir=>{
-    SP_SATIRLAR.push({ad:satir,kod:'',miktar:'',birim:'KG',not:''});
+  (t.satirlar||[]).forEach(u=>{
+    SP_SATIRLAR.push({ad:u.ad,kod:u.kod||'',miktar:u.miktar||'',birim:u.birim||'KG',not:''});
   });
   renderSPSatirlar();
   // Talebi siparişe dönüştü olarak işaretle
   t.durum='siparis';t.donusturmaTarih=Date.now();t.donusturanAd=CU.ad;
-  save('satinAlmaTalepleri/'+id,t);
+  try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'siparis'})});}catch(e){console.warn(e);}
   gTab('yeniSiparis',document.querySelectorAll('.tabbtn')[2]);
   toast('📦 Ürünler sipariş formuna aktarıldı');
 }
@@ -962,16 +975,13 @@ function spGeriDon(){document.getElementById('spAdim1').style.display='block';do
 async function yeniSiparisNoUret(prefix){
   const p = prefix === 'R' ? 'R' : 'C';
   try{
-    const r=await fetch(FB+'/siparisHavuzu.json?shallow=true');
-    let maxNo=91110; // başlangıç noktası
+    const r=await fetch(SB_URL+`/rest/v1/siparisler?siparis_no=like.${p}*&select=siparis_no&order=siparis_no.desc&limit=1`,{headers:SB_HEADERS});
+    let maxNo=91110;
     if(r.ok){
       const d=await r.json();
-      if(d){
-        const re=new RegExp('^'+p+'(\\d+)$');
-        Object.keys(d).forEach(k=>{
-          const m=k.match(re);
-          if(m){const n=parseInt(m[1]);if(n>maxNo)maxNo=n;}
-        });
+      if(d&&d.length){
+        const m=d[0].siparis_no.match(new RegExp('^'+p+'(\\d+)$'));
+        if(m)maxNo=parseInt(m[1]);
       }
     }
     return p+String(maxNo+1).padStart(8,'0');
@@ -999,11 +1009,15 @@ async function spGrupla(){
   const grupListesi=Object.values(gruplar).sort((a,b)=>a.firmaAd.localeCompare(b.firmaAd));
 
   sLD();
-  // Her firma grubuna ayrı sipariş no ata
+  // Her firma grubuna ayrı sipariş no ata — hemen bir yer tutucu satır yazıyoruz ki
+  // aynı döngüde bir sonraki grup farklı numara alsın (çakışma önleme)
   for(const g of grupListesi){
     g.siparisNo = await yeniSiparisNoUret(sipPrefix);
-    // Hemen havuza yaz ki bir sonraki grup farklı no alsın (çakışma önleme)
-    await fetch(FB+'/siparisHavuzu/'+g.siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({rezerve:true,ts:Date.now()})});
+    try{
+      await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+        siparis_no:g.siparisNo,firma_ad:g.firmaAd||'',otel_id:otelId,tarih:tarih||new Date().toISOString().split('T')[0],durum:'bekleyen'
+      })});
+    }catch(e){console.warn(e);}
   }
   hLD();
 
@@ -1043,21 +1057,20 @@ async function spGrupla(){
 
   // Siparişleri kalıcı olarak havuza yaz (mal kabul ve fatura eşleştirme için)
   for(const g of grupListesi){
-    const siparis={
-      siparisNo:g.siparisNo,
-      firma:g.firmaAd,firmaId:g.firmaId,
-      tarih,termin,
-      otelId,
-      kalemler:g.kalemler.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
-        gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0})),
-      durum:'bekleyen', // bekleyen | kismi | tamamlandi | iptal
-      olusturanAd:CU.ad,
-      olusturmaTarih:Date.now()
-    };
-    await fetch(FB+'/siparisHavuzu/'+g.siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(siparis)});
-    // Eski satinAlmaSiparisler koleksiyonuna da yaz (geriye dönük uyumluluk)
-    DB.siparisler[g.siparisNo]=siparis;
-    await save('satinAlmaSiparisler/'+g.siparisNo,siparis);
+    const kalemler=g.kalemler.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
+      gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));
+    try{
+      await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+g.siparisNo,{
+        method:'PATCH',headers:SB_HEADERS,
+        body:JSON.stringify({firma_ad:g.firmaAd,termin_tarihi:termin||null,olusturan_ad:CU.ad})
+      });
+      const kalemSatirlar=kalemler.map(k=>({
+        siparis_no:g.siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
+        miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar
+      }));
+      await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+      DB.siparisler[g.siparisNo]={siparisNo:g.siparisNo,firma:g.firmaAd,firmaId:g.firmaId,tarih,termin,otelId,kalemler,durum:'bekleyen',olusturanAd:CU.ad,olusturmaTarih:Date.now()};
+    }catch(e){console.warn(e);}
   }
 
   document.getElementById('spAdim1').style.display='none';
@@ -1377,31 +1390,14 @@ async function muhasebeGonder(){
     araToplam+=fiyatlar[i]*(parseFloat(u.miktar)||0);
   });
 
-  const faturaId='FAT_'+Date.now();
-  const fatura={
-    id:faturaId,
-    no:f.faturaNo,
-    tur:'alis',
-    cariAd:f.firma,
+  const faturaSatir={
+    no:f.faturaNo,tur:'alis',cari_ad:f.firma,
     tarih:new Date().toISOString().split('T')[0],
-    olusturmaTarih:Date.now(),
-    siparisNo:f.lnSiparisNo||'',
-    malKabulNo:f.mkNo||'',
-    malKabulId:String(f.id),
-    irsaliyeNo:f.irsaliyeNo||'',
-    kalemler:urunler.map((u,i)=>({
-      ad:u.ad, kod:u.kod||'',
-      miktar:parseFloat(u.miktar)||0, birim:u.birim,
-      birimFiyat:fiyatlar[i],
-      kdvOran:0, // muhasebe belirleyecek
-      iskonto:0
-    })),
-    araToplam:Math.round(araToplam*100)/100,
-    kdvToplam:0, // muhasebe hesaplayacak
-    genelToplam:Math.round(araToplam*100)/100,
-    durum:'bekliyor',
-    not:document.getElementById('fk-not')?.value||'',
-    fiyatKontrolAdi:DB?.kullanici?.ad||''
+    siparis_no:f.lnSiparisNo?f.lnSiparisNo.trim():null,
+    otel_id:'810',
+    ara_toplam:Math.round(araToplam*100)/100,kdv_toplam:0,
+    genel_toplam:Math.round(araToplam*100)/100,
+    durum:'bekliyor',not_alani:document.getElementById('fk-not')?.value||null
   };
 
   // Mal kabul formunu güncelle
@@ -1409,20 +1405,26 @@ async function muhasebeGonder(){
   f.fiyatKontrolDurum='muhasebe';
   f.fiyatKontrolTarih=Date.now();
   f.fiyatKontrolNotu=document.getElementById('fk-not')?.value||'';
-  f.muhasebeFaturaId=faturaId;
 
   toast('📤 Muhasebe\'ye gönderiliyor...');
   try{
-    await Promise.all([
-      fetch(FB+`/muhasebe/faturalar/${faturaId}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fatura)}),
-      fetch(FB+`/formlar/${f.id}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-        fiyatlar,
-        fiyatKontrolDurum:'muhasebe',
-        fiyatKontrolTarih:f.fiyatKontrolTarih,
-        fiyatKontrolNotu:f.fiyatKontrolNotu,
-        muhasebeFaturaId:faturaId
-      })})
-    ]);
+    const r=await fetch(SB_URL+'/rest/v1/faturalar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(faturaSatir)});
+    const d=await r.json();
+    const faturaId=d[0].id;
+    const kalemSatirlar=urunler.map((u,i)=>({
+      fatura_id:faturaId,urun_kodu:u.kod||null,urun_adi:u.ad,miktar:parseFloat(u.miktar)||0,
+      birim:u.birim,birim_fiyat:fiyatlar[i],iskonto_yuzde:0,kdv_orani:0,
+      toplam:round2(fiyatlar[i]*(parseFloat(u.miktar)||0))
+    }));
+    await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    f.muhasebeFaturaId=faturaId;
+    await fetch(FB+`/formlar/${f.id}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      fiyatlar,
+      fiyatKontrolDurum:'muhasebe',
+      fiyatKontrolTarih:f.fiyatKontrolTarih,
+      fiyatKontrolNotu:f.fiyatKontrolNotu,
+      muhasebeFaturaId:faturaId
+    })});
     kModal('mFiyatKontrol');
     toast(`✅ ${f.faturaNo} — Muhasebe'ye gönderildi (${fmt(araToplam)} ₺ KDV hariç)`);
     renderFiyatKontrol();
@@ -1430,6 +1432,7 @@ async function muhasebeGonder(){
     toast('⚠️ Hata: '+e.message);
   }
 }
+function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
 
 // ============================================================
 // SİPARİŞ TAKİP — siparisHavuzu'ndan okur
@@ -1439,8 +1442,12 @@ let _siparisHavuzuData={};
 
 async function loadSiparisTakip(){
   try{
-    const r=await fetch(FB+'/siparisHavuzu.json');
-    if(r.ok){const d=await r.json();if(d&&typeof d==='object')_siparisHavuzuData=d;}
+    const r=await fetch(SB_URL+'/rest/v1/siparisler?select=*,siparis_kalemleri(*)',{headers:SB_HEADERS});
+    if(r.ok){
+      const rows=await r.json();
+      _siparisHavuzuData={};
+      rows.forEach(row=>{_siparisHavuzuData[row.siparis_no]=siparisSbdenCamele(row);});
+    }
   }catch(e){}
   renderSiparisTakip();
 }
@@ -1788,25 +1795,22 @@ async function iadeOlustur(){
   sLD();
   const prefix=otelId==='811'?'R':'C';
   const siparisNo=await yeniSiparisNoUret(prefix);
-  await fetch(FB+'/siparisHavuzu/'+siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({rezerve:true,ts:Date.now()})});
 
-  const siparis={
-    siparisNo,
-    tip:'iade',
-    firma:firmaAd,firmaId,
-    otelId,
-    donusSekli,
-    orijinalFaturaNo:faturaNo||'',
-    not:not||'',
-    tarih:new Date().toISOString().split('T')[0],
-    kalemler:dolu.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
-      gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0})),
-    durum:'bekleyen',
-    kaynak:'satinalma', // Depo tarafından açılan iadeler kaynak:'depo' ile gelir
-    olusturanAd:CU.ad,
-    olusturmaTarih:Date.now()
-  };
-  await fetch(FB+'/siparisHavuzu/'+siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(siparis)});
+  const kalemler=dolu.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
+    gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));
+
+  try{
+    await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      siparis_no:siparisNo,firma_ad:firmaAd,otel_id:otelId,tarih:new Date().toISOString().split('T')[0],
+      durum:'bekleyen',tip:'iade',iade_nedeni:donusSekli,orijinal_fatura_no:faturaNo||null,
+      not_alani:not||null,kaynak:'satinalma',olusturan_ad:CU.ad
+    })});
+    const kalemSatirlar=kalemler.map(k=>({
+      siparis_no:siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
+      miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar
+    }));
+    await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+  }catch(e){console.warn(e);}
   hLD();
 
   iadeSifirla();
@@ -1820,12 +1824,32 @@ async function iadeOlustur(){
 let _itFilter='tumu';
 let _iadeHavuzuData={};
 
+function siparisSbdenCamele(r){
+  return{
+    siparisNo:r.siparis_no,firma:r.firma_ad,firmaId:'',otelId:r.otel_id,
+    tarih:r.tarih,termin:r.termin_tarihi||'',durum:r.durum,tip:r.tip,
+    iadeNedeni:r.iade_nedeni||'',donusSekli:r.iade_nedeni||'',orijinalFaturaNo:r.orijinal_fatura_no||'',
+    not:r.not_alani||'',kaynak:r.kaynak||'satinalma',olusturanAd:r.olusturan_ad||'',
+    olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
+    fiyatlandirildi:!!r.fiyatlandirildi,fiyatlandiranAd:r.fiyatlandiran_ad||'',
+    fiyatlandirmaTarihi:r.fiyatlandirma_tarihi?new Date(r.fiyatlandirma_tarihi).getTime():null,
+    gonderildiMuhasebe:!!r.gonderildi_muhasebe,gonderilmeTarihi:r.gonderilme_tarihi?new Date(r.gonderilme_tarihi).getTime():null,
+    muhasebeFaturaId:r.muhasebe_fatura_id||'',bagliFaturalar:r.bagli_faturalar||[],
+    kalemler:(r.siparis_kalemleri||[]).map(k=>({
+      ad:k.urun_adi,kod:k.urun_kodu||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
+      gelenMiktar:parseFloat(k.gelen_miktar)||0,kalanMiktar:parseFloat(k.kalan_miktar)||0,
+      birimFiyat:k.birim_fiyat?parseFloat(k.birim_fiyat):null
+    }))
+  };
+}
+
 async function loadIadeTakip(){
   try{
-    const r=await fetch(FB+'/siparisHavuzu.json');
+    const r=await fetch(SB_URL+'/rest/v1/siparisler?tip=eq.iade&select=*,siparis_kalemleri(*)',{headers:SB_HEADERS});
     if(r.ok){
-      const d=await r.json();
-      if(d&&typeof d==='object')_iadeHavuzuData=d;
+      const rows=await r.json();
+      _iadeHavuzuData={};
+      rows.forEach(row=>{_iadeHavuzuData[row.siparis_no]=siparisSbdenCamele(row);});
     }
   }catch(e){}
   renderIadeTakip();
@@ -2042,35 +2066,41 @@ async function iadeMuhasebeGonder(){
   s.gonderildiMuhasebe=true;
   s.gonderilmeTarihi=Date.now();
 
-  // Muhasebe'nin Faturalar listesinde görünecek TASLAK iade faturası oluştur
-  // (Muhasebe LN Sipariş No + kalemleri burada hazır bulur, kontrol edip onaylar/KDV işler)
-  const faturaId='FAT_IADE_'+Date.now();
-  const fatura={
-    id:faturaId,
-    no:'', // Gerçek iade fatura no'su kesilince Muhasebe girecek
-    tur:'alis',
-    iade:true,
-    cariAd:s.firma,
+  const faturaSatir={
+    no:null,tur:'alis',iade:true,cari_ad:s.firma,
     tarih:new Date().toISOString().split('T')[0],
-    olusturmaTarih:Date.now(),
-    siparisNo:s.siparisNo,
-    bagliFaturalar,
-    kalemler:kalemlerFiyatli.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
-      birimFiyat:k.birimFiyat,kdvOran:20,iskonto:0})),
-    araToplam:Math.round(araToplam*100)/100,
-    kdvToplam:0, // Muhasebe hesaplayacak
-    genelToplam:Math.round(araToplam*100)/100,
-    durum:'bekliyor',
-    not:(s.not||'')+' — İade nedeni: '+(s.donusSekli||''),
-    olusturanAd:CU.ad
+    siparis_no:s.siparisNo,otel_id:s.otelId||'810',
+    ara_toplam:Math.round(araToplam*100)/100,kdv_toplam:0,
+    genel_toplam:Math.round(araToplam*100)/100,
+    durum:'bekliyor',not_alani:(s.not||'')+' — İade nedeni: '+(s.donusSekli||'')
   };
-  s.muhasebeFaturaId=faturaId;
 
   try{
-    await Promise.all([
-      fetch(FB+'/siparisHavuzu/'+s.siparisNo+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)}),
-      fetch(FB+`/muhasebe/faturalar/${faturaId}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fatura)})
-    ]);
+    const r=await fetch(SB_URL+'/rest/v1/faturalar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(faturaSatir)});
+    const d=await r.json();
+    const faturaId=d[0].id;
+    const kalemSatirlar=kalemlerFiyatli.map(k=>({
+      fatura_id:faturaId,urun_kodu:k.kod||null,urun_adi:k.ad,miktar:parseFloat(k.miktar)||0,
+      birim:k.birim,birim_fiyat:k.birimFiyat,iskonto_yuzde:0,kdv_orani:20,toplam:round2(k.toplam)
+    }));
+    await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    s.muhasebeFaturaId=faturaId;
+
+    await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+s.siparisNo,{
+      method:'PATCH',headers:SB_HEADERS,
+      body:JSON.stringify({
+        bagli_faturalar:bagliFaturalar,fiyatlandirildi:true,fiyatlandiran_ad:CU.ad,
+        fiyatlandirma_tarihi:new Date().toISOString(),gonderildi_muhasebe:true,
+        gonderilme_tarihi:new Date().toISOString(),muhasebe_fatura_id:faturaId
+      })
+    });
+    for(const k of kalemlerFiyatli){
+      if(k.kod){
+        await fetch(SB_URL+`/rest/v1/siparis_kalemleri?siparis_no=eq.${s.siparisNo}&urun_kodu=eq.${encodeURIComponent(k.kod)}`,{
+          method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:k.birimFiyat})
+        });
+      }
+    }
     _iadeHavuzuData[s.siparisNo]=s;
     hLD();
     kModal('mIadeDetay');
