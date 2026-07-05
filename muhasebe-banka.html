@@ -232,28 +232,89 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let hesaplar={},hareketler={},virmanlar={};
 
 // ============================================================
-// FIREBASE
+// DÖNÜŞTÜRME YARDIMCILARI
 // ============================================================
+function hesapSbdenCamele(r){
+  return{
+    id:r.id,tur:r.tip,ad:r.ad,muhasebeKod:r.muhasebe_kod||'',doviz:r.doviz||'TRY',
+    bankaAd:r.banka_ad||'',sube:r.sube||'',iban:r.iban||'',otelId:r.otel_id,
+    acilisBakiye:parseFloat(r.acilis_bakiye)||0
+  };
+}
+function hareketSbdenCamele(r){
+  return{
+    id:r.id,hesapId:r.hesap_id,tip:r.tip,tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),
+    tarihStr:r.tarih,tutar:parseFloat(r.tutar)||0,belge:r.belge_no||'',
+    otelId:r.otel_id||'',aciklama:r.aciklama||''
+  };
+}
+function virmanSbdenCamele(r){
+  return{
+    id:r.id,kaynakId:r.kaynak_hesap_id,hedefId:r.hedef_hesap_id,tutar:parseFloat(r.tutar)||0,
+    tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),tarihStr:r.tarih,aciklama:r.aciklama||''
+  };
+}
+
 async function loadDB(){
   sLD();
   try{
     const [hR,hrR,vR]=await Promise.all([
-      fetch(FB+'/muhasebe/bankaKasaHesaplari.json'),
-      fetch(FB+'/muhasebe/bankaKasaHareketleri.json'),
-      fetch(FB+'/muhasebe/virmanlar.json'),
+      fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/banka_kasa_hareketleri?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/virmanlar?select=*',{headers:SB_HEADERS}),
     ]);
-    if(hR.ok){const d=await hR.json();if(d&&typeof d==='object')hesaplar=d;}
-    if(hrR.ok){const d=await hrR.json();if(d&&typeof d==='object')hareketler=d;}
-    if(vR.ok){const d=await vR.json();if(d&&typeof d==='object')virmanlar=d;}
+    hesaplar={};hareketler={};virmanlar={};
+    if(hR.ok){(await hR.json()).forEach(r=>{hesaplar[r.id]=hesapSbdenCamele(r);});}
+    if(hrR.ok){(await hrR.json()).forEach(r=>{hareketler[r.id]=hareketSbdenCamele(r);});}
+    if(vR.ok){(await vR.json()).forEach(r=>{virmanlar[r.id]=virmanSbdenCamele(r);});}
   }catch(e){console.warn(e);}
   hLD();
 }
-async function saveHesap(h){try{await fetch(FB+'/muhasebe/bankaKasaHesaplari/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}catch(e){}}
-async function saveHareket(h){try{await fetch(FB+'/muhasebe/bankaKasaHareketleri/'+h.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(h)});}catch(e){}}
-async function saveVirman(v){try{await fetch(FB+'/muhasebe/virmanlar/'+v.id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});}catch(e){}}
+
+async function saveHesap(h){
+  const satir={
+    tip:h.tur,ad:h.ad,muhasebe_kod:h.muhasebeKod||null,doviz:h.doviz||'TRY',
+    banka_ad:h.bankaAd||null,sube:h.sube||null,iban:h.iban||null,
+    otel_id:h.otelId||'810',acilis_bakiye:h.acilisBakiye||0
+  };
+  try{
+    if(h.id){
+      await fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?id=eq.'+h.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+    }else{
+      const r=await fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+      const d=await r.json();
+      if(d&&d[0])h.id=d[0].id;
+    }
+  }catch(e){console.warn(e);}
+}
+async function saveHareket(h){
+  const satir={
+    hesap_id:h.hesapId,tip:h.tip,tarih:h.tarihStr||new Date(h.tarih).toISOString().split('T')[0],
+    tutar:h.tutar,belge_no:h.belge||null,otel_id:h.otelId||null,aciklama:h.aciklama||null
+  };
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/banka_kasa_hareketleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+    const d=await r.json();
+    if(d&&d[0])h.id=d[0].id;
+  }catch(e){console.warn(e);}
+}
+async function saveVirman(v){
+  const satir={
+    kaynak_hesap_id:v.kaynakId,hedef_hesap_id:v.hedefId,tutar:v.tutar,
+    tarih:v.tarihStr||new Date(v.tarih).toISOString().split('T')[0],aciklama:v.aciklama||null
+  };
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/virmanlar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+    const d=await r.json();
+    if(d&&d[0])v.id=d[0].id;
+  }catch(e){console.warn(e);}
+}
 
 // ============================================================
 // BAKİYE HESAPLA
@@ -349,19 +410,20 @@ async function hesapKaydet(){
   const ad=document.getElementById('h-ad').value.trim();
   if(!ad){toast('⚠️ Hesap adı girin');return;}
   const editId=document.getElementById('h-id').value;
-  const id=editId||('HSP_'+Date.now());
   const h={
-    id,tur:document.getElementById('h-tur').value,ad,
+    id:editId||null,tur:document.getElementById('h-tur').value,ad,
     muhasebeKod:document.getElementById('h-muhasebe').value,
     doviz:document.getElementById('h-doviz').value,
     bankaAd:document.getElementById('h-banka-ad').value||'',
     sube:document.getElementById('h-sube').value||'',
     iban:document.getElementById('h-iban').value||'',
     otelId:document.getElementById('h-otel').value||'810',
-    acilisBakiye:parseFloat(document.getElementById('h-acilis').value)||0,
-    olusturmaTarih:hesaplar[id]?.olusturmaTarih||Date.now()
+    acilisBakiye:parseFloat(document.getElementById('h-acilis').value)||0
   };
-  sLD();hesaplar[id]=h;await saveHesap(h);hLD();
+  sLD();
+  await saveHesap(h); // yeni kayıtta h.id burada gerçek UUID ile doldurulur
+  hesaplar[h.id]=h;
+  hLD();
   kModal('mHesap');renderHesaplar();
   toast(`✅ ${ad} kaydedildi`);
 }
@@ -371,10 +433,11 @@ async function hesapSil(){
   const h=hesaplar[id];if(!h)return;
   if(!confirm(`"${h.ad}" silinsin mi? Hareketler de silinecek!`))return;
   sLD();delete hesaplar[id];
-  await fetch(FB+'/muhasebe/bankaKasaHesaplari/'+id+'.json',{method:'DELETE'});
+  try{await fetch(SB_URL+'/rest/v1/banka_kasa_hareketleri?hesap_id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
   for(const hk of Object.keys(hareketler)){
-    if(hareketler[hk]?.hesapId===id){delete hareketler[hk];await fetch(FB+'/muhasebe/bankaKasaHareketleri/'+hk+'.json',{method:'DELETE'});}
+    if(hareketler[hk]?.hesapId===id)delete hareketler[hk];
   }
+  try{await fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
   hLD();kModal('mHesap');renderHesaplar();toast('🗑️ Hesap silindi');
 }
 
@@ -434,15 +497,17 @@ async function hareketKaydet(){
   if(!tutar||tutar<=0){toast('⚠️ Tutar girin');return;}
   if(!tarih){toast('⚠️ Tarih girin');return;}
   const h={
-    id:'HR_'+Date.now(),hesapId,
+    id:null,hesapId,
     tip:document.getElementById('hr-tip').value,
     tarih:new Date(tarih).getTime(),tarihStr:tarih,
     tutar,belge:document.getElementById('hr-belge').value||'',
     otelId:hesaplar[hesapId]?.otelId||'810',
-    aciklama:document.getElementById('hr-aciklama').value||'',
-    olusturmaTarih:Date.now()
+    aciklama:document.getElementById('hr-aciklama').value||''
   };
-  sLD();hareketler[h.id]=h;await saveHareket(h);hLD();
+  sLD();
+  await saveHareket(h); // h.id burada gerçek UUID ile doldurulur
+  hareketler[h.id]=h;
+  hLD();
   kModal('mHareket');renderHesaplar();
   if(document.getElementById('tab-hareketler').style.display==='block')renderHareketler();
   toast(`✅ Hareket kaydedildi — ${fmt(tutar)} ₺`);
@@ -501,18 +566,18 @@ async function virmanYap(){
   if(kaynakBakiye<tutar){if(!confirm(`⚠️ Kaynak hesap bakiyesi yetersiz (${fmt(kaynakBakiye)} ₺). Devam edilsin mi?`))return;}
 
   const aciklama=document.getElementById('vir-aciklama').value||'Virman';
-  const virmanId='VIR_'+Date.now();
+  const virmanEtiketi='VIR-'+Date.now(); // görüntüleme/eşleştirme amaçlı metin etiket, artık DB anahtarı değil
 
   sLD();
   // Kaynaktan çıkış
-  const cikis={id:'HR_'+Date.now()+'_C',hesapId:kaynakId,tip:'cekme',tarih:new Date(tarih).getTime(),tarihStr:tarih,tutar,belge:virmanId,aciklama:'Virman → '+hesaplar[hedefId].ad+' ('+aciklama+')',olusturmaTarih:Date.now()};
-  hareketler[cikis.id]=cikis;await saveHareket(cikis);
+  const cikis={id:null,hesapId:kaynakId,tip:'cekme',tarih:new Date(tarih).getTime(),tarihStr:tarih,tutar,belge:virmanEtiketi,aciklama:'Virman → '+hesaplar[hedefId].ad+' ('+aciklama+')'};
+  await saveHareket(cikis);hareketler[cikis.id]=cikis;
   // Hedefe giriş
-  const giris={id:'HR_'+Date.now()+'_G',hesapId:hedefId,tip:'yatirma',tarih:new Date(tarih).getTime(),tarihStr:tarih,tutar,belge:virmanId,aciklama:'Virman ← '+hesaplar[kaynakId].ad+' ('+aciklama+')',olusturmaTarih:Date.now()};
-  hareketler[giris.id]=giris;await saveHareket(giris);
+  const giris={id:null,hesapId:hedefId,tip:'yatirma',tarih:new Date(tarih).getTime(),tarihStr:tarih,tutar,belge:virmanEtiketi,aciklama:'Virman ← '+hesaplar[kaynakId].ad+' ('+aciklama+')'};
+  await saveHareket(giris);hareketler[giris.id]=giris;
   // Virman kaydı
-  const vir={id:virmanId,kaynakId,hedefId,tutar,tarih:new Date(tarih).getTime(),tarihStr:tarih,aciklama,olusturmaTarih:Date.now()};
-  virmanlar[virmanId]=vir;await saveVirman(vir);
+  const vir={id:null,kaynakId,hedefId,tutar,tarih:new Date(tarih).getTime(),tarihStr:tarih,aciklama};
+  await saveVirman(vir);virmanlar[vir.id]=vir;
   hLD();
 
   document.getElementById('vir-tutar').value='';
