@@ -285,6 +285,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 </div>
 
+<!-- MODAL: Ürün Bazlı Düzelt -->
+<div class="mo" id="mUrunDuzelt">
+  <div class="mbox">
+    <div class="mtitle">✏️ Ürün Düzelt <button class="mclose" onclick="kModal('mUrunDuzelt')">✕</button></div>
+    <div id="mUrunDuzeltIc"></div>
+    <div class="brow" id="mUrunDuzeltActions" style="margin-top:14px"></div>
+  </div>
+</div>
+
 <!-- MODAL: Sipariş/Firma Seç (eski sistemdeki gibi tam liste, dokunarak seçim) -->
 <div class="mo" id="mSecEkrani">
   <div class="mbox" style="max-height:85vh">
@@ -768,7 +777,13 @@ function openDetay(id){
       </div>
     </div>
     <div style="font-size:12px;font-weight:700;margin-bottom:6px">Ürünler</div>
-    ${f.urunler.map(u=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12px"><span>${u.ad}</span><span style="font-weight:700">${u.miktar} ${u.birim}</span></div>`).join('')}
+    ${f.urunler.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12px">
+      <span>${u.ad}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:700">${u.miktar} ${u.birim}</span>
+        ${f.durum==='bekleyen'?`<button onclick="urunDuzeltAc('${f.id}','${u.id}')" style="padding:2px 8px;background:#dbeafe;color:#1e40af;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">Düzelt</button>`:''}
+      </div>
+    </div>`).join('')}
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mDetay')">Kapat</button>
       ${f.durum==='onaylandi'?`<button class="btn btn-primary btn-sm" style="flex:1" onclick="kModal('mDetay');kabulOzetAc('${f.id}')">📋 Kabul Sayfası</button>`:''}
@@ -848,7 +863,12 @@ function renderKaliteOnay(){
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei">✅</div><div class="et">Onay bekleyen yok</div></div>';return;}
   c.innerHTML=liste.map(f=>`<div class="mk-kart bekleyen">
     <div style="font-size:13px;font-weight:700">${f.mkNo} — ${f.firma}</div>
-    <div style="font-size:11px;color:var(--gray-500);margin:4px 0">${f.urunler.map(u=>u.ad+' ('+u.miktar+' '+u.birim+')').join(', ')}</div>
+    <div style="margin:6px 0">
+      ${f.urunler.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--gray-600);padding:3px 0;border-bottom:1px solid var(--gray-100)">
+        <span>${u.ad} — ${u.miktar} ${u.birim}</span>
+        <button onclick="urunDuzeltAc('${f.id}','${u.id}')" style="padding:2px 8px;background:#dbeafe;color:#1e40af;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;flex-shrink:0">Düzelt</button>
+      </div>`).join('')}
+    </div>
     <div class="brow" style="margin-top:8px">
       <button class="btn btn-danger btn-sm" onclick="kaliteReddet('${f.id}')">❌ Reddet</button>
       <button class="btn btn-success btn-sm" onclick="kaliteOnayla('${f.id}')">✅ Onayla</button>
@@ -885,6 +905,53 @@ async function kaliteReddet(id){
   hLD();
   await loadDB();renderListe();renderKaliteOnay();renderUygun();
   toast('❌ Reddedildi');
+}
+
+// ============================================================
+// ÜRÜN BAZLI DÜZELT — sadece henüz onaylanmamış (bekleyen) kayıtlarda.
+// Onaylı bir kayıt için önce "✏️ Düzelt" (duzeltmeModuAc) ile bekleyene alınmalı —
+// böylece sipariş üzerine işlenmiş miktar önce doğru şekilde geri alınmış olur.
+// ============================================================
+function urunDuzeltAc(mkId,urunId){
+  const f=malKabuller[mkId];if(!f)return;
+  const u=f.urunler.find(x=>String(x.id)===String(urunId));
+  if(!u)return;
+  document.getElementById('mUrunDuzeltIc').innerHTML=`
+    <div style="margin-bottom:12px">
+      <div style="font-size:14px;font-weight:700">${u.ad}</div>
+      <div style="font-size:11px;color:var(--gray-400);font-family:monospace">${u.kod||'—'}</div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Ürün Adı</label><input type="text" id="dz-ad" value="${u.ad.replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Birim</label>
+        <select id="dz-birim">${['KG','AD','KOL','LT','PKT','TRB','TNK','BOT'].map(b=>`<option${u.birim===b?' selected':''}>${b}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field"><label>Miktar *</label><input type="number" id="dz-miktar" value="${u.miktar}" min="0" step="0.01"></div>
+  `;
+  document.getElementById('mUrunDuzeltActions').innerHTML=`
+    <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mUrunDuzelt')">İptal</button>
+    <button class="btn btn-primary btn-sm" style="flex:1" onclick="urunDuzeltKaydet('${mkId}','${urunId}')">💾 Kaydet</button>
+  `;
+  aModal('mUrunDuzelt');
+}
+
+async function urunDuzeltKaydet(mkId,urunId){
+  const ad=document.getElementById('dz-ad').value.trim();
+  const birim=document.getElementById('dz-birim').value;
+  const miktar=parseFloat(document.getElementById('dz-miktar').value);
+  if(!ad){toast('⚠️ Ürün adı boş olamaz');return;}
+  if(!miktar||miktar<=0){toast('⚠️ Geçerli bir miktar girin');return;}
+  sLD();
+  try{
+    await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri?id=eq.'+urunId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({urun_adi:ad,birim,miktar})});
+    await auditLogYaz('update','mal_kabul_urunu',urunId,`Ürün düzeltildi: ${ad} — ${miktar} ${birim} (${currentUser.ad})`);
+  }catch(e){console.warn(e);toast('⚠️ Kaydetme hatası');hLD();return;}
+  hLD();
+  kModal('mUrunDuzelt');
+  toast(`✅ ${ad} güncellendi`);
+  await loadDB();
+  renderListe();renderKaliteOnay();
 }
 
 // ============================================================
