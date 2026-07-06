@@ -340,7 +340,7 @@ const OTEL_KISA={'810':'Club','811':'Resort'};
 const ROL_INDIRGEME={yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalite:'kalite',mutfak:'mutfak',bar:'bar',muhasebe_muduru:'yonetici',muhasebe_calisani:'yonetici',cost_control:'yonetici'};
 
 let currentUser=null, kullanicilar=[];
-let malKabuller={}, siparisler={}, urunler=[], cariler=[];
+let malKabuller={}, siparisler={}, urunler=[], cariler=[], uygunsuzluklarAcik={};
 let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik', siparisFilter='bekleyen', eslemeFilter='tumu';
 let formKalemleri=[];
 let formOtelId='810', previewMkNo='';
@@ -412,17 +412,22 @@ function siparisSbdenCamele(r){
 async function loadDB(){
   sLD();
   try{
-    const [mR,sR,uR,cR]=await Promise.all([
+    const [mR,sR,uR,cR,ugR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/mal_kabuller?select=*,mal_kabul_urunleri(*)&order=tarih.desc',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/siparisler?durum=neq.iptal&select=*,siparis_kalemleri(*)',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/urunler?select=kod,ad,birim,sicaklik_kriter',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/uygunsuzluklar?durum=eq.acik&select=mk_id,urun_kodu,aciklama',{headers:SB_HEADERS}),
     ]);
-    malKabuller={};siparisler={};
+    malKabuller={};siparisler={};uygunsuzluklarAcik={};
     if(mR.ok)(await mR.json()).forEach(r=>{malKabuller[r.id]=mkSbdenCamele(r);});
     if(sR.ok)(await sR.json()).forEach(r=>{siparisler[r.siparis_no]=siparisSbdenCamele(r);});
     if(uR.ok)urunler=await uR.json();
     if(cR.ok)cariler=await cR.json();
+    if(ugR.ok)(await ugR.json()).forEach(r=>{
+      if(!uygunsuzluklarAcik[r.mk_id])uygunsuzluklarAcik[r.mk_id]=[];
+      uygunsuzluklarAcik[r.mk_id].push(r);
+    });
   }catch(e){console.warn(e);}
   hLD();
 }
@@ -1022,23 +1027,37 @@ function renderKaliteOnay(){
   const liste=Object.values(malKabuller).filter(f=>f.durum==='bekleyen').sort((a,b)=>a.olusturmaTarih-b.olusturmaTarih);
   const c=document.getElementById('kalite-icerik');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei">✅</div><div class="et">Onay bekleyen yok</div></div>';return;}
-  c.innerHTML=liste.map(f=>`<div class="mk-kart bekleyen">
+  c.innerHTML=liste.map(f=>{
+    const uygunsuzlar=uygunsuzluklarAcik[f.id]||[];
+    const uygunsuzKodlar=new Set(uygunsuzlar.map(u=>u.urun_kodu));
+    return`<div class="mk-kart bekleyen" style="${uygunsuzlar.length?'border-left-color:var(--danger)':''}">
     <div style="font-size:13px;font-weight:700">${f.mkNo} — ${f.firma}</div>
+    ${uygunsuzlar.length?`<div style="background:#fde8e8;color:#9b1c1c;font-size:11px;font-weight:700;padding:6px 8px;border-radius:6px;margin:6px 0">
+      ⚠️ Bu kayıtta ${uygunsuzlar.length} uygunsuzluk bildirimi var — onaylamadan önce inceleyin
+    </div>`:''}
     <div style="margin:6px 0">
-      ${f.urunler.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--gray-600);padding:3px 0;border-bottom:1px solid var(--gray-100)">
-        <span>${u.ad} — ${u.miktar} ${u.birim}</span>
+      ${f.urunler.map(u=>{
+        const uygunsuz=uygunsuzKodlar.has(u.kod);
+        return`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:${uygunsuz?'var(--danger)':'var(--gray-600)'};padding:3px 0;border-bottom:1px solid var(--gray-100);${uygunsuz?'font-weight:700':''}">
+        <span>${uygunsuz?'⚠️ ':''}${u.ad} — ${u.miktar} ${u.birim}</span>
         <button onclick="urunDuzeltAc('${f.id}','${u.id}')" style="padding:2px 8px;background:#dbeafe;color:#1e40af;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;flex-shrink:0">Düzelt</button>
-      </div>`).join('')}
+      </div>`;
+      }).join('')}
     </div>
     <div class="brow" style="margin-top:8px">
       <button class="btn btn-danger btn-sm" onclick="kaliteReddet('${f.id}')">❌ Reddet</button>
       <button class="btn btn-success btn-sm" onclick="kaliteOnayla('${f.id}')">✅ Onayla</button>
     </div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 async function kaliteOnayla(id){
   const f=malKabuller[id];if(!f)return;
-  if(!confirm(`${f.mkNo} onaylansın mı?`))return;
+  const uygunsuzlar=uygunsuzluklarAcik[id]||[];
+  const mesaj=uygunsuzlar.length
+    ? `⚠️ ${f.mkNo} kaydında ${uygunsuzlar.length} AÇIK UYGUNSUZLUK bildirimi var!\n\nYine de onaylamak istediğinize emin misiniz?`
+    : `${f.mkNo} onaylansın mı?`;
+  if(!confirm(mesaj))return;
   sLD();
   try{
     await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});
@@ -1058,9 +1077,27 @@ async function kaliteReddet(id){
   sLD();
   try{
     await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'iptal'})});
-    await fetch(SB_URL+'/rest/v1/uygunsuzluklar',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
-      mk_id:id,otel_id:f.otelId,aciklama:`Mal kabul reddedildi: ${neden}`,durum:'acik',bildiren_ad:currentUser.ad
-    })});
+
+    const mevcutUygunsuzlar=uygunsuzluklarAcik[id]||[];
+    if(mevcutUygunsuzlar.length){
+      // Bu kayıtta zaten (üründen kaynaklanan) açık uygunsuzluk bildirimi var —
+      // tekrar genel bir kayıt açmak yerine, ret sebebini mevcut kayda not olarak ekle.
+      const r=await fetch(SB_URL+'/rest/v1/uygunsuzluklar?mk_id=eq.'+id+'&durum=eq.acik&select=id,aciklama',{headers:SB_HEADERS});
+      if(r.ok){
+        const kayitlar=await r.json();
+        for(const k of kayitlar){
+          await fetch(SB_URL+'/rest/v1/uygunsuzluklar?id=eq.'+k.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+            aciklama:`${k.aciklama}\n— Mal kabul reddedildi: ${neden}`
+          })});
+        }
+      }
+    }else{
+      // Bu kayıtta üründen kaynaklanan bir uygunsuzluk yoktu (örn. yanlış ürün geldi, miktar tutmadı vb.)
+      // — reddetme sebebinin kendisi tek uygunsuzluk kaydı olur.
+      await fetch(SB_URL+'/rest/v1/uygunsuzluklar',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+        mk_id:id,otel_id:f.otelId,aciklama:`Mal kabul reddedildi: ${neden}`,durum:'acik',bildiren_ad:currentUser.ad
+      })});
+    }
   }catch(e){}
   await auditLogYaz('reject','mal_kabul',id,`Reddedildi: ${f.mkNo} — ${neden}`);
   hLD();
