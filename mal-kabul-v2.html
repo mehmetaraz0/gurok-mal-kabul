@@ -774,11 +774,25 @@ async function formKaydet(){
       arac_hijyen:document.getElementById('f-arac-hijyen').checked?'uygun':'uygunsuz',arac_sicaklik:aracSicaklik,
       notlar:document.getElementById('f-notlar').value||null,personel_ad:currentUser.ad,durum:'bekleyen'
     })});
+    if(!r.ok){
+      const hataMetni=await r.text();
+      console.error('mal_kabuller INSERT hatası:',hataMetni);
+      hLD();
+      alert('❌ Kaydetme hatası:\n\n'+hataMetni);
+      return;
+    }
     const d=await r.json();
     const mkId=d[0].id;
 
     const kalemSatirlar=dolu.map(k=>({mk_id:mkId,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,miktar:parseFloat(k.miktar)}));
-    await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    const rUrun=await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    if(!rUrun.ok){
+      const hataMetni=await rUrun.text();
+      console.error('mal_kabul_urunleri INSERT hatası:',hataMetni);
+      hLD();
+      alert('❌ Ürünler kaydedilirken hata:\n\n'+hataMetni+'\n\n(Not: Ana kayıt '+mkNo+' zaten oluşturuldu, ürünler eksik kalmış olabilir)');
+      return;
+    }
 
     // SKT girilen kalemler için kayıt oluştur
     for(const k of dolu){
@@ -813,8 +827,8 @@ async function formKaydet(){
     hLD();
     return;
   }catch(e){
-    console.warn(e);
-    toast('⚠️ Kaydetme hatası');
+    console.error(e);
+    alert('❌ Kaydetme hatası:\n\n'+(e.message||e));
   }
   hLD();
   await loadDB();
