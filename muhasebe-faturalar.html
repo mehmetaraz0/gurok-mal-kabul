@@ -399,16 +399,32 @@ async function loadDB(){
     const [fR,cR,mkR,spR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/faturalar?select=*,fatura_kalemleri(*)',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cariler?select=*',{headers:SB_HEADERS}),
-      fetch(FB+'/formlar.json'), // Mal Kabul modülü henüz Supabase'e geçmedi — geçiş dönemi köprüsü
-      fetch(FB+'/siparisHavuzu.json'), // Satın Alma modülü henüz Supabase'e geçmedi — geçiş dönemi köprüsü
+      fetch(SB_URL+'/rest/v1/mal_kabuller?select=*,mal_kabul_urunleri(*)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/siparisler?select=*,siparis_kalemleri(*)',{headers:SB_HEADERS}),
     ]);
-    faturalar={};cariler={};
+    faturalar={};cariler={};malKabulFormlar={};satinAlmaSiparisler={};
     if(fR.ok){(await fR.json()).forEach(r=>{faturalar[r.id]=faturaSbdenCamele(r);});}
     if(cR.ok){(await cR.json()).forEach(r=>{cariler[r.id]=cariSbdenCamele(r);});}
-    if(mkR.ok){const d=await mkR.json();if(d&&typeof d==='object'&&!Array.isArray(d))malKabulFormlar=d;}
-    if(spR.ok){const d=await spR.json();if(d&&typeof d==='object'&&!Array.isArray(d))satinAlmaSiparisler=d;}
+    if(mkR.ok){(await mkR.json()).forEach(r=>{malKabulFormlar[r.id]=malKabulSbdenCamele(r);});}
+    if(spR.ok){(await spR.json()).forEach(r=>{satinAlmaSiparisler[r.siparis_no]=siparisSbdenCamele(r);});}
   }catch(e){console.warn(e);}
   hLD();
+}
+
+// Mal Kabul (Supabase mal_kabuller + mal_kabul_urunleri) -> 3-Way Match'in beklediği camelCase şekle çevir
+function malKabulSbdenCamele(r){
+  return{
+    id:r.id,durum:r.durum,mkNo:r.mk_no,firma:r.firma_ad,faturaNo:r.fatura_no,
+    irsaliyeNo:r.irsaliye_no,lnSiparisNo:r.ln_siparis_no,
+    urunler:(r.mal_kabul_urunleri||[]).map(u=>({kod:u.urun_kodu||'',ad:u.urun_adi,miktar:parseFloat(u.miktar)||0,birim:u.birim}))
+  };
+}
+// Sipariş (Supabase siparisler + siparis_kalemleri) -> 3-Way Match'in beklediği camelCase şekle çevir
+function siparisSbdenCamele(r){
+  return{
+    id:r.id,siparisNo:r.siparis_no,firma:r.firma_ad,durum:r.durum,
+    kalemler:(r.siparis_kalemleri||[]).map(k=>({kod:k.urun_kodu||'',ad:k.urun_adi,miktar:parseFloat(k.miktar)||0,birim:k.birim}))
+  };
 }
 
 // f: camelCase fatura nesnesi. Yeni ise (id yoksa) POST ile ekler, gerçek UUID'yi f.id'ye yazar.
@@ -916,29 +932,41 @@ function runMatch(){
   if(!fId){document.getElementById('match-sonuc').innerHTML='';return;}
   const f=faturalar[fId];if(!f)return;
 
-  // 1. Sipariş bul (LN sipariş no ile)
+  // 1. Sipariş bul (LN sipariş no ile) — bir faturada virgülle ayrılmış birden fazla sipariş no olabilir
   // Boşluk/büyük-küçük harf farkına toleranslı karşılaştırma yardımcı fonksiyonu
   const norm=v=>(v||'').toString().trim().toUpperCase();
-  const fSiparisNoNorm=norm(f.siparisNo);
+  const siparisNolar=(f.siparisNo||'').split(',').map(s=>s.trim()).filter(Boolean);
 
-  const siparis=f.siparisNo?Object.values(satinAlmaSiparisler).find(s=>norm(s?.siparisNo)===fSiparisNoNorm||norm(s?.id)===fSiparisNoNorm):null;
-  const malKabul=Object.values(malKabulFormlar).find(mk=>mk&&(norm(mk.faturaNo)===norm(f.no)||norm(mk.lnSiparisNo)===fSiparisNoNorm)&&mk.durum==='onaylandi');
+  const bulunanSiparisler=siparisNolar.map(sipNo=>{
+    const sipNoNorm=norm(sipNo);
+    return{sipNo,eslesen:Object.values(satinAlmaSiparisler).find(s=>norm(s?.siparisNo)===sipNoNorm||norm(s?.id)===sipNoNorm)};
+  });
+
+  const malKabul=Object.values(malKabulFormlar).find(mk=>{
+    if(!mk||mk.durum!=='onaylandi')return false;
+    if(norm(mk.faturaNo)===norm(f.no))return true;
+    const mkSiparisNolar=(mk.lnSiparisNo||'').split(',').map(s=>norm(s.trim())).filter(Boolean);
+    return siparisNolar.some(sipNo=>mkSiparisNolar.includes(norm(sipNo)));
+  });
 
   // Hata ayıklama — bulunamazsa konsolda window._matchDebug ile incelenebilir
   window._matchDebug={
     faturaSiparisNo:f.siparisNo,
-    faturaSiparisNoNorm:fSiparisNoNorm,
+    siparisNolar,
     siparisHavuzuAnahtarSayisi:Object.keys(satinAlmaSiparisler).length,
     siparisHavuzuAnahtarlari:Object.keys(satinAlmaSiparisler),
-    eslesenSiparis:siparis
+    bulunanSiparisler,
+    eslesenMalKabul:malKabul
   };
 
   let sonuc='';
 
-  // Sipariş kontrolü
-  if(f.siparisNo){
-    if(siparis){sonuc+=`<div class="match-ok" style="margin-bottom:6px">✅ Sipariş bulundu: ${f.siparisNo}</div>`;}
-    else{sonuc+=`<div class="match-warn" style="margin-bottom:6px">⚠️ Sipariş bulunamadı: ${f.siparisNo} (LN'de olabilir)</div>`;}
+  // Sipariş kontrolü (her sipariş no ayrı ayrı raporlanır)
+  if(siparisNolar.length){
+    bulunanSiparisler.forEach(({sipNo,eslesen})=>{
+      if(eslesen){sonuc+=`<div class="match-ok" style="margin-bottom:6px">✅ Sipariş bulundu: ${sipNo}</div>`;}
+      else{sonuc+=`<div class="match-warn" style="margin-bottom:6px">⚠️ Sipariş bulunamadı: ${sipNo} (LN'de olabilir)</div>`;}
+    });
   }else{
     sonuc+=`<div class="match-warn" style="margin-bottom:6px">⚠️ Sipariş no girilmemiş</div>`;
   }
