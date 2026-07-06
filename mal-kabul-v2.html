@@ -673,12 +673,19 @@ function bspUygula(){
   document.getElementById('f-siparis-no').value=siparisNolar.join(', ');
   document.getElementById('f-siparis-inp').value=siparisNolar.join(', ');
 
-  // Boş satırları temizle, seçilenleri (tekilleştirerek) ekle
+  // Boş satırları temizle, seçilenleri ekle — aynı ürün kodu birden fazla siparişten
+  // seçildiyse satırı ATLAMAK yerine miktarları BİRLEŞTİR (toplam gelen miktar doğru olsun)
   formKalemleri=formKalemleri.filter(k=>k.ad&&k.ad.trim());
   const mevcutKodlar=new Set(formKalemleri.map(k=>k.kod).filter(Boolean));
-  let eklenen=0;
+  let eklenen=0,birlestirilen=0;
   secilen.forEach(s=>{
-    if(!s.kalemKod||!mevcutKodlar.has(s.kalemKod)){
+    if(s.kalemKod&&mevcutKodlar.has(s.kalemKod)){
+      const mevcutSatir=formKalemleri.find(k=>k.kod===s.kalemKod);
+      if(mevcutSatir){
+        mevcutSatir.miktar=String((parseFloat(mevcutSatir.miktar)||0)+(parseFloat(s.miktar)||0));
+        birlestirilen++;
+      }
+    }else{
       formKalemleri.push({kod:s.kalemKod,ad:s.kalemAd,birim:(s.birim||'KG').toUpperCase(),miktar:String(s.miktar),sktTarihi:'',uygunsuz:false});
       if(s.kalemKod)mevcutKodlar.add(s.kalemKod);
       eklenen++;
@@ -687,7 +694,7 @@ function bspUygula(){
   if(!formKalemleri.length)formKalemleri=[{kod:'',ad:'',birim:'KG',miktar:'',sktTarihi:'',uygunsuz:false}];
   renderKalemler();
   kModal('mSecEkrani');
-  toast(`✅ ${eklenen} kalem forma eklendi (${siparisNolar.length} sipariş)`);
+  toast(`✅ ${eklenen} kalem forma eklendi${birlestirilen>0?`, ${birlestirilen} kalemin miktarı birleştirildi`:''} (${siparisNolar.length} sipariş)`);
 }
 
 function firmaSecildi(id,ad){
