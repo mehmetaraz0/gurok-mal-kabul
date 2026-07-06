@@ -1347,7 +1347,8 @@ async function renderUygun(){
           <div><b>Karar:</b> ${kararEtiket[r.karar]||'—'}</div>
           ${r.faaliyet_aciklama?`<div style="margin-top:2px"><b>Faaliyet:</b> ${r.faaliyet_aciklama}</div>`:''}
           <div style="color:var(--gray-500);margin-top:2px">${r.faaliyet_yapan||''} ${r.faaliyet_tarih?'• '+r.faaliyet_tarih:''}</div>
-        </div>`}
+        </div>
+        <button class="btn btn-primary btn-sm btn-block" style="margin-top:6px" onclick="uygunsuzlukYazdir('${r.id}')">🖨️ Formu Yazdır</button>`}
   </div>`).join('');
 }
 function filterUygun(f,el){uygunFilter=f;document.querySelectorAll('#tab-uygun .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderUygun();}
@@ -1410,7 +1411,102 @@ async function uygunsuzlukKaydet(id){
   hLD();
   kModal('mUygunDetay');
   toast('✅ Düzeltici faaliyet kaydedildi, uygunsuzluk kapatıldı');
+  await loadDB();
   renderUygun();
+  uygunsuzlukYazdir(id); // kaydettikten sonra çıktı ekranı otomatik açılsın
+}
+
+// ============================================================
+// UYGUNSUZLUK FORMU — YAZDIRILABİLİR ÇIKTI (v1'deki tam form ile birebir)
+// ============================================================
+async function uygunsuzlukYazdir(id){
+  let r=uygunCache[id];
+  if(!r){
+    try{
+      const res=await fetch(SB_URL+'/rest/v1/uygunsuzluklar?id=eq.'+id+'&select=*',{headers:SB_HEADERS});
+      if(res.ok){const d=await res.json();r=d[0];}
+    }catch(e){}
+  }
+  if(!r){toast('⚠️ Kayıt bulunamadı');return;}
+
+  const mk=malKabuller[r.mk_id];
+  const kararEtiket={iade:'İade',sartli:'Şartlı Kullanım',imha:'İmha',duzeltme:'Düzeltme/Tekrar İşleme'};
+  const kararlar=['iade','sartli','imha','duzeltme'];
+  const fmtTarih=t=>t?new Date(t).toLocaleDateString('tr-TR'):'—';
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Uygunsuzluk Formu</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111;padding:24px;max-width:800px;margin:0 auto}
+    h1{font-size:18px;text-align:center;margin:0 0 4px}
+    .sub{text-align:center;color:#666;font-size:11px;margin-bottom:18px}
+    .top-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:14px;font-size:12px}
+    .top-grid div{border:1px solid #999;padding:6px 8px}
+    .top-grid label{display:block;font-size:9px;color:#666;text-transform:uppercase;margin-bottom:2px}
+    .section{border:1px solid #999;margin-bottom:10px}
+    .section-title{background:#e5e5e5;padding:5px 8px;font-weight:700;font-size:12px}
+    .section-body{padding:8px}
+    .kfield{margin-bottom:8px}
+    .kfield label{display:block;font-size:9px;color:#666;text-transform:uppercase;margin-bottom:2px}
+    .kfield .val{border-bottom:1px solid #999;min-height:16px;padding-bottom:2px}
+    .karar-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+    .karar-opt{display:flex;align-items:center;gap:6px;font-size:12px}
+    .box{display:inline-block;width:14px;height:14px;border:1.5px solid #333;text-align:center;line-height:13px;font-size:11px;font-weight:700}
+    .imza-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+    .imza-box{border-top:1px solid #333;padding-top:4px;font-size:11px;text-align:center;min-height:50px}
+    @media print{ .no-print{display:none} }
+  </style></head><body>
+    <h1>UYGUNSUZLUK / DÜZELTİCİ FAALİYET FORMU</h1>
+    <div class="sub">${OTEL_ISIMLERI[mk?.otelId||r.otel_id]||'—'}</div>
+
+    <div class="top-grid">
+      <div><label>Tesis Adı</label>${OTEL_ISIMLERI[mk?.otelId||r.otel_id]||'—'}</div>
+      <div><label>Form No</label>UF-${String(r.id).padStart(5,'0')}</div>
+      <div><label>Tarih</label>${fmtTarih(r.olusturma_tarihi)}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Formu Açan</div>
+      <div class="section-body top-grid" style="grid-template-columns:1fr 1fr;border:none;padding:0">
+        <div><label>Ad Soyad</label>${r.bildiren_ad||'—'}</div>
+        <div><label>Tarih</label>${fmtTarih(r.olusturma_tarihi)}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Malzeme / Ürün Uygunsuzlukları</div>
+      <div class="section-body">
+        <div class="kfield"><label>Kabul No / Firma</label><div class="val">${mk?mk.mkNo+' — '+mk.firma:'—'}</div></div>
+        <div class="kfield"><label>Uygunsuzluğun Açıklaması</label><div class="val">${(r.aciklama||'').replace(/\n/g,'<br>')}</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Düzeltici Faaliyet</div>
+      <div class="section-body">
+        <div class="kfield"><label>Faaliyet Açıklaması</label><div class="val">${r.faaliyet_aciklama||'—'}</div></div>
+        <label style="font-size:9px;color:#666;text-transform:uppercase">Karar</label>
+        <div class="karar-grid">
+          ${kararlar.map(k=>`<div class="karar-opt"><span class="box">${r.karar===k?'✓':''}</span> ${kararEtiket[k]}</div>`).join('')}
+        </div>
+        <div class="top-grid" style="grid-template-columns:1fr 1fr 1fr;border:none;padding:0">
+          <div><label>Faaliyeti Yapan</label>${r.faaliyet_yapan||'—'}</div>
+          <div><label>Tarih</label>${fmtTarih(r.faaliyet_tarih)}</div>
+          <div><label>Kapanma Tarihi</label>${fmtTarih(r.kapanma_tarihi)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="imza-grid">
+      <div class="imza-box">Faaliyeti Yapan İmza</div>
+      <div class="imza-box">Kalite Onayı İmza</div>
+    </div>
+
+    <div class="no-print" style="margin-top:24px;text-align:center">
+      <button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer">🖨️ Yazdır</button>
+    </div>
+  </body></html>`);
+  w.document.close();
 }
 
 // ============================================================
