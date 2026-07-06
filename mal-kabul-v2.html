@@ -918,14 +918,22 @@ async function faturaNoKaydet(id){
   if(!faturaNo){toast('⚠️ Fatura no boş olamaz');return;}
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({fatura_no:faturaNo})});
+    const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({fatura_no:faturaNo})});
+    if(!r.ok){
+      const hataMetni=await r.text();
+      console.error('Fatura no kaydetme hatası:',hataMetni);
+      hLD();
+      alert('❌ Fatura no kaydedilemedi:\n\n'+hataMetni);
+      return;
+    }
     await auditLogYaz('update','mal_kabul',id,`Fatura no kaydedildi: ${faturaNo}`);
-  }catch(e){console.warn(e);toast('⚠️ Kaydetme hatası');hLD();return;}
+  }catch(e){console.error(e);hLD();alert('❌ Kaydetme hatası:\n\n'+(e.message||e));return;}
   hLD();
+  kModal('mDetay');
   toast(`✅ Fatura no kaydedildi: ${faturaNo}`);
   await loadDB();
   renderListe();
-  openDetay(id); // ekranı güncel fatura no ile tazele
+  renderEslemeRaporu();
 }
 
 async function duzeltmeModuAc(id){
