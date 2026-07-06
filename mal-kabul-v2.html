@@ -101,7 +101,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
     <div style="flex:1"><h1 id="hdrUser">Mal Kabul</h1><span style="font-size:11px;opacity:.7" id="hdrOtel"></span></div>
-    <button class="hbtn" onclick="openYeniForm()">➕</button>
   </div>
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('liste',this)">📥 Mal Kabul</button>
@@ -112,16 +111,85 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('export',this)">📊 LN Export</button>
   </div>
 
-  <!-- LİSTE -->
+  <!-- MAL KABUL: Form (varsayılan) + Geçmiş Kayıtlar (toggle) -->
   <div class="sc" id="tab-liste" style="display:block">
-    <div class="stats-grid" id="liste-stats"></div>
     <div class="ftabs">
-      <button class="ftab active" onclick="filterListe('tumu',this)">Tümü</button>
-      <button class="ftab" onclick="filterListe('bekleyen',this)">⏳ Bekleyen</button>
-      <button class="ftab" onclick="filterListe('onaylandi',this)">✅ Onaylı</button>
-      <button class="ftab" onclick="filterListe('iptal',this)">❌ İptal</button>
+      <button class="ftab active" id="mk-view-form-btn" onclick="mkSwitchView('form')">➕ Yeni Kabul</button>
+      <button class="ftab" id="mk-view-liste-btn" onclick="mkSwitchView('liste')">📜 Geçmiş Kayıtlar</button>
     </div>
-    <div id="liste-icerik"></div>
+
+    <!-- Yeni Kabul Formu -->
+    <div id="mk-view-form">
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <span>📋 Teslimat Bilgileri</span>
+          <span class="chip chip-purple" id="f-mkno-badge">Kabul: —</span>
+        </div>
+        <div class="field">
+          <label>Tedarikçi Firma *</label>
+          <div style="display:flex;gap:6px">
+            <div style="position:relative;flex:1">
+              <input type="text" id="f-firma-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterFirmaDD(this.value)">
+              <div id="f-firma-dd" class="udd"></div>
+            </div>
+            <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openFirmaSecEkrani()">📋 Seç</button>
+          </div>
+        </div>
+        <div class="rfields">
+          <div class="field"><label>Tarih *</label><input type="date" id="f-tarih"></div>
+          <div class="field"><label>Fatura No <span style="font-weight:400;text-transform:none;color:var(--gray-400);font-size:9px">(opsiyonel — irsaliye ile gelirse gir)</span></label><input type="text" id="f-fatura" placeholder="Fatura numarası"></div>
+        </div>
+        <div class="rfields">
+          <div class="field"><label>İrsaliye No *</label><input type="text" id="f-irsaliye" placeholder="Zorunlu"></div>
+          <div class="field">
+            <label>Sipariş No</label>
+            <div style="display:flex;gap:6px">
+              <div style="position:relative;flex:1">
+                <input type="text" id="f-siparis-inp" placeholder="C000... / R000..." autocomplete="off" oninput="filterSiparisDD(this.value)">
+                <div id="f-siparis-dd" class="udd"></div>
+              </div>
+              <button class="btn btn-primary btn-sm" style="flex-shrink:0;padding:11px 10px" onclick="openSiparisSecEkrani()">📋 Seç</button>
+            </div>
+            <input type="hidden" id="f-siparis-no">
+          </div>
+        </div>
+        <div class="rfields">
+          <div class="field"><label>Araç Hijyeni</label>
+            <div class="chkbox-input" id="f-arac-hijyen-box" onclick="toggleAracHijyen()">
+              <input type="checkbox" id="f-arac-hijyen" checked>
+              <span id="f-arac-hijyen-label">Uygun</span>
+            </div>
+          </div>
+          <div class="field"><label>Araç Sıcaklığı (°C) *</label><input type="number" id="f-arac-sicaklik" placeholder="Örn: 4" step="0.1"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <span>🧺 Ürünler</span>
+          <button class="btn btn-warning btn-sm" onclick="kalemEkle()">➕ Ürün Ekle</button>
+        </div>
+        <div id="f-kalemler"></div>
+      </div>
+
+      <div class="card">
+        <div class="field" style="margin-bottom:0"><label>Notlar</label><textarea id="f-notlar" rows="2" placeholder="Teslimatla ilgili notlar..."></textarea></div>
+      </div>
+
+      <button class="btn btn-success btn-block" style="margin-bottom:16px;min-height:52px;font-size:15px" onclick="formKaydet()">✓ Onaya Gönder</button>
+    </div>
+
+    <!-- Geçmiş Kayıtlar -->
+    <div id="mk-view-liste" style="display:none">
+      <div class="stats-grid" id="liste-stats"></div>
+      <div class="ftabs">
+        <button class="ftab active" onclick="filterListe('tumu',this)">Tümü</button>
+        <button class="ftab" onclick="filterListe('bekleyen',this)">⏳ Bekleyen</button>
+        <button class="ftab" onclick="filterListe('onaylandi',this)">✅ Onaylı</button>
+        <button class="ftab" onclick="filterListe('iptal',this)">❌ İptal</button>
+      </div>
+      <div id="liste-icerik"></div>
+    </div>
   </div>
 
   <!-- KALİTE ONAYI -->
@@ -169,73 +237,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       </div>
       <button class="btn btn-primary btn-block" onclick="lnExportYap()">📥 Excel Olarak İndir</button>
     </div>
-  </div>
-</div>
-
-<!-- MODAL: Yeni Mal Kabul Formu -->
-<div class="mo" id="mYeniForm">
-  <div class="mbox" style="display:flex;flex-direction:column;max-height:92vh;padding:0">
-    <div style="flex:1;overflow-y:auto;padding:20px">
-      <div class="card" style="box-shadow:none;border:1px solid var(--gray-200)">
-        <div class="card-title" style="justify-content:space-between">
-          <span>📋 Teslimat Bilgileri</span>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="chip chip-purple" id="f-mkno-badge">Kabul: —</span>
-            <button class="mclose" onclick="kModal('mYeniForm')" style="font-size:18px">✕</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Tedarikçi Firma *</label>
-          <div style="display:flex;gap:6px">
-            <div style="position:relative;flex:1">
-              <input type="text" id="f-firma-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterFirmaDD(this.value)">
-              <div id="f-firma-dd" class="udd"></div>
-            </div>
-            <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openFirmaSecEkrani()">📋 Seç</button>
-          </div>
-        </div>
-        <div class="rfields">
-          <div class="field"><label>Tarih *</label><input type="date" id="f-tarih"></div>
-          <div class="field"><label>Fatura No <span style="font-weight:400;text-transform:none;color:var(--gray-400);font-size:9px">(opsiyonel — irsaliye ile gelirse gir)</span></label><input type="text" id="f-fatura" placeholder="Fatura numarası"></div>
-        </div>
-        <div class="rfields">
-          <div class="field"><label>İrsaliye No *</label><input type="text" id="f-irsaliye" placeholder="Zorunlu"></div>
-          <div class="field">
-            <label>Sipariş No</label>
-            <div style="display:flex;gap:6px">
-              <div style="position:relative;flex:1">
-                <input type="text" id="f-siparis-inp" placeholder="C000... / R000..." autocomplete="off" oninput="filterSiparisDD(this.value)">
-                <div id="f-siparis-dd" class="udd"></div>
-              </div>
-              <button class="btn btn-primary btn-sm" style="flex-shrink:0;padding:11px 10px" onclick="openSiparisSecEkrani()">📋 Seç</button>
-            </div>
-            <input type="hidden" id="f-siparis-no">
-          </div>
-        </div>
-        <div class="rfields">
-          <div class="field"><label>Araç Hijyeni</label>
-            <div class="chkbox-input" id="f-arac-hijyen-box" onclick="toggleAracHijyen()">
-              <input type="checkbox" id="f-arac-hijyen" checked>
-              <span id="f-arac-hijyen-label">Uygun</span>
-            </div>
-          </div>
-          <div class="field"><label>Araç Sıcaklığı (°C) *</label><input type="number" id="f-arac-sicaklik" placeholder="Örn: 4" step="0.1"></div>
-        </div>
-      </div>
-
-      <div class="card" style="border:1px solid var(--gray-200)">
-        <div class="card-title" style="justify-content:space-between">
-          <span>🧺 Ürünler</span>
-          <button class="btn btn-warning btn-sm" onclick="kalemEkle()">➕ Ürün Ekle</button>
-        </div>
-        <div id="f-kalemler"></div>
-      </div>
-
-      <div class="card" style="border:1px solid var(--gray-200);margin-bottom:0">
-        <div class="field" style="margin-bottom:0"><label>Notlar</label><textarea id="f-notlar" rows="2" placeholder="Teslimatla ilgili notlar..."></textarea></div>
-      </div>
-    </div>
-    <button class="btn btn-success btn-block" style="border-radius:0;min-height:54px;font-size:15px;flex-shrink:0" onclick="formKaydet()">✓ Onaya Gönder</button>
   </div>
 </div>
 
@@ -360,7 +361,7 @@ async function loadDB(){
 
 async function initApp(){
   await loadDB();
-  renderListe();
+  mkSwitchView('form');
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('exp-bas').value=today;
   document.getElementById('exp-bit').value=today;
@@ -581,7 +582,16 @@ function openYeniForm(){
   document.getElementById('f-notlar').value='';
   formKalemleri=[{kod:'',ad:'',birim:'KG',miktar:'',sktTarihi:'',uygunsuz:false}];
   renderKalemler();
-  aModal('mYeniForm');
+}
+
+// Mal Kabul sekmesi içindeki iki alt görünüm: yeni kabul formu / geçmiş kayıtlar
+function mkSwitchView(view){
+  document.getElementById('mk-view-form').style.display=view==='form'?'block':'none';
+  document.getElementById('mk-view-liste').style.display=view==='liste'?'block':'none';
+  document.getElementById('mk-view-form-btn').classList.toggle('active',view==='form');
+  document.getElementById('mk-view-liste-btn').classList.toggle('active',view==='liste');
+  if(view==='form')openYeniForm();
+  else renderListe();
 }
 
 async function formKaydet(){
@@ -653,12 +663,21 @@ async function formKaydet(){
 
     await auditLogYaz('create','mal_kabul',mkId,`Mal kabul oluşturuldu: ${mkNo} — ${firmaAd} [${OTEL_KISA[otelId]}]`);
     toast(`✅ ${mkNo} kaydedildi — Kalite onayına gönderildi`);
+    await loadDB();
+    listeFilter='bekleyen';
+    mkSwitchView('liste');
+    document.querySelectorAll('#mk-view-liste .ftab').forEach(t=>{
+      t.classList.toggle('active', t.textContent.includes('Bekleyen'));
+    });
+    renderListe();
+    renderKaliteOnay();
+    hLD();
+    return;
   }catch(e){
     console.warn(e);
     toast('⚠️ Kaydetme hatası');
   }
   hLD();
-  kModal('mYeniForm');
   await loadDB();
   renderListe();
   renderKaliteOnay();
@@ -699,7 +718,7 @@ function durumKart(f){
     </div>
   </div>`;
 }
-function filterListe(f,el){listeFilter=f;document.querySelectorAll('#tab-liste .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderListe();}
+function filterListe(f,el){listeFilter=f;document.querySelectorAll('#mk-view-liste .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderListe();}
 
 function openDetay(id){
   const f=malKabuller[id];if(!f)return;
@@ -886,7 +905,7 @@ function gTab(tab,el){
   document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+tab).style.display='block';
   el.classList.add('active');
-  if(tab==='liste')renderListe();
+  if(tab==='liste')mkSwitchView('form');
   if(tab==='kalite')renderKaliteOnay();
   if(tab==='skt')renderSkt();
   if(tab==='uygun')renderUygun();
