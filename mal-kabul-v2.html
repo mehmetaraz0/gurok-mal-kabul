@@ -294,6 +294,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 </div>
 
+<!-- MODAL: Uygunsuzluk — Düzeltici Faaliyet -->
+<div class="mo" id="mUygunDetay">
+  <div class="mbox">
+    <div class="mtitle">⚠️ Düzeltici Faaliyet <button class="mclose" onclick="kModal('mUygunDetay')">✕</button></div>
+    <div id="mUygunDetayIc"></div>
+    <div class="brow" id="mUygunDetayActions" style="margin-top:14px"></div>
+  </div>
+</div>
+
 <!-- MODAL: Sipariş/Firma Seç (eski sistemdeki gibi tam liste, dokunarak seçim) -->
 <div class="mo" id="mSecEkrani">
   <div class="mbox" style="max-height:85vh">
@@ -1121,6 +1130,7 @@ function filterSkt(f,el){sktFilter=f;document.querySelectorAll('#tab-skt .ftab')
 // ============================================================
 // UYGUNSUZLUK
 // ============================================================
+let uygunCache={};
 async function renderUygun(){
   sLD();
   let rows=[];
@@ -1129,21 +1139,84 @@ async function renderUygun(){
     if(r.ok)rows=await r.json();
   }catch(e){}
   hLD();
+  uygunCache={};rows.forEach(r=>uygunCache[r.id]=r);
   const c=document.getElementById('uygun-icerik');
   if(!rows.length){c.innerHTML='<div class="es"><div class="ei">⚠️</div><div class="et">Kayıt yok</div></div>';return;}
+  const kararEtiket={iade:'İade',sartli:'Şartlı Kullanım',imha:'İmha',duzeltme:'Düzeltme/Tekrar İşleme'};
   c.innerHTML=rows.map(r=>`<div class="mk-kart" style="border-left-color:${r.durum==='acik'?'var(--danger)':'var(--success)'}">
     <div style="font-size:12px">${r.aciklama}</div>
     <div style="font-size:10px;color:var(--gray-400);margin-top:4px">👤 ${r.bildiren_ad||'—'} • ${new Date(r.olusturma_tarihi).toLocaleDateString('tr-TR')}</div>
-    ${r.durum==='acik'?`<button class="btn btn-success btn-sm btn-block" style="margin-top:8px" onclick="uygunKapat('${r.id}')">✅ Kapat</button>`:''}
+    ${r.durum==='acik'
+      ?`<button class="btn btn-warning btn-sm btn-block" style="margin-top:8px" onclick="uygunsuzlukIncele('${r.id}')">🔍 Düzeltici Faaliyet</button>`
+      :`<div style="margin-top:8px;padding:8px;background:var(--gray-100);border-radius:6px;font-size:11px">
+          <div><b>Karar:</b> ${kararEtiket[r.karar]||'—'}</div>
+          ${r.faaliyet_aciklama?`<div style="margin-top:2px"><b>Faaliyet:</b> ${r.faaliyet_aciklama}</div>`:''}
+          <div style="color:var(--gray-500);margin-top:2px">${r.faaliyet_yapan||''} ${r.faaliyet_tarih?'• '+r.faaliyet_tarih:''}</div>
+        </div>`}
   </div>`).join('');
 }
-async function uygunKapat(id){
-  sLD();
-  try{await fetch(SB_URL+'/rest/v1/uygunsuzluklar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'kapatildi',kapanma_tarihi:new Date().toISOString()})});}catch(e){}
-  hLD();renderUygun();
-  toast('✅ Kapatıldı');
-}
 function filterUygun(f,el){uygunFilter=f;document.querySelectorAll('#tab-uygun .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderUygun();}
+
+function uygunsuzlukIncele(id){
+  const r=uygunCache[id];if(!r)return;
+  document.getElementById('mUygunDetayIc').innerHTML=`
+    <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px">
+      <div>${r.aciklama}</div>
+      <div style="color:var(--gray-500);margin-top:4px">👤 ${r.bildiren_ad||'—'} • ${new Date(r.olusturma_tarihi).toLocaleDateString('tr-TR')}</div>
+    </div>
+    <div class="field">
+      <label>Faaliyet Açıklaması</label>
+      <textarea id="uf-faaliyet" rows="3" placeholder="Yapılan düzeltici faaliyeti açıklayın..."></textarea>
+    </div>
+    <div class="field">
+      <label>Karar</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:8px;border:1.5px solid var(--gray-300);border-radius:8px;cursor:pointer">
+          <input type="radio" name="uf-karar" value="iade"> İade
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:8px;border:1.5px solid var(--gray-300);border-radius:8px;cursor:pointer">
+          <input type="radio" name="uf-karar" value="sartli"> Şartlı Kullanım
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:8px;border:1.5px solid var(--gray-300);border-radius:8px;cursor:pointer">
+          <input type="radio" name="uf-karar" value="imha"> İmha
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:8px;border:1.5px solid var(--gray-300);border-radius:8px;cursor:pointer">
+          <input type="radio" name="uf-karar" value="duzeltme"> Düzeltme/Tekrar İşleme
+        </label>
+      </div>
+    </div>
+    <div class="rfields">
+      <div class="field"><label>Faaliyeti Yapan</label><input type="text" id="uf-faaliyet-yapan" value="${currentUser.ad}"></div>
+      <div class="field"><label>Tarih</label><input type="date" id="uf-faaliyet-tarih" value="${new Date().toISOString().split('T')[0]}"></div>
+    </div>
+  `;
+  document.getElementById('mUygunDetayActions').innerHTML=`
+    <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mUygunDetay')">İptal</button>
+    <button class="btn btn-success btn-sm" style="flex:1" onclick="uygunsuzlukKaydet('${id}')">✅ Kaydet ve Kapat</button>
+  `;
+  aModal('mUygunDetay');
+}
+
+async function uygunsuzlukKaydet(id){
+  const karar=document.querySelector('input[name="uf-karar"]:checked')?.value;
+  const faaliyet=document.getElementById('uf-faaliyet').value.trim();
+  const yapan=document.getElementById('uf-faaliyet-yapan').value.trim();
+  const tarih=document.getElementById('uf-faaliyet-tarih').value;
+  if(!karar){toast('⚠️ Karar seçin (İade/Şartlı Kullanım/İmha/Düzeltme)');return;}
+  if(!faaliyet){toast('⚠️ Faaliyet açıklaması girin');return;}
+  sLD();
+  try{
+    await fetch(SB_URL+'/rest/v1/uygunsuzluklar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+      durum:'kapatildi',kapanma_tarihi:new Date().toISOString(),
+      karar,faaliyet_aciklama:faaliyet,faaliyet_yapan:yapan||null,faaliyet_tarih:tarih||null
+    })});
+    await auditLogYaz('close','uygunsuzluk',id,`Düzeltici faaliyet kaydedildi ve kapatıldı — karar: ${karar}`);
+  }catch(e){console.warn(e);toast('⚠️ Kaydetme hatası');hLD();return;}
+  hLD();
+  kModal('mUygunDetay');
+  toast('✅ Düzeltici faaliyet kaydedildi, uygunsuzluk kapatıldı');
+  renderUygun();
+}
 
 // ============================================================
 // SİPARİŞ TAKİP
