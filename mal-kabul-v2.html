@@ -114,6 +114,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('skt',this)">📅 SKT Takip <span class="badge" id="bskt" style="display:none"></span></button>
     <button class="tabbtn" onclick="gTab('uygun',this)">⚠️ Uygunsuzluk</button>
     <button class="tabbtn" onclick="gTab('siparis',this)">📦 Sipariş Takip</button>
+    <button class="tabbtn" onclick="gTab('esleme',this)">🔗 Eşleşme</button>
     <button class="tabbtn" onclick="gTab('export',this)">📊 LN Export</button>
   </div>
 
@@ -239,6 +240,18 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="siparis-icerik"></div>
   </div>
 
+  <!-- EŞLEŞME RAPORU -->
+  <div class="sc" id="tab-esleme">
+    <div class="stats-grid" id="esleme-stats"></div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterEsleme('tumu',this)">Tümü</button>
+      <button class="ftab" onclick="filterEsleme('tam',this)">✅ Tam Eşleşti</button>
+      <button class="ftab" onclick="filterEsleme('fatura_bek',this)">⏳ Fatura Bekliyor</button>
+      <button class="ftab" onclick="filterEsleme('eksik',this)">❌ Eksik</button>
+    </div>
+    <div id="esleme-icerik"></div>
+  </div>
+
   <!-- LN EXPORT -->
   <div class="sc" id="tab-export">
     <div class="card">
@@ -297,7 +310,7 @@ const ROL_INDIRGEME={yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalit
 
 let currentUser=null, kullanicilar=[];
 let malKabuller={}, siparisler={}, urunler=[], cariler=[];
-let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik', siparisFilter='bekleyen';
+let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik', siparisFilter='bekleyen', eslemeFilter='tumu';
 let formKalemleri=[];
 let formOtelId='810', previewMkNo='';
 
@@ -1117,6 +1130,59 @@ function renderSiparisTakip(){
 function filterSiparisTakip(f,el){siparisFilter=f;document.querySelectorAll('#tab-siparis .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderSiparisTakip();}
 
 // ============================================================
+// EŞLEŞME RAPORU — Sipariş + İrsaliye + Fatura (3'lü eşleşme)
+// ============================================================
+function filterEsleme(f,el){eslemeFilter=f;document.querySelectorAll('#tab-esleme .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderEslemeRaporu();}
+
+function renderEslemeRaporu(){
+  const satirlar=Object.values(malKabuller).filter(f=>f.durum!=='iptal').map(f=>{
+    const siparis=!!(f.lnSiparisNo&&f.lnSiparisNo.trim());
+    const irsaliye=!!(f.irsaliyeNo&&f.irsaliyeNo.trim());
+    const fatura=!!(f.faturaNo&&f.faturaNo.trim());
+    let durum;
+    if(siparis&&irsaliye&&fatura)durum='tam';
+    else if(irsaliye&&!fatura)durum='fatura_bek';
+    else durum='eksik';
+    return{...f,_siparis:siparis,_irsaliye:irsaliye,_fatura:fatura,_durum:durum};
+  });
+
+  const tam=satirlar.filter(s=>s._durum==='tam').length;
+  const faturaBek=satirlar.filter(s=>s._durum==='fatura_bek').length;
+  const eksik=satirlar.filter(s=>s._durum==='eksik').length;
+  document.getElementById('esleme-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${tam}</div><div class="stat-lbl">✅ Tam Eşleşti</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${faturaBek}</div><div class="stat-lbl">⏳ Fatura Bekliyor</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${eksik}</div><div class="stat-lbl">❌ Eksik</div></div>`;
+
+  let liste=eslemeFilter==='tumu'?satirlar:satirlar.filter(s=>s._durum===eslemeFilter);
+  liste=liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+
+  const c=document.getElementById('esleme-icerik');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🔗</div><div class="et">Kayıt yok</div></div>';return;}
+  c.innerHTML=liste.map(f=>{
+    const kenar=f._durum==='tam'?'var(--success)':f._durum==='fatura_bek'?'var(--warning)':'var(--danger)';
+    return`<div class="mk-kart" style="border-left-color:${kenar};cursor:pointer" onclick="openDetay('${f.id}')">
+      <div style="font-size:13px;font-weight:700">${f.mkNo}</div>
+      <div style="font-size:11px;color:var(--gray-500)">🏢 ${f.firma} • ${f.tarih}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">
+        <div style="padding:6px 4px;border-radius:6px;text-align:center;background:${f._siparis?'#d4edda':'var(--gray-100)'}">
+          <div style="font-size:10px;font-weight:700;color:${f._siparis?'#155724':'var(--gray-500)'}">${f._siparis?'✅':'—'} SİPARİŞ</div>
+          <div style="font-size:9px;color:var(--gray-500);margin-top:1px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.lnSiparisNo||'yok'}</div>
+        </div>
+        <div style="padding:6px 4px;border-radius:6px;text-align:center;background:${f._irsaliye?'#d4edda':'#fde8e8'}">
+          <div style="font-size:10px;font-weight:700;color:${f._irsaliye?'#155724':'#9b1c1c'}">${f._irsaliye?'✅':'❌'} İRSALİYE</div>
+          <div style="font-size:9px;color:var(--gray-500);margin-top:1px">${f.irsaliyeNo||'yok'}</div>
+        </div>
+        <div style="padding:6px 4px;border-radius:6px;text-align:center;background:${f._fatura?'#d4edda':'#fff3cd'}">
+          <div style="font-size:10px;font-weight:700;color:${f._fatura?'#155724':'#856404'}">${f._fatura?'✅':'⏳'} FATURA</div>
+          <div style="font-size:9px;color:var(--gray-500);margin-top:1px">${f.faturaNo||'bekliyor'}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
 // LN EXPORT
 // ============================================================
 function lnExportYap(){
@@ -1156,6 +1222,7 @@ function gTab(tab,el){
   if(tab==='skt')renderSkt();
   if(tab==='uygun')renderUygun();
   if(tab==='siparis')renderSiparisTakip();
+  if(tab==='esleme')renderEslemeRaporu();
 }
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
