@@ -640,26 +640,9 @@ async function formKaydet(){
       }
     }
 
-    // Sipariş varsa gelen/kalan miktarı güncelle
-    if(siparisNo){
-      const sip=siparisler[siparisNo];
-      if(sip){
-        for(const k of dolu){
-          const sk=sip.kalemler.find(x=>x.kod===k.kod||x.ad===k.ad);
-          if(sk){
-            const yeniGelen=(sk.gelenMiktar||0)+parseFloat(k.miktar);
-            const yeniKalan=Math.max(0,(sk.miktar||0)-yeniGelen);
-            await fetch(SB_URL+`/rest/v1/siparis_kalemleri?siparis_no=eq.${siparisNo}&urun_kodu=eq.${encodeURIComponent(k.kod||'')}`,{
-              method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({gelen_miktar:yeniGelen,kalan_miktar:yeniKalan})
-            });
-          }
-        }
-        const tumuTamam=sip.kalemler.every(sk=>(sk.kalanMiktar||0)<=0.01);
-        if(tumuTamam){
-          await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+siparisNo,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'tamamlandi'})});
-        }
-      }
-    }
+    // NOT: Sipariş kalan/gelen miktarı artık burada DEĞİL, Kalite Onayı verildiğinde güncelleniyor
+    // (bkz. kaliteOnayla) — henüz onaylanmamış bir kayıt yüzünden sipariş miktarının
+    // yanlış düşmesini önlemek için.
 
     await auditLogYaz('create','mal_kabul',mkId,`Mal kabul oluşturuldu: ${mkNo} — ${firmaAd} [${OTEL_KISA[otelId]}]`);
     toast(`✅ ${mkNo} kaydedildi — Kalite onayına gönderildi`);
@@ -730,11 +713,58 @@ function openDetay(id){
       <div style="font-size:12px;color:var(--gray-600)">İrsaliye: ${f.irsaliyeNo||'—'} • Fatura: ${f.faturaNo||'—'}</div>
       ${f.lnSiparisNo?`<div style="font-size:12px;color:var(--gray-600)">Sipariş: ${f.lnSiparisNo}</div>`:''}
       <div style="font-size:12px;color:var(--gray-600)">Personel: ${f.personel}</div>
+      ${f.notlar?`<div style="font-size:12px;color:var(--gray-600);margin-top:4px">📝 ${f.notlar}</div>`:''}
     </div>
     <div style="font-size:12px;font-weight:700;margin-bottom:6px">Ürünler</div>
     ${f.urunler.map(u=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12px"><span>${u.ad}</span><span style="font-weight:700">${u.miktar} ${u.birim}</span></div>`).join('')}
-    <button class="btn btn-gray btn-block btn-sm" style="margin-top:12px" onclick="kModal('mDetay')">Kapat</button>`;
+    <div class="brow" style="margin-top:12px">
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mDetay')">Kapat</button>
+      ${f.durum==='onaylandi'?`<button class="btn btn-warning btn-sm" style="flex:1" onclick="duzeltmeModuAc('${f.id}')">✏️ Düzelt</button>`:''}
+    </div>`;
   aModal('mDetay');
+}
+
+async function duzeltmeModuAc(id){
+  const f=malKabuller[id];if(!f)return;
+  if(!confirm(`"${f.mkNo}" numaralı onaylı kaydı düzeltme moduna almak istediğinize emin misiniz?\nDüzeltme sonrası yeniden Kalite Onayı'na düşecek ve sipariş üzerine işlenen miktar geri alınacak.`))return;
+  const duzeltmeNotu=`✏️ Düzeltme: ${currentUser.ad} — ${new Date().toLocaleDateString('tr-TR')}`;
+  const yeniNotlar=f.notlar?`${f.notlar}\n${duzeltmeNotu}`:duzeltmeNotu;
+  sLD();
+  try{
+    // Sipariş üzerine daha önce onayla işlenmiş miktarı geri al (tekrar onaylanınca yeniden eklenecek)
+    await siparisMiktarUygula(f,-1);
+    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'bekleyen',notlar:yeniNotlar})});
+    await auditLogYaz('duzelt','mal_kabul',id,`Onaylı kayıt düzeltme moduna alındı: ${f.mkNo}`);
+  }catch(e){console.warn(e);toast('⚠️ İşlem başarısız');hLD();return;}
+  hLD();
+  kModal('mDetay');
+  await loadDB();
+  renderListe();
+  renderKaliteOnay();
+  toast(`✏️ ${f.mkNo} düzeltme için açıldı — Kalite Onayı sekmesinde görünecek`);
+}
+
+// ============================================================
+// SİPARİŞ MİKTARI UYGULA — onay verilince ekle (yon=1), düzeltmeye alınca geri al (yon=-1)
+// ============================================================
+async function siparisMiktarUygula(f,yon){
+  if(!f.lnSiparisNo)return;
+  const siparisNo=f.lnSiparisNo;
+  const sip=siparisler[siparisNo];
+  if(!sip)return;
+  for(const u of f.urunler){
+    const sk=sip.kalemler.find(x=>x.kod===u.kod||x.ad===u.ad);
+    if(sk){
+      const yeniGelen=Math.max(0,(sk.gelenMiktar||0)+yon*u.miktar);
+      const yeniKalan=Math.max(0,(sk.miktar||0)-yeniGelen);
+      await fetch(SB_URL+`/rest/v1/siparis_kalemleri?siparis_no=eq.${siparisNo}&urun_kodu=eq.${encodeURIComponent(u.kod||'')}`,{
+        method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({gelen_miktar:yeniGelen,kalan_miktar:yeniKalan})
+      });
+      sk.gelenMiktar=yeniGelen;sk.kalanMiktar=yeniKalan;
+    }
+  }
+  const tumuTamam=sip.kalemler.every(sk=>(sk.kalanMiktar||0)<=0.01);
+  await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+siparisNo,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:tumuTamam?'tamamlandi':'bekleyen'})});
 }
 
 // ============================================================
@@ -757,7 +787,11 @@ async function kaliteOnayla(id){
   const f=malKabuller[id];if(!f)return;
   if(!confirm(`${f.mkNo} onaylansın mı?`))return;
   sLD();
-  try{await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});}catch(e){}
+  try{
+    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});
+    // Sipariş kalan/gelen miktarı SADECE burada, onay anında güncellenir
+    await siparisMiktarUygula(f,1);
+  }catch(e){console.warn(e);}
   await auditLogYaz('approve','mal_kabul',id,`Kalite onayı verildi: ${f.mkNo}`);
   hLD();
   await loadDB();renderListe();renderKaliteOnay();
