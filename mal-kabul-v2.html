@@ -223,7 +223,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <!-- SİPARİŞ TAKİP -->
   <div class="sc" id="tab-siparis">
-    <div class="card"><div class="card-title">📦 Açık Siparişler</div><p style="font-size:12px;color:var(--gray-500)">Mal kabul yaparken buradan sipariş seçebilirsin. Satın Alma'nın oluşturduğu siparişler burada görünür.</p></div>
+    <div class="stats-grid" id="siparis-stats" style="grid-template-columns:repeat(3,1fr)"></div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterSiparisTakip('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="ftab" onclick="filterSiparisTakip('kismi',this)">🔶 Kısmen Geldi</button>
+      <button class="ftab" onclick="filterSiparisTakip('tamamlandi',this)">✅ Tamamlandı</button>
+      <button class="ftab" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
+    </div>
     <div id="siparis-icerik"></div>
   </div>
 
@@ -276,7 +282,7 @@ const ROL_INDIRGEME={yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalit
 
 let currentUser=null, kullanicilar=[];
 let malKabuller={}, siparisler={}, urunler=[], cariler=[];
-let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik';
+let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik', siparisFilter='bekleyen';
 let formKalemleri=[];
 let formOtelId='810', previewMkNo='';
 
@@ -449,7 +455,7 @@ function filterSiparisDD(val){
   const dd=document.getElementById('f-siparis-dd');
   const otelId=formOtelId;
   if(!val||val.length<2){dd.style.display='none';return;}
-  const res=Object.values(siparisler).filter(s=>s.otelId===otelId&&s.siparisNo.toLowerCase().includes(val.toLowerCase())&&s.durum==='bekleyen').slice(0,10);
+  const res=Object.values(siparisler).filter(s=>s.otelId===otelId&&s.siparisNo.toLowerCase().includes(val.toLowerCase())&&(s.durum==='bekleyen'||s.durum==='kismi')).slice(0,10);
   if(!res.length){dd.style.display='none';return;}
   dd.innerHTML=res.map(s=>`<div class="uddi" data-no="${s.siparisNo}">${s.siparisNo} — ${s.firma}</div>`).join('');
   dd.querySelectorAll('[data-no]').forEach(el=>{
@@ -490,7 +496,7 @@ let secTumVeri=[];
 function openSiparisSecEkrani(){
   secModu='siparis';
   const otelId=formOtelId;
-  secTumVeri=Object.values(siparisler).filter(s=>s.otelId===otelId&&s.durum==='bekleyen').sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
+  secTumVeri=Object.values(siparisler).filter(s=>s.otelId===otelId&&(s.durum==='bekleyen'||s.durum==='kismi')).sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
   document.getElementById('mSecTitle').innerHTML='📦 Açık Sipariş Seç <button class="mclose" onclick="kModal(\'mSecEkrani\')">✕</button>';
   document.getElementById('sec-arama').value='';
   document.getElementById('sec-arama').placeholder='Sipariş no veya firma ara...';
@@ -525,7 +531,10 @@ function renderSecListesi(liste){
     c.innerHTML=liste.map(s=>`<div class="mk-kart bekleyen" onclick="siparisSecildi('${s.siparisNo}')">
       <div style="display:flex;justify-content:space-between">
         <div><div style="font-size:14px;font-weight:700">${s.siparisNo}</div><div style="font-size:12px;color:var(--gray-500)">${s.firma}</div></div>
-        <span class="chip chip-gray">${s.kalemler.length} kalem</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          ${s.durum==='kismi'?'<span class="chip chip-yellow">🔶 Kısmi</span>':''}
+          <span class="chip chip-gray">${s.kalemler.length} kalem</span>
+        </div>
       </div>
     </div>`).join('');
   }else{
@@ -769,7 +778,9 @@ async function siparisMiktarUygula(f,yon){
     }
   }
   const tumuTamam=sip.kalemler.every(sk=>(sk.kalanMiktar||0)<=0.01);
-  await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+siparisNo,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:tumuTamam?'tamamlandi':'bekleyen'})});
+  const herhangiGeldi=sip.kalemler.some(sk=>(sk.gelenMiktar||0)>0.01);
+  const yeniDurum=tumuTamam?'tamamlandi':(herhangiGeldi?'kismi':'bekleyen');
+  await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+siparisNo,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:yeniDurum})});
 }
 
 // ============================================================
@@ -931,19 +942,52 @@ function filterUygun(f,el){uygunFilter=f;document.querySelectorAll('#tab-uygun .
 // SİPARİŞ TAKİP
 // ============================================================
 function renderSiparisTakip(){
-  const liste=Object.values(siparisler).filter(s=>s.durum==='bekleyen').sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
+  const tumSiparisler=Object.values(siparisler);
+  const bek=tumSiparisler.filter(s=>s.durum==='bekleyen').length;
+  const kis=tumSiparisler.filter(s=>s.durum==='kismi').length;
+  const tam=tumSiparisler.filter(s=>s.durum==='tamamlandi').length;
+  document.getElementById('siparis-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${bek}</div><div class="stat-lbl">⏳ Bekleyen</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${kis}</div><div class="stat-lbl">🔶 Kısmi</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${tam}</div><div class="stat-lbl">✅ Tamam</div></div>`;
+
+  let liste=siparisFilter==='tumu'?tumSiparisler:tumSiparisler.filter(s=>s.durum===siparisFilter);
+  liste=liste.sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
+
   const c=document.getElementById('siparis-icerik');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Açık sipariş yok</div></div>';return;}
-  c.innerHTML=liste.map(s=>`<div class="mk-kart bekleyen">
-    <div style="display:flex;justify-content:space-between">
-      <div><div style="font-size:13px;font-weight:700">${s.siparisNo}</div><div style="font-size:11px;color:var(--gray-500)">${s.firma}</div></div>
-      <span class="chip ${s.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[s.otelId]}</span>
-    </div>
-    <div style="font-size:11px;color:var(--gray-600);margin-top:6px">
-      ${s.kalemler.map(k=>`${k.ad}: ${k.gelenMiktar}/${k.miktar} ${k.birim}`).join(' • ')}
-    </div>
-  </div>`).join('');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Kayıt yok</div></div>';return;}
+  const durumChip={bekleyen:'<span class="chip chip-red">⏳ Bekliyor</span>',kismi:'<span class="chip chip-yellow">🔶 Kısmen Geldi</span>',tamamlandi:'<span class="chip chip-green">✅ Tamamlandı</span>',iptal:'<span class="chip chip-gray">❌ İptal</span>'};
+  c.innerHTML=liste.map(s=>{
+    const kalemler=s.kalemler||[];
+    const toplam=kalemler.length;
+    const tamamlanan=kalemler.filter(k=>(k.kalanMiktar||0)<=0.01).length;
+    const eksik=toplam-tamamlanan;
+    const yuzde=toplam>0?Math.round(tamamlanan/toplam*100):0;
+    return`<div class="mk-kart">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-size:13px;font-weight:700">${s.siparisNo}</div><div style="font-size:11px;color:var(--gray-500)">${s.firma}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${durumChip[s.durum]||''}
+          <span class="chip ${s.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[s.otelId]}</span>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span>${toplam} kalem</span>
+          <span style="color:${eksik>0?'var(--danger)':'var(--success)'}">${eksik>0?eksik+' kalem eksik':'Tümü geldi'}</span>
+        </div>
+        <div style="background:var(--gray-200);border-radius:6px;height:6px;overflow:hidden">
+          <div style="background:${s.durum==='tamamlandi'?'var(--success)':'var(--warning)'};height:100%;width:${yuzde}%"></div>
+        </div>
+      </div>
+      ${eksik>0?`<div style="font-size:11px;color:var(--gray-600);margin-top:6px">
+        ${kalemler.filter(k=>(k.kalanMiktar||0)>0.01).slice(0,3).map(k=>`• ${k.ad} — Kalan: ${k.kalanMiktar} ${k.birim}`).join('<br>')}
+        ${eksik>3?`<div style="color:var(--gray-400)">+${eksik-3} daha...</div>`:''}
+      </div>`:''}
+    </div>`;
+  }).join('');
 }
+function filterSiparisTakip(f,el){siparisFilter=f;document.querySelectorAll('#tab-siparis .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderSiparisTakip();}
 
 // ============================================================
 // LN EXPORT
