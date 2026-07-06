@@ -46,6 +46,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
 .es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+@media print{
+  body *{visibility:hidden}
+  #mKabulOzet,#mKabulOzet *{visibility:visible}
+  #mKabulOzet{position:absolute;top:0;left:0;width:100%;background:white}
+  #mKabulOzet .mclose,#mKabulOzetActions{display:none!important}
+}
 .stat-kart{background:white;border-radius:var(--radius-sm);padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .stat-num{font-size:17px;font-weight:800}
 .stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
@@ -254,6 +260,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="mbox">
     <div class="mtitle" id="mDetayTitle">Detay <button class="mclose" onclick="kModal('mDetay')">✕</button></div>
     <div id="mDetayIc"></div>
+  </div>
+</div>
+
+<!-- MODAL: Kabul Özeti (onay sonrası yazdırılabilir özet) -->
+<div class="mo" id="mKabulOzet">
+  <div class="mbox">
+    <div class="mtitle">📋 Kabul Özeti <button class="mclose" onclick="kModal('mKabulOzet')">✕</button></div>
+    <div id="mKabulOzetIc"></div>
+    <div class="brow" id="mKabulOzetActions" style="margin-top:14px"></div>
   </div>
 </div>
 
@@ -743,6 +758,7 @@ function openDetay(id){
     ${f.urunler.map(u=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12px"><span>${u.ad}</span><span style="font-weight:700">${u.miktar} ${u.birim}</span></div>`).join('')}
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mDetay')">Kapat</button>
+      ${f.durum==='onaylandi'?`<button class="btn btn-primary btn-sm" style="flex:1" onclick="kModal('mDetay');kabulOzetAc('${f.id}')">📋 Kabul Sayfası</button>`:''}
       ${f.durum==='onaylandi'?`<button class="btn btn-warning btn-sm" style="flex:1" onclick="duzeltmeModuAc('${f.id}')">✏️ Düzelt</button>`:''}
     </div>`;
   aModal('mDetay');
@@ -839,6 +855,7 @@ async function kaliteOnayla(id){
   hLD();
   await loadDB();renderListe();renderKaliteOnay();
   toast('✅ Onaylandı');
+  kabulOzetAc(id,{onaylayan:currentUser.ad,onayTarih:Date.now()});
 }
 async function kaliteReddet(id){
   const f=malKabuller[id];if(!f)return;
@@ -855,6 +872,89 @@ async function kaliteReddet(id){
   hLD();
   await loadDB();renderListe();renderKaliteOnay();renderUygun();
   toast('❌ Reddedildi');
+}
+
+// ============================================================
+// KABUL ÖZETİ — onay sonrası yazdırılabilir özet sayfası
+// ============================================================
+function kabulOzetAc(id,onayBilgisi){
+  const f=malKabuller[id];if(!f)return;
+  const onaylayan=onayBilgisi?.onaylayan||f.onaylayan||'—';
+  const onayTarih=onayBilgisi?.onayTarih?new Date(onayBilgisi.onayTarih).toLocaleString('tr-TR'):'';
+  const toplamMiktar=f.urunler.reduce((t,u)=>t+(parseFloat(u.miktar)||0),0);
+
+  document.getElementById('mKabulOzetIc').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;font-size:12px">
+      <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">Kabul No</div>
+        <div style="font-family:monospace;font-weight:800;color:var(--primary)">${f.mkNo}</div>
+      </div>
+      <div style="padding:8px 10px;background:#d4edda;border-radius:6px">
+        <div style="color:#155724;font-size:10px;text-transform:uppercase;margin-bottom:2px">Statü</div>
+        <div style="color:var(--success);font-weight:700">✅ Onaylı</div>
+      </div>
+      <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">Tedarikçi</div>
+        <div style="font-weight:600">${f.firma}</div>
+      </div>
+      <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">Otel / Depo</div>
+        <div style="font-weight:600">🏨 ${OTEL_ISIMLERI[f.otelId]}</div>
+      </div>
+      <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">İrsaliye</div>
+        <div style="font-weight:600">${f.irsaliyeNo||'—'}</div>
+      </div>
+      <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
+        <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">Kabul Tarihi</div>
+        <div style="font-weight:600">${f.tarih||'—'}</div>
+      </div>
+      ${f.lnSiparisNo?`<div style="padding:8px 10px;background:#ede9fe;border-radius:6px;grid-column:span 2">
+        <div style="color:#5b21b6;font-size:10px;text-transform:uppercase;margin-bottom:2px">Sipariş No</div>
+        <div style="font-family:monospace;font-weight:700;color:#5b21b6">${f.lnSiparisNo}</div>
+      </div>`:''}
+      <div style="padding:8px 10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:6px;grid-column:span 2">
+        <div style="color:${f.faturaNo?'#155724':'#856404'};font-size:10px;text-transform:uppercase;margin-bottom:2px">Fatura No</div>
+        <div style="font-weight:700;color:${f.faturaNo?'#155724':'#856404'}">${f.faturaNo||'⏳ Bekleniyor — fatura ile birlikte girilecek'}</div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">📦 Kabul Satırları (${f.urunler.length} kalem)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:var(--primary);color:white">
+          <th style="padding:7px 8px;text-align:left">#</th>
+          <th style="padding:7px 8px;text-align:left">Kalem</th>
+          <th style="padding:7px 8px;text-align:right">Miktar</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${f.urunler.map((u,i)=>`
+          <tr style="border-bottom:1px solid var(--gray-100)">
+            <td style="padding:7px 8px;color:var(--gray-400);font-weight:600">${i+1}</td>
+            <td style="padding:7px 8px">
+              <div style="font-weight:600">${u.ad}</div>
+              <div style="font-size:10px;color:var(--gray-400);font-family:monospace">${u.kod||''}</div>
+            </td>
+            <td style="padding:7px 8px;text-align:right;font-weight:700">${u.miktar} ${u.birim}</td>
+          </tr>`).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--gray-100);font-weight:700">
+          <td colspan="2" style="padding:7px 8px">TOPLAM</td>
+          <td style="padding:7px 8px;text-align:right">${toplamMiktar.toFixed(2)}</td>
+        </tr>
+      </tfoot>
+    </table>
+    <div style="font-size:11px;color:var(--gray-400);margin-top:8px;text-align:right">
+      Onaylayan: ${onaylayan}${onayTarih?' — '+onayTarih:''}
+    </div>`;
+
+  document.getElementById('mKabulOzetActions').innerHTML=`
+    <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mKabulOzet')">Kapat</button>
+    <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.print()">🖨️ Yazdır</button>
+  `;
+  aModal('mKabulOzet');
 }
 
 // ============================================================
