@@ -1174,15 +1174,31 @@ let _fkAktifId=null;
 
 async function loadFiyatKontrol(){
   try{
-    const r=await fetch(FB+'/formlar.json');
-    if(r.ok){const d=await r.json();
-      if(d&&typeof d==='object'){
-        // Hem array hem object formatını destekle
-        _fkFormlar=Array.isArray(d)?d:Object.values(d).filter(Boolean);
-      }
+    const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?durum=eq.onaylandi&fatura_no=not.is.null&select=*,mal_kabul_urunleri(*)',{headers:SB_HEADERS});
+    if(r.ok){
+      const rows=await r.json();
+      _fkFormlar=rows.map(fkSbdenCamele);
     }
   }catch(e){console.warn(e);}
   renderFiyatKontrol();
+}
+
+function fkSbdenCamele(r){
+  const urunler=(r.mal_kabul_urunleri||[]).map(u=>({
+    id:u.id,kod:u.urun_kodu||'',ad:u.urun_adi,miktar:u.miktar,birim:u.birim,
+    birimFiyat:u.birim_fiyat?parseFloat(u.birim_fiyat):0
+  }));
+  return{
+    id:r.id,durum:r.durum,faturaNo:r.fatura_no,mkNo:r.mk_no,firma:r.firma_ad,
+    formTarih:r.form_tarihi,irsaliyeNo:r.irsaliye_no,lnSiparisNo:r.ln_siparis_no,
+    urunler,
+    fiyatlar:urunler.map(u=>u.birimFiyat||0),
+    fiyatKontrolDurum:r.fiyat_kontrol_durum||null,
+    fiyatKontrolNotu:r.fiyat_kontrol_notu||'',
+    fiyatKontrolTarih:r.fiyat_kontrol_tarihi?new Date(r.fiyat_kontrol_tarihi).getTime():null,
+    muhasebeFaturaId:r.muhasebe_fatura_id||null,
+    tarih:r.form_tarihi?new Date(r.form_tarihi).getTime():0
+  };
 }
 
 function filterFiyatKontrol(f,el){
@@ -1440,13 +1456,23 @@ async function muhasebeGonder(){
     }));
     await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
     f.muhasebeFaturaId=faturaId;
-    await fetch(FB+`/formlar/${f.id}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      fiyatlar,
-      fiyatKontrolDurum:'muhasebe',
-      fiyatKontrolTarih:f.fiyatKontrolTarih,
-      fiyatKontrolNotu:f.fiyatKontrolNotu,
-      muhasebeFaturaId:faturaId
+
+    // Her mal kabul kaleminin birim fiyatını Supabase'e yaz
+    for(let i=0;i<urunler.length;i++){
+      const u=urunler[i];
+      if(u.id){
+        await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri?id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i]})});
+      }
+    }
+
+    // Mal kabul kaydını güncelle (fiyat kontrolü durumu + muhasebe fatura bağlantısı)
+    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+f.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+      fiyat_kontrol_durum:'muhasebe',
+      fiyat_kontrol_notu:f.fiyatKontrolNotu||null,
+      fiyat_kontrol_tarihi:new Date().toISOString(),
+      muhasebe_fatura_id:faturaId
     })});
+
     kModal('mFiyatKontrol');
     toast(`✅ ${f.faturaNo} — Muhasebe'ye gönderildi (${fmt(araToplam)} ₺ KDV hariç)`);
     renderFiyatKontrol();
