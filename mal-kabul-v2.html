@@ -1430,81 +1430,127 @@ async function uygunsuzlukYazdir(id){
   if(!r){toast('⚠️ Kayıt bulunamadı');return;}
 
   const mk=malKabuller[r.mk_id];
+  const urunSatir=mk?mk.urunler.find(u=>u.kod===r.urun_kodu):null;
   const kararEtiket={iade:'İade',sartli:'Şartlı Kullanım',imha:'İmha',duzeltme:'Düzeltme/Tekrar İşleme'};
-  const kararlar=['iade','sartli','imha','duzeltme'];
-  const fmtTarih=t=>t?new Date(t).toLocaleDateString('tr-TR'):'—';
+  const fmtTarih=t=>t?new Date(t).toLocaleDateString('tr-TR'):'';
+  const daire=(secili)=>`<span class="daire">${secili?'●':''}</span>`;
 
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Uygunsuzluk Formu</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Uygun Olmayan Ürün/Hizmet Formu</title>
   <style>
-    body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111;padding:24px;max-width:800px;margin:0 auto}
-    h1{font-size:18px;text-align:center;margin:0 0 4px}
-    .sub{text-align:center;color:#666;font-size:11px;margin-bottom:18px}
-    .top-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:14px;font-size:12px}
-    .top-grid div{border:1px solid #999;padding:6px 8px}
-    .top-grid label{display:block;font-size:9px;color:#666;text-transform:uppercase;margin-bottom:2px}
-    .section{border:1px solid #999;margin-bottom:10px}
-    .section-title{background:#e5e5e5;padding:5px 8px;font-weight:700;font-size:12px}
-    .section-body{padding:8px}
-    .kfield{margin-bottom:8px}
-    .kfield label{display:block;font-size:9px;color:#666;text-transform:uppercase;margin-bottom:2px}
-    .kfield .val{border-bottom:1px solid #999;min-height:16px;padding-bottom:2px}
-    .karar-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
-    .karar-opt{display:flex;align-items:center;gap:6px;font-size:12px}
-    .box{display:inline-block;width:14px;height:14px;border:1.5px solid #333;text-align:center;line-height:13px;font-size:11px;font-weight:700}
-    .imza-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
-    .imza-box{border-top:1px solid #333;padding-top:4px;font-size:11px;text-align:center;min-height:50px}
-    @media print{ .no-print{display:none} }
+    *{box-sizing:border-box}
+    body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#000;padding:16px;max-width:900px;margin:0 auto}
+    .hdr{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px;border-bottom:2px solid #000;padding-bottom:10px}
+    .hdr .logo{font-weight:800;font-size:20px;color:#003a70;letter-spacing:.5px}
+    .hdr .logo .sub{display:block;font-size:9px;font-weight:400;color:#555;letter-spacing:2px}
+    .hdr h1{font-size:17px;font-weight:800;margin:0}
+    table.frm{width:100%;border-collapse:collapse;border:1.5px solid #000}
+    table.frm td{border:1px solid #000;padding:5px 8px;vertical-align:top}
+    .lbl{font-weight:700;font-size:11px}
+    .vert{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-weight:700;font-size:11px;width:24px;white-space:nowrap}
+    .tall{height:70px}
+    .taller{height:110px}
+    .daire{display:inline-block;width:13px;height:13px;border:1.3px solid #000;border-radius:50%;text-align:center;line-height:11px;font-size:9px;margin-right:5px;vertical-align:middle}
+    .center-title{text-align:center;font-weight:700;font-size:13px;padding:6px}
+    .footer{display:flex;justify-content:space-between;font-size:10px;margin-top:6px;padding:0 4px}
+    @media print{ .no-print{display:none} body{padding:6px} }
   </style></head><body>
-    <h1>UYGUNSUZLUK / DÜZELTİCİ FAALİYET FORMU</h1>
-    <div class="sub">${OTEL_ISIMLERI[mk?.otelId||r.otel_id]||'—'}</div>
 
-    <div class="top-grid">
-      <div><label>Tesis Adı</label>${OTEL_ISIMLERI[mk?.otelId||r.otel_id]||'—'}</div>
-      <div><label>Form No</label>UF-${String(r.id).padStart(5,'0')}</div>
-      <div><label>Tarih</label>${fmtTarih(r.olusturma_tarihi)}</div>
-    </div>
+  <div class="hdr">
+    <div class="logo">gürok<span class="sub">TURİZM GRUBU</span></div>
+    <h1>UYGUN OLMAYAN ÜRÜN/HİZMET FORMU</h1>
+  </div>
 
-    <div class="section">
-      <div class="section-title">Formu Açan</div>
-      <div class="section-body top-grid" style="grid-template-columns:1fr 1fr;border:none;padding:0">
-        <div><label>Ad Soyad</label>${r.bildiren_ad||'—'}</div>
-        <div><label>Tarih</label>${fmtTarih(r.olusturma_tarihi)}</div>
-      </div>
-    </div>
+  <table class="frm">
+    <tr>
+      <td colspan="3"><span class="lbl">Tesis Adı:</span> ${OTEL_ISIMLERI[mk?.otelId||r.otel_id]||''}</td>
+      <td colspan="2"><span class="lbl">Form No:</span> UF-${String(r.id).padStart(5,'0')}<br><span class="lbl">Tarih:</span> ${fmtTarih(r.olusturma_tarihi)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Formu Açan</td>
+      <td colspan="2"><span class="lbl">Adı-Soyadı:</span> ${r.bildiren_ad||''}</td>
+      <td colspan="2"><span class="lbl">Departmanı:</span></td>
+    </tr>
 
-    <div class="section">
-      <div class="section-title">Malzeme / Ürün Uygunsuzlukları</div>
-      <div class="section-body">
-        <div class="kfield"><label>Kabul No / Firma</label><div class="val">${mk?mk.mkNo+' — '+mk.firma:'—'}</div></div>
-        <div class="kfield"><label>Uygunsuzluğun Açıklaması</label><div class="val">${(r.aciklama||'').replace(/\n/g,'<br>')}</div></div>
-      </div>
-    </div>
+    <tr>
+      <td rowspan="3" class="vert">Hizmet<br>Uygunsuzlukları</td>
+      <td colspan="4" class="taller"><span class="lbl">Uygunsuzluğun Açıklaması:</span></td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="lbl">Oluştuğu Mekan:</span></td>
+      <td colspan="2"><span class="lbl">İlgili Departman:</span></td>
+    </tr>
+    <tr><td colspan="4" style="height:4px;border-top:none;border-bottom:none"></td></tr>
 
-    <div class="section">
-      <div class="section-title">Düzeltici Faaliyet</div>
-      <div class="section-body">
-        <div class="kfield"><label>Faaliyet Açıklaması</label><div class="val">${r.faaliyet_aciklama||'—'}</div></div>
-        <label style="font-size:9px;color:#666;text-transform:uppercase">Karar</label>
-        <div class="karar-grid">
-          ${kararlar.map(k=>`<div class="karar-opt"><span class="box">${r.karar===k?'✓':''}</span> ${kararEtiket[k]}</div>`).join('')}
-        </div>
-        <div class="top-grid" style="grid-template-columns:1fr 1fr 1fr;border:none;padding:0">
-          <div><label>Faaliyeti Yapan</label>${r.faaliyet_yapan||'—'}</div>
-          <div><label>Tarih</label>${fmtTarih(r.faaliyet_tarih)}</div>
-          <div><label>Kapanma Tarihi</label>${fmtTarih(r.kapanma_tarihi)}</div>
-        </div>
-      </div>
-    </div>
+    <tr>
+      <td rowspan="2" class="vert">Malzeme/Ürün<br>Uygunsuzluklar</td>
+      <td colspan="4">
+        <span class="lbl">Firma Adı/Üretim:</span> ${mk?.firma||''}<br>
+        <span class="lbl">Yapılan Bölüm adı:</span> ${OTEL_ISIMLERI[mk?.otelId||r.otel_id]||''}<br>
+        <span class="lbl">Malzeme/Ürün Miktarı:</span> ${urunSatir?urunSatir.miktar+' '+urunSatir.birim:''}
+      </td>
+    </tr>
+    <tr>
+      <td colspan="4" class="taller"><span class="lbl">Uygunsuzluğun Açıklaması</span><br>${(r.aciklama||'').replace(/\n/g,'<br>')}</td>
+    </tr>
 
-    <div class="imza-grid">
-      <div class="imza-box">Faaliyeti Yapan İmza</div>
-      <div class="imza-box">Kalite Onayı İmza</div>
-    </div>
+    <tr>
+      <td rowspan="2" class="vert">Kalite<br>Yönetim<br>Onayı</td>
+      <td colspan="2" class="tall" style="width:45%">
+        <span class="lbl">İnceleme:</span><br><br>
+        ${daire(false)} Uygunsuzluk Kabul Edildi<br><br>
+        ${daire(false)} Uygunsuzluk Red Edildi
+      </td>
+      <td colspan="2" class="tall"><span class="lbl">Uygunsuzluğu Gidermek İçin Tavsiyeler:</span></td>
+    </tr>
+    <tr>
+      <td colspan="4"><span class="lbl">Ret Etme Sebebi:</span></td>
+    </tr>
+  </table>
 
-    <div class="no-print" style="margin-top:24px;text-align:center">
-      <button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer">🖨️ Yazdır</button>
-    </div>
+  <div class="center-title">Uygunsuzluğun Çözümü</div>
+
+  <table class="frm">
+    <tr>
+      <td rowspan="2" class="vert">Düzeltici<br>Faaliyet</td>
+      <td colspan="4" class="taller">${(r.faaliyet_aciklama||'').replace(/\n/g,'<br>')}</td>
+    </tr>
+    <tr>
+      <td colspan="4">
+        <span class="lbl">Malzeme/Ürün Uygunsuzlukları Karar Faaliyeti</span><br>
+        ${daire(r.karar==='iade')} İade<br>
+        ${daire(r.karar==='sartli')} Şartlı Kullanım<br>
+        ${daire(r.karar==='imha')} İmha<br>
+        ${daire(r.karar==='duzeltme')} Düzeltme/Tekrar İşleme
+      </td>
+    </tr>
+    <tr>
+      <td></td>
+      <td colspan="2"><span class="lbl">Faaliyeti Yapan:</span> ${r.faaliyet_yapan||''}</td>
+      <td><span class="lbl">İmza</span></td>
+      <td><span class="lbl">Tarih:</span> ${fmtTarih(r.faaliyet_tarih)}</td>
+    </tr>
+
+    <tr>
+      <td rowspan="2" class="vert">Düzeltici Faaliyet Onayı</td>
+      <td style="width:20%"><span class="lbl">Kalite Onayı</span><br><br>İmza<br><br>Tarih</td>
+      <td colspan="3" class="tall"><span class="lbl">Yorumlar</span></td>
+    </tr>
+    <tr>
+      <td><span class="lbl">GM Onayı</span><br><br>İmza<br><br>Tarih</td>
+      <td colspan="3" class="tall"><span class="lbl">Yorumlar</span></td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    <span>Doküman No: F.03</span>
+    <span>Yayın Tarihi: 19.12.2025</span>
+    <span>Rev. Tarihi/No:-/00</span>
+  </div>
+
+  <div class="no-print" style="margin-top:20px;text-align:center">
+    <button onclick="window.print()" style="padding:10px 20px;font-size:14px;cursor:pointer">🖨️ Yazdır</button>
+  </div>
   </body></html>`);
   w.document.close();
 }
