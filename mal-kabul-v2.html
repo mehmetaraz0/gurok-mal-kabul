@@ -28,6 +28,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
 .field input:focus,.field select:focus{border-color:var(--primary)}
 .rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.chkbox-input{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);cursor:pointer;background:#eafaf1;border-color:var(--success);font-size:14px;font-weight:600}
+.chkbox-input input{width:18px;height:18px;accent-color:var(--success);pointer-events:none;flex-shrink:0}
 .btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
 .btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-600)}.btn-info{background:var(--info);color:white}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
 .brow{display:flex;gap:8px}.brow .btn{flex:1}
@@ -172,60 +174,68 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <!-- MODAL: Yeni Mal Kabul Formu -->
 <div class="mo" id="mYeniForm">
-  <div class="mbox">
-    <div class="mtitle">➕ Yeni Mal Kabul <button class="mclose" onclick="kModal('mYeniForm')">✕</button></div>
-    <div class="rfields">
-      <div class="field"><label>Otel *</label>
-        <select id="f-otel" onchange="siparisAramaTemizle()">
-          <option value="810">🏨 810 — Club</option>
-          <option value="811">🏨 811 — Resort</option>
-        </select>
-      </div>
-      <div class="field"><label>Tarih *</label><input type="date" id="f-tarih"></div>
-    </div>
-    <div class="field" style="margin-top:8px">
-      <label>LN Sipariş No (opsiyonel — seçersen kalemler otomatik gelir)</label>
-      <div style="display:flex;gap:6px">
-        <div style="position:relative;flex:1">
-          <input type="text" id="f-siparis-inp" placeholder="C000... / R000..." autocomplete="off" oninput="filterSiparisDD(this.value)">
-          <div id="f-siparis-dd" class="udd"></div>
+  <div class="mbox" style="display:flex;flex-direction:column;max-height:92vh;padding:0">
+    <div style="flex:1;overflow-y:auto;padding:20px">
+      <div class="card" style="box-shadow:none;border:1px solid var(--gray-200)">
+        <div class="card-title" style="justify-content:space-between">
+          <span>📋 Teslimat Bilgileri</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="chip chip-purple" id="f-mkno-badge">Kabul: —</span>
+            <button class="mclose" onclick="kModal('mYeniForm')" style="font-size:18px">✕</button>
+          </div>
         </div>
-        <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openSiparisSecEkrani()">📋 Seç</button>
-      </div>
-      <input type="hidden" id="f-siparis-no">
-    </div>
-    <div class="field">
-      <label>Tedarikçi *</label>
-      <div style="display:flex;gap:6px">
-        <div style="position:relative;flex:1">
-          <input type="text" id="f-firma-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterFirmaDD(this.value)">
-          <div id="f-firma-dd" class="udd"></div>
+        <div class="field">
+          <label>Tedarikçi Firma *</label>
+          <div style="display:flex;gap:6px">
+            <div style="position:relative;flex:1">
+              <input type="text" id="f-firma-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterFirmaDD(this.value)">
+              <div id="f-firma-dd" class="udd"></div>
+            </div>
+            <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openFirmaSecEkrani()">📋 Seç</button>
+          </div>
         </div>
-        <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openFirmaSecEkrani()">📋 Seç</button>
+        <div class="rfields">
+          <div class="field"><label>Tarih *</label><input type="date" id="f-tarih"></div>
+          <div class="field"><label>Fatura No <span style="font-weight:400;text-transform:none;color:var(--gray-400);font-size:9px">(opsiyonel — irsaliye ile gelirse gir)</span></label><input type="text" id="f-fatura" placeholder="Fatura numarası"></div>
+        </div>
+        <div class="rfields">
+          <div class="field"><label>İrsaliye No *</label><input type="text" id="f-irsaliye" placeholder="Zorunlu"></div>
+          <div class="field">
+            <label>Sipariş No</label>
+            <div style="display:flex;gap:6px">
+              <div style="position:relative;flex:1">
+                <input type="text" id="f-siparis-inp" placeholder="C000... / R000..." autocomplete="off" oninput="filterSiparisDD(this.value)">
+                <div id="f-siparis-dd" class="udd"></div>
+              </div>
+              <button class="btn btn-primary btn-sm" style="flex-shrink:0;padding:11px 10px" onclick="openSiparisSecEkrani()">📋 Seç</button>
+            </div>
+            <input type="hidden" id="f-siparis-no">
+          </div>
+        </div>
+        <div class="rfields">
+          <div class="field"><label>Araç Hijyeni</label>
+            <div class="chkbox-input" id="f-arac-hijyen-box" onclick="toggleAracHijyen()">
+              <input type="checkbox" id="f-arac-hijyen" checked>
+              <span id="f-arac-hijyen-label">Uygun</span>
+            </div>
+          </div>
+          <div class="field"><label>Araç Sıcaklığı (°C) *</label><input type="number" id="f-arac-sicaklik" placeholder="Örn: 4" step="0.1"></div>
+        </div>
       </div>
-    </div>
-    <div class="rfields">
-      <div class="field"><label>İrsaliye No *</label><input type="text" id="f-irsaliye" placeholder="Zorunlu"></div>
-      <div class="field"><label>Fatura No</label><input type="text" id="f-fatura" placeholder="Opsiyonel"></div>
-    </div>
-    <div class="rfields">
-      <div class="field"><label>Araç Hijyeni</label>
-        <select id="f-arac-hijyen"><option value="uygun">✅ Uygun</option><option value="uygunsuz">❌ Uygunsuz</option></select>
-      </div>
-      <div class="field"><label>Araç Sıcaklığı</label>
-        <select id="f-arac-sicaklik"><option value="uygun">✅ Uygun</option><option value="uygunsuz">❌ Uygunsuz</option></select>
-      </div>
-    </div>
 
-    <div class="card-title" style="margin-top:12px">🧺 Ürünler</div>
-    <div id="f-kalemler"></div>
-    <button class="btn btn-gray btn-sm" onclick="kalemEkle()">➕ Ürün Ekle</button>
+      <div class="card" style="border:1px solid var(--gray-200)">
+        <div class="card-title" style="justify-content:space-between">
+          <span>🧺 Ürünler</span>
+          <button class="btn btn-warning btn-sm" onclick="kalemEkle()">➕ Ürün Ekle</button>
+        </div>
+        <div id="f-kalemler"></div>
+      </div>
 
-    <div class="field" style="margin-top:12px"><label>Notlar</label><textarea id="f-notlar" rows="2" placeholder="Opsiyonel"></textarea></div>
-    <div class="brow" style="margin-top:16px">
-      <button class="btn btn-gray" onclick="kModal('mYeniForm')">İptal</button>
-      <button class="btn btn-primary" onclick="formKaydet()">💾 Kaydet (Onaya Gönder)</button>
+      <div class="card" style="border:1px solid var(--gray-200);margin-bottom:0">
+        <div class="field" style="margin-bottom:0"><label>Notlar</label><textarea id="f-notlar" rows="2" placeholder="Teslimatla ilgili notlar..."></textarea></div>
+      </div>
     </div>
+    <button class="btn btn-success btn-block" style="border-radius:0;min-height:54px;font-size:15px;flex-shrink:0" onclick="formKaydet()">✓ Onaya Gönder</button>
   </div>
 </div>
 
@@ -264,6 +274,7 @@ let currentUser=null, kullanicilar=[];
 let malKabuller={}, siparisler={}, urunler=[], cariler=[];
 let listeFilter='tumu', sktFilter='aktif', uygunFilter='acik';
 let formKalemleri=[];
+let formOtelId='810', previewMkNo='';
 
 // ============================================================
 // LOGIN
@@ -430,7 +441,7 @@ function filterFirmaDD(val){
 
 function filterSiparisDD(val){
   const dd=document.getElementById('f-siparis-dd');
-  const otelId=document.getElementById('f-otel').value;
+  const otelId=formOtelId;
   if(!val||val.length<2){dd.style.display='none';return;}
   const res=Object.values(siparisler).filter(s=>s.otelId===otelId&&s.siparisNo.toLowerCase().includes(val.toLowerCase())&&s.durum==='bekleyen').slice(0,10);
   if(!res.length){dd.style.display='none';return;}
@@ -472,7 +483,7 @@ let secTumVeri=[];
 
 function openSiparisSecEkrani(){
   secModu='siparis';
-  const otelId=document.getElementById('f-otel').value;
+  const otelId=formOtelId;
   secTumVeri=Object.values(siparisler).filter(s=>s.otelId===otelId&&s.durum==='bekleyen').sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
   document.getElementById('mSecTitle').innerHTML='📦 Açık Sipariş Seç <button class="mclose" onclick="kModal(\'mSecEkrani\')">✕</button>';
   document.getElementById('sec-arama').value='';
@@ -541,16 +552,32 @@ function yeniMkNoUret(){
   return `MK-${yil}-${String(sayi).padStart(5,'0')}`;
 }
 
+function toggleAracHijyen(){
+  const cb=document.getElementById('f-arac-hijyen');
+  cb.checked=!cb.checked;
+  updateAracHijyenUI();
+}
+function updateAracHijyenUI(){
+  const cb=document.getElementById('f-arac-hijyen');
+  const box=document.getElementById('f-arac-hijyen-box');
+  const label=document.getElementById('f-arac-hijyen-label');
+  if(cb.checked){label.textContent='Uygun';box.style.borderColor='var(--success)';box.style.background='#eafaf1';}
+  else{label.textContent='Uygunsuz';box.style.borderColor='var(--danger)';box.style.background='#fde8e8';}
+}
+
 function openYeniForm(){
-  document.getElementById('f-otel').value=currentUser.otelId||'810';
+  formOtelId=currentUser.otelId||'810';
+  previewMkNo=yeniMkNoUret();
+  document.getElementById('f-mkno-badge').textContent='Kabul: '+previewMkNo;
   document.getElementById('f-tarih').value=new Date().toISOString().split('T')[0];
   document.getElementById('f-siparis-inp').value='';
   document.getElementById('f-siparis-no').value='';
   document.getElementById('f-firma-inp').value='';
   document.getElementById('f-irsaliye').value='';
   document.getElementById('f-fatura').value='';
-  document.getElementById('f-arac-hijyen').value='uygun';
-  document.getElementById('f-arac-sicaklik').value='uygun';
+  document.getElementById('f-arac-hijyen').checked=true;
+  updateAracHijyenUI();
+  document.getElementById('f-arac-sicaklik').value='';
   document.getElementById('f-notlar').value='';
   formKalemleri=[{kod:'',ad:'',birim:'KG',miktar:'',sktTarihi:'',uygunsuz:false}];
   renderKalemler();
@@ -560,15 +587,17 @@ function openYeniForm(){
 async function formKaydet(){
   const firmaAd=document.getElementById('f-firma-inp').value.trim();
   const irsaliye=document.getElementById('f-irsaliye').value.trim();
+  const aracSicaklik=document.getElementById('f-arac-sicaklik').value;
   const dolu=formKalemleri.filter(k=>k.ad&&k.miktar&&parseFloat(k.miktar)>0);
   if(!firmaAd){toast('⚠️ Tedarikçi seçin');return;}
   if(!irsaliye){toast('⚠️ İrsaliye no zorunlu');return;}
+  if(aracSicaklik===''){toast('⚠️ Araç sıcaklığı zorunlu');return;}
   if(!dolu.length){toast('⚠️ En az bir ürün girin');return;}
 
-  const otelId=document.getElementById('f-otel').value;
+  const otelId=formOtelId;
   const siparisNo=document.getElementById('f-siparis-no').value||null;
   const depoKodu=otelId==='811'?'300':'100';
-  const mkNo=yeniMkNoUret();
+  const mkNo=previewMkNo||yeniMkNoUret();
 
   sLD();
   try{
@@ -576,7 +605,7 @@ async function formKaydet(){
       mk_no:mkNo,form_tarihi:document.getElementById('f-tarih').value,firma_ad:firmaAd,
       fatura_no:document.getElementById('f-fatura').value||null,irsaliye_no:irsaliye,
       ln_siparis_no:siparisNo,otel_id:otelId,depo_kodu:depoKodu,
-      arac_hijyen:document.getElementById('f-arac-hijyen').value,arac_sicaklik:document.getElementById('f-arac-sicaklik').value,
+      arac_hijyen:document.getElementById('f-arac-hijyen').checked?'uygun':'uygunsuz',arac_sicaklik:aracSicaklik,
       notlar:document.getElementById('f-notlar').value||null,personel_ad:currentUser.ad,durum:'bekleyen'
     })});
     const d=await r.json();
