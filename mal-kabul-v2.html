@@ -712,6 +712,7 @@ function durumKart(f){
       <span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[f.otelId]}</span>
       ${f.lnSiparisNo?`<span class="chip chip-purple">📋 ${f.lnSiparisNo}</span>`:''}
       <span class="chip chip-gray">${f.urunler.length} ürün</span>
+      ${!f.faturaNo?'<span class="chip chip-yellow">⏳ Fatura Bekliyor</span>':''}
     </div>
   </div>`;
 }
@@ -724,10 +725,19 @@ function openDetay(id){
     <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px">
       <div style="font-size:13px">🏢 ${f.firma}</div>
       <div style="font-size:12px;color:var(--gray-600)">📅 ${f.tarih} • 🏨 ${OTEL_ISIMLERI[f.otelId]}</div>
-      <div style="font-size:12px;color:var(--gray-600)">İrsaliye: ${f.irsaliyeNo||'—'} • Fatura: ${f.faturaNo||'—'}</div>
+      <div style="font-size:12px;color:var(--gray-600)">İrsaliye: ${f.irsaliyeNo||'—'}</div>
       ${f.lnSiparisNo?`<div style="font-size:12px;color:var(--gray-600)">Sipariş: ${f.lnSiparisNo}</div>`:''}
       <div style="font-size:12px;color:var(--gray-600)">Personel: ${f.personel}</div>
       ${f.notlar?`<div style="font-size:12px;color:var(--gray-600);margin-top:4px">📝 ${f.notlar}</div>`:''}
+    </div>
+    <div style="padding:10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:8px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:${f.faturaNo?'#155724':'#856404'};margin-bottom:6px">
+        ${f.faturaNo?'✅ FATURA EŞLEŞTİ':'⏳ FATURA BEKLENİYOR'}
+      </div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="dtz-fatura-no" value="${f.faturaNo||''}" placeholder="Fatura numarası..." style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;outline:none">
+        <button class="btn btn-primary btn-sm" onclick="faturaNoKaydet('${f.id}')">Kaydet</button>
+      </div>
     </div>
     <div style="font-size:12px;font-weight:700;margin-bottom:6px">Ürünler</div>
     ${f.urunler.map(u=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12px"><span>${u.ad}</span><span style="font-weight:700">${u.miktar} ${u.birim}</span></div>`).join('')}
@@ -736,6 +746,23 @@ function openDetay(id){
       ${f.durum==='onaylandi'?`<button class="btn btn-warning btn-sm" style="flex:1" onclick="duzeltmeModuAc('${f.id}')">✏️ Düzelt</button>`:''}
     </div>`;
   aModal('mDetay');
+}
+
+async function faturaNoKaydet(id){
+  const inp=document.getElementById('dtz-fatura-no');
+  if(!inp)return;
+  const faturaNo=inp.value.trim();
+  if(!faturaNo){toast('⚠️ Fatura no boş olamaz');return;}
+  sLD();
+  try{
+    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({fatura_no:faturaNo})});
+    await auditLogYaz('update','mal_kabul',id,`Fatura no kaydedildi: ${faturaNo}`);
+  }catch(e){console.warn(e);toast('⚠️ Kaydetme hatası');hLD();return;}
+  hLD();
+  toast(`✅ Fatura no kaydedildi: ${faturaNo}`);
+  await loadDB();
+  renderListe();
+  openDetay(id); // ekranı güncel fatura no ile tazele
 }
 
 async function duzeltmeModuAc(id){
