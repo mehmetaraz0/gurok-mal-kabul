@@ -1447,6 +1447,13 @@ async function muhasebeGonder(){
   toast('📤 Muhasebe\'ye gönderiliyor...');
   try{
     const r=await fetch(SB_URL+'/rest/v1/faturalar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(faturaSatir)});
+    if(!r.ok){
+      const hataMetni=await r.text();
+      console.error('Fatura oluşturma hatası:',hataMetni);
+      toast('❌ Fatura oluşturulamadı');
+      alert('❌ Fatura oluşturulamadı:\n\n'+hataMetni);
+      return;
+    }
     const d=await r.json();
     const faturaId=d[0].id;
     const kalemSatirlar=urunler.map((u,i)=>({
@@ -2125,6 +2132,13 @@ async function iadeMuhasebeGonder(){
 
   try{
     const r=await fetch(SB_URL+'/rest/v1/faturalar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(faturaSatir)});
+    if(!r.ok){
+      const hataMetni=await r.text();
+      console.error('İade fatura oluşturma hatası:',hataMetni);
+      hLD();
+      alert('❌ İade faturası oluşturulamadı:\n\n'+hataMetni);
+      return;
+    }
     const d=await r.json();
     const faturaId=d[0].id;
     const kalemSatirlar=kalemlerFiyatli.map(k=>({
