@@ -1256,18 +1256,21 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
 
   renderStok();
 
-  // Mal kabul onay kontrolü — 30sn
+  // Mal kabul onay kontrolü — 30sn (artık Supabase'deki mal_kabuller tablosunu izliyor)
   const islenmisKey='gurok_stok_islenmis';
   setInterval(async()=>{
     try{
-      const r=await fetch(FIREBASE_URL+'/formlar.json');
+      const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?durum=eq.onaylandi&select=id,mal_kabul_urunleri(*)',{headers:SB_HEADERS});
       if(!r.ok)return;
-      const data=await r.json();if(!data)return;
-      const formlar=typeof data==='object'?Object.values(data).filter(Boolean):[];
+      const rows=await r.json();
+      const formlar=rows.map(row=>({
+        id:row.id,
+        urunler:(row.mal_kabul_urunleri||[]).map(u=>({kod:u.urun_kodu,ad:u.urun_adi,miktar:parseFloat(u.miktar)||0,birim:u.birim}))
+      }));
       const islenmis=new Set(JSON.parse(localStorage.getItem(islenmisKey)||'[]'));
       let yeni=false;
       for(const f of formlar){
-        if(f.durum==='onaylandi'&&!islenmis.has(String(f.id))){
+        if(!islenmis.has(String(f.id))){
           await malKabulOnayGiris(f);
           islenmis.add(String(f.id));yeni=true;
         }
