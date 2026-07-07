@@ -948,7 +948,7 @@ function durumKart(f){
       <span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[f.otelId]}</span>
       ${f.lnSiparisNo?`<span class="chip chip-purple">📋 ${f.lnSiparisNo}</span>`:''}
       <span class="chip chip-gray">${f.urunler.length} ürün</span>
-      ${!f.faturaNo?'<span class="chip chip-yellow">⏳ Fatura Bekliyor</span>':''}
+      ${(!f.faturaNo&&f.durum!=='iptal')?'<span class="chip chip-yellow">⏳ Fatura Bekliyor</span>':''}
     </div>
   </div>`;
 }
