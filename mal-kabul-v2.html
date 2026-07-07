@@ -120,7 +120,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('skt',this)">📅 SKT Takip <span class="badge" id="bskt" style="display:none"></span></button>
     <button class="tabbtn" onclick="gTab('uygun',this)">⚠️ Uygunsuzluk</button>
     <button class="tabbtn" onclick="gTab('siparis',this)">📦 Sipariş Takip</button>
-    <button class="tabbtn" onclick="gTab('esleme',this)">🔗 Eşleşme</button>
+    <button class="tabbtn" onclick="gTab('esleme',this)">📊 İzleme</button>
     <button class="tabbtn" onclick="gTab('export',this)">📊 LN Export</button>
   </div>
 
@@ -246,16 +246,51 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="siparis-icerik"></div>
   </div>
 
-  <!-- EŞLEŞME RAPORU -->
+  <!-- İZLEME (Analiz / Raporlar / Eşleşme) -->
   <div class="sc" id="tab-esleme">
-    <div class="stats-grid" id="esleme-stats"></div>
     <div class="ftabs">
-      <button class="ftab active" onclick="filterEsleme('tumu',this)">Tümü</button>
-      <button class="ftab" onclick="filterEsleme('tam',this)">✅ Tam Eşleşti</button>
-      <button class="ftab" onclick="filterEsleme('fatura_bek',this)">⏳ Fatura Bekliyor</button>
-      <button class="ftab" onclick="filterEsleme('eksik',this)">❌ Eksik</button>
+      <button class="ftab active" id="izl-tab-analiz" onclick="izlemeSwitchTab('analiz')">📊 Analiz</button>
+      <button class="ftab" id="izl-tab-raporlar" onclick="izlemeSwitchTab('raporlar')">📋 Raporlar</button>
+      <button class="ftab" id="izl-tab-esleme" onclick="izlemeSwitchTab('esleme')">🔗 Eşleşme</button>
     </div>
-    <div id="esleme-icerik"></div>
+
+    <!-- ANALİZ -->
+    <div id="izleme-analiz-panel">
+      <div class="card">
+        <div class="card-title">📅 Filtreler</div>
+        <div class="rfields">
+          <div class="field"><label>Başlangıç</label><input type="date" id="izl-filter-start" onchange="renderIzlemeAnaliz()"></div>
+          <div class="field"><label>Bitiş</label><input type="date" id="izl-filter-end" onchange="renderIzlemeAnaliz()"></div>
+        </div>
+        <div class="field"><label>Firma / Ürün Ara</label><input type="text" id="izl-filter-search" placeholder="Firma veya ürün adı..." oninput="renderIzlemeAnaliz()"></div>
+      </div>
+      <div id="izleme-analiz-icerik"></div>
+    </div>
+
+    <!-- RAPORLAR (Uygunsuzluk geçmişi) -->
+    <div id="izleme-raporlar-panel" style="display:none">
+      <div class="card">
+        <div class="card-title">📋 Uygunsuzluk Formları Geçmişi</div>
+        <div class="rfields">
+          <div class="field"><label>Başlangıç</label><input type="date" id="izl-rapor-start"></div>
+          <div class="field"><label>Bitiş</label><input type="date" id="izl-rapor-end"></div>
+        </div>
+        <button class="btn btn-primary btn-sm btn-block" onclick="renderIzlemeRaporlar()">🔍 Filtrele</button>
+      </div>
+      <div id="izleme-raporlar-icerik"></div>
+    </div>
+
+    <!-- EŞLEŞME RAPORU -->
+    <div id="izleme-esleme-panel" style="display:none">
+      <div class="stats-grid" id="esleme-stats"></div>
+      <div class="ftabs">
+        <button class="ftab active" onclick="filterEsleme('tumu',this)">Tümü</button>
+        <button class="ftab" onclick="filterEsleme('tam',this)">✅ Tam Eşleşti</button>
+        <button class="ftab" onclick="filterEsleme('fatura_bek',this)">⏳ Fatura Bekliyor</button>
+        <button class="ftab" onclick="filterEsleme('eksik',this)">❌ Eksik</button>
+      </div>
+      <div id="esleme-icerik"></div>
+    </div>
   </div>
 
   <!-- LN EXPORT -->
@@ -441,6 +476,16 @@ async function initApp(){
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('exp-bas').value=today;
   document.getElementById('exp-bit').value=today;
+
+  // Portal'dan #izleme gibi bir hash ile gelindiyse doğrudan o sekmeye geç
+  // (v1'de "İzleme" adı kullanılıyordu, v2'de aynı içerik "esleme" sekme id'si altında)
+  const hashEslesme={izleme:'esleme'};
+  const hash=(location.hash||'').replace('#','');
+  const hedefTab=hashEslesme[hash]||(document.getElementById('tab-'+hash)?hash:null);
+  if(hedefTab){
+    const btn=[...document.querySelectorAll('.tabbtn')].find(b=>b.getAttribute('onclick')?.includes(`gTab('${hedefTab}'`));
+    if(btn)gTab(hedefTab,btn);
+  }
 }
 
 // ============================================================
@@ -1608,9 +1653,143 @@ function renderSiparisTakip(){
 function filterSiparisTakip(f,el){siparisFilter=f;document.querySelectorAll('#tab-siparis .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderSiparisTakip();}
 
 // ============================================================
+// İZLEME — Analiz / Raporlar / Eşleşme (v1'deki İzleme sekmesiyle aynı yapı)
+// ============================================================
+function izlemeSwitchTab(tab){
+  document.getElementById('izleme-analiz-panel').style.display=tab==='analiz'?'block':'none';
+  document.getElementById('izleme-raporlar-panel').style.display=tab==='raporlar'?'block':'none';
+  document.getElementById('izleme-esleme-panel').style.display=tab==='esleme'?'block':'none';
+  document.getElementById('izl-tab-analiz').classList.toggle('active',tab==='analiz');
+  document.getElementById('izl-tab-raporlar').classList.toggle('active',tab==='raporlar');
+  document.getElementById('izl-tab-esleme').classList.toggle('active',tab==='esleme');
+  if(tab==='analiz')renderIzlemeAnaliz();
+  else if(tab==='raporlar')renderIzlemeRaporlar();
+  else renderEslemeRaporu();
+}
+
+function renderIzlemeAnaliz(){
+  const startVal=document.getElementById('izl-filter-start').value;
+  const endVal=document.getElementById('izl-filter-end').value;
+  const search=(document.getElementById('izl-filter-search').value||'').toLowerCase().trim();
+  const start=startVal?new Date(startVal).getTime():0;
+  const end=endVal?new Date(endVal+'T23:59:59').getTime():Date.now()+86400000;
+  const c=document.getElementById('izleme-analiz-icerik');
+
+  let liste=Object.values(malKabuller).filter(f=>{
+    const t=new Date(f.tarih).getTime();
+    if(t<start||t>end)return false;
+    if(search){
+      const firmaMatch=(f.firma||'').toLowerCase().includes(search);
+      const urunMatch=f.urunler.some(u=>(u.ad||'').toLowerCase().includes(search));
+      if(!firmaMatch&&!urunMatch)return false;
+    }
+    return true;
+  });
+  liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+
+  const toplamUrun=liste.reduce((t,f)=>t+f.urunler.length,0);
+  const uygunsuzFormSayisi=liste.filter(f=>(uygunsuzluklarAcik[f.id]||[]).length>0).length;
+  const uygunsuzOran=liste.length?((uygunsuzFormSayisi/liste.length)*100).toFixed(1):0;
+
+  const firmaStats={};
+  liste.forEach(f=>{
+    if(!firmaStats[f.firma])firmaStats[f.firma]={total:0,uygunsuz:0,urunSayisi:0};
+    firmaStats[f.firma].total++;
+    firmaStats[f.firma].urunSayisi+=f.urunler.length;
+    if((uygunsuzluklarAcik[f.id]||[]).length>0)firmaStats[f.firma].uygunsuz++;
+  });
+  const topFirmalar=Object.entries(firmaStats).sort((a,b)=>b[1].uygunsuz-a[1].uygunsuz).slice(0,15);
+
+  const durumChip={bekleyen:'<span class="chip chip-yellow">⏳</span>',onaylandi:'<span class="chip chip-green">✅</span>',iptal:'<span class="chip chip-red">❌</span>'};
+
+  c.innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-kart"><div class="stat-num">${liste.length}</div><div class="stat-lbl">Toplam Form</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${liste.filter(f=>f.durum==='onaylandi').length}</div><div class="stat-lbl">Onaylanan</div></div>
+      <div class="stat-kart"><div class="stat-num">${toplamUrun}</div><div class="stat-lbl">Toplam Ürün</div></div>
+      <div class="stat-kart"><div class="stat-num" style="color:${uygunsuzOran>=15?'var(--danger)':'var(--warning)'}">${uygunsuzOran}%</div><div class="stat-lbl">Uygunsuzluk Oranı</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏢 Firma Analizi</div>
+      ${!topFirmalar.length?'<div class="es"><div class="et">Veri yok</div></div>':topFirmalar.map(([firma,s])=>{
+        const oran=s.total>0?Math.round((s.uygunsuz/s.total)*100):0;
+        const kritik=oran>=15;
+        return`<div style="padding:8px 0;border-bottom:1px solid var(--gray-100)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div>
+              <div style="font-size:13px;font-weight:600">${firma}</div>
+              <div style="font-size:11px;color:var(--gray-500)">${s.total} teslimat • ${s.urunSayisi} ürün • ${s.uygunsuz} uygunsuz</div>
+            </div>
+            <span class="chip ${kritik?'chip-red':s.uygunsuz>0?'chip-yellow':'chip-green'}">${kritik?'🔴':s.uygunsuz>0?'🟡':'✅'} %${oran}</span>
+          </div>
+          <div style="background:var(--gray-200);border-radius:6px;height:6px;overflow:hidden">
+            <div style="background:${kritik?'var(--danger)':'var(--warning)'};height:100%;width:${Math.min(oran,100)}%"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Formlar (${liste.length})</div>
+      ${!liste.length?'<div class="es"><div class="et">Kayıt yok</div></div>':liste.slice(0,50).map(f=>{
+        const uygunsuzlar=uygunsuzluklarAcik[f.id]||[];
+        return`<div class="mk-kart" style="cursor:pointer" onclick="openDetay('${f.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:13px;font-weight:600">${f.firma}</div>
+              <div style="font-size:11px;color:var(--gray-500)">${f.tarih} • ${f.personel} • ${f.urunler.length} ürün</div>
+              ${uygunsuzlar.length?`<div style="font-size:11px;color:var(--danger);margin-top:2px">⚠️ ${uygunsuzlar.length} uygunsuzluk bildirimi</div>`:''}
+            </div>
+            ${durumChip[f.durum]||''}
+          </div>
+        </div>`;
+      }).join('')}
+      ${liste.length>50?`<div style="text-align:center;font-size:12px;color:var(--gray-500);padding:8px">+${liste.length-50} daha — tarihi daraltın</div>`:''}
+    </div>`;
+}
+
+async function renderIzlemeRaporlar(){
+  const c=document.getElementById('izleme-raporlar-icerik');
+  const startVal=document.getElementById('izl-rapor-start').value;
+  const endVal=document.getElementById('izl-rapor-end').value;
+  c.innerHTML='<div class="es"><div class="et">Yükleniyor...</div></div>';
+
+  let rows=[];
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/uygunsuzluklar?select=*&order=olusturma_tarihi.desc',{headers:SB_HEADERS});
+    if(r.ok)rows=await r.json();
+  }catch(e){console.warn(e);}
+
+  const start=startVal?new Date(startVal).getTime():0;
+  const end=endVal?new Date(endVal+'T23:59:59').getTime():Date.now();
+  const filtered=rows.filter(u=>{
+    if(!u.olusturma_tarihi)return true;
+    const t=new Date(u.olusturma_tarihi).getTime();
+    return t>=start&&t<=end;
+  });
+
+  if(!filtered.length){c.innerHTML='<div class="es"><div class="ei">✅</div><div class="et">Bu dönemde uygunsuzluk formu yok</div></div>';return;}
+
+  const kararEtiket={iade:'İade',sartli:'Şartlı Kullanım',imha:'İmha',duzeltme:'Düzeltme/Tekrar İşleme'};
+  c.innerHTML=`
+    <div style="font-size:13px;font-weight:600;margin:6px 0">${filtered.length} form bulundu</div>
+    ${filtered.map(u=>`<div class="mk-kart" style="border-left-color:${u.durum==='acik'?'var(--danger)':'var(--success)'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:12px;color:var(--gray-600)">${u.aciklama||''}</div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${new Date(u.olusturma_tarihi).toLocaleDateString('tr-TR')} • ${u.bildiren_ad||'—'}</div>
+        </div>
+        <span class="chip ${u.durum==='acik'?'chip-red':'chip-green'}">${u.durum==='acik'?'⏳ Açık':'✅ Kapatıldı'}</span>
+      </div>
+      ${u.karar?`<div style="margin-top:6px"><span class="chip chip-purple">Karar: ${kararEtiket[u.karar]||u.karar}</span></div>`:''}
+    </div>`).join('')}`;
+}
+
+// ============================================================
 // EŞLEŞME RAPORU — Sipariş + İrsaliye + Fatura (3'lü eşleşme)
 // ============================================================
-function filterEsleme(f,el){eslemeFilter=f;document.querySelectorAll('#tab-esleme .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderEslemeRaporu();}
+function filterEsleme(f,el){eslemeFilter=f;document.querySelectorAll('#izleme-esleme-panel .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderEslemeRaporu();}
 
 function renderEslemeRaporu(){
   const satirlar=Object.values(malKabuller).filter(f=>f.durum!=='iptal').map(f=>{
@@ -1872,7 +2051,7 @@ function gTab(tab,el){
   if(tab==='skt')renderSkt();
   if(tab==='uygun')renderUygun();
   if(tab==='siparis')renderSiparisTakip();
-  if(tab==='esleme')renderEslemeRaporu();
+  if(tab==='esleme')izlemeSwitchTab('analiz');
 }
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
