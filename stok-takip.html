@@ -176,6 +176,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <h1>Stok Takip</h1>
       <span class="sub" id="header-depo-label">Ana Depo</span>
     </div>
+    <select class="depo-selector" id="otel-selector" onchange="onOtelChange(this.value)" style="margin-right:4px">
+      <option value="810">🏨 Club</option>
+      <option value="811">🏨 Resort</option>
+    </select>
     <select class="depo-selector" id="depo-selector" onchange="onDepoChange(this.value)">
       <!-- JS ile doldurulur -->
     </select>
@@ -225,7 +229,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div class="row-fields">
         <div class="field">
           <label>Otel</label>
-          <select id="iade-otel">
+          <select id="iade-otel" onchange="onIadeOtelChange(this.value)">
             <option value="810">🏨 810 — Ali Bey Club Manavgat (C)</option>
             <option value="811">🏨 811 — Ali Bey Resort Sorgun (R)</option>
           </select>
@@ -398,7 +402,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="toast"></div>
 <div id="loading"><div class="spinner"></div><div style="font-size:13px;">Yükleniyor...</div></div>
 
-<!-- Firma/ürün veritabanı — FIRMA_DB için, İade Başlat firma seçiminde kullanılır -->
+<!-- Not: FIRMA_DB/URUN_DB artık kullanılmıyor — firma ve ürün verisi artık Supabase'den canlı çekiliyor (bkz. loadDB). Script include zararsız, dosyada başka global tanım varsa diye kaldırılmadı. -->
 <script src="gurok_veritabani.js"></script>
 
 <script>
@@ -439,6 +443,17 @@ const DEPOLAR = [
 // ============================================================
 let currentUser  = null;
 let aktifDepoId  = 'ANA_DEPO';
+let aktifOtelId  = '810';
+
+// Otel bazlı depo ID yardımcıları — her depo artık "OTELID_DEPOTIPI" (örn. "811_ANA_DEPO") şeklinde tutulur.
+function tamDepoId(otelId,depoTipi){return otelId+'_'+depoTipi;}
+function depoTipiFromId(depoId){const i=(depoId||'').indexOf('_');return i>=0?depoId.slice(i+1):depoId;}
+function otelFromDepoId(depoId){const i=(depoId||'').indexOf('_');return i>=0?depoId.slice(0,i):'810';}
+function depoAdi(depoId){
+  const tip=depoTipiFromId(depoId);
+  const d=DEPOLAR.find(x=>x.id===tip);
+  return d?(d.ikon+' '+d.ad):(depoId||'');
+}
 let stokFilter   = 'tumu';
 let katFilter    = 'tumu';
 let harFilter    = 'tumu';
@@ -449,7 +464,9 @@ let db = {
   stok:       {},   // { [depoId]: { [lnKod]: {lnKod,urunAd,miktar,birim,...} } }
   hareketler: {},   // { [id]: hareket }
   minimumlar: {},   // { [lnKod]: min }
-  kullanicilar: []
+  kullanicilar: [],
+  urunler:    [],   // Supabase urunler tablosundan canlı — İade Başlat ürün araması için
+  cariler:    []    // Supabase cariler (tedarikçi) tablosundan canlı — İade Başlat firma seçimi için
 };
 
 const DEFAULT_USERS = [
@@ -502,10 +519,12 @@ function checkSession(){
 async function loadDB(){
   showLoading();
   try{
-    const [stokR,harR,minR,kul]=await Promise.all([
+    const [stokR,harR,minR,urunR,cariR,kul]=await Promise.all([
       fetch(SB_URL+'/rest/v1/stok?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/stok_hareketleri?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/stok_minimumlar?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/urunler?select=kod,ad,birim',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)',{headers:SB_HEADERS}),
       loadKullanicilarFromSupabase(),
     ]);
     db.stok={};
@@ -531,6 +550,8 @@ async function loadDB(){
       });
     }
     if(kul&&kul.length)db.kullanicilar=kul;
+    if(urunR.ok)db.urunler=await urunR.json();
+    if(cariR.ok)db.cariler=await cariR.json();
   }catch(e){console.warn('Supabase yükleme:',e);}
   if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
   hideLoading();
@@ -545,7 +566,7 @@ async function saveStok(){
         const s=urunler[kod];
         await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
           method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:depoId.startsWith('3')||depoId.startsWith('4')?'811':'810',miktar:s.miktar})
+          body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:otelFromDepoId(depoId),miktar:s.miktar})
         });
       }
     }
@@ -554,7 +575,7 @@ async function saveStok(){
 async function saveHareket(h){
   try{
     await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
-      urun_kodu:h.lnKod,depo_kodu:h.depoId,otel_id:h.depoId?.toString().startsWith('3')||h.depoId?.toString().startsWith('4')?'811':'810',
+      urun_kodu:h.lnKod,depo_kodu:h.depoId,otel_id:otelFromDepoId(h.depoId),
       tip:h.tip,miktar:h.miktar,belge_no:h.belge||null,aciklama:h.aciklama||null
     })});
   }catch(e){console.warn(e);}
@@ -598,8 +619,8 @@ function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
   hs[lnKod].miktar=(parseFloat(hs[lnKod].miktar)||0)+parseFloat(miktar);
   hs[lnKod].sonGuncelleme=Date.now();
   const baseId=Date.now()+'_'+Math.random().toString(36).slice(2,5);
-  const kaynakDepoAd=DEPOLAR.find(d=>d.id===kaynakDepoId)?.ad||kaynakDepoId;
-  const hedefDepoAd=DEPOLAR.find(d=>d.id===hedefDepoId)?.ad||hedefDepoId;
+  const kaynakDepoAd=depoAdi(kaynakDepoId);
+  const hedefDepoAd=depoAdi(hedefDepoId);
   return {
     id:baseId,tip:'transfer',
     kaynakDepoId,kaynakDepoAd,hedefDepoId,hedefDepoAd,
@@ -611,10 +632,12 @@ function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
 // Mal kabul onayı → Ana Depo girişi
 async function malKabulOnayGiris(form){
   if(!form?.urunler)return 0;
+  const otelId=form.otel_id||form.otelId||'810';
+  const depoId=tamDepoId(otelId,'ANA_DEPO');
   const hareketler=[];
   for(const u of form.urunler){
     if(!u.kod||!u.miktar)continue;
-    const h=giris('ANA_DEPO',u.kod,u.ad,u.miktar,u.birim,'malkabul',form.id);
+    const h=giris(depoId,u.kod,u.ad,u.miktar,u.birim,'malkabul',form.id);
     hareketler.push(h);
   }
   await saveStok();
@@ -714,7 +737,7 @@ function openDetay(depoId,lnKod){
   if(!s)return;
   const d=getStokDurum(lnKod,s.miktar);
   const min=db.minimumlar[lnKod]||0;
-  const depoAd=DEPOLAR.find(x=>x.id===depoId)?.ad||depoId;
+  const depoAd=depoAdi(depoId);
 
   // Hareketler — bu depo + bu ürün
   const harlar=Object.values(db.hareketler)
@@ -726,7 +749,9 @@ function openDetay(depoId,lnKod){
     <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px;">
       <div style="font-size:11px;color:var(--gray-500);">${lnKod} • ${depoAd}</div>
       <div style="font-size:28px;font-weight:800;color:${d==='kritik'?'var(--danger)':d==='uyari'?'var(--warning)':'var(--success)'};">${s.miktar||0} ${s.birim||''}</div>
-      ${min>0?`<div style="font-size:11px;color:var(--gray-500);">Minimum: ${min} ${s.birim||''}</div>`:''}
+      <div style="font-size:11px;color:var(--gray-500);cursor:pointer" onclick="minimumDuzenle('${lnKod}','${(s.urunAd||'').replace(/'/g,"\\'")}')">
+        ${min>0?`Minimum: ${min} ${s.birim||''}`:'Minimum belirlenmemiş'} <span style="color:var(--primary);font-weight:600">✏️ Düzenle</span>
+      </div>
     </div>
     <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Son 15 Hareket</div>
     ${harlar.length===0?'<div style="text-align:center;color:var(--gray-400);padding:16px;">Hareket kaydı yok</div>':
@@ -754,6 +779,26 @@ function openDetay(depoId,lnKod){
       <button class="btn btn-danger btn-sm" onclick="closeModal('modal-detay');prefillCikis('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">➖ Çıkış</button>
     </div>`;
   openModal('modal-detay');
+}
+
+async function minimumDuzenle(lnKod,urunAd){
+  const mevcut=db.minimumlar[lnKod]||0;
+  const girilen=prompt(`"${urunAd}" için minimum stok seviyesi (bu seviyenin altına düşünce 🟡 Uyarı, yarısının altına düşünce 🔴 Kritik olarak işaretlenir):`,mevcut>0?mevcut:'');
+  if(girilen===null)return;
+  const yeni=parseFloat(girilen.replace(',','.'));
+  if(isNaN(yeni)||yeni<0){showToast('⚠️ Geçerli bir sayı girin');return;}
+  showLoading();
+  try{
+    await fetch(SB_URL+'/rest/v1/stok_minimumlar?on_conflict=urun_kodu',{
+      method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({urun_kodu:lnKod,min_miktar:yeni})
+    });
+    db.minimumlar[lnKod]=yeni;
+  }catch(e){console.warn(e);showToast('⚠️ Kaydetme hatası');hideLoading();return;}
+  hideLoading();
+  closeModal('modal-detay');
+  renderStok();
+  showToast(`✅ Minimum güncellendi: ${yeni}`);
 }
 
 function prefillCikis(kod,ad,birim,depoId){
@@ -804,7 +849,7 @@ function renderHareketler(){
     <div class="card" style="padding:8px;">
       ${liste.map(h=>{
         let ikon,renk,etiket,miktar_str;
-        const depoAd=DEPOLAR.find(x=>x.id===aktifDepoId)?.ad||aktifDepoId;
+        const depoAd=depoAdi(aktifDepoId);
         if(h.tip==='transfer'){
           const giden=h.kaynakDepoId===aktifDepoId;
           ikon='🔄';renk=giden?'var(--danger)':'var(--success)';
@@ -875,12 +920,12 @@ document.addEventListener('pointerdown',e=>{
   });
 });
 
-// İade Başlat ürün araması — depoda kayıtlı stoktan değil, tüm ürün kataloğundan (URUN_DB) arar,
+// İade Başlat ürün araması — depoda kayıtlı stoktan değil, tüm ürün kataloğundan (Supabase urunler) arar,
 // çünkü iade edilecek ürün depo stok kaydında olmayabilir. Birim de katalogdan otomatik gelir.
 function filterIadeUrunDD(inputId,ddId,kodId,birimId,val){
   const dd=document.getElementById(ddId);
   if(!val||val.length<2){dd.style.display='none';return;}
-  const katalog=typeof URUN_DB!=='undefined'?URUN_DB:[];
+  const katalog=db.urunler||[];
   const v=val.toLowerCase();
   let results=katalog.filter(u=>u.ad?.toLowerCase().includes(v)||u.kod?.toLowerCase().includes(v)).slice(0,15);
   if(!results.length){dd.style.display='none';return;}
@@ -951,7 +996,7 @@ async function saveTransfer(){
   if(!miktar||miktar<=0){showToast('⚠️ Miktar girin');return;}
   const mevcutMiktar=parseFloat((db.stok[kaynakDepoId]||{})[kod]?.miktar||0);
   if(miktar>mevcutMiktar){
-    const kaynakAd=DEPOLAR.find(d=>d.id===kaynakDepoId)?.ad||kaynakDepoId;
+    const kaynakAd=depoAdi(kaynakDepoId);
     showToast(`⚠️ ${kaynakAd}'de stok yetersiz (${mevcutMiktar} ${birim})`);return;
   }
   showLoading();
@@ -964,8 +1009,8 @@ async function saveTransfer(){
   document.getElementById('tr-miktar').value='';
   document.getElementById('tr-not').value='';
   renderStok();
-  const kAd=DEPOLAR.find(d=>d.id===kaynakDepoId)?.ad||kaynakDepoId;
-  const hAd=DEPOLAR.find(d=>d.id===hedefDepoId)?.ad||hedefDepoId;
+  const kAd=depoAdi(kaynakDepoId);
+  const hAd=depoAdi(hedefDepoId);
   showToast(`✅ ${miktar} ${birim} → ${kAd} → ${hAd}`);
 }
 
@@ -1007,44 +1052,69 @@ async function applyLNRapor(){
   const miktarIdx=parseInt(document.getElementById('lnk-miktar').value);
   const birimIdx=parseInt(document.getElementById('lnk-birim').value);
   closeModal('modal-ln-kolon');showLoading();
-  let islem=0;const harlar=[];
+  let islem=0;const harlar=[];const eksikler=[];
   _lnRows.slice(1).forEach(row=>{
     const kod=(row[kodIdx]||'').trim();
     const ad=(row[adIdx]||'').trim();
     const miktar=parseFloat((row[miktarIdx]||'0').toString().replace(',','.'));
     const birim=birimIdx>=0?(row[birimIdx]||'KG').trim():'KG';
     if(!kod||!miktar||miktar<=0)return;
+    const mevcutMiktar=parseFloat((db.stok[_lnDepoId]||{})[kod]?.miktar||0);
+    if(miktar>mevcutMiktar){
+      eksikler.push({kod,ad:ad||kod,istenen:miktar,mevcut:mevcutMiktar,birim});
+    }
     const h=cikis(_lnDepoId,kod,ad||kod,miktar,birim,'ln_tuketim','');
     harlar.push(h);islem++;
   });
   await saveStok();for(const h of harlar)await saveHareket(h);
   hideLoading();
-  const depoAd=DEPOLAR.find(d=>d.id===_lnDepoId)?.ad||_lnDepoId;
+  const depoAd=depoAdi(_lnDepoId);
   document.getElementById('ln-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
     <div class="card-title">✅ LN Raporu İşlendi</div>
     <div style="font-size:13px;">${islem} tüketim hareketi <strong>${depoAd}</strong>'dan düşüldü.</div>
     <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">${new Date().toLocaleString('tr-TR')}</div>
-  </div>`;
-  renderStok();showToast(`✅ ${islem} tüketim — ${depoAd}`);
+  </div>
+  ${eksikler.length?`<div class="card" style="border-left:4px solid var(--danger);">
+    <div class="card-title" style="color:var(--danger)">⚠️ ${eksikler.length} Kalemde Stok Yetersizliği</div>
+    <div style="font-size:11px;color:var(--gray-600);margin-bottom:8px;">Sistemde görünenden fazla tüketim bildirildi — bu ürünler 0'a sabitlendi. Sayım farkı veya kaydedilmemiş bir giriş olabilir, kontrol edin:</div>
+    ${eksikler.map(e=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-200);">
+      <b>${e.ad}</b> (${e.kod}) — istenen: ${e.istenen} ${e.birim}, mevcut: ${e.mevcut} ${e.birim}
+    </div>`).join('')}
+  </div>`:''}`;
+  renderStok();
+  showToast(eksikler.length?`⚠️ ${islem} tüketim işlendi, ${eksikler.length} kalemde stok yetersiz`:`✅ ${islem} tüketim — ${depoAd}`);
 }
 
 // ============================================================
 // DEPO SEÇICI
 // ============================================================
-function buildDepoSelectors(){
-  const opts=DEPOLAR.map(d=>`<option value="${d.id}">${d.ikon} ${d.ad}</option>`).join('');
+function buildDepoSelectors(otelId){
+  otelId=otelId||aktifOtelId;
+  const opts=DEPOLAR.map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
   document.getElementById('depo-selector').innerHTML=opts;
   document.getElementById('cikis-depo').innerHTML=opts;
   document.getElementById('tr-kaynak').innerHTML=opts;
   document.getElementById('tr-hedef').innerHTML=opts;
   document.getElementById('ln-depo-sec').innerHTML=opts;
+}
+
+function onOtelChange(otelId){
+  aktifOtelId=otelId;
+  buildDepoSelectors(otelId);
+  aktifDepoId=tamDepoId(otelId,DEPOLAR[0].id);
+  document.getElementById('depo-selector').value=aktifDepoId;
+  onDepoChange(aktifDepoId);
+}
+
+function onIadeOtelChange(otelId){
+  const opts=DEPOLAR.map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
   document.getElementById('iade-depo').innerHTML=opts;
 }
 
 function buildIadeFirmaSelector(){
   const sel=document.getElementById('iade-firma');
   if(!sel)return;
-  const firmalar=typeof FIRMA_DB!=='undefined'?FIRMA_DB:[];
+  const firmalar=db.cariler||[];
   const siraliFirmalar=[...firmalar].sort((a,b)=>(a.ad||'').localeCompare(b.ad||'','tr'));
   sel.innerHTML='<option value="">— Firma Seçin —</option>'+
     siraliFirmalar.map(f=>`<option value="${f.id}" data-ad="${(f.ad||'').replace(/"/g,'&quot;')}">${f.ad}</option>`).join('');
@@ -1052,8 +1122,7 @@ function buildIadeFirmaSelector(){
 
 function onDepoChange(depoId){
   aktifDepoId=depoId;
-  const depo=DEPOLAR.find(d=>d.id===depoId);
-  document.getElementById('header-depo-label').textContent=(depo?.ikon||'')+' '+(depo?.ad||depoId);
+  document.getElementById('header-depo-label').textContent=depoAdi(depoId);
   katFilter='tumu';stokFilter='tumu';
   renderStok();
 }
@@ -1172,7 +1241,7 @@ async function iadeSiparisiOlustur(){
   for(const h of hareketler)await saveHareket(h);
   hideLoading();
 
-  const depoAd=DEPOLAR.find(d=>d.id===depoId)?.ad||depoId;
+  const depoAd=depoAdi(depoId);
   document.getElementById('iade-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
     <div class="card-title">✅ İade Siparişi Oluşturuldu</div>
     <div style="font-size:13px;">
@@ -1242,10 +1311,14 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
 // INIT
 // ============================================================
 (async function init(){
-  buildDepoSelectors();
-  buildIadeFirmaSelector();
+  aktifDepoId=tamDepoId(aktifOtelId,DEPOLAR[0].id);
+  buildDepoSelectors(aktifOtelId);
+  document.getElementById('otel-selector').value=aktifOtelId;
+  document.getElementById('depo-selector').value=aktifDepoId;
+  onIadeOtelChange(document.getElementById('iade-otel').value);
   renderIadeKalemler();
   await loadDB();
+  buildIadeFirmaSelector(); // db.cariler loadDB() içinde dolduğu için ondan sonra çağrılmalı
   if(checkSession())document.getElementById('screen-login').classList.add('hidden');
   else document.getElementById('screen-login').classList.add('visible');
 
@@ -1254,31 +1327,35 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   document.getElementById('har-start').value=weekAgo;
   document.getElementById('har-end').value=today;
 
+  document.getElementById('header-depo-label').textContent=depoAdi(aktifDepoId);
   renderStok();
 
-  // Mal kabul onay kontrolü — 30sn (artık Supabase'deki mal_kabuller tablosunu izliyor)
-  const islenmisKey='gurok_stok_islenmis';
-  setInterval(async()=>{
-    try{
-      const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?durum=eq.onaylandi&select=id,mal_kabul_urunleri(*)',{headers:SB_HEADERS});
-      if(!r.ok)return;
-      const rows=await r.json();
-      const formlar=rows.map(row=>({
-        id:row.id,
-        urunler:(row.mal_kabul_urunleri||[]).map(u=>({kod:u.urun_kodu,ad:u.urun_adi,miktar:parseFloat(u.miktar)||0,birim:u.birim}))
-      }));
-      const islenmis=new Set(JSON.parse(localStorage.getItem(islenmisKey)||'[]'));
-      let yeni=false;
-      for(const f of formlar){
-        if(!islenmis.has(String(f.id))){
-          await malKabulOnayGiris(f);
-          islenmis.add(String(f.id));yeni=true;
-        }
-      }
-      if(yeni){localStorage.setItem(islenmisKey,JSON.stringify([...islenmis]));renderStok();showToast('📦 Mal kabul stoka işlendi');}
-    }catch(e){}
-  },30000);
+  // Mal kabul onay kontrolü — Supabase'deki mal_kabuller tablosunu izler
+  await malKabulOnayKontrolEt(); // sayfa açılır açılmaz bir kez, 30sn beklemeden
+  setInterval(malKabulOnayKontrolEt,30000);
 })();
+
+const ISLENMIS_KEY='gurok_stok_islenmis';
+async function malKabulOnayKontrolEt(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?durum=eq.onaylandi&select=id,otel_id,mal_kabul_urunleri(*)',{headers:SB_HEADERS});
+    if(!r.ok)return;
+    const rows=await r.json();
+    const formlar=rows.map(row=>({
+      id:row.id,otel_id:row.otel_id,
+      urunler:(row.mal_kabul_urunleri||[]).map(u=>({kod:u.urun_kodu,ad:u.urun_adi,miktar:parseFloat(u.miktar)||0,birim:u.birim}))
+    }));
+    const islenmis=new Set(JSON.parse(localStorage.getItem(ISLENMIS_KEY)||'[]'));
+    let yeni=false;
+    for(const f of formlar){
+      if(!islenmis.has(String(f.id))){
+        await malKabulOnayGiris(f);
+        islenmis.add(String(f.id));yeni=true;
+      }
+    }
+    if(yeni){localStorage.setItem(ISLENMIS_KEY,JSON.stringify([...islenmis]));renderStok();showToast('📦 Mal kabul stoka işlendi');}
+  }catch(e){}
+}
 </script>
 </body>
 </html>
