@@ -428,15 +428,58 @@ async function loadKullanicilarFromSupabase(){
   }catch(e){console.warn(e);return null;}
 }
 
-// Depo listesi — ileride Firebase'den çekilebilir, şimdi sabit
-const DEPOLAR = [
-  { id:'ANA_DEPO',     ad:'Ana Depo',      ikon:'🏭' },
+// Depo listesi — otel bazlı. Club (810) için gerçek LN Infor kodları (CSM=Servis Müdürlüğü, CMM=Mutfak Müdürlüğü)
+// kullanılıyor. Resort (811) için henüz LN kodları paylaşılmadığından geçici genel yapı kullanılıyor —
+// kodlar geldiğinde DEPOLAR_811'i DEPOLAR_810 ile aynı desende (RSM/RMM?) doldurmak yeterli olacak.
+const DEPOLAR_ORTAK = [
+  { id:'ANA_DEPO', ad:'Ana Depo', ikon:'🏭' }, // Merkezi depo — mal kabul her zaman buraya girer, oradan dağıtılır
+];
+
+const DEPOLAR_810 = [
+  ...DEPOLAR_ORTAK,
+  // Mutfaklar — CMM (Club Mutfak Müdürlüğü). NOT: liste eksik olabilir, CMM204/205/206 gibi
+  // devamı gelirse aynı desende (id:'CMMxxx', ad:'...', ikon:'🍳') eklenmesi yeterli.
+  { id:'CMM201', ad:'Ana Mutfak',  ikon:'🍳' },
+  { id:'CMM202', ad:'Park Mutfak', ikon:'🍳' },
+  { id:'CMM203', ad:'Aqua Mutfak', ikon:'🍳' },
+  // Restoranlar — CSM2xx (Club Servis Müdürlüğü)
+  { id:'CSM201', ad:'Alibey Restaurant', ikon:'🍽️' },
+  { id:'CSM202', ad:'Park Restaurant',   ikon:'🍽️' },
+  { id:'CSM204', ad:'Sahil Restaurant',  ikon:'🍽️' },
+  { id:'CSM205', ad:'Aqua Restaurant',   ikon:'🍽️' },
+  { id:'CSM206', ad:'Kıyı Restaurant',   ikon:'🍽️' },
+  // Barlar — CSM3xx (Club Servis Müdürlüğü)
+  { id:'CSM301', ad:'Türk Kahvesi',       ikon:'🍹' },
+  { id:'CSM302', ad:'Çardak',             ikon:'🍹' },
+  { id:'CSM303', ad:'Talvar',             ikon:'🍹' },
+  { id:'CSM304', ad:'Pool Bar',           ikon:'🍹' },
+  { id:'CSM305', ad:"Ali's Pub",          ikon:'🍹' },
+  { id:'CSM306', ad:'Tenis Bar',          ikon:'🍹' },
+  { id:'CSM307', ad:'Konak',              ikon:'🍹' },
+  { id:'CSM308', ad:'Karagöz',            ikon:'🍹' },
+  { id:'CSM310', ad:'Ilıca Bar',          ikon:'🍹' },
+  { id:'CSM311', ad:'Harlek',             ikon:'🍹' },
+  { id:'CSM312', ad:'Hisar',              ikon:'🍹' },
+  { id:'CSM313', ad:'Yoncalı',            ikon:'🍹' },
+  { id:'CSM314', ad:'Frig Beach Bar',     ikon:'🍹' },
+  { id:'CSM315', ad:'Pavillion Bar',      ikon:'🍹' },
+  { id:'CSM316', ad:'Lobby Bar',          ikon:'🍹' },
+  { id:'CSM317', ad:'Park Türk Kahvesi',  ikon:'🍹' },
+  { id:'CSM318', ad:'Şarap ve Bira Evi',  ikon:'🍹' },
+];
+
+// Resort (811) — LN kodları henüz paylaşılmadı, geçici genel yapı. Gerçek RSM/RMM kodları
+// gelince bu listeyi DEPOLAR_810 ile aynı desende değiştirmek yeterli, başka hiçbir yeri değiştirmeye gerek yok.
+const DEPOLAR_811 = [
+  ...DEPOLAR_ORTAK,
   { id:'ANA_MUTFAK',   ad:'Ana Mutfak',    ikon:'🍳' },
-  { id:'PARK_MUTFAK',  ad:'Park Mutfak',   ikon:'🌿' },
+  { id:'PARK_MUTFAK',  ad:'Park Mutfak',   ikon:'🍳' },
   { id:'AQUA_MUTFAK',  ad:'Aqua Mutfak',   ikon:'🌊' },
   { id:'SAHIL_MUTFAK', ad:'Sahil Mutfak',  ikon:'🏖️' },
   { id:'BAR',          ad:'Bar',           ikon:'🍹' },
 ];
+
+function depolarForOtel(otelId){ return otelId==='810'?DEPOLAR_810:DEPOLAR_811; }
 
 // ============================================================
 // STATE
@@ -451,7 +494,8 @@ function depoTipiFromId(depoId){const i=(depoId||'').indexOf('_');return i>=0?de
 function otelFromDepoId(depoId){const i=(depoId||'').indexOf('_');return i>=0?depoId.slice(0,i):'810';}
 function depoAdi(depoId){
   const tip=depoTipiFromId(depoId);
-  const d=DEPOLAR.find(x=>x.id===tip);
+  const otel=otelFromDepoId(depoId);
+  const d=depolarForOtel(otel).find(x=>x.id===tip);
   return d?(d.ikon+' '+d.ad):(depoId||'');
 }
 let stokFilter   = 'tumu';
@@ -1090,7 +1134,7 @@ async function applyLNRapor(){
 // ============================================================
 function buildDepoSelectors(otelId){
   otelId=otelId||aktifOtelId;
-  const opts=DEPOLAR.map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
+  const opts=depolarForOtel(otelId).map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
   document.getElementById('depo-selector').innerHTML=opts;
   document.getElementById('cikis-depo').innerHTML=opts;
   document.getElementById('tr-kaynak').innerHTML=opts;
@@ -1101,13 +1145,13 @@ function buildDepoSelectors(otelId){
 function onOtelChange(otelId){
   aktifOtelId=otelId;
   buildDepoSelectors(otelId);
-  aktifDepoId=tamDepoId(otelId,DEPOLAR[0].id);
+  aktifDepoId=tamDepoId(otelId,depolarForOtel(otelId)[0].id);
   document.getElementById('depo-selector').value=aktifDepoId;
   onDepoChange(aktifDepoId);
 }
 
 function onIadeOtelChange(otelId){
-  const opts=DEPOLAR.map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
+  const opts=depolarForOtel(otelId).map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
   document.getElementById('iade-depo').innerHTML=opts;
 }
 
@@ -1311,7 +1355,7 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
 // INIT
 // ============================================================
 (async function init(){
-  aktifDepoId=tamDepoId(aktifOtelId,DEPOLAR[0].id);
+  aktifDepoId=tamDepoId(aktifOtelId,depolarForOtel(aktifOtelId)[0].id);
   buildDepoSelectors(aktifOtelId);
   document.getElementById('otel-selector').value=aktifOtelId;
   document.getElementById('depo-selector').value=aktifDepoId;
