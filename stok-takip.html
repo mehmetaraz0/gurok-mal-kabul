@@ -429,54 +429,203 @@ async function loadKullanicilarFromSupabase(){
 }
 
 // Depo listesi — otel bazlı. Club (810) için gerçek LN Infor kodları (CSM=Servis Müdürlüğü, CMM=Mutfak Müdürlüğü)
-// kullanılıyor. Resort (811) için henüz LN kodları paylaşılmadığından geçici genel yapı kullanılıyor —
-// kodlar geldiğinde DEPOLAR_811'i DEPOLAR_810 ile aynı desende (RSM/RMM?) doldurmak yeterli olacak.
-const DEPOLAR_ORTAK = [
-  { id:'ANA_DEPO', ad:'Ana Depo', ikon:'🏭' }, // Merkezi depo — mal kabul her zaman buraya girer, oradan dağıtılır
-];
-
+// kullanılıyor. Resort (811) için de resmi RB (Bijal alt-bölgesi dahil) ve RSM/RMM kodları kullanılıyor.
+// Kaynak: LN Infor "Depolar" raporu (08.07.2026 tarihli, Ali Bey Lojistik / Şirket 809).
 const DEPOLAR_810 = [
-  ...DEPOLAR_ORTAK,
-  // Mutfaklar — CMM (Club Mutfak Müdürlüğü). NOT: liste eksik olabilir, CMM204/205/206 gibi
-  // devamı gelirse aynı desende (id:'CMMxxx', ad:'...', ikon:'🍳') eklenmesi yeterli.
-  { id:'CMM201', ad:'Ana Mutfak',  ikon:'🍳' },
-  { id:'CMM202', ad:'Park Mutfak', ikon:'🍳' },
-  { id:'CMM203', ad:'Aqua Mutfak', ikon:'🍳' },
-  // Restoranlar — CSM2xx (Club Servis Müdürlüğü)
+  { id:'100', ad:'Club Isletme Depo', ikon:'🏭' },
+  { id:'200', ad:'Club Teknik Depo', ikon:'🏭' },
+  { id:'CEA101', ad:'Eglence Aktivite Idari', ikon:'🎉' },
+  { id:'CEA201', ad:'Animasyon', ikon:'🎉' },
+  { id:'CEA202', ad:'Teenager Club', ikon:'🎉' },
+  { id:'CEA301', ad:'Aquapark', ikon:'🎉' },
+  { id:'CEA401', ad:'Fitnes First', ikon:'🎉' },
+  { id:'CEA501', ad:'Adventure Park', ikon:'🎉' },
+  { id:'CGM101', ad:'Genel Mudurluk Idari', ikon:'🏢' },
+  { id:'CIK101', ad:'Insan Kaynaklari Idari', ikon:'👥' },
+  { id:'CIK201', ad:'Personel Lojmanlari', ikon:'👥' },
+  { id:'CMH101', ad:'Muhasebe Mudurlugu Idari', ikon:'💰' },
+  { id:'CMH201', ad:'Muhasebe Yoneticiligi', ikon:'💰' },
+  { id:'CMH301', ad:'Maliyet Kontrol Yoneticiligi', ikon:'💰' },
+  { id:'CMH401', ad:'Isletme Depo', ikon:'🏭' },
+  { id:'CMH501', ad:'Bilgi Islem', ikon:'🏢' },
+  { id:'CMK101', ad:'Genel Koordinator', ikon:'🏢' },
+  { id:'CMK201', ad:'Mali Isler', ikon:'💰' },
+  { id:'CMK301', ad:'Satinalma Mudurlugu', ikon:'🏢' },
+  { id:'CMK401', ad:'Standartlar Mudurlugu', ikon:'🏢' },
+  { id:'CMK402', ad:'Alibey H&r Kalite VE Guvence M', ikon:'🏢' },
+  { id:'CMK501', ad:'Satis Pazarlama Mudurlugu', ikon:'🏢' },
+  { id:'CMK602', ad:'Merkez Egitim Gelisim Muduru', ikon:'🏢' },
+  { id:'CMK701', ad:'Wellness Yoneticiligi', ikon:'💆' },
+  { id:'CMM101', ad:'Mutfak M Idari Ofis', ikon:'🍳' },
+  { id:'CMM201', ad:'Anamutfak', ikon:'🍳' },
+  { id:'CMM202', ad:'Aqua Mutfak', ikon:'🍳' },
+  { id:'CMM203', ad:'Personel Mutfagi', ikon:'📦' },
+  { id:'CMM204', ad:'Park Mutfak', ikon:'🍳' },
+  { id:'CMM205', ad:'Club Lojm Pers Yemekhanesi', ikon:'📦' },
+  { id:'CMM301', ad:'Bulasikhane', ikon:'🍽️' },
+  { id:'CMY101', ad:'Mobilyahane', ikon:'📦' },
+  { id:'COB101', ad:'Onburo Idari', ikon:'🛎️' },
+  { id:'COB201', ad:'Resepsiyon', ikon:'🛎️' },
+  { id:'COB301', ad:'Rezervasyon', ikon:'🛎️' },
+  { id:'COB401', ad:'Misafir Iliskileri', ikon:'🛎️' },
+  { id:'COB501', ad:'Tenis Kortlari', ikon:'🎉' },
+  { id:'CSM100', ad:'F&b Mudurlugu Ofis', ikon:'📦' },
+  { id:'CSM101', ad:'Club F&b Mudurlugu', ikon:'📦' },
   { id:'CSM201', ad:'Alibey Restaurant', ikon:'🍽️' },
-  { id:'CSM202', ad:'Park Restaurant',   ikon:'🍽️' },
-  { id:'CSM204', ad:'Sahil Restaurant',  ikon:'🍽️' },
-  { id:'CSM205', ad:'Aqua Restaurant',   ikon:'🍽️' },
-  { id:'CSM206', ad:'Kıyı Restaurant',   ikon:'🍽️' },
-  // Barlar — CSM3xx (Club Servis Müdürlüğü)
-  { id:'CSM301', ad:'Türk Kahvesi',       ikon:'🍹' },
-  { id:'CSM302', ad:'Çardak',             ikon:'🍹' },
-  { id:'CSM303', ad:'Talvar',             ikon:'🍹' },
-  { id:'CSM304', ad:'Pool Bar',           ikon:'🍹' },
-  { id:'CSM305', ad:"Ali's Pub",          ikon:'🍹' },
-  { id:'CSM306', ad:'Tenis Bar',          ikon:'🍹' },
-  { id:'CSM307', ad:'Konak',              ikon:'🍹' },
-  { id:'CSM308', ad:'Karagöz',            ikon:'🍹' },
-  { id:'CSM310', ad:'Ilıca Bar',          ikon:'🍹' },
-  { id:'CSM311', ad:'Harlek',             ikon:'🍹' },
-  { id:'CSM312', ad:'Hisar',              ikon:'🍹' },
-  { id:'CSM313', ad:'Yoncalı',            ikon:'🍹' },
-  { id:'CSM314', ad:'Frig Beach Bar',     ikon:'🍹' },
-  { id:'CSM315', ad:'Pavillion Bar',      ikon:'🍹' },
-  { id:'CSM316', ad:'Lobby Bar',          ikon:'🍹' },
-  { id:'CSM317', ad:'Park Türk Kahvesi',  ikon:'🍹' },
-  { id:'CSM318', ad:'Şarap ve Bira Evi',  ikon:'🍹' },
+  { id:'CSM202', ad:'Park Restaurant', ikon:'🍽️' },
+  { id:'CSM203', ad:'Doner Restaurant', ikon:'🍽️' },
+  { id:'CSM204', ad:'Sahil Restaurant', ikon:'🍽️' },
+  { id:'CSM205', ad:'Aqua Restaurant', ikon:'🍽️' },
+  { id:'CSM206', ad:'Kiyi Restaurant', ikon:'🍽️' },
+  { id:'CSM207', ad:'Kaigan Teppanyaki A LA Carte', ikon:'🍽️' },
+  { id:'CSM301', ad:'Turk Kahvesi', ikon:'🍹' },
+  { id:'CSM302', ad:'Cardak', ikon:'🍹' },
+  { id:'CSM303', ad:'Talvar', ikon:'🍹' },
+  { id:'CSM304', ad:'Pool', ikon:'📦' },
+  { id:'CSM305', ad:'Ali\'s Pub', ikon:'🍹' },
+  { id:'CSM306', ad:'Tenis Bar', ikon:'🍹' },
+  { id:'CSM307', ad:'Konak', ikon:'🍹' },
+  { id:'CSM308', ad:'Karagoz', ikon:'🍹' },
+  { id:'CSM309', ad:'Aqua Bar', ikon:'🍹' },
+  { id:'CSM310', ad:'Ilica Bar', ikon:'🍹' },
+  { id:'CSM311', ad:'Harlek', ikon:'🍹' },
+  { id:'CSM312', ad:'Hisar', ikon:'🍹' },
+  { id:'CSM313', ad:'Yoncali', ikon:'🍹' },
+  { id:'CSM314', ad:'Frig Beach Bar', ikon:'🍹' },
+  { id:'CSM315', ad:'Pavillion Bar', ikon:'🍹' },
+  { id:'CSM316', ad:'Lobby Bar', ikon:'🍹' },
+  { id:'CSM317', ad:'Park Turk Kahvesi', ikon:'🍹' },
+  { id:'CSM318', ad:'Sarap VE Bira Evi', ikon:'📦' },
+  { id:'CSM401', ad:'Resepsiyon Cay Ocagi', ikon:'☕' },
+  { id:'CSM402', ad:'Park Resepsiyon Cay Ocagi', ikon:'☕' },
+  { id:'CSM403', ad:'Idari Bina Cay Ocagi', ikon:'☕' },
+  { id:'CTG101', ad:'Tur.grp.direktorlugu', ikon:'🏢' },
+  { id:'CTG301', ad:'Tur.grp.kalite VE Guvence Dire', ikon:'🏢' },
+  { id:'CTG401', ad:'Tur.grp.satis VE Pazarlama Dir', ikon:'🏢' },
+  { id:'CTG501', ad:'Tur.grp.insan Kaynaklari Direk', ikon:'👥' },
+  { id:'CTG502', ad:'Tur.grp.egitim Gelisim Muduru', ikon:'🏢' },
+  { id:'CTG601', ad:'Tur.grp.satinalma Direktorlugu', ikon:'🏢' },
+  { id:'CTG701', ad:'Tur.grp.mali Isler Direktorlug', ikon:'💰' },
+  { id:'CTG801', ad:'Turkiye Kurumsal Iliskiler Mud', ikon:'🏢' },
+  { id:'CTM101', ad:'Teknik Servis Mud Idari', ikon:'🔧' },
+  { id:'CTM201', ad:'Mekanik', ikon:'🔧' },
+  { id:'CTM301', ad:'Elektrik', ikon:'🔧' },
+  { id:'CTM401', ad:'Insaat', ikon:'🔧' },
+  { id:'CYA101', ad:'Yasam Alanlari Idari', ikon:'📦' },
+  { id:'CYA201', ad:'Kat Hizmetleri', ikon:'🛏️' },
+  { id:'CYA202', ad:'Odalar', ikon:'🛏️' },
+  { id:'CYA301', ad:'Camasirhane', ikon:'👔' },
+  { id:'CYA302', ad:'Terzi', ikon:'👔' },
+  { id:'CYA401', ad:'Guvenlik', ikon:'🛡️' },
+  { id:'CYA501', ad:'Bahce', ikon:'🌳' },
+  { id:'CYA601', ad:'Magazalar Butik', ikon:'🛍️' },
+  { id:'CYA602', ad:'Hamam Sauna - Spa', ikon:'💆' },
+  { id:'CZC101', ad:'Yat-katamaran', ikon:'⛵' },
 ];
 
-// Resort (811) — LN kodları henüz paylaşılmadı, geçici genel yapı. Gerçek RSM/RMM kodları
-// gelince bu listeyi DEPOLAR_810 ile aynı desende değiştirmek yeterli, başka hiçbir yeri değiştirmeye gerek yok.
 const DEPOLAR_811 = [
-  ...DEPOLAR_ORTAK,
-  { id:'ANA_MUTFAK',   ad:'Ana Mutfak',    ikon:'🍳' },
-  { id:'PARK_MUTFAK',  ad:'Park Mutfak',   ikon:'🍳' },
-  { id:'AQUA_MUTFAK',  ad:'Aqua Mutfak',   ikon:'🌊' },
-  { id:'SAHIL_MUTFAK', ad:'Sahil Mutfak',  ikon:'🏖️' },
-  { id:'BAR',          ad:'Bar',           ikon:'🍹' },
+  { id:'300', ad:'Resort Isletme Depo', ikon:'🏭' },
+  { id:'400', ad:'Resort Teknik Depo', ikon:'🏭' },
+  { id:'RBEA21', ad:'Bijal Animasyon', ikon:'🎉' },
+  { id:'RBEA41', ad:'Bijal Fitness', ikon:'🎉' },
+  { id:'RBEA61', ad:'Bijal Spa', ikon:'💆' },
+  { id:'RBGM11', ad:'Bijal Genel Mudurluk', ikon:'🏢' },
+  { id:'RBKG11', ad:'Kalite Guvence Yoneticiligi', ikon:'🏢' },
+  { id:'RBMK51', ad:'Bijal Satis Pazarlama', ikon:'🏢' },
+  { id:'RBMM11', ad:'Bijal Mutfak Mudurlugu', ikon:'🍳' },
+  { id:'RBMM21', ad:'Beach House Mutfak', ikon:'🍳' },
+  { id:'RBMM22', ad:'Club House Mutfak', ikon:'🍳' },
+  { id:'RBMM23', ad:'Bijal Personel Mutfagi', ikon:'📦' },
+  { id:'RBMM31', ad:'Bijal Bulasikhane', ikon:'🍽️' },
+  { id:'RBOB11', ad:'Bijal Onburo', ikon:'🛎️' },
+  { id:'RBSM11', ad:'Bijal Servis Mudurlugu Idari', ikon:'📦' },
+  { id:'RBSM21', ad:'Beach House Servis', ikon:'📦' },
+  { id:'RBSM22', ad:'Club House Servis', ikon:'📦' },
+  { id:'RBSM26', ad:'Bijal Teppanyaki A LA Carte', ikon:'🍽️' },
+  { id:'RBSM31', ad:'IN Villa Dinning', ikon:'📦' },
+  { id:'RBSM41', ad:'Bijal Cay Ocaklari', ikon:'☕' },
+  { id:'RBTM11', ad:'Bijal Teknik Mudurluk Idari', ikon:'🔧' },
+  { id:'RBTM21', ad:'Bijal Mekanik', ikon:'🔧' },
+  { id:'RBTM31', ad:'Bijal Elektrik', ikon:'🔧' },
+  { id:'RBTM41', ad:'Bijal Insaat', ikon:'🔧' },
+  { id:'RBYA21', ad:'Bijal Kat Hizmetleri', ikon:'🛏️' },
+  { id:'RBYA22', ad:'Bijal Odalar', ikon:'🛏️' },
+  { id:'RBYA31', ad:'Bijal Camasirhane', ikon:'👔' },
+  { id:'RBYA51', ad:'Bijal Bahce', ikon:'🌳' },
+  { id:'RBYA61', ad:'Bijal Butik', ikon:'🛍️' },
+  { id:'REA101', ad:'Eglence VE Aktiviteler Idari', ikon:'🎉' },
+  { id:'REA201', ad:'Animasyon', ikon:'🎉' },
+  { id:'REA301', ad:'Aquapark', ikon:'🎉' },
+  { id:'REA401', ad:'Fitness First', ikon:'🎉' },
+  { id:'REA501', ad:'Tenis Kortlari', ikon:'🎉' },
+  { id:'REA601', ad:'Samara Spa', ikon:'💆' },
+  { id:'RGM101', ad:'Genel Mudurluk Idari', ikon:'🏢' },
+  { id:'RIK101', ad:'Insan Kaynaklari Idari', ikon:'👥' },
+  { id:'RIK201', ad:'Personel Lojmani', ikon:'👥' },
+  { id:'RIK202', ad:'Personel Kantini', ikon:'📦' },
+  { id:'RMH101', ad:'Muhasebe Mudurlugu Idari', ikon:'💰' },
+  { id:'RMH201', ad:'Muhasebe Yoneticiligi', ikon:'💰' },
+  { id:'RMH301', ad:'Maliyet Kontrol Yoneticiligi', ikon:'💰' },
+  { id:'RMH401', ad:'Isletme Depo', ikon:'🏭' },
+  { id:'RMH501', ad:'Bilgi Islem', ikon:'🏢' },
+  { id:'RMK101', ad:'Genel Koordinator', ikon:'🏢' },
+  { id:'RMK201', ad:'Mali Isler', ikon:'💰' },
+  { id:'RMK301', ad:'Satinalma Mudurlugu', ikon:'🏢' },
+  { id:'RMK401', ad:'Standartlar Mudurlugu', ikon:'🏢' },
+  { id:'RMK402', ad:'Alibey H&r Kalite VE Guvence M', ikon:'🏢' },
+  { id:'RMK501', ad:'Satis Pazarlama Mudurlugu', ikon:'🏢' },
+  { id:'RMK601', ad:'Insan Kaynaklari Mudurlugu', ikon:'👥' },
+  { id:'RMK602', ad:'Merkez Egitim Gelisim Muduru', ikon:'🏢' },
+  { id:'RMK701', ad:'Wellness Yoneticiligi', ikon:'💆' },
+  { id:'RMM101', ad:'Mutfak Mudurlugu Idari', ikon:'🍳' },
+  { id:'RMM201', ad:'Anamutfak', ikon:'🍳' },
+  { id:'RMM202', ad:'Aqua Mutfak', ikon:'🍳' },
+  { id:'RMM203', ad:'Personel Mutfagi', ikon:'📦' },
+  { id:'RMM204', ad:'Lojman Personel Mutfagi', ikon:'👥' },
+  { id:'RMM301', ad:'Bulasikhane', ikon:'🍽️' },
+  { id:'ROB101', ad:'Onburo Idari', ikon:'🛎️' },
+  { id:'ROB201', ad:'Resepsiyon', ikon:'🛎️' },
+  { id:'ROB301', ad:'Rezervasyon', ikon:'🛎️' },
+  { id:'ROB401', ad:'Misafir Iliskileri', ikon:'🛎️' },
+  { id:'RSM101', ad:'Servis Mudurlugu Idari', ikon:'📦' },
+  { id:'RSM201', ad:'Ala Restaurant', ikon:'🍽️' },
+  { id:'RSM202', ad:'Rana Restaurant', ikon:'🍽️' },
+  { id:'RSM203', ad:'Mehtabe Restaurant', ikon:'🍽️' },
+  { id:'RSM204', ad:'Keyfi Sefa Restaurant', ikon:'🍽️' },
+  { id:'RSM205', ad:'Kaigan Sushi Corner', ikon:'🍽️' },
+  { id:'RSM206', ad:'Kaigan Teppanyaki A LA Carte', ikon:'🍽️' },
+  { id:'RSM207', ad:'Mehtabe Grill', ikon:'🍽️' },
+  { id:'RSM208', ad:'Mehtabe Fish', ikon:'🍽️' },
+  { id:'RSM301', ad:'Peymane Bar', ikon:'🍹' },
+  { id:'RSM302', ad:'Nazende Cafe', ikon:'🍹' },
+  { id:'RSM303', ad:'Rumi Bar', ikon:'🍹' },
+  { id:'RSM304', ad:'Ferase Alis Pub', ikon:'🍹' },
+  { id:'RSM305', ad:'Endame Bar', ikon:'🍹' },
+  { id:'RSM306', ad:'Lobby Bar', ikon:'🍹' },
+  { id:'RSM307', ad:'Tenis Bar', ikon:'🍹' },
+  { id:'RSM308', ad:'Oda Servisi', ikon:'📦' },
+  { id:'RSM309', ad:'Beach Bar', ikon:'🍹' },
+  { id:'RSM401', ad:'Cay Ocaklari', ikon:'☕' },
+  { id:'RTG101', ad:'Tur.grp.direktorlugu', ikon:'🏢' },
+  { id:'RTG301', ad:'Tur.grp.kalite VE Guvence Dire', ikon:'🏢' },
+  { id:'RTG401', ad:'Tur.grp.satis VE Pazarlama Dir', ikon:'🏢' },
+  { id:'RTG501', ad:'Tur.grp.insan Kaynaklari Direk', ikon:'👥' },
+  { id:'RTG502', ad:'Tur.grp.egitim Gelisim Muduru', ikon:'🏢' },
+  { id:'RTG601', ad:'Tur.grp.satinalma Direktorlugu', ikon:'🏢' },
+  { id:'RTG701', ad:'Tur.grp.mali Isler Direktorlug', ikon:'💰' },
+  { id:'RTG801', ad:'Turkiye Kurumsal Iliskiler Mud', ikon:'🏢' },
+  { id:'RTM101', ad:'Teknik Mudurluk Idari', ikon:'🔧' },
+  { id:'RTM201', ad:'Mekanik', ikon:'🔧' },
+  { id:'RTM301', ad:'Elektrik', ikon:'🔧' },
+  { id:'RTM401', ad:'Insaat', ikon:'🔧' },
+  { id:'RYA101', ad:'Yasam Alanlari Idari', ikon:'📦' },
+  { id:'RYA201', ad:'Kat Hizmetleri', ikon:'🛏️' },
+  { id:'RYA202', ad:'Odalar', ikon:'🛏️' },
+  { id:'RYA301', ad:'Camasirhane', ikon:'👔' },
+  { id:'RYA302', ad:'Terzi', ikon:'👔' },
+  { id:'RYA401', ad:'Guvenlik', ikon:'🛡️' },
+  { id:'RYA501', ad:'Bahce', ikon:'🌳' },
+  { id:'RYA601', ad:'Magazalar', ikon:'🛍️' },
 ];
 
 function depolarForOtel(otelId){ return otelId==='810'?DEPOLAR_810:DEPOLAR_811; }
@@ -677,1304 +826,10 @@ function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
 async function malKabulOnayGiris(form){
   if(!form?.urunler)return 0;
   const otelId=form.otel_id||form.otelId||'810';
-  const depoId=tamDepoId(otelId,'ANA_DEPO');
-  const hareketler=[];
-  for(const u of form.urunler){
-    if(!u.kod||!u.miktar)continue;
-    const h=giris(depoId,u.kod,u.ad,u.miktar,u.birim,'malkabul',form.id);
-    hareketler.push(h);
-  }
-  await saveStok();
-  for(const h of hareketler)await saveHareket(h);
-  return hareketler.length;
-}
-
-// ============================================================
-// RENDER STOK
-// ============================================================
-function getStokDurum(lnKod,miktar){
-  const min=db.minimumlar[lnKod];
-  if(!min||min<=0)return'normal';
-  if(miktar<=0||miktar<=min*.5)return'kritik';
-  if(miktar<=min)return'uyari';
-  return'normal';
-}
-
-function renderStok(){
-  const depoStok=db.stok[aktifDepoId]||{};
-  const items=Object.values(depoStok);
-  const search=(document.getElementById('stok-search')?.value||'').toLowerCase();
-
-  // Kategori tabs
-  const katSet=new Set();
-  items.forEach(s=>{if(s.lnKod)katSet.add(s.lnKod.slice(0,5));});
-  document.getElementById('kat-tabs').innerHTML=
-    `<button class="filter-tab ${katFilter==='tumu'?'active':''}" onclick="filterKat('tumu',this)">Tümü</button>`+
-    [...katSet].sort().map(k=>`<button class="filter-tab ${katFilter===k?'active':''}" onclick="filterKat('${k}',this)">${k}</button>`).join('');
-
-  // Filtrele
-  let filtered=items.filter(s=>{
-    if(search&&!s.urunAd?.toLowerCase().includes(search)&&!s.lnKod?.toLowerCase().includes(search))return false;
-    if(katFilter!=='tumu'&&!s.lnKod?.startsWith(katFilter))return false;
-    const d=getStokDurum(s.lnKod,s.miktar);
-    if(stokFilter==='kritik'&&d!=='kritik')return false;
-    if(stokFilter==='uyari'&&d!=='uyari')return false;
-    if(stokFilter==='normal'&&d!=='normal')return false;
-    return true;
-  });
-  filtered.sort((a,b)=>{
-    const order={kritik:0,uyari:1,normal:2};
-    return(order[getStokDurum(a.lnKod,a.miktar)]||2)-(order[getStokDurum(b.lnKod,b.miktar)]||2)||(a.urunAd||'').localeCompare(b.urunAd||'','tr');
-  });
-
-  // Stats
-  const krit=items.filter(s=>getStokDurum(s.lnKod,s.miktar)==='kritik').length;
-  const uya=items.filter(s=>getStokDurum(s.lnKod,s.miktar)==='uyari').length;
-  document.getElementById('stok-stats').innerHTML=`
-    <div class="stat-card"><div class="stat-num">${items.length}</div><div class="stat-label">Toplam Ürün</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${krit}</div><div class="stat-label">🔴 Kritik</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--warning)">${uya}</div><div class="stat-label">🟡 Uyarı</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--success)">${items.length-krit-uya}</div><div class="stat-label">✅ Normal</div></div>`;
-
-  const badge=document.getElementById('kritik-badge');
-  if(krit>0){badge.textContent=krit;badge.style.display='block';}else badge.style.display='none';
-
-  const container=document.getElementById('stok-liste');
-  if(!filtered.length){
-    container.innerHTML=`<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">${items.length===0?'Bu depoda stok kaydı yok':'Sonuç bulunamadı'}</div></div>`;
-    return;
-  }
-  container.innerHTML=filtered.map(s=>{
-    const d=getStokDurum(s.lnKod,s.miktar);
-    const min=db.minimumlar[s.lnKod]||0;
-    const pct=min>0?Math.min(100,Math.round((s.miktar/min)*100)):100;
-    return`<div class="stok-item ${d}" onclick="openDetay('${aktifDepoId}','${s.lnKod}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:var(--primary);">${s.urunAd||'—'}</div>
-          <div style="font-size:10px;color:var(--gray-400);font-family:monospace;">${s.lnKod} <span class="kat-badge">${s.lnKod?.slice(0,5)||''}</span></div>
-        </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:18px;font-weight:800;color:${d==='kritik'?'var(--danger)':d==='uyari'?'var(--warning)':'var(--success)'};">${s.miktar||0} <span style="font-size:12px;font-weight:400;">${s.birim||''}</span></div>
-          ${min>0?`<div style="font-size:10px;color:var(--gray-400);">Min: ${min}</div>`:''}
-        </div>
-      </div>
-      ${min>0?`<div class="progress-bar"><div class="progress-fill ${d==='kritik'?'danger':d==='uyari'?'warning':'success'}" style="width:${pct}%"></div></div>`:''}
-      <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">Son güncelleme: ${s.sonGuncelleme?new Date(s.sonGuncelleme).toLocaleString('tr-TR'):'—'}</div>
-    </div>`;
-  }).join('');
-}
-
-function filterStok(f,el){
-  stokFilter=f;
-  document.querySelectorAll('#tab-stok .filter-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  renderStok();
-}
-function filterKat(k,el){katFilter=k;renderStok();}
-
-// ============================================================
-// STOK DETAY
-// ============================================================
-function openDetay(depoId,lnKod){
-  const s=(db.stok[depoId]||{})[lnKod];
-  if(!s)return;
-  const d=getStokDurum(lnKod,s.miktar);
-  const min=db.minimumlar[lnKod]||0;
-  const depoAd=depoAdi(depoId);
-
-  // Hareketler — bu depo + bu ürün
-  const harlar=Object.values(db.hareketler)
-    .filter(h=>h.lnKod===lnKod&&(h.depoId===depoId||h.kaynakDepoId===depoId||h.hedefDepoId===depoId))
-    .sort((a,b)=>b.tarih-a.tarih).slice(0,15);
-
-  document.getElementById('detay-title').textContent=s.urunAd;
-  document.getElementById('detay-content').innerHTML=`
-    <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:11px;color:var(--gray-500);">${lnKod} • ${depoAd}</div>
-      <div style="font-size:28px;font-weight:800;color:${d==='kritik'?'var(--danger)':d==='uyari'?'var(--warning)':'var(--success)'};">${s.miktar||0} ${s.birim||''}</div>
-      <div style="font-size:11px;color:var(--gray-500);cursor:pointer" onclick="minimumDuzenle('${lnKod}','${(s.urunAd||'').replace(/'/g,"\\'")}')">
-        ${min>0?`Minimum: ${min} ${s.birim||''}`:'Minimum belirlenmemiş'} <span style="color:var(--primary);font-weight:600">✏️ Düzenle</span>
-      </div>
-    </div>
-    <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Son 15 Hareket</div>
-    ${harlar.length===0?'<div style="text-align:center;color:var(--gray-400);padding:16px;">Hareket kaydı yok</div>':
-      harlar.map(h=>{
-        let ikon,renk,etiket;
-        if(h.tip==='transfer'){
-          const giden=h.kaynakDepoId===depoId;
-          ikon=giden?'⬆️🔄':'⬇️🔄';
-          renk=giden?'var(--danger)':'var(--success)';
-          etiket=giden?`→ ${h.hedefDepoAd||h.hedefDepoId}`:`← ${h.kaynakDepoAd||h.kaynakDepoId}`;
-        }else if(h.tip==='giris'){ikon='⬆️';renk='var(--success)';etiket=h.kaynak||'Giriş';}
-        else{ikon='⬇️';renk='var(--danger)';etiket=h.neden||'Çıkış';}
-        return`<div class="har-item">
-          <div class="har-icon ${h.tip}">${ikon}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:600;">${etiket}</div>
-            <div style="font-size:11px;color:var(--gray-500);">${new Date(h.tarih).toLocaleString('tr-TR')} • ${h.personel||'—'}</div>
-          </div>
-          <div style="font-size:13px;font-weight:700;color:${renk};flex-shrink:0;">${h.tip==='cikis'||(h.tip==='transfer'&&h.kaynakDepoId===depoId)?'-':'+'} ${h.miktar} ${h.birim||''}</div>
-        </div>`;
-      }).join('')}
-    <div class="btn-row" style="margin-top:12px;">
-      <button class="btn btn-gray btn-sm" onclick="closeModal('modal-detay')">Kapat</button>
-      <button class="btn btn-info btn-sm" onclick="closeModal('modal-detay');prefillTransfer('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">🔄 Transfer</button>
-      <button class="btn btn-danger btn-sm" onclick="closeModal('modal-detay');prefillCikis('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">➖ Çıkış</button>
-    </div>`;
-  openModal('modal-detay');
-}
-
-async function minimumDuzenle(lnKod,urunAd){
-  const mevcut=db.minimumlar[lnKod]||0;
-  const girilen=prompt(`"${urunAd}" için minimum stok seviyesi (bu seviyenin altına düşünce 🟡 Uyarı, yarısının altına düşünce 🔴 Kritik olarak işaretlenir):`,mevcut>0?mevcut:'');
-  if(girilen===null)return;
-  const yeni=parseFloat(girilen.replace(',','.'));
-  if(isNaN(yeni)||yeni<0){showToast('⚠️ Geçerli bir sayı girin');return;}
-  showLoading();
-  try{
-    await fetch(SB_URL+'/rest/v1/stok_minimumlar?on_conflict=urun_kodu',{
-      method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({urun_kodu:lnKod,min_miktar:yeni})
-    });
-    db.minimumlar[lnKod]=yeni;
-  }catch(e){console.warn(e);showToast('⚠️ Kaydetme hatası');hideLoading();return;}
-  hideLoading();
-  closeModal('modal-detay');
-  renderStok();
-  showToast(`✅ Minimum güncellendi: ${yeni}`);
-}
-
-function prefillCikis(kod,ad,birim,depoId){
-  document.getElementById('cikis-urun-inp').value=ad;
-  document.getElementById('cikis-urun-kod').value=kod;
-  document.getElementById('cikis-birim').value=birim;
-  document.getElementById('cikis-depo').value=depoId||aktifDepoId;
-  openModal('modal-cikis');
-}
-
-function prefillTransfer(kod,ad,birim,kaynakDepoId){
-  document.getElementById('tr-urun-inp').value=ad;
-  document.getElementById('tr-urun-kod').value=kod;
-  document.getElementById('tr-birim').value=birim;
-  document.getElementById('tr-kaynak').value=kaynakDepoId||aktifDepoId;
-  openModal('modal-transfer');
-}
-
-// ============================================================
-// HAREKETLER
-// ============================================================
-function renderHareketler(){
-  const startV=document.getElementById('har-start').value;
-  const endV=document.getElementById('har-end').value;
-  const start=startV?new Date(startV).getTime():0;
-  const end=endV?new Date(endV+'T23:59:59').getTime():Date.now()+86400000;
-
-  let harlar=Object.values(db.hareketler).filter(h=>{
-    if(h.tarih<start||h.tarih>end)return false;
-    // Aktif depo filtresi
-    if(h.depoId&&h.depoId!==aktifDepoId&&h.kaynakDepoId!==aktifDepoId&&h.hedefDepoId!==aktifDepoId)return false;
-    if(harFilter!=='tumu'&&h.tip!==harFilter)return false;
-    return true;
-  }).sort((a,b)=>b.tarih-a.tarih);
-
-  const container=document.getElementById('hareketler-liste');
-  if(!harlar.length){
-    container.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Hareket kaydı bulunamadı</div></div>`;
-    return;
-  }
-
-  // Gün bazlı grupla
-  const gruplar={};
-  harlar.forEach(h=>{const g=new Date(h.tarih).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(h);});
-
-  container.innerHTML=Object.entries(gruplar).map(([gun,liste])=>`
-    <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin:10px 0 6px;text-transform:uppercase;">${gun}</div>
-    <div class="card" style="padding:8px;">
-      ${liste.map(h=>{
-        let ikon,renk,etiket,miktar_str;
-        const depoAd=depoAdi(aktifDepoId);
-        if(h.tip==='transfer'){
-          const giden=h.kaynakDepoId===aktifDepoId;
-          ikon='🔄';renk=giden?'var(--danger)':'var(--success)';
-          etiket=giden?`${depoAd} → ${h.hedefDepoAd||h.hedefDepoId}`:`${h.kaynakDepoAd||h.kaynakDepoId} → ${depoAd}`;
-          miktar_str=(giden?'-':'+')+h.miktar+' '+(h.birim||'');
-        }else if(h.tip==='giris'){
-          ikon='⬆️';renk='var(--success)';
-          etiket=`Giriş — ${h.kaynak||'—'}`;
-          miktar_str='+'+h.miktar+' '+(h.birim||'');
-        }else{
-          ikon='⬇️';renk='var(--danger)';
-          etiket=`Çıkış — ${h.neden||'—'}`;
-          miktar_str='-'+h.miktar+' '+(h.birim||'');
-        }
-        return`<div class="har-item">
-          <div class="har-icon ${h.tip}">${ikon}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${h.urunAd||h.lnKod||'—'}</div>
-            <div style="font-size:11px;color:var(--gray-500);">${etiket}</div>
-            <div style="font-size:10px;color:var(--gray-400);">${new Date(h.tarih).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} • ${h.personel||'—'}</div>
-          </div>
-          <div style="font-size:13px;font-weight:700;color:${renk};flex-shrink:0;">${miktar_str}</div>
-        </div>`;
-      }).join('')}
-    </div>`).join('');
-}
-
-function filterHar(f,el){
-  harFilter=f;
-  document.querySelectorAll('#tab-hareketler .filter-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  renderHareketler();
-}
-
-// ============================================================
-// ÜRÜN DROPDOWN (ortak)
-// ============================================================
-function filterUrunDD(inputId,ddId,kodId,birimId,val,depoSelectId){
-  const dd=document.getElementById(ddId);
-  if(!val||val.length<2){dd.style.display='none';return;}
-  const depoId=depoSelectId?document.getElementById(depoSelectId)?.value:aktifDepoId;
-  const depoStok=db.stok[depoId||aktifDepoId]||{};
-  let results=Object.values(depoStok)
-    .filter(s=>s.urunAd?.toLowerCase().includes(val.toLowerCase())||s.lnKod?.toLowerCase().includes(val.toLowerCase()))
-    .slice(0,15);
-  if(!results.length){dd.style.display='none';return;}
-  dd.innerHTML=results.map(s=>
-    `<div class="urun-dd-item" data-kod="${s.lnKod}" data-ad="${(s.urunAd||'').replace(/"/g,'&quot;')}" data-birim="${s.birim||'KG'}">
-      ${s.urunAd} <span style="font-size:10px;color:var(--gray-500);">${s.miktar} ${s.birim}</span>
-    </div>`
-  ).join('');
-  dd.querySelectorAll('[data-kod]').forEach(el=>{
-    el.addEventListener('pointerdown',function(e){
-      e.preventDefault();
-      document.getElementById(inputId).value=this.dataset.ad;
-      document.getElementById(kodId).value=this.dataset.kod;
-      document.getElementById(birimId).value=this.dataset.birim;
-      dd.style.display='none';
-    });
-  });
-  dd.style.display='block';
-}
-document.addEventListener('pointerdown',e=>{
-  ['cikis-urun-dd','tr-urun-dd'].forEach(id=>{
-    const dd=document.getElementById(id);
-    const inp=document.getElementById(id.replace('-dd','-inp'));
-    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
-  });
-});
-
-// İade Başlat ürün araması — depoda kayıtlı stoktan değil, tüm ürün kataloğundan (Supabase urunler) arar,
-// çünkü iade edilecek ürün depo stok kaydında olmayabilir. Birim de katalogdan otomatik gelir.
-function filterIadeUrunDD(inputId,ddId,kodId,birimId,val){
-  const dd=document.getElementById(ddId);
-  if(!val||val.length<2){dd.style.display='none';return;}
-  const katalog=db.urunler||[];
-  const v=val.toLowerCase();
-  let results=katalog.filter(u=>u.ad?.toLowerCase().includes(v)||u.kod?.toLowerCase().includes(v)).slice(0,15);
-  if(!results.length){dd.style.display='none';return;}
-  dd.innerHTML=results.map(u=>
-    `<div class="urun-dd-item" data-kod="${u.kod}" data-ad="${(u.ad||'').replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}">
-      ${u.ad} <span style="font-size:10px;color:var(--gray-500);font-family:monospace;">${u.kod}</span>
-    </div>`
-  ).join('');
-  dd.querySelectorAll('[data-kod]').forEach(el=>{
-    el.addEventListener('pointerdown',function(e){
-      e.preventDefault();
-      document.getElementById(inputId).value=this.dataset.ad;
-      document.getElementById(kodId).value=this.dataset.kod;
-      document.getElementById(birimId).value=this.dataset.birim;
-      dd.style.display='none';
-      const idx=parseInt(inputId.split('-').pop());
-      if(!isNaN(idx))iadeKalemGuncelle(idx);
-    });
-  });
-  dd.style.display='block';
-}
-document.addEventListener('pointerdown',e=>{
-  document.querySelectorAll('[id^="iade-urun-dd-"]').forEach(dd=>{
-    const inp=document.getElementById(dd.id.replace('-dd-','-inp-'));
-    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
-  });
-});
-
-// ============================================================
-// MANUEL ÇIKIŞ
-// ============================================================
-async function saveCikis(){
-  const depoId=document.getElementById('cikis-depo').value;
-  const kod=document.getElementById('cikis-urun-kod').value;
-  const ad=document.getElementById('cikis-urun-inp').value;
-  const miktar=parseFloat(document.getElementById('cikis-miktar').value);
-  const birim=document.getElementById('cikis-birim').value;
-  const neden=document.getElementById('cikis-neden').value;
-  const not=document.getElementById('cikis-not').value;
-  if(!kod){showToast('⚠️ Ürün seçin');return;}
-  if(!miktar||miktar<=0){showToast('⚠️ Miktar girin');return;}
-  const mevcutMiktar=parseFloat((db.stok[depoId]||{})[kod]?.miktar||0);
-  if(miktar>mevcutMiktar){showToast(`⚠️ Stok yetersiz (mevcut: ${mevcutMiktar} ${birim})`);return;}
-  showLoading();
-  const h=cikis(depoId,kod,ad,miktar,birim,neden,not);
-  await saveStok();await saveHareket(h);
-  hideLoading();
-  closeModal('modal-cikis');
-  document.getElementById('cikis-urun-inp').value='';
-  document.getElementById('cikis-urun-kod').value='';
-  document.getElementById('cikis-miktar').value='';
-  renderStok();showToast(`✅ Çıkış kaydedildi — ${miktar} ${birim}`);
-}
-
-// ============================================================
-// TRANSFER
-// ============================================================
-async function saveTransfer(){
-  const kaynakDepoId=document.getElementById('tr-kaynak').value;
-  const hedefDepoId=document.getElementById('tr-hedef').value;
-  const kod=document.getElementById('tr-urun-kod').value;
-  const ad=document.getElementById('tr-urun-inp').value;
-  const miktar=parseFloat(document.getElementById('tr-miktar').value);
-  const birim=document.getElementById('tr-birim').value;
-  const not=document.getElementById('tr-not').value;
-  if(kaynakDepoId===hedefDepoId){showToast('⚠️ Kaynak ve hedef depo aynı olamaz');return;}
-  if(!kod){showToast('⚠️ Ürün seçin');return;}
-  if(!miktar||miktar<=0){showToast('⚠️ Miktar girin');return;}
-  const mevcutMiktar=parseFloat((db.stok[kaynakDepoId]||{})[kod]?.miktar||0);
-  if(miktar>mevcutMiktar){
-    const kaynakAd=depoAdi(kaynakDepoId);
-    showToast(`⚠️ ${kaynakAd}'de stok yetersiz (${mevcutMiktar} ${birim})`);return;
-  }
-  showLoading();
-  const h=transfer(kaynakDepoId,hedefDepoId,kod,ad,miktar,birim,not);
-  await saveStok();await saveHareket(h);
-  hideLoading();
-  closeModal('modal-transfer');
-  document.getElementById('tr-urun-inp').value='';
-  document.getElementById('tr-urun-kod').value='';
-  document.getElementById('tr-miktar').value='';
-  document.getElementById('tr-not').value='';
-  renderStok();
-  const kAd=depoAdi(kaynakDepoId);
-  const hAd=depoAdi(hedefDepoId);
-  showToast(`✅ ${miktar} ${birim} → ${kAd} → ${hAd}`);
-}
-
-// ============================================================
-// LN RAPORU
-// ============================================================
-async function importLNRapor(event){
-  const file=event.target.files[0];if(!file)return;event.target.value='';
-  _lnDepoId=document.getElementById('ln-depo-sec').value;
-  if(typeof XLSX==='undefined'){
-    showLoading();
-    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
-    hideLoading();
-  }
-  showLoading();
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    try{
-      const wb=XLSX.read(e.target.result,{type:'array',raw:false});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      _lnRows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});
-      hideLoading();
-      const headers=_lnRows[0]||[];const ornek=_lnRows[1]||[];
-      const opts=headers.map((h,i)=>`<option value="${i}">${h||'Kolon '+(i+1)} — ${String(ornek[i]||'').slice(0,20)}</option>`).join('');
-      document.getElementById('lnk-kod').innerHTML=opts;
-      document.getElementById('lnk-ad').innerHTML=opts;
-      document.getElementById('lnk-miktar').innerHTML=opts;
-      document.getElementById('lnk-birim').innerHTML=`<option value="-1">— Sabit KG —</option>`+opts;
-      document.getElementById('ln-satir-bilgi').textContent=`${_lnRows.length-1} satır okundu. Kolonları eşleştirin:`;
-      openModal('modal-ln-kolon');
-    }catch(err){hideLoading();showToast('❌ Dosya okunamadı: '+err.message);}
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-async function applyLNRapor(){
-  const kodIdx=parseInt(document.getElementById('lnk-kod').value);
-  const adIdx=parseInt(document.getElementById('lnk-ad').value);
-  const miktarIdx=parseInt(document.getElementById('lnk-miktar').value);
-  const birimIdx=parseInt(document.getElementById('lnk-birim').value);
-  closeModal('modal-ln-kolon');showLoading();
-  let islem=0;const harlar=[];const eksikler=[];
-  _lnRows.slice(1).forEach(row=>{
-    const kod=(row[kodIdx]||'').trim();
-    const ad=(row[adIdx]||'').trim();
-    const miktar=parseFloat((row[miktarIdx]||'0').toString().replace(',','.'));
-    const birim=birimIdx>=0?(row[birimIdx]||'KG').trim():'KG';
-    if(!kod||!miktar||miktar<=0)return;
-    const mevcutMiktar=parseFloat((db.stok[_lnDepoId]||{})[kod]?.miktar||0);
-    if(miktar>mevcutMiktar){
-      eksikler.push({kod,ad:ad||kod,istenen:miktar,mevcut:mevcutMiktar,birim});
-    }
-    const h=cikis(_lnDepoId,kod,ad||kod,miktar,birim,'ln_tuketim','');
-    harlar.push(h);islem++;
-  });
-  await saveStok();for(const h of harlar)await saveHareket(h);
-  hideLoading();
-  const depoAd=depoAdi(_lnDepoId);
-  document.getElementById('ln-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
-    <div class="card-title">✅ LN Raporu İşlendi</div>
-    <div style="font-size:13px;">${islem} tüketim hareketi <strong>${depoAd}</strong>'dan düşüldü.</div>
-    <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">${new Date().toLocaleString('tr-TR')}</div>
-  </div>
-  ${eksikler.length?`<div class="card" style="border-left:4px solid var(--danger);">
-    <div class="card-title" style="color:var(--danger)">⚠️ ${eksikler.length} Kalemde Stok Yetersizliği</div>
-    <div style="font-size:11px;color:var(--gray-600);margin-bottom:8px;">Sistemde görünenden fazla tüketim bildirildi — bu ürünler 0'a sabitlendi. Sayım farkı veya kaydedilmemiş bir giriş olabilir, kontrol edin:</div>
-    ${eksikler.map(e=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-200);">
-      <b>${e.ad}</b> (${e.kod}) — istenen: ${e.istenen} ${e.birim}, mevcut: ${e.mevcut} ${e.birim}
-    </div>`).join('')}
-  </div>`:''}`;
-  renderStok();
-  showToast(eksikler.length?`⚠️ ${islem} tüketim işlendi, ${eksikler.length} kalemde stok yetersiz`:`✅ ${islem} tüketim — ${depoAd}`);
-}
-
-// ============================================================
-// DEPO SEÇICI
-// ============================================================
-function buildDepoSelectors(otelId){
-  otelId=otelId||aktifOtelId;
-  const opts=depolarForOtel(otelId).map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
-  document.getElementById('depo-selector').innerHTML=opts;
-  document.getElementById('cikis-depo').innerHTML=opts;
-  document.getElementById('tr-kaynak').innerHTML=opts;
-  document.getElementById('tr-hedef').innerHTML=opts;
-  document.getElementById('ln-depo-sec').innerHTML=opts;
-}
-
-function onOtelChange(otelId){
-  aktifOtelId=otelId;
-  buildDepoSelectors(otelId);
-  aktifDepoId=tamDepoId(otelId,depolarForOtel(otelId)[0].id);
-  document.getElementById('depo-selector').value=aktifDepoId;
-  onDepoChange(aktifDepoId);
-}
-
-function onIadeOtelChange(otelId){
-  const opts=depolarForOtel(otelId).map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
-  document.getElementById('iade-depo').innerHTML=opts;
-}
-
-function buildIadeFirmaSelector(){
-  const sel=document.getElementById('iade-firma');
-  if(!sel)return;
-  const firmalar=db.cariler||[];
-  const siraliFirmalar=[...firmalar].sort((a,b)=>(a.ad||'').localeCompare(b.ad||'','tr'));
-  sel.innerHTML='<option value="">— Firma Seçin —</option>'+
-    siraliFirmalar.map(f=>`<option value="${f.id}" data-ad="${(f.ad||'').replace(/"/g,'&quot;')}">${f.ad}</option>`).join('');
-}
-
-function onDepoChange(depoId){
-  aktifDepoId=depoId;
-  document.getElementById('header-depo-label').textContent=depoAdi(depoId);
-  katFilter='tumu';stokFilter='tumu';
-  renderStok();
-}
-
-// ============================================================
-// İADE BAŞLAT — Depo kendi kendine iade siparişi açar + stok düşer
-// ============================================================
-let IADE_KALEMLER=[{id:Date.now()+'_0',kod:'',ad:'',birim:'KG',miktar:''}];
-
-function renderIadeKalemler(){
-  const c=document.getElementById('iade-kalemler-liste');
-  if(!c)return;
-  c.innerHTML=IADE_KALEMLER.map((k,i)=>`
-    <div class="card" style="padding:10px;margin-bottom:8px;position:relative;">
-      <div class="field" style="margin-bottom:8px;">
-        <label>Ürün *</label>
-        <div style="position:relative;">
-          <input type="text" id="iade-urun-inp-${i}" value="${(k.ad||'').replace(/"/g,'&quot;')}" placeholder="2+ harf yazın..." autocomplete="off"
-            oninput="filterIadeUrunDD('iade-urun-inp-${i}','iade-urun-dd-${i}','iade-urun-kod-${i}','iade-birim-${i}',this.value);iadeKalemGuncelle(${i})">
-          <div id="iade-urun-dd-${i}" class="urun-dd"></div>
-        </div>
-        <input type="hidden" id="iade-urun-kod-${i}" value="${k.kod||''}">
-      </div>
-      <div class="row-fields">
-        <div class="field"><label>Miktar *</label><input type="number" id="iade-miktar-${i}" value="${k.miktar||''}" placeholder="0" min="0" step="0.01" onchange="iadeKalemGuncelle(${i})"></div>
-        <div class="field"><label>Birim</label><input type="text" id="iade-birim-${i}" value="${k.birim||''}" placeholder="—" onchange="iadeKalemGuncelle(${i})"></div>
-      </div>
-      ${IADE_KALEMLER.length>1?`<button class="btn btn-sm btn-danger" style="position:absolute;top:8px;right:8px;" onclick="iadeKalemSil(${i})">✕</button>`:''}
-    </div>`).join('');
-}
-
-function iadeKalemEkle(){
-  IADE_KALEMLER.push({id:Date.now()+'_'+IADE_KALEMLER.length,kod:'',ad:'',birim:'KG',miktar:''});
-  renderIadeKalemler();
-}
-function iadeKalemSil(i){
-  IADE_KALEMLER.splice(i,1);
-  renderIadeKalemler();
-}
-function iadeKalemGuncelle(i){
-  const k=IADE_KALEMLER[i];if(!k)return;
-  k.kod=document.getElementById('iade-urun-kod-'+i)?.value||'';
-  k.ad=document.getElementById('iade-urun-inp-'+i)?.value||'';
-  k.miktar=document.getElementById('iade-miktar-'+i)?.value||'';
-  k.birim=document.getElementById('iade-birim-'+i)?.value||'KG';
-}
-
-// C00091112 / R00091112 formatı — satın alma ile aynı havuzdan, çakışma önlenir
-async function yeniSiparisNoUret(prefix){
-  const p=prefix==='R'?'R':'C';
-  try{
-    const r=await fetch(SB_URL+`/rest/v1/siparisler?siparis_no=like.${p}*&select=siparis_no&order=siparis_no.desc&limit=1`,{headers:SB_HEADERS});
-    let maxNo=91110;
-    if(r.ok){
-      const d=await r.json();
-      if(d&&d.length){
-        const m=d[0].siparis_no.match(new RegExp('^'+p+'(\\d+)$'));
-        if(m)maxNo=parseInt(m[1]);
-      }
-    }
-    return p+String(maxNo+1).padStart(8,'0');
-  }catch(e){
-    return p+String(91111+Math.floor(Math.random()*1000)).padStart(8,'0');
-  }
-}
-
-async function iadeSiparisiOlustur(){
-  const otelId=document.getElementById('iade-otel').value;
-  const depoId=document.getElementById('iade-depo').value;
-  const firmaSel=document.getElementById('iade-firma');
-  const firmaId=firmaSel.value;
-  const firmaAd=firmaSel.options[firmaSel.selectedIndex]?.dataset.ad||'';
-  const neden=document.getElementById('iade-neden').value;
-  const faturaNo=document.getElementById('iade-fatura-no').value;
-  const not=document.getElementById('iade-not').value;
-
-  if(!firmaId){showToast('⚠️ Firma seçin');return;}
-  const dolu=IADE_KALEMLER.filter(k=>k.kod&&k.miktar&&parseFloat(k.miktar)>0);
-  if(!dolu.length){showToast('⚠️ En az bir kalem girin');return;}
-
-  // Stok yeterliliği kontrolü
-  for(const k of dolu){
-    const mevcut=parseFloat((db.stok[depoId]||{})[k.kod]?.miktar||0);
-    if(parseFloat(k.miktar)>mevcut){
-      showToast(`⚠️ ${k.ad} için stok yetersiz (mevcut: ${mevcut} ${k.birim})`);return;
-    }
-  }
-
-  showLoading();
-  const prefix=otelId==='811'?'R':'C';
-  const siparisNo=await yeniSiparisNoUret(prefix);
-
-  const kalemler=dolu.map(k=>({ad:k.ad,kod:k.kod,miktar:parseFloat(k.miktar)||0,birim:k.birim,
-    gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));
-
-  try{
-    await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
-      siparis_no:siparisNo,firma_ad:firmaAd,otel_id:otelId,tarih:new Date().toISOString().split('T')[0],
-      durum:'bekleyen',tip:'iade',iade_nedeni:neden,orijinal_fatura_no:faturaNo||null,
-      not_alani:not||null,kaynak:'depo',depo_kodu:depoId,olusturan_ad:currentUser?.ad||'—'
-    })});
-    const kalemSatirlar=kalemler.map(k=>({
-      siparis_no:siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
-      miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar
-    }));
-    await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
-  }catch(e){console.warn(e);}
-
-  // Stoktan anında düş
-  const hareketler=[];
-  for(const k of dolu){
-    const h=cikis(depoId,k.kod,k.ad,parseFloat(k.miktar),k.birim,'iade',`İade Siparişi: ${siparisNo} — ${firmaAd}`);
-    hareketler.push(h);
-  }
-  await saveStok();
-  for(const h of hareketler)await saveHareket(h);
-  hideLoading();
-
-  const depoAd=depoAdi(depoId);
-  document.getElementById('iade-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
-    <div class="card-title">✅ İade Siparişi Oluşturuldu</div>
-    <div style="font-size:13px;">
-      <span class="chip" style="background:#ede9fe;color:#5b21b6;font-family:monospace;font-weight:700">📋 ${siparisNo}</span>
-      &nbsp;${firmaAd}
-    </div>
-    <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length} kalem, ${depoAd}'dan stoktan düşüldü.</div>
-    <button class="btn btn-sm btn-gray" style="margin-top:8px;" onclick="iadeBelgeYazdir('${siparisNo}')">🖨️ İade Belgesini Yazdır</button>
-  </div>`;
-  window._sonIadeSiparis=siparis;
-
-  // Formu sıfırla
-  IADE_KALEMLER=[{id:Date.now()+'_0',kod:'',ad:'',birim:'KG',miktar:''}];
-  renderIadeKalemler();
-  document.getElementById('iade-fatura-no').value='';
-  document.getElementById('iade-not').value='';
-  renderStok();
-  showToast(`✅ İade siparişi oluşturuldu — ${siparisNo}`);
-}
-
-function iadeBelgeYazdir(siparisNo){
-  const s=window._sonIadeSiparis;
-  if(!s||s.siparisNo!==siparisNo)return;
-  const w=window.open('','_blank');
-  const otelAd=s.otelId==='811'?'Ali Bey Resort Sorgun':'Ali Bey Club Manavgat';
-  const nedenMap={depozito:'Depozito İadesi',bozuk:'Bozuk / Hasarlı Ürün',skt:'SKT Yaklaşan/Geçen',fazla:'Fazla Sipariş',diger:'Diğer'};
-  w.document.write(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>İade Belgesi ${s.siparisNo}</title>
-  <style>body{font-family:Arial,sans-serif;padding:24px;color:#1a2744}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:12px}
-  th,td{border:1px solid #ccc;padding:6px 8px;font-size:13px;text-align:left}th{background:#f1f3f5}
-  .meta{font-size:13px;margin:4px 0}</style></head><body>
-  <h1>↩️ İade Siparişi Belgesi</h1>
-  <div class="meta"><b>Sipariş No:</b> ${s.siparisNo}</div>
-  <div class="meta"><b>Otel:</b> ${otelAd}</div>
-  <div class="meta"><b>Firma:</b> ${s.firma}</div>
-  <div class="meta"><b>Dönüş Şekli:</b> ${nedenMap[s.donusSekli]||s.donusSekli}</div>
-  ${s.orijinalFaturaNo?`<div class="meta"><b>Orijinal Fatura/İrsaliye No:</b> ${s.orijinalFaturaNo}</div>`:''}
-  <div class="meta"><b>Tarih:</b> ${s.tarih}</div>
-  <div class="meta"><b>Oluşturan:</b> ${s.olusturanAd}</div>
-  <table><tr><th>#</th><th>Ürün</th><th>Miktar</th><th>Birim</th></tr>
-  ${s.kalemler.map((k,i)=>`<tr><td>${i+1}</td><td>${k.ad}</td><td>${k.miktar}</td><td>${k.birim}</td></tr>`).join('')}
-  </table>
-  <p style="margin-top:24px;font-size:11px;color:#888;">Gürok ERP — Stok Takip modülünden otomatik oluşturulmuştur.</p>
-  </body></html>`);
-  w.document.close();
-  w.print();
-}
-
-// ============================================================
-// TAB & YARDIMCI
-// ============================================================
-function switchTab(tab){
-  ['stok','hareketler','ln','iade'].forEach(t=>{
-    document.getElementById('tab-'+t).style.display=t===tab?'flex':'none';
-    document.getElementById('nav-'+t).classList.toggle('active',t===tab);
-  });
-  if(tab==='hareketler')renderHareketler();
-}
-function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
-function gotoPortal(){window.location.href='index.html';}
-function showToast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
-function showLoading(){document.getElementById('loading').classList.add('show');}
-function hideLoading(){document.getElementById('loading').classList.remove('show');}
-
-// ============================================================
-// INIT
-// ============================================================
-(async function init(){
-  aktifDepoId=tamDepoId(aktifOtelId,depolarForOtel(aktifOtelId)[0].id);
-  buildDepoSelectors(aktifOtelId);
-  document.getElementById('otel-selector').value=aktifOtelId;
-  document.getElementById('depo-selector').value=aktifDepoId;
-  onIadeOtelChange(document.getElementById('iade-otel').value);
-  renderIadeKalemler();
-  await loadDB();
-  buildIadeFirmaSelector(); // db.cariler loadDB() içinde dolduğu için ondan sonra çağrılmalı
-  if(checkSession())document.getElementById('screen-login').classList.add('hidden');
-  else document.getElementById('screen-login').classList.add('visible');
-
-  const today=new Date().toISOString().split('T')[0];
-  const weekAgo=new Date(Date.now()-7*86400000).toISOString().split('T')[0];
-  document.getElementById('har-start').value=weekAgo;
-  document.getElementById('har-end').value=today;
-
-  document.getElementById('header-depo-label').textContent=depoAdi(aktifDepoId);
-  renderStok();
-
-  // Mal kabul onay kontrolü — Supabase'deki mal_kabuller tablosunu izler
-  await malKabulOnayKontrolEt(); // sayfa açılır açılmaz bir kez, 30sn beklemeden
-  setInterval(malKabulOnayKontrolEt,30000);
-})();
-
-const ISLENMIS_KEY='gurok_stok_islenmis';
-async function malKabulOnayKontrolEt(){
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?durum=eq.onaylandi&select=id,otel_id,mal_kabul_urunleri(*)',{headers:SB_HEADERS});
-    if(!r.ok)return;
-    const rows=await r.json();
-    const formlar=rows.map(row=>({
-      id:row.id,otel_id:row.otel_id,
-      urunler:(row.mal_kabul_urunleri||[]).map(u=>({kod:u.urun_kodu,ad:u.urun_adi,miktar:parseFloat(u.miktar)||0,birim:u.birim}))
-    }));
-    const islenmis=new Set(JSON.parse(localStorage.getItem(ISLENMIS_KEY)||'[]'));
-    let yeni=false;
-    for(const f of formlar){
-      if(!islenmis.has(String(f.id))){
-        await malKabulOnayGiris(f);
-        islenmis.add(String(f.id));yeni=true;
-      }
-    }
-    if(yeni){localStorage.setItem(ISLENMIS_KEY,JSON.stringify([...islenmis]));renderStok();showToast('📦 Mal kabul stoka işlendi');}
-  }catch(e){}
-}
-</script>
-</body>
-</html>
-.empty-icon{font-size:48px;margin-bottom:12px}
-.empty-text{font-size:14px}
-/* Toast */
-#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-/* Loading */
-#loading{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
-#loading.show{display:flex}
-.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-/* Login */
-#screen-login{position:fixed;inset:0;background:linear-gradient(160deg,var(--primary),var(--primary-light));display:none;align-items:center;justify-content:center;z-index:9999}
-#screen-login.visible{display:flex}
-#screen-login.hidden{display:none}
-.login-box{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;margin:20px}
-.pin-display{display:flex;justify-content:center;gap:10px;margin:12px 0 6px}
-.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--gray-400);transition:all .15s}
-.pin-dot.filled{background:var(--primary);border-color:var(--primary)}
-.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-.pin-btn{height:52px;border:none;border-radius:var(--radius-sm);font-size:20px;font-weight:600;cursor:pointer;background:var(--gray-100);color:var(--primary);transition:all .1s}
-.pin-btn:active{background:var(--gray-300);transform:scale(.95)}
-.pin-btn.empty{background:transparent;cursor:default}
-/* Transfer badge */
-.transfer-tag{font-size:10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:6px;font-weight:600}
-.kat-badge{display:inline-block;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;background:var(--gray-100);color:var(--gray-600)}
-</style>
-</head>
-<body>
-
-<!-- LOGIN -->
-<div id="screen-login">
-  <div class="login-box">
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 10px;">📦</div>
-      <div style="font-size:20px;font-weight:800;color:var(--primary);">Stok Takip</div>
-      <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">Gürok Turizm Grubu</div>
-    </div>
-    <p style="text-align:center;font-size:12px;color:var(--gray-600);margin-bottom:4px;">PIN kodunuzu girin</p>
-    <div style="text-align:center;font-size:13px;font-weight:700;color:var(--primary);min-height:20px;" id="pin-user-show"></div>
-    <div class="pin-display">
-      <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
-      <div class="pin-dot" id="pd4"></div><div class="pin-dot" id="pd5"></div>
-    </div>
-    <div style="text-align:center;font-size:12px;color:var(--danger);min-height:18px;margin-bottom:6px;" id="pin-error"></div>
-    <div class="pin-pad">
-      <button class="pin-btn" onclick="pinInput('1')">1</button>
-      <button class="pin-btn" onclick="pinInput('2')">2</button>
-      <button class="pin-btn" onclick="pinInput('3')">3</button>
-      <button class="pin-btn" onclick="pinInput('4')">4</button>
-      <button class="pin-btn" onclick="pinInput('5')">5</button>
-      <button class="pin-btn" onclick="pinInput('6')">6</button>
-      <button class="pin-btn" onclick="pinInput('7')">7</button>
-      <button class="pin-btn" onclick="pinInput('8')">8</button>
-      <button class="pin-btn" onclick="pinInput('9')">9</button>
-      <button class="pin-btn empty"></button>
-      <button class="pin-btn" onclick="pinInput('0')">0</button>
-      <button class="pin-btn" onclick="pinDelete()" style="font-size:16px;">⌫</button>
-    </div>
-  </div>
-</div>
-
-<!-- APP -->
-<div id="app">
-  <div class="header">
-    <button class="header-btn" onclick="gotoPortal()">🏠</button>
-    <div style="flex:1;">
-      <h1>Stok Takip</h1>
-      <span class="sub" id="header-depo-label">Ana Depo</span>
-    </div>
-    <select class="depo-selector" id="otel-selector" onchange="onOtelChange(this.value)" style="margin-right:4px">
-      <option value="810">🏨 Club</option>
-      <option value="811">🏨 Resort</option>
-    </select>
-    <select class="depo-selector" id="depo-selector" onchange="onDepoChange(this.value)">
-      <!-- JS ile doldurulur -->
-    </select>
-    <button class="header-btn" onclick="openModal('modal-transfer')" title="Transfer">🔄</button>
-    <button class="header-btn" onclick="openModal('modal-cikis')" title="Çıkış">➖</button>
-  </div>
-
-  <!-- STOK TAB -->
-  <div class="scroll-content" id="tab-stok" style="display:flex;flex-direction:column;">
-    <div class="stats-grid" id="stok-stats"></div>
-    <div class="search-bar">
-      <input type="text" id="stok-search" placeholder="Ürün adı veya LN kodu ara..." oninput="renderStok()">
-      <span class="search-icon">🔍</span>
-    </div>
-    <div class="filter-tabs">
-      <button class="filter-tab active" onclick="filterStok('tumu',this)">Tümü</button>
-      <button class="filter-tab" onclick="filterStok('kritik',this)">🔴 Kritik</button>
-      <button class="filter-tab" onclick="filterStok('uyari',this)">🟡 Uyarı</button>
-      <button class="filter-tab" onclick="filterStok('normal',this)">✅ Normal</button>
-    </div>
-    <div class="filter-tabs" id="kat-tabs"></div>
-    <div id="stok-liste"></div>
-  </div>
-
-  <!-- HAREKET TAB -->
-  <div class="scroll-content" id="tab-hareketler" style="display:none;flex-direction:column;">
-    <div class="card">
-      <div class="row-fields" style="margin-bottom:8px;">
-        <div class="field"><label>Başlangıç</label><input type="date" id="har-start" onchange="renderHareketler()"></div>
-        <div class="field"><label>Bitiş</label><input type="date" id="har-end" onchange="renderHareketler()"></div>
-      </div>
-      <div class="filter-tabs" style="margin-bottom:0;">
-        <button class="filter-tab active" onclick="filterHar('tumu',this)">Tümü</button>
-        <button class="filter-tab" onclick="filterHar('giris',this)">⬆️ Giriş</button>
-        <button class="filter-tab" onclick="filterHar('cikis',this)">⬇️ Çıkış</button>
-        <button class="filter-tab" onclick="filterHar('transfer',this)">🔄 Transfer</button>
-      </div>
-    </div>
-    <div id="hareketler-liste"></div>
-  </div>
-
-  <!-- İADE BAŞLAT TAB -->
-  <div class="scroll-content" id="tab-iade" style="display:none;flex-direction:column;">
-    <div class="card">
-      <div class="card-title">↩️ İade Siparişi Başlat</div>
-      <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">Depo elinde bulunan malzemeyi tedarikçiye iade eder. Sipariş havuzuna otomatik <b>iade siparişi</b> açılır ve stok anında düşer.</p>
-      <div class="row-fields">
-        <div class="field">
-          <label>Otel</label>
-          <select id="iade-otel" onchange="onIadeOtelChange(this.value)">
-            <option value="810">🏨 810 — Ali Bey Club Manavgat (C)</option>
-            <option value="811">🏨 811 — Ali Bey Resort Sorgun (R)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Çıkış Deposu</label>
-          <select id="iade-depo"><!-- JS doldurur --></select>
-        </div>
-      </div>
-      <div class="field">
-        <label>Firma *</label>
-        <select id="iade-firma"><option value="">— Firma Seçin —</option></select>
-      </div>
-      <div class="row-fields">
-        <div class="field">
-          <label>Dönüş Şekli *</label>
-          <select id="iade-neden">
-            <option value="depozito">Depozito İadesi</option>
-            <option value="bozuk">Bozuk / Hasarlı Ürün</option>
-            <option value="skt">SKT Yaklaşan/Geçen</option>
-            <option value="fazla">Fazla Sipariş</option>
-            <option value="diger">Diğer</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Orijinal Fatura/İrsaliye No</label>
-          <input type="text" id="iade-fatura-no" placeholder="Opsiyonel">
-        </div>
-      </div>
-      <div class="field"><label>Not</label><input type="text" id="iade-not" placeholder="Opsiyonel"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">📦 İade Kalemleri</div>
-      <div id="iade-kalemler-liste"></div>
-      <button class="btn btn-gray btn-block" style="margin-top:8px;" onclick="iadeKalemEkle()">➕ Kalem Ekle</button>
-    </div>
-
-    <button class="btn btn-danger btn-block" style="margin:4px 0 20px;" onclick="iadeSiparisiOlustur()">↩️ İade Siparişi Oluştur</button>
-    <div id="iade-sonuc"></div>
-  </div>
-
-  <!-- LN TAB -->
-  <div class="scroll-content" id="tab-ln" style="display:none;flex-direction:column;">
-    <div class="card">
-      <div class="card-title">📂 LN Infor Tüketim Raporu</div>
-      <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">LN Infor tüketim raporunu yükleyin. Seçili depodan otomatik stok çıkışı yapılır.</p>
-      <div class="field">
-        <label>Hangi Depodan</label>
-        <select id="ln-depo-sec"><!-- JS doldurur --></select>
-      </div>
-      <button class="btn btn-primary btn-block" onclick="document.getElementById('ln-input').click()">⬆️ Excel / CSV Yükle</button>
-      <input type="file" id="ln-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importLNRapor(event)">
-    </div>
-    <div id="ln-sonuc"></div>
-  </div>
-
-  <nav class="bottom-nav">
-    <button class="nav-btn active" id="nav-stok" onclick="switchTab('stok')">
-      <span class="nav-icon">📦</span><span class="nav-label">Stok</span>
-      <span class="nav-badge" id="kritik-badge" style="display:none;"></span>
-    </button>
-    <button class="nav-btn" id="nav-hareketler" onclick="switchTab('hareketler')">
-      <span class="nav-icon">📋</span><span class="nav-label">Hareketler</span>
-    </button>
-    <button class="nav-btn" id="nav-ln" onclick="switchTab('ln')">
-      <span class="nav-icon">📂</span><span class="nav-label">LN Raporu</span>
-    </button>
-    <button class="nav-btn" id="nav-iade" onclick="switchTab('iade')">
-      <span class="nav-icon">↩️</span><span class="nav-label">İade Başlat</span>
-    </button>
-  </nav>
-</div>
-
-<!-- MODAL: Manuel Çıkış -->
-<div class="modal-overlay" id="modal-cikis">
-  <div class="modal-box">
-    <div class="modal-title">➖ Manuel Çıkış <button class="modal-close" onclick="closeModal('modal-cikis')">✕</button></div>
-    <div class="field">
-      <label>Depo</label>
-      <select id="cikis-depo"><!-- JS doldurur --></select>
-    </div>
-    <div class="field">
-      <label>Ürün *</label>
-      <div style="position:relative;">
-        <input type="text" id="cikis-urun-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterUrunDD('cikis-urun-inp','cikis-urun-dd','cikis-urun-kod','cikis-birim',this.value)">
-        <div id="cikis-urun-dd" class="urun-dd"></div>
-      </div>
-      <input type="hidden" id="cikis-urun-kod">
-    </div>
-    <div class="row-fields">
-      <div class="field"><label>Miktar *</label><input type="number" id="cikis-miktar" placeholder="0" min="0" step="0.01"></div>
-      <div class="field"><label>Birim</label><select id="cikis-birim"><option>KG</option><option>AD</option><option>KOL</option><option>LT</option><option>PKT</option></select></div>
-    </div>
-    <div class="field">
-      <label>Neden</label>
-      <select id="cikis-neden">
-        <option value="tuketim">Tüketim</option>
-        <option value="fire">Fire/Bozulma</option>
-        <option value="iade">İade</option>
-        <option value="diger">Diğer</option>
-      </select>
-    </div>
-    <div class="field"><label>Not</label><input type="text" id="cikis-not" placeholder="Opsiyonel"></div>
-    <div class="btn-row">
-      <button class="btn btn-gray" onclick="closeModal('modal-cikis')">İptal</button>
-      <button class="btn btn-danger" onclick="saveCikis()">➖ Kaydet</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: Transfer -->
-<div class="modal-overlay" id="modal-transfer">
-  <div class="modal-box">
-    <div class="modal-title">🔄 Depo Transfer <button class="modal-close" onclick="closeModal('modal-transfer')">✕</button></div>
-    <div class="row-fields">
-      <div class="field"><label>Kaynak Depo *</label><select id="tr-kaynak"><!-- JS --></select></div>
-      <div class="field"><label>Hedef Depo *</label><select id="tr-hedef"><!-- JS --></select></div>
-    </div>
-    <div class="field">
-      <label>Ürün *</label>
-      <div style="position:relative;">
-        <input type="text" id="tr-urun-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterUrunDD('tr-urun-inp','tr-urun-dd','tr-urun-kod','tr-birim',this.value,'tr-kaynak')">
-        <div id="tr-urun-dd" class="urun-dd"></div>
-      </div>
-      <input type="hidden" id="tr-urun-kod">
-    </div>
-    <div class="row-fields">
-      <div class="field"><label>Miktar *</label><input type="number" id="tr-miktar" placeholder="0" min="0" step="0.01"></div>
-      <div class="field"><label>Birim</label><select id="tr-birim"><option>KG</option><option>AD</option><option>KOL</option><option>LT</option><option>PKT</option></select></div>
-    </div>
-    <div class="field"><label>Not</label><input type="text" id="tr-not" placeholder="Opsiyonel"></div>
-    <div class="btn-row">
-      <button class="btn btn-gray" onclick="closeModal('modal-transfer')">İptal</button>
-      <button class="btn btn-info" onclick="saveTransfer()">🔄 Transfer Et</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: Stok Detay -->
-<div class="modal-overlay" id="modal-detay">
-  <div class="modal-box">
-    <div class="modal-title" id="detay-title">Detay <button class="modal-close" onclick="closeModal('modal-detay')">✕</button></div>
-    <div id="detay-content"></div>
-  </div>
-</div>
-
-<!-- MODAL: LN Kolon -->
-<div class="modal-overlay" id="modal-ln-kolon">
-  <div class="modal-box">
-    <div class="modal-title">📂 Kolon Eşleştir <button class="modal-close" onclick="closeModal('modal-ln-kolon')">✕</button></div>
-    <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;" id="ln-satir-bilgi"></p>
-    <div class="field"><label>LN Ürün Kodu</label><select id="lnk-kod"></select></div>
-    <div class="field"><label>Ürün Adı</label><select id="lnk-ad"></select></div>
-    <div class="field"><label>Tüketim Miktarı</label><select id="lnk-miktar"></select></div>
-    <div class="field"><label>Birim (opsiyonel)</label><select id="lnk-birim"></select></div>
-    <div class="btn-row">
-      <button class="btn btn-gray" onclick="closeModal('modal-ln-kolon')">İptal</button>
-      <button class="btn btn-primary" onclick="applyLNRapor()">✅ Uygula</button>
-    </div>
-  </div>
-</div>
-
-<style>
-.urun-dd{display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-top:none;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,.15)}
-.urun-dd-item{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f1f3f5;font-size:13px}
-.urun-dd-item:hover{background:var(--gray-100)}
-</style>
-
-<div id="toast"></div>
-<div id="loading"><div class="spinner"></div><div style="font-size:13px;">Yükleniyor...</div></div>
-
-<!-- Not: FIRMA_DB/URUN_DB artık kullanılmıyor — firma ve ürün verisi artık Supabase'den canlı çekiliyor (bkz. loadDB). Script include zararsız, dosyada başka global tanım varsa diye kaldırılmadı. -->
-<script src="gurok_veritabani.js"></script>
-
-<script>
-// ============================================================
-// CONFIG & DEPOLAR
-// ============================================================
-const FIREBASE_URL = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
-const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
-const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-
-const ROL_INDIRGEME={
-  yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalite:'kalite',mutfak:'mutfak',bar:'bar',
-  muhasebe_muduru:'yonetici',muhasebe_calisani:'yonetici',cost_control:'yonetici'
-};
-async function loadKullanicilarFromSupabase(){
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS});
-    if(!r.ok)return null;
-    const rows=await r.json();
-    if(!rows||!rows.length)return null;
-    return rows.map(u=>({id:u.id,ad:u.ad,pin:u.pin||'',rol:ROL_INDIRGEME[u.rol]||'depo',departman:u.departman||''}));
-  }catch(e){console.warn(e);return null;}
-}
-
-// Depo listesi — otel bazlı. Club (810) için gerçek LN Infor kodları (CSM=Servis Müdürlüğü, CMM=Mutfak Müdürlüğü)
-// kullanılıyor. Resort (811) için henüz LN kodları paylaşılmadığından geçici genel yapı kullanılıyor —
-// kodlar geldiğinde DEPOLAR_811'i DEPOLAR_810 ile aynı desende (RSM/RMM?) doldurmak yeterli olacak.
-const DEPOLAR_ORTAK = [
-  { id:'ANA_DEPO', ad:'Ana Depo', ikon:'🏭' }, // Merkezi depo — mal kabul her zaman buraya girer, oradan dağıtılır
-];
-
-const DEPOLAR_810 = [
-  ...DEPOLAR_ORTAK,
-  // Mutfaklar — CMM (Club Mutfak Müdürlüğü). NOT: liste eksik olabilir, CMM204/205/206 gibi
-  // devamı gelirse aynı desende (id:'CMMxxx', ad:'...', ikon:'🍳') eklenmesi yeterli.
-  { id:'CMM201', ad:'Ana Mutfak',  ikon:'🍳' },
-  { id:'CMM202', ad:'Park Mutfak', ikon:'🍳' },
-  { id:'CMM203', ad:'Aqua Mutfak', ikon:'🍳' },
-  // Restoranlar — CSM2xx (Club Servis Müdürlüğü)
-  { id:'CSM201', ad:'Alibey Restaurant', ikon:'🍽️' },
-  { id:'CSM202', ad:'Park Restaurant',   ikon:'🍽️' },
-  { id:'CSM204', ad:'Sahil Restaurant',  ikon:'🍽️' },
-  { id:'CSM205', ad:'Aqua Restaurant',   ikon:'🍽️' },
-  { id:'CSM206', ad:'Kıyı Restaurant',   ikon:'🍽️' },
-  // Barlar — CSM3xx (Club Servis Müdürlüğü)
-  { id:'CSM301', ad:'Türk Kahvesi',       ikon:'🍹' },
-  { id:'CSM302', ad:'Çardak',             ikon:'🍹' },
-  { id:'CSM303', ad:'Talvar',             ikon:'🍹' },
-  { id:'CSM304', ad:'Pool Bar',           ikon:'🍹' },
-  { id:'CSM305', ad:"Ali's Pub",          ikon:'🍹' },
-  { id:'CSM306', ad:'Tenis Bar',          ikon:'🍹' },
-  { id:'CSM307', ad:'Konak',              ikon:'🍹' },
-  { id:'CSM308', ad:'Karagöz',            ikon:'🍹' },
-  { id:'CSM310', ad:'Ilıca Bar',          ikon:'🍹' },
-  { id:'CSM311', ad:'Harlek',             ikon:'🍹' },
-  { id:'CSM312', ad:'Hisar',              ikon:'🍹' },
-  { id:'CSM313', ad:'Yoncalı',            ikon:'🍹' },
-  { id:'CSM314', ad:'Frig Beach Bar',     ikon:'🍹' },
-  { id:'CSM315', ad:'Pavillion Bar',      ikon:'🍹' },
-  { id:'CSM316', ad:'Lobby Bar',          ikon:'🍹' },
-  { id:'CSM317', ad:'Park Türk Kahvesi',  ikon:'🍹' },
-  { id:'CSM318', ad:'Şarap ve Bira Evi',  ikon:'🍹' },
-];
-
-// Resort (811) — LN kodları henüz paylaşılmadı, geçici genel yapı. Gerçek RSM/RMM kodları
-// gelince bu listeyi DEPOLAR_810 ile aynı desende değiştirmek yeterli, başka hiçbir yeri değiştirmeye gerek yok.
-const DEPOLAR_811 = [
-  ...DEPOLAR_ORTAK,
-  { id:'ANA_MUTFAK',   ad:'Ana Mutfak',    ikon:'🍳' },
-  { id:'PARK_MUTFAK',  ad:'Park Mutfak',   ikon:'🍳' },
-  { id:'AQUA_MUTFAK',  ad:'Aqua Mutfak',   ikon:'🌊' },
-  { id:'SAHIL_MUTFAK', ad:'Sahil Mutfak',  ikon:'🏖️' },
-  { id:'BAR',          ad:'Bar',           ikon:'🍹' },
-];
-
-function depolarForOtel(otelId){ return otelId==='810'?DEPOLAR_810:DEPOLAR_811; }
-
-// ============================================================
-// STATE
-// ============================================================
-let currentUser  = null;
-let aktifDepoId  = 'ANA_DEPO';
-let aktifOtelId  = '810';
-
-// Otel bazlı depo ID yardımcıları — her depo artık "OTELID_DEPOTIPI" (örn. "811_ANA_DEPO") şeklinde tutulur.
-function tamDepoId(otelId,depoTipi){return otelId+'_'+depoTipi;}
-function depoTipiFromId(depoId){const i=(depoId||'').indexOf('_');return i>=0?depoId.slice(i+1):depoId;}
-function otelFromDepoId(depoId){const i=(depoId||'').indexOf('_');return i>=0?depoId.slice(0,i):'810';}
-function depoAdi(depoId){
-  const tip=depoTipiFromId(depoId);
-  const otel=otelFromDepoId(depoId);
-  const d=depolarForOtel(otel).find(x=>x.id===tip);
-  return d?(d.ikon+' '+d.ad):(depoId||'');
-}
-let stokFilter   = 'tumu';
-let katFilter    = 'tumu';
-let harFilter    = 'tumu';
-let _lnRows      = [];
-let _lnDepoId    = 'ANA_DEPO';
-
-let db = {
-  stok:       {},   // { [depoId]: { [lnKod]: {lnKod,urunAd,miktar,birim,...} } }
-  hareketler: {},   // { [id]: hareket }
-  minimumlar: {},   // { [lnKod]: min }
-  kullanicilar: [],
-  urunler:    [],   // Supabase urunler tablosundan canlı — İade Başlat ürün araması için
-  cariler:    []    // Supabase cariler (tedarikçi) tablosundan canlı — İade Başlat firma seçimi için
-};
-
-const DEFAULT_USERS = [
-  {id:1,ad:'Mehmet Araz',   rol:'yonetici', pin:'123456'},
-  {id:2,ad:'Depo Sorumlu',  rol:'depo',     pin:'111111'},
-  {id:3,ad:'Depo Personel', rol:'depo',     pin:'222222'},
-  {id:4,ad:'Satinalma',     rol:'satinalma',pin:'333333'},
-  {id:5,ad:'Kalite Kontrol',rol:'kalite',   pin:'444444'},
-];
-const ROL_IKON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍'};
-
-// ============================================================
-// LOGIN
-// ============================================================
-let pinValue='';
-function pinInput(d){
-  if(pinValue.length>=6)return;
-  pinValue+=d; updatePinDots();
-  const match=db.kullanicilar.filter(u=>u.pin.startsWith(pinValue));
-  const el=document.getElementById('pin-user-show');
-  el.textContent=match.length===1&&pinValue.length>=3?(ROL_IKON[match[0].rol]||'👤')+' '+match[0].ad:'';
-  document.getElementById('pin-error').textContent='';
-  if(pinValue.length===6)setTimeout(checkPin,200);
-}
-function pinDelete(){pinValue=pinValue.slice(0,-1);updatePinDots();if(!pinValue)document.getElementById('pin-user-show').textContent='';}
-function updatePinDots(){for(let i=0;i<6;i++)document.getElementById('pd'+i).classList.toggle('filled',i<pinValue.length);}
-function checkPin(){
-  const user=db.kullanicilar.find(u=>u.pin===pinValue);
-  if(!user){
-    document.getElementById('pin-error').textContent='❌ Hatalı PIN';
-    setTimeout(()=>document.getElementById('pin-error').textContent='',2000);
-    pinValue='';updatePinDots();document.getElementById('pin-user-show').textContent='';return;
-  }
-  currentUser=user;
-  sessionStorage.setItem('gurok_stok_session',JSON.stringify({user,expiry:Date.now()+30*60*1000}));
-  document.getElementById('screen-login').classList.remove('visible');
-  document.getElementById('screen-login').classList.add('hidden');
-}
-function checkSession(){
-  for(const key of['gurok_portal_session','gurok_stok_session']){
-    const s=sessionStorage.getItem(key);
-    if(s){try{const{user,expiry}=JSON.parse(s);if(Date.now()<expiry){currentUser={...user,rol:user.rol==='personel'?'depo':user.rol};return true;}}catch(e){}}
-  }
-  return false;
-}
-
-// ============================================================
-// FIREBASE
-// ============================================================
-async function loadDB(){
-  showLoading();
-  try{
-    const [stokR,harR,minR,urunR,cariR,kul]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/stok?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/stok_hareketleri?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/stok_minimumlar?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/urunler?select=kod,ad,birim',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)',{headers:SB_HEADERS}),
-      loadKullanicilarFromSupabase(),
-    ]);
-    db.stok={};
-    if(stokR.ok){
-      (await stokR.json()).forEach(r=>{
-        if(!db.stok[r.depo_kodu])db.stok[r.depo_kodu]={};
-        db.stok[r.depo_kodu][r.urun_kodu]={miktar:parseFloat(r.miktar)||0,_id:r.id};
-      });
-    }
-    db.hareketler={};
-    if(harR.ok){
-      (await harR.json()).forEach(r=>{
-        db.hareketler[r.id]={id:r.id,lnKod:r.urun_kodu,depoId:r.depo_kodu,tip:r.tip,miktar:parseFloat(r.miktar)||0,
-          belge:r.belge_no||'',tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),aciklama:r.aciklama||''};
-      });
-    }
-    db.minimumlar={};
-    if(minR.ok){
-      (await minR.json()).forEach(r=>{
-        // Firebase'de tek global minimum tutuluyordu (depo ayrımı yoktu) — birden fazla depo satırı varsa en yükseğini al
-        const mevcut=db.minimumlar[r.urun_kodu]||0;
-        db.minimumlar[r.urun_kodu]=Math.max(mevcut,parseFloat(r.min_miktar)||0);
-      });
-    }
-    if(kul&&kul.length)db.kullanicilar=kul;
-    if(urunR.ok)db.urunler=await urunR.json();
-    if(cariR.ok)db.cariler=await cariR.json();
-  }catch(e){console.warn('Supabase yükleme:',e);}
-  if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
-  hideLoading();
-}
-
-async function saveStok(){
-  // db.stok[depoId][urunKodu]={miktar,_id} — her satırı ayrı ayrı upsert et
-  try{
-    for(const depoId of Object.keys(db.stok)){
-      const urunler=db.stok[depoId];
-      for(const kod of Object.keys(urunler)){
-        const s=urunler[kod];
-        await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
-          method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:otelFromDepoId(depoId),miktar:s.miktar})
-        });
-      }
-    }
-  }catch(e){console.warn(e);}
-}
-async function saveHareket(h){
-  try{
-    await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
-      urun_kodu:h.lnKod,depo_kodu:h.depoId,otel_id:otelFromDepoId(h.depoId),
-      tip:h.tip,miktar:h.miktar,belge_no:h.belge||null,aciklama:h.aciklama||null
-    })});
-  }catch(e){console.warn(e);}
-}
-
-// ============================================================
-// STOK İŞLEMLERİ
-// ============================================================
-function ensureDepoStok(depoId){if(!db.stok[depoId])db.stok[depoId]={};}
-
-function giris(depoId,lnKod,urunAd,miktar,birim,kaynak,kaynakId){
-  ensureDepoStok(depoId);
-  const s=db.stok[depoId];
-  if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
-  s[lnKod].miktar=(parseFloat(s[lnKod].miktar)||0)+parseFloat(miktar);
-  s[lnKod].sonGuncelleme=Date.now();
-  s[lnKod].urunAd=urunAd;
-  return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'giris',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),kaynak,kaynakId,personel:currentUser?.ad||'—'};
-}
-
-function cikis(depoId,lnKod,urunAd,miktar,birim,neden,not){
-  ensureDepoStok(depoId);
-  const s=db.stok[depoId];
-  if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
-  s[lnKod].miktar=Math.max(0,(parseFloat(s[lnKod].miktar)||0)-parseFloat(miktar));
-  s[lnKod].sonGuncelleme=Date.now();
-  return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'cikis',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),neden,not:not||'',personel:currentUser?.ad||'—'};
-}
-
-function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
-  // Kaynaktan çıkar
-  ensureDepoStok(kaynakDepoId);
-  const ks=db.stok[kaynakDepoId];
-  if(!ks[lnKod])ks[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
-  ks[lnKod].miktar=Math.max(0,(parseFloat(ks[lnKod].miktar)||0)-parseFloat(miktar));
-  ks[lnKod].sonGuncelleme=Date.now();
-  // Hedefe ekle
-  ensureDepoStok(hedefDepoId);
-  const hs=db.stok[hedefDepoId];
-  if(!hs[lnKod])hs[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
-  hs[lnKod].miktar=(parseFloat(hs[lnKod].miktar)||0)+parseFloat(miktar);
-  hs[lnKod].sonGuncelleme=Date.now();
-  const baseId=Date.now()+'_'+Math.random().toString(36).slice(2,5);
-  const kaynakDepoAd=depoAdi(kaynakDepoId);
-  const hedefDepoAd=depoAdi(hedefDepoId);
-  return {
-    id:baseId,tip:'transfer',
-    kaynakDepoId,kaynakDepoAd,hedefDepoId,hedefDepoAd,
-    lnKod,urunAd,miktar:parseFloat(miktar),birim,
-    tarih:Date.now(),not:not||'',personel:currentUser?.ad||'—'
-  };
-}
-
-// Mal kabul onayı → Ana Depo girişi
-async function malKabulOnayGiris(form){
-  if(!form?.urunler)return 0;
-  const otelId=form.otel_id||form.otelId||'810';
-  const depoId=tamDepoId(otelId,'ANA_DEPO');
+  // Mal Kabul'ün kendisi de (mal-kabul-v2.html) merkezi depo kodu olarak 100 (Club) / 300 (Resort)
+  // kullanıyor — LN'in gerçek "İşletme Depo" kodları. Buradaki hedef depo da bununla aynı olmalı.
+  const merkeziDepoKodu=otelId==='811'?'300':'100';
+  const depoId=tamDepoId(otelId,merkeziDepoKodu);
   const hareketler=[];
   for(const u of form.urunler){
     if(!u.kod||!u.miktar)continue;
