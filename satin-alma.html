@@ -118,6 +118,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('siparisTakip',this)">📊 Sipariş Takip</button>
     <button class="tabbtn" onclick="gTab('fiyatKontrol',this)" id="tab-btn-fiyatKontrol">💰 Fiyat Kontrolü <span id="fk-badge" style="display:none;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
     <button class="tabbtn" onclick="gTab('iade',this)">↩️ İade</button>
+    <button class="tabbtn" onclick="gTab('skorKart',this)">⭐ Tedarikçi Skor Kartı</button>
   </div>
 
   <!-- İÇ TALEPLER -->
@@ -295,6 +296,37 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" id="it-tab-tamamlandi" onclick="filterIadeTakip('tamamlandi',this)">✅ Tamamlandı</button>
     </div>
     <div id="iade-takip-liste"></div>
+  </div>
+
+  <!-- TEDARİKÇİ SKOR KARTI -->
+  <div class="sc" id="tab-skorKart">
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <span>⭐ Tedarikçi Skor Kartı</span>
+        <button class="hbtn" style="width:auto;height:auto;padding:6px 10px;border-radius:8px;background:var(--gray-200);color:var(--primary);font-size:11px" onclick="_skorKartVeri=null;renderSkorKart()">🔄 Yenile</button>
+      </div>
+      <p style="font-size:12px;color:var(--gray-500)">Mal Kabul, Uygunsuzluk ve Sipariş verilerinden otomatik hesaplanır. Rakamlar ham veridir, yorumlamak sana kalmış.</p>
+      <div class="rfields">
+        <div class="field"><label>Otel</label>
+          <select id="sk-otel-filtre" onchange="renderSkorKart()">
+            <option value="">Tümü</option>
+            <option value="810">🏨 Club</option>
+            <option value="811">🏨 Resort</option>
+          </select>
+        </div>
+        <div class="field"><label>Sırala</label>
+          <select id="sk-sirala" onchange="renderSkorKart()">
+            <option value="uygunsuz_desc">Uygunsuzluk oranı (yüksek→düşük)</option>
+            <option value="teslimat_desc">Teslimat sayısı (çok→az)</option>
+            <option value="sure_desc">Ort. teslimat süresi (uzun→kısa)</option>
+            <option value="fatura_asc">Fatura eşleşme oranı (düşük→yüksek)</option>
+          </select>
+        </div>
+      </div>
+      <input type="text" id="sk-ara" placeholder="Firma ara..." oninput="renderSkorKart()" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none;margin-top:4px">
+    </div>
+    <div id="skorKart-stats" class="rfields"></div>
+    <div id="skorKart-liste"></div>
   </div>
 </div>
 
@@ -551,6 +583,7 @@ function gTab(tab,el){
     if(IADE_SATIRLAR.length===0)addIadeSatir();
     loadIadeTakip();
   }
+  if(tab==='skorKart')renderSkorKart();
 }
 
 // ====== İÇ TALEPLER ======
@@ -2310,6 +2343,100 @@ function renderFirmalar(val){
         ${f.urunler?`• ${f.urunler.length} ürün`:''}
       </div>
     </div>`).join('');
+}
+
+// ============================================================
+// TEDARİKÇİ SKOR KARTI — Mal Kabul + Uygunsuzluk + Sipariş verilerinden
+// ============================================================
+let _skorKartVeri=null;
+async function renderSkorKart(){
+  const c=document.getElementById('skorKart-liste');
+  const otelFiltre=document.getElementById('sk-otel-filtre')?.value||'';
+  const sirala=document.getElementById('sk-sirala')?.value||'uygunsuz_desc';
+  const ara=(document.getElementById('sk-ara')?.value||'').toLowerCase().trim();
+
+  if(!_skorKartVeri){
+    c.innerHTML='<div class="es"><div class="et">Yükleniyor...</div></div>';
+    try{
+      const [mkR,ugR,spR]=await Promise.all([
+        fetch(SB_URL+'/rest/v1/mal_kabuller?select=id,firma_ad,tarih,otel_id,durum,ln_siparis_no,fatura_no&durum=neq.iptal',{headers:SB_HEADERS}),
+        fetch(SB_URL+'/rest/v1/uygunsuzluklar?select=mk_id',{headers:SB_HEADERS}),
+        fetch(SB_URL+'/rest/v1/siparisler?select=siparis_no,tarih',{headers:SB_HEADERS}),
+      ]);
+      const mkRows=mkR.ok?await mkR.json():[];
+      const ugRows=ugR.ok?await ugR.json():[];
+      const spRows=spR.ok?await spR.json():[];
+      const uygunsuzMkIdSet=new Set(ugRows.map(u=>String(u.mk_id)));
+      const siparisTarihMap={};
+      spRows.forEach(s=>{siparisTarihMap[s.siparis_no]=s.tarih;});
+      _skorKartVeri={mkRows,uygunsuzMkIdSet,siparisTarihMap};
+    }catch(e){console.warn(e);c.innerHTML='<div class="es"><div class="et">Veri çekilemedi</div></div>';return;}
+  }
+
+  const {mkRows,uygunsuzMkIdSet,siparisTarihMap}=_skorKartVeri;
+  const liste=otelFiltre?mkRows.filter(r=>r.otel_id===otelFiltre):mkRows;
+
+  const firmaMap={};
+  liste.forEach(r=>{
+    const firma=r.firma_ad||'—';
+    if(!firmaMap[firma])firmaMap[firma]={firma,teslimat:0,uygunsuz:0,faturali:0,sureToplam:0,sureSayisi:0};
+    const f=firmaMap[firma];
+    f.teslimat++;
+    if(uygunsuzMkIdSet.has(String(r.id)))f.uygunsuz++;
+    if(r.fatura_no)f.faturali++;
+    if(r.ln_siparis_no){
+      const ilkSiparis=r.ln_siparis_no.split(',')[0].trim();
+      const spTarih=siparisTarihMap[ilkSiparis];
+      if(spTarih&&r.tarih){
+        const gun=(new Date(r.tarih)-new Date(spTarih))/86400000;
+        if(gun>=0){f.sureToplam+=gun;f.sureSayisi++;}
+      }
+    }
+  });
+
+  let firmalar=Object.values(firmaMap).map(f=>({
+    ...f,
+    uygunsuzOran:f.teslimat?f.uygunsuz/f.teslimat:0,
+    faturaOran:f.teslimat?f.faturali/f.teslimat:0,
+    ortSure:f.sureSayisi?f.sureToplam/f.sureSayisi:null,
+  }));
+
+  if(ara)firmalar=firmalar.filter(f=>f.firma.toLowerCase().includes(ara));
+
+  const sorters={
+    uygunsuz_desc:(a,b)=>b.uygunsuzOran-a.uygunsuzOran,
+    teslimat_desc:(a,b)=>b.teslimat-a.teslimat,
+    sure_desc:(a,b)=>(b.ortSure??-1)-(a.ortSure??-1),
+    fatura_asc:(a,b)=>a.faturaOran-b.faturaOran,
+  };
+  firmalar.sort(sorters[sirala]||sorters.uygunsuz_desc);
+
+  const toplamTeslimat=firmalar.reduce((t,f)=>t+f.teslimat,0);
+  const ortUygunsuz=firmalar.length?(firmalar.reduce((t,f)=>t+f.uygunsuzOran,0)/firmalar.length*100).toFixed(1):0;
+  document.getElementById('skorKart-stats').innerHTML=`
+    <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${firmalar.length}</div><div style="font-size:11px;color:var(--gray-500)">Tedarikçi</div></div>
+    <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${toplamTeslimat}</div><div style="font-size:11px;color:var(--gray-500)">Toplam Teslimat</div></div>
+    <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--danger)">%${ortUygunsuz}</div><div style="font-size:11px;color:var(--gray-500)">Ort. Uygunsuzluk</div></div>`;
+
+  if(!firmalar.length){c.innerHTML='<div class="es"><div class="et">Kayıt bulunamadı</div></div>';return;}
+
+  c.innerHTML=firmalar.map(f=>{
+    const oran=f.uygunsuzOran*100;
+    const renk=oran>=15?'var(--danger)':oran>0?'var(--warning)':'var(--success)';
+    const durumIkon=oran>=15?'🔴':oran>0?'🟡':'🟢';
+    return`<div class="skart" style="border-left-color:${renk};cursor:default">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="font-size:13px;font-weight:700">${durumIkon} ${f.firma}</div>
+        <div style="font-size:13px;font-weight:800;color:${renk}">%${oran.toFixed(1)}</div>
+      </div>
+      <div style="font-size:11px;color:var(--gray-500);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap">
+        <span>📦 ${f.teslimat} teslimat</span>
+        <span>⚠️ ${f.uygunsuz} uygunsuz</span>
+        <span>🧾 %${(f.faturaOran*100).toFixed(0)} fatura eşleşti</span>
+        ${f.ortSure!==null?`<span>⏱️ ort. ${f.ortSure.toFixed(1)} gün teslimat</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ====== YARDIMCI ======
