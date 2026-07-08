@@ -332,13 +332,6 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 // CONFIG
 // ============================================================
 const FIREBASE_URL = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
-const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
-const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-const ROL_INDIRGEME={
-  yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalite:'kalite',mutfak:'mutfak',bar:'bar',
-  muhasebe_muduru:'yonetici',muhasebe_calisani:'yonetici',cost_control:'yonetici'
-};
 const SESSION_KEY  = 'gurok_portal_session';
 
 // Modül tanımları
@@ -432,6 +425,16 @@ const MODULLER = [
     url: 'bar.html',
     roller: ['yonetici'],
     durum: 'yapiyor'
+  },
+  {
+    id: 'gunlukTuketim',
+    ad: 'Günlük Tüketim',
+    desc: 'Bar/Mutfak günlük malzeme tüketimi',
+    ikon: '📉',
+    renk: 'icon-orange',
+    url: 'gunluk-tuketim.html',
+    roller: ['mutfak', 'bar', 'yonetici'],
+    durum: 'aktif'
   }
 ];
 
@@ -456,15 +459,13 @@ let currentUser = null;
 
 async function loadUsers() {
   try {
-    const r = await fetch(SB_URL + '/rest/v1/kullanicilar?select=*&aktif=eq.true', {headers:SB_HEADERS});
+    const r = await fetch(FIREBASE_URL + '/kullanicilar.json');
     if (r.ok) {
       const data = await r.json();
       if (Array.isArray(data) && data.length) {
         users = data.map(u => ({
-          id:u.id, ad:u.ad, pin:u.pin||'',
-          rol: ROL_INDIRGEME[u.rol] || 'depo',
-          departman: u.departman||'',
-          depoId: u.otel_id==='811'?'RESORT':u.otel_id==='810'?'CLUB':''
+          ...u,
+          rol: u.rol === 'personel' ? 'depo' : u.rol
         }));
       }
     }
