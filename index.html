@@ -331,7 +331,10 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 // ============================================================
 // CONFIG
 // ============================================================
-const FIREBASE_URL = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const FIREBASE_URL = 'https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app'; // artık kullanılmıyor, bkz. Supabase göçü
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 const SESSION_KEY  = 'gurok_portal_session';
 
 // Modül tanımları
@@ -447,8 +450,8 @@ const DEFAULT_USERS = [
   { id:3, ad:'Depo Personel',   rol:'depo',      departman:'Depo',       pin:'222222' },
   { id:4, ad:'Satinalma',       rol:'satinalma', departman:'Satinalma',  pin:'333333' },
   { id:5, ad:'Kalite Kontrol',  rol:'kalite',    departman:'Kalite',     pin:'444444' },
-  { id:6, ad:'Ana Mutfak Sefi', rol:'mutfak',    departman:'Ana Mutfak', pin:'555555', depoId:'ANA_MUTFAK' },
-  { id:7, ad:'Bar Sefi',        rol:'bar',       departman:'Bar',        pin:'666666', depoId:'BAR' }
+  { id:6, ad:'Ana Mutfak Sefi', rol:'mutfak',    departman:'Ana Mutfak', pin:'555555', depoId:'CMM201', otelId:'810' },
+  { id:7, ad:'Bar Sefi',        rol:'bar',       departman:'Bar',        pin:'666666', depoId:'CSM301', otelId:'810' }
 ];
 
 const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹' };
@@ -459,13 +462,15 @@ let currentUser = null;
 
 async function loadUsers() {
   try {
-    const r = await fetch(FIREBASE_URL + '/kullanicilar.json');
+    const r = await fetch(SB_URL + '/rest/v1/kullanicilar?select=*&aktif=eq.true', { headers: SB_HEADERS });
     if (r.ok) {
       const data = await r.json();
       if (Array.isArray(data) && data.length) {
         users = data.map(u => ({
           ...u,
-          rol: u.rol === 'personel' ? 'depo' : u.rol
+          rol: u.rol === 'personel' ? 'depo' : u.rol,
+          depoId: u.depo_id || u.depoId || null,
+          otelId: u.otel_id || u.otelId || null
         }));
       }
     }
