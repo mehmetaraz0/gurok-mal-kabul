@@ -839,6 +839,32 @@ async function formKaydet(){
   if(aracSicaklik===''){toast('⚠️ Araç sıcaklığı zorunlu');return;}
   if(!dolu.length){toast('⚠️ En az bir ürün girin');return;}
 
+  // Teslimat toleransı — sipariş edilen miktarın %20'sinden fazlası KABUL EDİLEMEZ (hard limit).
+  // Kontrol, o siparişten bugüne kadar zaten gelmiş miktarı da hesaba katar (kısmi teslimatlarda
+  // toplam gelen miktar sipariş edilenin %120'sini geçemez).
+  const kontrolSiparisNo=document.getElementById('f-siparis-no').value||'';
+  if(kontrolSiparisNo){
+    const kontrolSiparisNolar=kontrolSiparisNo.split(',').map(s=>s.trim()).filter(Boolean);
+    for(const k of dolu){
+      if(!k.kod)continue;
+      for(const sipNo of kontrolSiparisNolar){
+        const sip=siparisler[sipNo];
+        if(!sip)continue;
+        const sk=sip.kalemler.find(x=>x.kod===k.kod);
+        if(sk){
+          const maxToplamIzinli=sk.miktar*1.2;
+          const zatenGelen=sk.gelenMiktar||0;
+          const buSeferMaxIzinli=maxToplamIzinli-zatenGelen;
+          if(parseFloat(k.miktar)>buSeferMaxIzinli+0.001){
+            toast(`⚠️ ${k.ad}: Sipariş edilenin (${sk.miktar} ${sk.birim}) %20 üzerini kabul edemezsin. Bu seferlik en fazla ${buSeferMaxIzinli.toFixed(2)} ${k.birim} girebilirsin.`);
+            return;
+          }
+          break;
+        }
+      }
+    }
+  }
+
   const otelId=formOtelId;
   const siparisNo=document.getElementById('f-siparis-no').value||null;
   const depoKodu=otelId==='811'?'300':'100';
