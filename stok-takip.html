@@ -645,7 +645,7 @@ function depoAdi(depoId){
   const tip=depoTipiFromId(depoId);
   const otel=otelFromDepoId(depoId);
   const d=depolarForOtel(otel).find(x=>x.id===tip);
-  return d?(d.ikon+' '+d.ad):(depoId||'');
+  return d?(d.ikon+' '+d.id+' — '+d.ad):(depoId||'');
 }
 let stokFilter   = 'tumu';
 let katFilter    = 'tumu';
@@ -1286,7 +1286,7 @@ async function applyLNRapor(){
 // ============================================================
 function buildDepoSelectors(otelId){
   otelId=otelId||aktifOtelId;
-  const opts=depolarForOtel(otelId).map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
+  const opts=depolarForOtel(otelId).map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.id} — ${d.ad}</option>`).join('');
   document.getElementById('depo-selector').innerHTML=opts;
   document.getElementById('cikis-depo').innerHTML=opts;
   document.getElementById('tr-kaynak').innerHTML=opts;
@@ -1303,7 +1303,7 @@ function onOtelChange(otelId){
 }
 
 function onIadeOtelChange(otelId){
-  const opts=depolarForOtel(otelId).map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.ad}</option>`).join('');
+  const opts=depolarForOtel(otelId).map(d=>`<option value="${tamDepoId(otelId,d.id)}">${d.ikon} ${d.id} — ${d.ad}</option>`).join('');
   document.getElementById('iade-depo').innerHTML=opts;
 }
 
