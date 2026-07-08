@@ -332,14 +332,28 @@ const DEPOLAR_811 = [
 function depolarForOtel(otelId){ return otelId==='810'?DEPOLAR_810:DEPOLAR_811; }
 function depolarObjForOtel(otelId){
   const obj={};
-  depolarForOtel(otelId).forEach(d=>obj[d.id]=d.ikon+' '+d.ad);
+  depolarForOtel(otelId).forEach(d=>obj[d.id]=d.ikon+' '+d.id+' — '+d.ad);
   return obj;
 }
-function DEPOLAR_lookup(did){ return depolarObjForOtel(aktifOtelId)[did]||did; }
+function DEPOLAR_lookup(did){
+  if(!did)return '—';
+  const tumDepolar=[...DEPOLAR_810,...DEPOLAR_811];
+  const d=tumDepolar.find(x=>x.id===did);
+  return d?(d.ikon+' '+d.id+' — '+d.ad):did;
+}
+// Bir sipariş kaydının departman adını, saklanan departmanId'den (kod) güvenilir şekilde üretir.
+// Eski kayıtlarda departmanId olmayabilir — o zaman kaydedilmiş metne (departman/firma) düşer.
+function sipDepartmanGoster(s){
+  if(s?.departmanId){
+    const l=DEPOLAR_lookup(s.departmanId);
+    if(l && l!==s.departmanId)return l;
+  }
+  return s?.departman||s?.firma||'—';
+}
 function buildDeptSelector(){
   const sel=document.getElementById('yDept');
   if(!sel)return;
-  sel.innerHTML=depolarForOtel(aktifOtelId).map(d=>`<option value="${d.id}">${d.ikon} ${d.ad}</option>`).join('');
+  sel.innerHTML=depolarForOtel(aktifOtelId).map(d=>`<option value="${d.id}">${d.ikon} ${d.id} — ${d.ad}</option>`).join('');
 }
 function onOtelChange(otelId){
   aktifOtelId=otelId;
@@ -627,7 +641,7 @@ function rGelen(){
   </div>`+(liste.length===0?'<div class="es"><div class="ei">📥</div><div class="et">'+(GF==='bekleyen'?'Bekleyen talep yok':'Kayıt yok')+'</div></div>':
   liste.map(s=>`<div class="skart ${s.durum}" onclick="aOnay('${s.id}')">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div><div style="font-size:13px;font-weight:700">${s.departman||s.firma||"—"}</div><div style="font-size:11px;color:var(--gray-500)">${s.tarih||""} • ${s.personel||""} • ${(s.urunler||s.kalemler||[]).length} ürün</div></div>
+      <div><div style="font-size:13px;font-weight:700">${sipDepartmanGoster(s)}</div><div style="font-size:11px;color:var(--gray-500)">${s.tarih||""} • ${s.personel||""} • ${(s.urunler||s.kalemler||[]).length} ürün</div></div>
       <span class="chip ${s.durum==='bekleyen'?'chip-warn':s.durum==='onaylandi'?'chip-ok':'chip-err'}">${s.durum==='bekleyen'?'⏳':s.durum==='onaylandi'?'✅':'❌'}</span>
     </div>
     <div style="font-size:12px;color:var(--gray-600)">${(s.urunler||s.kalemler||[]).slice(0,3).map(u=>`${u.ad||u.urunAd||''} ${u.miktar||''} ${u.birim||''}`).join(' • ')}${(s.urunler||s.kalemler||[]).length>3?` +${(s.urunler||s.kalemler||[]).length-3} daha`:''}</div>
@@ -638,7 +652,7 @@ function rGelen(){
 function aOnay(id){
   const s=DB.siparisler[id];if(!s)return;
   document.getElementById('mOnayIc').innerHTML=`
-    <div style="margin-bottom:12px"><div style="font-size:15px;font-weight:700;color:var(--primary)">${s.departman}</div><div style="font-size:12px;color:var(--gray-500)">${s.tarih} • ${s.personel}</div></div>
+    <div style="margin-bottom:12px"><div style="font-size:15px;font-weight:700;color:var(--primary)">${sipDepartmanGoster(s)}</div><div style="font-size:12px;color:var(--gray-500)">${s.tarih} • ${s.personel}</div></div>
     <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;text-transform:uppercase">Ürünler — Miktarları Düzenleyebilirsiniz</div>
     ${(s.urunler||s.kalemler||[]).map((u,i)=>{
       const stokM=parseFloat((DB.stok[u.kod]||{}).miktar||0);
@@ -722,7 +736,7 @@ async function onayla(id){
     harlar.push({
       id:'HAR_'+Date.now()+'_'+Math.random().toString(36).slice(2,4),
       tip:'transfer',kaynakDepoId:'ANA_DEPO',kaynakDepoAd:'Ana Depo',
-      hedefDepoId:s.departmanId,hedefDepoAd:s.departman,
+      hedefDepoId:s.departmanId,hedefDepoAd:sipDepartmanGoster(s),
       lnKod:u.kod,urunAd:u.ad,miktar:u.onaylananMiktar,birim:u.birim,
       tarih:Date.now(),personel:CU.ad,siparisId:id
     });
@@ -764,7 +778,7 @@ function rBugun(){
   c.innerHTML=liste.length===0?'<div class="es"><div class="ei">✅</div><div class="et">Bugün teslim edilecek sipariş yok</div></div>':
     `<div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase">📅 ${today} — ${liste.length} teslimat</div>`+
     liste.map(s=>`<div class="skart onaylandi">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${s.departman}</div><span class="chip chip-ok">✅ Teslim</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${sipDepartmanGoster(s)}</div><span class="chip chip-ok">✅ Teslim</span></div>
       ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0">• ${u.ad||u.urunAd||""} — ${u.onaylananMiktar||u.miktar} ${u.birim}</div>`).join('')}
       <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Onaylayan: ${s.onaylayanAd||'—'}</div>
     </div>`).join('');
@@ -811,7 +825,7 @@ function onayOzetGoster(id, tip){
 
   let icerik='';
   if(tip==='onayla'){
-    const dept=s.departman||'—';
+    const dept=sipDepartmanGoster(s);
     const stokYetersiz=onaylananlar.some(u=>u.kod&&u.onaylananMiktar>parseFloat((DB.stok[u.kod]||{}).miktar||0));
     icerik=`
       <div style="background:#d4edda;border-radius:8px;padding:12px;margin-bottom:12px;">
@@ -842,7 +856,7 @@ function onayOzetGoster(id, tip){
     icerik=`
       <div style="background:#fde8e8;border-radius:8px;padding:12px;margin-bottom:12px;">
         <div style="font-size:13px;font-weight:700;color:#9b1c1c;">❌ Talep Reddedilecek</div>
-        <div style="font-size:12px;color:#9b1c1c;margin-top:4px;">${s.departman} • ${s.personel}</div>
+        <div style="font-size:12px;color:#9b1c1c;margin-top:4px;">${sipDepartmanGoster(s)} • ${s.personel}</div>
       </div>
       <div class="field"><label>Red Nedeni</label><input type="text" id="rednot2" placeholder="Neden reddedildi?"></div>
       <div class="brow">
@@ -859,7 +873,7 @@ function pdfCikti(id){
   const s=DB.siparisler[id];if(!s)return;
   const urunler=s.urunler||s.kalemler||[];
   const tarih=s.tarih||new Date().toLocaleDateString('tr-TR');
-  const dept=s.departman||'—';
+  const dept=sipDepartmanGoster(s);
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Depo Transfer Formu</title>
   <style>
     @page{size:A4;margin:15mm}
