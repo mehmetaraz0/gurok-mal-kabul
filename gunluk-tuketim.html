@@ -94,7 +94,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="sc" id="tGiris" style="display:block">
     <div class="card" id="depoAtanmamisUyari" style="display:none;border-left:4px solid var(--danger)">
       <div class="card-title" style="color:var(--danger)">⚠️ Depo Atanmamış</div>
-      <p style="font-size:13px;color:var(--gray-600)">Hesabınıza henüz bir depo/departman kodu atanmamış. Yöneticinizin Kullanıcı Yönetimi'nden hesabınıza bir depo ataması gerekiyor.</p>
+      <p id="depoUyariMetin" style="font-size:13px;color:var(--gray-600)">Hesabınıza henüz bir depo/departman kodu atanmamış.</p>
+      <div id="yoneticiDepoSecici" style="display:none;margin-top:10px">
+        <label style="font-size:11px;font-weight:600;color:var(--gray-600)">Test/izleme için bir nokta seç (kalıcı atama değildir, sadece bu oturum için)</label>
+        <select id="yon-nokta-sec" onchange="yoneticiNoktaSec()" style="width:100%;padding:10px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;margin-top:6px">
+          <option value="">— Nokta seçin —</option>
+        </select>
+      </div>
     </div>
     <div id="girisIcerik">
       <div class="search-bar">
@@ -175,6 +181,24 @@ const DEFAULT_USERS=[
   {id:7,ad:'Bar Sefi',       rol:'bar',   pin:'666666',depoId:'CSM301',otelId:'810'},
 ];
 
+// Yönetici rolü, sabit bir depoya atanmamışsa buradan İSTEDİĞİ noktayı seçip test/izleme yapabilir.
+// (Gerçek LN depo kodları — mutfak/bar noktaları, her iki otel)
+const YONETICI_NOKTA_SECENEKLERI=[
+  {otelId:'810',depoId:'CMM201',ad:'🏨 Club — Anamutfak',rol:'mutfak'},
+  {otelId:'810',depoId:'CMM202',ad:'🏨 Club — Aqua Mutfak',rol:'mutfak'},
+  {otelId:'810',depoId:'CMM204',ad:'🏨 Club — Park Mutfak',rol:'mutfak'},
+  {otelId:'810',depoId:'CSM201',ad:'🏨 Club — Alibey Restaurant',rol:'bar'},
+  {otelId:'810',depoId:'CSM301',ad:'🏨 Club — Turk Kahvesi',rol:'bar'},
+  {otelId:'810',depoId:'CSM305',ad:"🏨 Club — Ali's Pub",rol:'bar'},
+  {otelId:'810',depoId:'CSM309',ad:'🏨 Club — Aqua Bar',rol:'bar'},
+  {otelId:'810',depoId:'CSM316',ad:'🏨 Club — Lobby Bar',rol:'bar'},
+  {otelId:'811',depoId:'RMM201',ad:'🏨 Resort — Anamutfak',rol:'mutfak'},
+  {otelId:'811',depoId:'RMM202',ad:'🏨 Resort — Aqua Mutfak',rol:'mutfak'},
+  {otelId:'811',depoId:'RSM201',ad:'🏨 Resort — Ala Restaurant',rol:'bar'},
+  {otelId:'811',depoId:'RSM301',ad:'🏨 Resort — Peymane Bar',rol:'bar'},
+  {otelId:'811',depoId:'RSM306',ad:'🏨 Resort — Lobby Bar',rol:'bar'},
+];
+
 let CU=null;
 let DB={kullanicilar:[],stok:{},hareketler:[]};
 let pv='';
@@ -235,6 +259,18 @@ async function loadStok(){
   if(!CU?.depoId){
     document.getElementById('depoAtanmamisUyari').style.display='block';
     document.getElementById('girisIcerik').style.display='none';
+    if(CU.rol==='yonetici'){
+      document.getElementById('depoUyariMetin').textContent='Yönetici hesabına sabit bir depo atanmamış — istersen aşağıdan test/izleme için bir nokta seçebilirsin.';
+      document.getElementById('yoneticiDepoSecici').style.display='block';
+      const sel=document.getElementById('yon-nokta-sec');
+      if(!sel.options.length||sel.options.length===1){
+        sel.innerHTML='<option value="">— Nokta seçin —</option>'+
+          YONETICI_NOKTA_SECENEKLERI.map((n,i)=>`<option value="${i}">${n.ad}</option>`).join('');
+      }
+    }else{
+      document.getElementById('depoUyariMetin').textContent='Hesabınıza henüz bir depo/departman kodu atanmamış. Yöneticinizden Supabase\'deki kullanicilar tablosunda hesabınıza bir depo ataması yapmasını isteyin.';
+      document.getElementById('yoneticiDepoSecici').style.display='none';
+    }
     return;
   }
   document.getElementById('depoAtanmamisUyari').style.display='none';
@@ -756,6 +792,18 @@ function renderFoodCost(){
 // ============================================================
 // NAVİGASYON
 // ============================================================
+function yoneticiNoktaSec(){
+  const idx=document.getElementById('yon-nokta-sec').value;
+  if(idx==='')return;
+  const n=YONETICI_NOKTA_SECENEKLERI[parseInt(idx)];
+  if(!n)return;
+  // Kalıcı değil — sadece bu oturumda (sayfa yenilenene kadar) o noktaymış gibi davranır.
+  CU={...CU,depoId:n.depoId,otelId:n.otelId,rolAsil:CU.rol,rol:n.rol};
+  document.getElementById('hsub').textContent=`${RIKSON[n.rol]||'👤'} ${CU.ad} • ${n.ad} (geçici görünüm)`;
+  toast(`👁️ ${n.ad} olarak görüntüleniyorsun`);
+  loadStok();
+  loadReceteler();
+}
 function gTab(tab){
   GT=tab;
   ['giris','tuket','receteler','foodcost','gecmis'].forEach(t=>{
