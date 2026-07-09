@@ -305,7 +305,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <span>⭐ Tedarikçi Skor Kartı</span>
         <button class="hbtn" style="width:auto;height:auto;padding:6px 10px;border-radius:8px;background:var(--gray-200);color:var(--primary);font-size:11px" onclick="_skorKartVeri=null;renderSkorKart()">🔄 Yenile</button>
       </div>
-      <p style="font-size:12px;color:var(--gray-500)">Mal Kabul, Uygunsuzluk ve Sipariş verilerinden otomatik hesaplanır. Rakamlar ham veridir, yorumlamak sana kalmış.</p>
+      <p style="font-size:12px;color:var(--gray-500)">Mal Kabul, Uygunsuzluk ve Sipariş verilerinden otomatik hesaplanır. <b>Skor:</b> Kalite %40 + Teslimat Hızı %40 + Fatura Eşleşme %20 → 0-100 puan.</p>
       <div class="rfields">
         <div class="field"><label>Otel</label>
           <select id="sk-otel-filtre" onchange="renderSkorKart()">
@@ -316,6 +316,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         </div>
         <div class="field"><label>Sırala</label>
           <select id="sk-sirala" onchange="renderSkorKart()">
+            <option value="skor_desc">⭐ Skor (yüksek→düşük)</option>
+            <option value="skor_asc">⭐ Skor (düşük→yüksek)</option>
             <option value="uygunsuz_desc">Uygunsuzluk oranı (yüksek→düşük)</option>
             <option value="teslimat_desc">Teslimat sayısı (çok→az)</option>
             <option value="sure_desc">Ort. teslimat süresi (uzun→kısa)</option>
@@ -1102,7 +1104,7 @@ async function spGrupla(){
   // Siparişleri kalıcı olarak havuza yaz (mal kabul ve fatura eşleştirme için)
   for(const g of grupListesi){
     const kalemler=g.kalemler.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
-      gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));
+      gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0,tahminiFiyat:k.tahminiFiyat?parseFloat(k.tahminiFiyat):null}));
     try{
       await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+g.siparisNo,{
         method:'PATCH',headers:SB_HEADERS,
@@ -1110,7 +1112,7 @@ async function spGrupla(){
       });
       const kalemSatirlar=kalemler.map(k=>({
         siparis_no:g.siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
-        miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar
+        miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar,tahmini_fiyat:k.tahminiFiyat
       }));
       await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
       DB.siparisler[g.siparisNo]={siparisNo:g.siparisNo,firma:g.firmaAd,firmaId:g.firmaId,tarih,termin,otelId,kalemler,durum:'bekleyen',olusturanAd:CU.ad,olusturmaTarih:Date.now()};
@@ -1491,6 +1493,11 @@ async function muhasebeGonder(){
       const u=urunler[i];
       if(u.id){
         await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri?id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i]})});
+        // Bu kaleme ait koliler varsa (Koli Bazlı Giriş kullanılmışsa) onların da gerçek fiyatını yaz —
+        // Günlük Tüketim'deki reçete maliyeti buradan FIFO (en eski/depodaki koli fiyatı) çekiyor.
+        if(fiyatlar[i]>0){
+          await fetch(SB_URL+'/rest/v1/koli_etiketleri?mk_urun_id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i],fiyat_kaynagi:'fatura'})});
+        }
       }
     }
 
@@ -1502,6 +1509,11 @@ async function muhasebeGonder(){
       muhasebe_fatura_id:faturaId
     })});
 
+    // GR/IR TAHAKKUK FİŞİ — mal depoda, fatura henüz muhasebede işlenmedi.
+    // Borç: 770 (gider, geçici) / Alacak: 320.90 (Faturası Beklenen Alımlar — GR/IR ara hesabı)
+    // Muhasebe faturayı işlediğinde 320.90 borçlanarak bu tahakkuk otomatik kapanır.
+    await grIrTahakkukFisiKes(f,araToplam);
+
     kModal('mFiyatKontrol');
     toast(`✅ ${f.faturaNo} — Muhasebe'ye gönderildi (${fmt(araToplam)} ₺ KDV hariç)`);
     renderFiyatKontrol();
@@ -1510,6 +1522,45 @@ async function muhasebeGonder(){
   }
 }
 function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
+
+// ============================================================
+// GR/IR TAHAKKUK — "mal alındı, fatura beklemede" ara kaydı
+// SAP'taki GR/IR clearing mantığının Türk THP'ye uyarlanmış hali.
+// ============================================================
+async function grIrTahakkukFisiKes(f,araToplam){
+  try{
+    // 320.90 hesabı hesap planında yoksa oluştur
+    await fetch(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
+      method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({kod:'320.90',ad:'Faturası Beklenen Alımlar (GR/IR)',tip:'Bilanço',ust_kod:'320'})
+    });
+    // Fiş numarası üret (yevmiye modülüyle aynı YEV-YYYY-NNNNN kalıbı)
+    const yil=new Date().getFullYear();
+    let sira=1;
+    const nR=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?no=like.YEV-${yil}-*&select=no&order=no.desc&limit=1`,{headers:SB_HEADERS});
+    if(nR.ok){const rows=await nR.json();if(rows[0]){const m=rows[0].no.match(/(\d+)$/);if(m)sira=parseInt(m[1])+1;}}
+    const fisNo=`YEV-${yil}-${String(sira).padStart(5,'0')}`;
+    const tutar=round2(araToplam);
+    const fisR=await fetch(SB_URL+'/rest/v1/yevmiye_fisler',{
+      method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
+      body:JSON.stringify({
+        no:fisNo,tarih:new Date().toISOString().split('T')[0],tip:'tahakkuk',
+        belge_no:f.mkNo,otel_id:f.otelId||'810',
+        aciklama:`Mal kabul tahakkuku (GR/IR): ${f.mkNo} — ${f.firma} (fatura bekleniyor)`,
+        toplam_borc:tutar,toplam_alacak:tutar,onaylandi:true,otomatik:true
+      })
+    });
+    if(!fisR.ok){console.warn('Tahakkuk fişi oluşturulamadı:',await fisR.text());return;}
+    const fis=(await fisR.json())[0];
+    await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{
+      method:'POST',headers:SB_HEADERS,
+      body:JSON.stringify([
+        {fis_id:fis.id,hesap_kodu:'770',aciklama:`Mal kabul: ${f.mkNo} — ${f.firma}`,borc:tutar,alacak:0},
+        {fis_id:fis.id,hesap_kodu:'320.90',aciklama:`Fatura bekleniyor: ${f.mkNo} — ${f.faturaNo||'—'}`,borc:0,alacak:tutar}
+      ])
+    });
+  }catch(e){console.warn('GR/IR tahakkuk hatası:',e);}
+}
 
 // ============================================================
 // SİPARİŞ TAKİP — siparisHavuzu'ndan okur
@@ -1656,7 +1707,7 @@ function stDetayAc(siparisNo){
 
 
 function addSPSatir(data){
-  SP_SATIRLAR.push({ad:'',kod:'',miktar:'',birim:'KG',firmaId:'',firmaAd:'',...(data||{})});
+  SP_SATIRLAR.push({ad:'',kod:'',miktar:'',birim:'KG',firmaId:'',firmaAd:'',tahminiFiyat:'',...(data||{})});
   renderSPSatirlar();
   setTimeout(()=>{const inp=document.getElementById('spa'+(SP_SATIRLAR.length-1));if(inp)inp.focus();},50);
 }
@@ -1692,6 +1743,12 @@ function renderSPSatirlar(){
             style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;-webkit-appearance:none;outline:none">
             ${['KG','AD','KOL','LT','PKT','TRB','TNK','BOT'].map(b=>`<option${u.birim===b?' selected':''}>${b}</option>`).join('')}
           </select></div>
+      </div>
+      <div style="margin-bottom:8px">
+        <label style="font-size:11px;font-weight:600;color:var(--gray-600)">TAHMİNİ/ANLAŞILAN FİYAT (₺, opsiyonel)</label>
+        <input type="number" value="${u.tahminiFiyat||''}" placeholder="Bilmiyorsan boş bırak" min="0" step="0.01" oninput="SP_SATIRLAR[${i}].tahminiFiyat=this.value"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
+        <div style="font-size:10px;color:var(--gray-500);margin-top:2px">Girilirse, mal kabulde koli bu fiyatla başlar — fatura gelince gerçek fiyatla otomatik güncellenir</div>
       </div>
       <div style="position:relative">
         <label style="font-size:11px;font-weight:600;color:var(--gray-600)">FİRMA</label>
@@ -2350,46 +2407,62 @@ async function renderSkorKart(){
     }
   });
 
-  let firmalar=Object.values(firmaMap).map(f=>({
-    ...f,
-    uygunsuzOran:f.teslimat?f.uygunsuz/f.teslimat:0,
-    faturaOran:f.teslimat?f.faturali/f.teslimat:0,
-    ortSure:f.sureSayisi?f.sureToplam/f.sureSayisi:null,
-  }));
+  let firmalar=Object.values(firmaMap).map(f=>{
+    const uygunsuzOran=f.teslimat?f.uygunsuz/f.teslimat:0;
+    const faturaOran=f.teslimat?f.faturali/f.teslimat:0;
+    const ortSure=f.sureSayisi?f.sureToplam/f.sureSayisi:null;
+    // ---- BİLEŞİK SKOR (0-100) ----
+    // Kalite: %40 — uygunsuzluk oranı 0 → tam puan, %25+ → 0 puan (lineer)
+    const kaliteP=Math.max(0,1-uygunsuzOran/0.25)*40;
+    // Teslimat hızı: %40 — sipariş→kabul 2 gün ve altı tam puan, 10+ gün 0 (lineer). Veri yoksa nötr (%70'i verilir)
+    const hizP=ortSure===null?28:Math.max(0,Math.min(1,(10-ortSure)/8))*40;
+    // Fatura eşleşme: %20
+    const faturaP=faturaOran*20;
+    const skor=Math.round(kaliteP+hizP+faturaP);
+    const notHarf=skor>=85?'A':skor>=70?'B':skor>=50?'C':'D';
+    return{...f,uygunsuzOran,faturaOran,ortSure,skor,notHarf};
+  });
 
   if(ara)firmalar=firmalar.filter(f=>f.firma.toLowerCase().includes(ara));
 
   const sorters={
+    skor_desc:(a,b)=>b.skor-a.skor,
+    skor_asc:(a,b)=>a.skor-b.skor,
     uygunsuz_desc:(a,b)=>b.uygunsuzOran-a.uygunsuzOran,
     teslimat_desc:(a,b)=>b.teslimat-a.teslimat,
     sure_desc:(a,b)=>(b.ortSure??-1)-(a.ortSure??-1),
     fatura_asc:(a,b)=>a.faturaOran-b.faturaOran,
   };
-  firmalar.sort(sorters[sirala]||sorters.uygunsuz_desc);
+  firmalar.sort(sorters[sirala]||sorters.skor_desc);
 
   const toplamTeslimat=firmalar.reduce((t,f)=>t+f.teslimat,0);
-  const ortUygunsuz=firmalar.length?(firmalar.reduce((t,f)=>t+f.uygunsuzOran,0)/firmalar.length*100).toFixed(1):0;
+  const ortSkor=firmalar.length?Math.round(firmalar.reduce((t,f)=>t+f.skor,0)/firmalar.length):0;
   document.getElementById('skorKart-stats').innerHTML=`
     <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${firmalar.length}</div><div style="font-size:11px;color:var(--gray-500)">Tedarikçi</div></div>
     <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${toplamTeslimat}</div><div style="font-size:11px;color:var(--gray-500)">Toplam Teslimat</div></div>
-    <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--danger)">%${ortUygunsuz}</div><div style="font-size:11px;color:var(--gray-500)">Ort. Uygunsuzluk</div></div>`;
+    <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:${ortSkor>=70?'var(--success)':ortSkor>=50?'var(--warning)':'var(--danger)'}">${ortSkor}</div><div style="font-size:11px;color:var(--gray-500)">Ort. Skor</div></div>`;
 
   if(!firmalar.length){c.innerHTML='<div class="es"><div class="et">Kayıt bulunamadı</div></div>';return;}
 
+  const notRenk={A:'var(--success)',B:'#0284c7',C:'var(--warning)',D:'var(--danger)'};
   c.innerHTML=firmalar.map(f=>{
     const oran=f.uygunsuzOran*100;
-    const renk=oran>=15?'var(--danger)':oran>0?'var(--warning)':'var(--success)';
-    const durumIkon=oran>=15?'🔴':oran>0?'🟡':'🟢';
+    const renk=notRenk[f.notHarf];
     return`<div class="skart" style="border-left-color:${renk};cursor:default">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div style="font-size:13px;font-weight:700">${durumIkon} ${f.firma}</div>
-        <div style="font-size:13px;font-weight:800;color:${renk}">%${oran.toFixed(1)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:13px;font-weight:700;flex:1">${f.firma}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="text-align:right">
+            <div style="font-size:16px;font-weight:800;color:${renk}">${f.skor}<span style="font-size:10px;color:var(--gray-400)">/100</span></div>
+          </div>
+          <div style="width:34px;height:34px;border-radius:8px;background:${renk};color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800">${f.notHarf}</div>
+        </div>
       </div>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap">
+      <div style="font-size:11px;color:var(--gray-500);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap">
         <span>📦 ${f.teslimat} teslimat</span>
-        <span>⚠️ ${f.uygunsuz} uygunsuz</span>
+        <span style="${oran>0?'color:var(--danger);font-weight:600':''}">⚠️ %${oran.toFixed(1)} uygunsuz</span>
         <span>🧾 %${(f.faturaOran*100).toFixed(0)} fatura eşleşti</span>
-        ${f.ortSure!==null?`<span>⏱️ ort. ${f.ortSure.toFixed(1)} gün teslimat</span>`:''}
+        ${f.ortSure!==null?`<span>⏱️ ort. ${f.ortSure.toFixed(1)} gün</span>`:'<span style="color:var(--gray-400)">⏱️ süre verisi yok</span>'}
       </div>
     </div>`;
   }).join('');
