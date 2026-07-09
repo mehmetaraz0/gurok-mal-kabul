@@ -584,23 +584,31 @@ async function receteKaydet(){
   try{
     let receteId=R_EDIT_ID;
     if(receteId){
-      await fetch(SB_URL+'/rest/v1/receteler?id=eq.'+receteId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(govde)});
+      const rPatch=await fetch(SB_URL+'/rest/v1/receteler?id=eq.'+receteId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(govde)});
+      if(!rPatch.ok)throw new Error('Reçete güncellenemedi: '+(await rPatch.text()));
       await fetch(SB_URL+'/rest/v1/recete_kalemleri?recete_id=eq.'+receteId,{method:'DELETE',headers:SB_HEADERS});
     }else{
       const r=await fetch(SB_URL+'/rest/v1/receteler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(govde)});
+      if(!r.ok)throw new Error('Reçete oluşturulamadı: '+(await r.text()));
       const rows=await r.json();
       receteId=rows[0]?.id;
+      if(!receteId)throw new Error('Reçete kaydedildi ama ID dönmedi — sunucu yanıtı: '+JSON.stringify(rows));
     }
-    if(!receteId){throw new Error('Reçete ID alınamadı');}
-    await fetch(SB_URL+'/rest/v1/recete_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(
+    const rKalem=await fetch(SB_URL+'/rest/v1/recete_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(
       dolu.map(k=>({recete_id:receteId,urun_kodu:k.kod,urun_adi:k.ad,miktar:parseFloat(k.miktar),birim:k.birim}))
     )});
+    if(!rKalem.ok)throw new Error('Malzemeler kaydedilemedi: '+(await rKalem.text()));
     await loadReceteler();
     hLD();
     toast(`✅ ${ad} kaydedildi`);
     receteFormKapat();
     renderReceteler();
-  }catch(e){hLD();toast('❌ Kaydedilemedi: '+e.message);}
+  }catch(e){
+    hLD();
+    console.error('Reçete kaydetme hatası:',e);
+    toast('❌ Kaydedilemedi');
+    alert('❌ Reçete kaydedilemedi:\n\n'+e.message);
+  }
 }
 async function receteSil(id){
   const r=DB.receteler[id];if(!r)return;
