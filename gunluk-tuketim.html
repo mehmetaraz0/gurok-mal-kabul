@@ -112,8 +112,38 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="gecmis-liste"></div>
   </div>
 
+  <!-- REÇETE İLE TÜKET -->
+  <div class="sc" id="tTuket">
+    <div class="search-bar">
+      <input type="text" id="tuket-ara" placeholder="Reçete ara..." oninput="renderTuketListe()">
+      <span class="search-icon">🔍</span>
+    </div>
+    <div id="tuket-liste"></div>
+    <div id="tuket-detay"></div>
+  </div>
+
+  <!-- REÇETELER (yönetim) -->
+  <div class="sc" id="tReceteler">
+    <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="receteYeniAc()">➕ Yeni Reçete</button>
+    <div class="search-bar">
+      <input type="text" id="recete-ara" placeholder="Reçete ara..." oninput="renderReceteler()">
+      <span class="search-icon">🔍</span>
+    </div>
+    <div id="recete-liste"></div>
+  </div>
+  <div class="sc" id="tReceteForm"></div>
+
+  <!-- FOOD COST RAPORU -->
+  <div class="sc" id="tFoodCost">
+    <div class="card" id="fc-stats"></div>
+    <div id="fc-liste"></div>
+  </div>
+
   <div class="bnav" id="bnav">
-    <button class="nbtn active" id="nb-giris" onclick="gTab('giris')"><span class="ni">📉</span><span class="nl">Tüketim Gir</span></button>
+    <button class="nbtn active" id="nb-giris" onclick="gTab('giris')"><span class="ni">📉</span><span class="nl">Tüketim</span></button>
+    <button class="nbtn" id="nb-tuket" onclick="gTab('tuket')"><span class="ni">🍽️</span><span class="nl">Reçete Tüket</span></button>
+    <button class="nbtn" id="nb-receteler" onclick="gTab('receteler')"><span class="ni">📖</span><span class="nl">Reçeteler</span></button>
+    <button class="nbtn" id="nb-foodcost" onclick="gTab('foodcost')"><span class="ni">📊</span><span class="nl">Food Cost</span></button>
     <button class="nbtn" id="nb-gecmis" onclick="gTab('gecmis')"><span class="ni">📋</span><span class="nl">Geçmiş</span></button>
   </div>
 </div>
@@ -337,15 +367,392 @@ async function tuketimKaydet(){
 }
 
 // ============================================================
+// REÇETELER — yükleme
+// ============================================================
+async function loadReceteler(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/receteler?select=*,recete_kalemleri(*)&aktif=eq.true&order=ad',{headers:SB_HEADERS});
+    DB.receteler={};
+    if(r.ok){
+      (await r.json()).forEach(row=>{
+        DB.receteler[row.id]={
+          id:row.id,ad:row.ad,kategori:row.kategori,rol:row.rol,otelId:row.otel_id,
+          satisFiyati:parseFloat(row.satis_fiyati)||0,aciklama:row.aciklama||'',
+          olusturanAd:row.olusturan_ad||'',
+          kalemler:(row.recete_kalemleri||[]).map(k=>({id:k.id,kod:k.urun_kodu,ad:k.urun_adi,miktar:parseFloat(k.miktar)||0,birim:k.birim}))
+        };
+      });
+    }
+  }catch(e){console.warn(e);}
+}
+
+async function loadFiyatMap(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/urun_guncel_fiyat?select=urun_kodu,birim_fiyat,birim',{headers:SB_HEADERS});
+    DB.fiyatMap={};
+    if(r.ok){(await r.json()).forEach(row=>{DB.fiyatMap[row.urun_kodu]={fiyat:parseFloat(row.birim_fiyat)||0,birim:row.birim};});}
+  }catch(e){console.warn(e);}
+}
+
+function receteMaliyetHesapla(kalemler){
+  let toplam=0,eksik=[];
+  (kalemler||[]).forEach(k=>{
+    const f=DB.fiyatMap?.[k.kod];
+    if(!f){eksik.push(k.ad);return;}
+    toplam+=(parseFloat(k.miktar)||0)*f.fiyat;
+  });
+  return{toplam:Math.round(toplam*100)/100,eksik};
+}
+
+// ============================================================
+// REÇETELER — listeleme (kendi rolün + yönetici hepsini görür)
+// ============================================================
+function receteGorebilirMi(rec){
+  return CU.rol==='yonetici'||rec.rol===CU.rol;
+}
+function renderReceteler(){
+  const ara=(document.getElementById('recete-ara').value||'').toLowerCase();
+  const c=document.getElementById('recete-liste');
+  let liste=Object.values(DB.receteler||{}).filter(receteGorebilirMi);
+  if(ara)liste=liste.filter(r=>r.ad.toLowerCase().includes(ara));
+  liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📖</div><div class="et">Henüz reçete yok — ➕ Yeni Reçete ile başlayın</div></div>';return;}
+  c.innerHTML=liste.map(r=>{
+    const{toplam,eksik}=receteMaliyetHesapla(r.kalemler);
+    const fc=r.satisFiyati?Math.round(toplam/r.satisFiyati*1000)/10:null;
+    const renk=fc===null?'var(--gray-400)':fc<=30?'var(--success)':fc<=40?'var(--warning)':'var(--danger)';
+    return`<div class="urow" style="border-left-color:${renk};cursor:pointer" onclick="receteDuzenleAc('${r.id}')">
+      <div class="urow-top">
+        <div>
+          <div class="urow-ad">${RIKSON[r.rol]||''} ${r.ad}</div>
+          <div class="urow-stok">${r.kalemler.length} malzeme${eksik.length?` • ⚠️ ${eksik.length} malzemenin fiyatı yok`:''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:800;color:${renk}">${fc!==null?fc+'%':'—'}</div>
+          <div style="font-size:10px;color:var(--gray-400)">${toplam.toFixed(2)}₺ maliyet</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// REÇETE FORMU (oluştur/düzenle)
+// ============================================================
+let RKALEMLER=[];
+let R_EDIT_ID=null;
+function receteYeniAc(){
+  R_EDIT_ID=null;
+  RKALEMLER=[{kod:'',ad:'',miktar:'',birim:'KG'}];
+  renderReceteForm();
+  document.getElementById('tReceteler').style.display='none';
+  document.getElementById('tReceteForm').style.display='block';
+}
+function receteDuzenleAc(id){
+  const r=DB.receteler[id];if(!r)return;
+  R_EDIT_ID=id;
+  RKALEMLER=r.kalemler.map(k=>({...k}));
+  renderReceteForm();
+  document.getElementById('tReceteler').style.display='none';
+  document.getElementById('tReceteForm').style.display='block';
+}
+function receteFormKapat(){
+  document.getElementById('tReceteForm').style.display='none';
+  document.getElementById('tReceteler').style.display='block';
+}
+function renderReceteForm(){
+  const r=R_EDIT_ID?DB.receteler[R_EDIT_ID]:null;
+  const varsayilanRol=CU.rol==='yonetici'?(r?.rol||'mutfak'):CU.rol;
+  document.getElementById('tReceteForm').innerHTML=`
+    <button class="btn btn-gray btn-sm" style="margin-bottom:10px" onclick="receteFormKapat()">← Geri</button>
+    <div class="card">
+      <div class="card-title">${r?'✏️ Reçeteyi Düzenle':'➕ Yeni Reçete'}</div>
+      <div class="field"><label>Reçete Adı *</label><input type="text" id="rf-ad" value="${(r?.ad||'').replace(/"/g,'&quot;')}" placeholder="örn. Köfte Porsiyon"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>Kategori</label>
+          <select id="rf-kategori">
+            ${['yemek','kokteyl','tatli','corba','mezze','diger'].map(k=>`<option value="${k}" ${r?.kategori===k?'selected':''}>${k[0].toUpperCase()+k.slice(1)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Nokta Türü</label>
+          <select id="rf-rol" ${CU.rol!=='yonetici'?'disabled':''}>
+            <option value="mutfak" ${varsayilanRol==='mutfak'?'selected':''}>🍳 Mutfak</option>
+            <option value="bar" ${varsayilanRol==='bar'?'selected':''}>🍹 Bar</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Satış Fiyatı * (₺, KDV hariç)</label><input type="number" id="rf-satis" value="${r?.satisFiyati||''}" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Açıklama</label><input type="text" id="rf-aciklama" value="${(r?.aciklama||'').replace(/"/g,'&quot;')}" placeholder="Opsiyonel"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🥘 Malzemeler (1 porsiyon için)</div>
+      <div id="rf-kalemler"></div>
+      <button class="btn btn-gray btn-sm btn-block" style="margin-top:6px" onclick="rkalemEkle()">➕ Malzeme Ekle</button>
+    </div>
+    <div id="rf-maliyet-onizleme"></div>
+
+    <div style="display:flex;gap:8px;margin:12px 0 20px">
+      ${r?`<button class="btn btn-danger btn-sm" onclick="receteSil('${r.id}')">🗑️ Sil</button>`:''}
+      <button class="btn btn-success" style="flex:1" onclick="receteKaydet()">✅ Kaydet</button>
+    </div>`;
+  renderRKalemler();
+}
+function renderRKalemler(){
+  const c=document.getElementById('rf-kalemler');
+  c.innerHTML=RKALEMLER.map((k,i)=>`
+    <div style="background:var(--gray-100);border-radius:8px;padding:10px;margin-bottom:8px;position:relative">
+      <div style="position:relative;margin-bottom:6px">
+        <input type="text" id="rk-inp-${i}" value="${(k.ad||'').replace(/"/g,'&quot;')}" placeholder="Malzeme adı (2+ harf)..." autocomplete="off"
+          oninput="rkalemAra(${i},this.value)"
+          style="width:100%;padding:9px 10px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
+        <div id="rk-dd-${i}" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid var(--primary);border-top:none;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="number" value="${k.miktar}" placeholder="Miktar" min="0" step="0.001" oninput="RKALEMLER[${i}].miktar=this.value;rkalemMaliyetGuncelle()" style="flex:1;padding:8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px">
+        <input type="text" value="${k.birim}" placeholder="Birim" oninput="RKALEMLER[${i}].birim=this.value" style="width:64px;padding:8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px">
+        ${RKALEMLER.length>1?`<button onclick="RKALEMLER.splice(${i},1);renderRKalemler()" style="background:none;border:none;color:var(--danger);font-size:16px;cursor:pointer">✕</button>`:''}
+      </div>
+      <div style="font-size:10px;color:var(--gray-500);margin-top:3px">⚠️ Miktarı satın alma birimiyle aynı cinsten gir (örn. 150g için 0.15 KG)</div>
+    </div>`).join('');
+  rkalemMaliyetGuncelle();
+}
+function rkalemEkle(){RKALEMLER.push({kod:'',ad:'',miktar:'',birim:'KG'});renderRKalemler();}
+function rkalemAra(i,val){
+  RKALEMLER[i].ad=val;
+  const dd=document.getElementById('rk-dd-'+i);
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const v=val.toLowerCase();
+  const kayitlar=Object.entries(DB.urunAdlari||{}).filter(([kod,u])=>u.ad.toLowerCase().includes(v)).slice(0,15);
+  if(!kayitlar.length){dd.style.display='none';return;}
+  dd.innerHTML=kayitlar.map(([kod,u])=>`<div data-kod="${kod}" data-ad="${u.ad.replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}" style="padding:8px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--gray-100)">${u.ad} <span style="color:var(--gray-400);font-size:10px">${kod}</span></div>`).join('');
+  dd.querySelectorAll('[data-kod]').forEach(el=>{
+    el.addEventListener('pointerdown',function(e){
+      e.preventDefault();
+      RKALEMLER[i]={...RKALEMLER[i],kod:this.dataset.kod,ad:this.dataset.ad,birim:this.dataset.birim};
+      dd.style.display='none';
+      renderRKalemler();
+    });
+  });
+  dd.style.display='block';
+}
+document.addEventListener('pointerdown',e=>{
+  document.querySelectorAll('[id^="rk-dd-"]').forEach(dd=>{
+    const inp=document.getElementById(dd.id.replace('rk-dd-','rk-inp-'));
+    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
+  });
+});
+function rkalemMaliyetGuncelle(){
+  const el=document.getElementById('rf-maliyet-onizleme');
+  if(!el)return;
+  const{toplam,eksik}=receteMaliyetHesapla(RKALEMLER.filter(k=>k.kod&&k.miktar));
+  const satis=parseFloat(document.getElementById('rf-satis')?.value)||0;
+  const fc=satis?Math.round(toplam/satis*1000)/10:null;
+  el.innerHTML=`<div class="card" style="background:var(--primary);color:white">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;opacity:.8">TAHMİNİ MALİYET (1 porsiyon)</div>
+        <div style="font-size:20px;font-weight:800">${toplam.toFixed(2)} ₺</div>
+        ${eksik.length?`<div style="font-size:10px;color:#fde047;margin-top:4px">⚠️ Fiyatı olmayan: ${eksik.join(', ')}</div>`:''}
+      </div>
+      ${fc!==null?`<div style="text-align:right"><div style="font-size:11px;opacity:.8">FOOD COST</div><div style="font-size:20px;font-weight:800">%${fc}</div></div>`:''}
+    </div>
+  </div>`;
+}
+
+async function receteKaydet(){
+  const ad=document.getElementById('rf-ad').value.trim();
+  const satis=parseFloat(document.getElementById('rf-satis').value);
+  if(!ad){toast('⚠️ Reçete adı girin');return;}
+  if(!satis||satis<=0){toast('⚠️ Satış fiyatı zorunlu');return;}
+  const dolu=RKALEMLER.filter(k=>k.kod&&k.miktar&&parseFloat(k.miktar)>0);
+  if(!dolu.length){toast('⚠️ En az bir malzeme ekleyin');return;}
+  sLD();
+  const govde={
+    ad,kategori:document.getElementById('rf-kategori').value,
+    rol:document.getElementById('rf-rol').value,
+    satis_fiyati:satis,aciklama:document.getElementById('rf-aciklama').value||null,
+    olusturan_ad:CU.ad,guncelleme_tarihi:new Date().toISOString()
+  };
+  try{
+    let receteId=R_EDIT_ID;
+    if(receteId){
+      await fetch(SB_URL+'/rest/v1/receteler?id=eq.'+receteId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(govde)});
+      await fetch(SB_URL+'/rest/v1/recete_kalemleri?recete_id=eq.'+receteId,{method:'DELETE',headers:SB_HEADERS});
+    }else{
+      const r=await fetch(SB_URL+'/rest/v1/receteler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(govde)});
+      const rows=await r.json();
+      receteId=rows[0]?.id;
+    }
+    if(!receteId){throw new Error('Reçete ID alınamadı');}
+    await fetch(SB_URL+'/rest/v1/recete_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(
+      dolu.map(k=>({recete_id:receteId,urun_kodu:k.kod,urun_adi:k.ad,miktar:parseFloat(k.miktar),birim:k.birim}))
+    )});
+    await loadReceteler();
+    hLD();
+    toast(`✅ ${ad} kaydedildi`);
+    receteFormKapat();
+    renderReceteler();
+  }catch(e){hLD();toast('❌ Kaydedilemedi: '+e.message);}
+}
+async function receteSil(id){
+  const r=DB.receteler[id];if(!r)return;
+  if(!confirm(`"${r.ad}" silinsin mi?`))return;
+  sLD();
+  try{
+    await fetch(SB_URL+'/rest/v1/receteler?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({aktif:false})});
+    delete DB.receteler[id];
+  }catch(e){}
+  hLD();
+  receteFormKapat();
+  renderReceteler();
+  toast('🗑️ Reçete silindi (pasife alındı)');
+}
+
+// ============================================================
+// REÇETE İLE TÜKET
+// ============================================================
+let _tuketAktifRecete=null;
+function renderTuketListe(){
+  const ara=(document.getElementById('tuket-ara').value||'').toLowerCase();
+  const c=document.getElementById('tuket-liste');
+  let liste=Object.values(DB.receteler||{}).filter(r=>r.rol===CU.rol||CU.rol==='yonetici');
+  if(ara)liste=liste.filter(r=>r.ad.toLowerCase().includes(ara));
+  liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🍽️</div><div class="et">Henüz reçete tanımlı değil</div></div>';return;}
+  c.innerHTML=liste.map(r=>`<div class="urow" style="cursor:pointer" onclick="tuketDetayAc('${r.id}')">
+    <div class="urow-top"><div><div class="urow-ad">${r.ad}</div><div class="urow-stok">${r.kalemler.length} malzeme</div></div></div>
+  </div>`).join('');
+}
+function tuketDetayAc(id){
+  const r=DB.receteler[id];if(!r)return;
+  _tuketAktifRecete=id;
+  document.getElementById('tuket-detay').innerHTML=`
+    <div class="card">
+      <div class="card-title">${r.ad}</div>
+      <div class="field"><label>Kaç Porsiyon Satıldı?</label><input type="number" id="tuket-porsiyon" min="1" step="1" placeholder="örn. 12" oninput="tuketOnizlemeGuncelle()"></div>
+      <div id="tuket-onizleme"></div>
+      <button class="btn btn-success btn-block" style="margin-top:10px" onclick="tuketKaydet()">✅ Stoktan Düş</button>
+    </div>`;
+  tuketOnizlemeGuncelle();
+}
+function tuketOnizlemeGuncelle(){
+  const r=DB.receteler[_tuketAktifRecete];if(!r)return;
+  const porsiyon=parseFloat(document.getElementById('tuket-porsiyon')?.value)||0;
+  const el=document.getElementById('tuket-onizleme');
+  if(!porsiyon){el.innerHTML='';return;}
+  const satirlar=r.kalemler.map(k=>{
+    const gerekli=k.miktar*porsiyon;
+    const mevcut=parseFloat(DB.stok?.[k.kod]?.miktar)||0;
+    const yeterli=mevcut>=gerekli;
+    return{...k,gerekli,mevcut,yeterli};
+  });
+  const{toplam}=receteMaliyetHesapla(r.kalemler.map(k=>({...k,miktar:k.miktar*porsiyon})));
+  const hepsiYeterli=satirlar.every(s=>s.yeterli);
+  el.innerHTML=`
+    ${satirlar.map(s=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-100)">
+      <span>${s.ad}</span>
+      <span style="color:${s.yeterli?'var(--gray-600)':'var(--danger)'};font-weight:${s.yeterli?400:700}">${s.gerekli.toFixed(3)} ${s.birim}${!s.yeterli?' ⚠️ yetersiz ('+s.mevcut.toFixed(2)+' var)':''}</span>
+    </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;font-weight:800;color:var(--primary)">
+      <span>Toplam Maliyet</span><span>${toplam.toFixed(2)} ₺</span>
+    </div>
+    ${!hepsiYeterli?'<div style="color:var(--danger);font-size:11px;margin-top:6px;font-weight:600">⚠️ Bazı malzemeler yetersiz — yine de kaydedersen stok negatife düşmez, 0\'da durur</div>':''}`;
+}
+async function tuketKaydet(){
+  const r=DB.receteler[_tuketAktifRecete];if(!r)return;
+  const porsiyon=parseFloat(document.getElementById('tuket-porsiyon').value);
+  if(!porsiyon||porsiyon<=0){toast('⚠️ Porsiyon sayısı girin');return;}
+  if(!confirm(`${r.ad} — ${porsiyon} porsiyon stoktan düşülecek. Onaylıyor musunuz?`))return;
+  sLD();
+  const otelId=CU.otelId||otelFromBareKod(CU.depoId);
+  const depoId=tamDepoId(otelId,CU.depoId);
+  try{
+    for(const k of r.kalemler){
+      const gerekli=k.miktar*porsiyon;
+      const mevcut=parseFloat(DB.stok?.[k.kod]?.miktar)||0;
+      const yeniMiktar=Math.max(0,mevcut-gerekli);
+      await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
+        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({urun_kodu:k.kod,depo_kodu:depoId,otel_id:otelId,miktar:yeniMiktar})
+      });
+      await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+        urun_kodu:k.kod,depo_kodu:depoId,otel_id:otelId,tip:'cikis',miktar:gerekli,
+        aciklama:`recete_tuketim — ${r.ad} x${porsiyon} — ${CU.ad}`
+      })});
+      if(DB.stok[k.kod])DB.stok[k.kod].miktar=yeniMiktar;
+    }
+    const{toplam}=receteMaliyetHesapla(r.kalemler);
+    const birimMaliyet=toplam;
+    const toplamMaliyet=Math.round(birimMaliyet*porsiyon*100)/100;
+    const fc=r.satisFiyati?Math.round(birimMaliyet/r.satisFiyati*1000)/10:null;
+    await fetch(SB_URL+'/rest/v1/recete_tuketimleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      recete_id:r.id,recete_ad:r.ad,porsiyon_sayisi:porsiyon,
+      birim_maliyet:birimMaliyet,toplam_maliyet:toplamMaliyet,
+      satis_fiyati:r.satisFiyati,food_cost_yuzde:fc,
+      depo_kodu:depoId,otel_id:otelId,olusturan_ad:CU.ad
+    })});
+  }catch(e){hLD();toast('❌ Hata: '+e.message);return;}
+  hLD();
+  toast(`✅ ${r.ad} — ${porsiyon} porsiyon stoktan düşüldü`);
+  document.getElementById('tuket-detay').innerHTML='';
+  _tuketAktifRecete=null;
+  loadStok();
+}
+
+// ============================================================
+// FOOD COST RAPORU
+// ============================================================
+function renderFoodCost(){
+  const liste=Object.values(DB.receteler||{}).filter(receteGorebilirMi).map(r=>{
+    const{toplam,eksik}=receteMaliyetHesapla(r.kalemler);
+    const fc=r.satisFiyati?Math.round(toplam/r.satisFiyati*1000)/10:null;
+    return{...r,maliyet:toplam,fc,eksikSayisi:eksik.length};
+  }).sort((a,b)=>(b.fc??-1)-(a.fc??-1));
+
+  if(!liste.length){
+    document.getElementById('fc-stats').innerHTML='';
+    document.getElementById('fc-liste').innerHTML='<div class="es"><div class="ei">📊</div><div class="et">Henüz reçete yok</div></div>';
+    return;
+  }
+  const gecerli=liste.filter(r=>r.fc!==null);
+  const ortFc=gecerli.length?Math.round(gecerli.reduce((t,r)=>t+r.fc,0)/gecerli.length*10)/10:0;
+  const riskli=liste.filter(r=>r.fc!==null&&r.fc>40).length;
+  document.getElementById('fc-stats').innerHTML=`
+    <div class="card-title">📊 Food Cost Özeti</div>
+    <div style="display:flex;gap:10px">
+      <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--primary)">${liste.length}</div><div style="font-size:10px;color:var(--gray-500)">Reçete</div></div>
+      <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:800;color:${ortFc<=30?'var(--success)':ortFc<=40?'var(--warning)':'var(--danger)'}">%${ortFc}</div><div style="font-size:10px;color:var(--gray-500)">Ort. Food Cost</div></div>
+      <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--danger)">${riskli}</div><div style="font-size:10px;color:var(--gray-500)">Riskli (%40+)</div></div>
+    </div>`;
+  document.getElementById('fc-liste').innerHTML=liste.map(r=>{
+    const renk=r.fc===null?'var(--gray-400)':r.fc<=30?'var(--success)':r.fc<=40?'var(--warning)':'var(--danger)';
+    return`<div class="urow" style="border-left-color:${renk}">
+      <div class="urow-top">
+        <div><div class="urow-ad">${RIKSON[r.rol]||''} ${r.ad}</div>
+          <div class="urow-stok">Maliyet: ${r.maliyet.toFixed(2)}₺ • Satış: ${r.satisFiyati.toFixed(2)}₺${r.eksikSayisi?` • ⚠️ ${r.eksikSayisi} malzeme fiyatsız`:''}</div>
+        </div>
+        <div style="font-size:16px;font-weight:800;color:${renk}">${r.fc!==null?'%'+r.fc:'—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
 // NAVİGASYON
 // ============================================================
 function gTab(tab){
   GT=tab;
-  document.getElementById('tGiris').style.display=tab==='giris'?'block':'none';
-  document.getElementById('tGecmis').style.display=tab==='gecmis'?'block':'none';
-  document.getElementById('nb-giris').classList.toggle('active',tab==='giris');
-  document.getElementById('nb-gecmis').classList.toggle('active',tab==='gecmis');
+  ['giris','tuket','receteler','foodcost','gecmis'].forEach(t=>{
+    const map={giris:'tGiris',tuket:'tTuket',receteler:'tReceteler',foodcost:'tFoodCost',gecmis:'tGecmis'};
+    document.getElementById(map[t]).style.display=(t===tab)?'block':'none';
+    document.getElementById('nb-'+t).classList.toggle('active',t===tab);
+  });
+  document.getElementById('tReceteForm').style.display='none';
   if(tab==='gecmis')loadGecmis();
+  if(tab==='tuket'){document.getElementById('tuket-detay').innerHTML='';renderTuketListe();}
+  if(tab==='receteler')renderReceteler();
+  if(tab==='foodcost')renderFoodCost();
 }
 
 function basla(){
@@ -353,6 +760,8 @@ function basla(){
   const depoEtiket=CU.depoId?`${CU.depoId}`:'—';
   document.getElementById('hsub').textContent=(RIKSON[CU.rol]||'👤')+' '+CU.ad+' • '+depoEtiket;
   loadStok();
+  loadReceteler();
+  loadFiyatMap();
   gTab('giris');
 }
 
@@ -379,23 +788,5 @@ function hLD(){document.getElementById('ld').classList.remove('show');}
   }
 })();
 </script>
-</body>
-</html>
-<!-- GEÇMİŞ -->
-  <div class="sc" id="tGecmis">
-    <div style="font-size:12px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase">Son 30 Gün</div>
-    <div id="gecmis-liste"></div>
-  </div>
-
-  <div class="bnav" id="bnav">
-    <button class="nbtn active" id="nb-giris" onclick="gTab('giris')"><span class="ni">📉</span><span class="nl">Tüketim Gir</span></button>
-    <button class="nbtn" id="nb-gecmis" onclick="gTab('gecmis')"><span class="ni">📋</span><span class="nl">Geçmiş</span></button>
-  </div>
-</div>
-
-<div id="toast"></div>
-<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
-
-<!-- Eski (yinelenen) script bloğu kaldırıldı — yönetici rolü destekli sürüm yukarıda -->
 </body>
 </html>
