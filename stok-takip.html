@@ -308,6 +308,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div class="modal-overlay" id="modal-cikis">
   <div class="modal-box">
     <div class="modal-title">➖ Manuel Çıkış <button class="modal-close" onclick="closeModal('modal-cikis')">✕</button></div>
+    <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:10px" onclick="qrOkutmaBaslat()">📷 Koli Barkodu Okut</button>
+    <div id="qr-okuyucu" style="display:none;margin-bottom:10px;border-radius:12px;overflow:hidden"></div>
+    <div id="qr-sonuc" style="display:none;background:#d4edda;color:#155724;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;margin-bottom:10px"></div>
     <div class="field">
       <label>Depo</label>
       <select id="cikis-depo"><!-- JS doldurur --></select>
@@ -1152,6 +1155,71 @@ document.addEventListener('pointerdown',e=>{
 // ============================================================
 // MANUEL ÇIKIŞ
 // ============================================================
+// ============================================================
+// QR KOLİ OKUTMA — Mal Kabul'de basılan etiket okutulunca
+// ürün/miktar/seri/SKT otomatik dolar; çıkış kaydedilince koli 'cikti' olur.
+// ============================================================
+let _qrScanner=null;
+let _okunanKoli=null;
+
+function qrOkutmaBaslat(){
+  const kutu=document.getElementById('qr-okuyucu');
+  if(_qrScanner){qrOkutmaDurdur();return;}
+  kutu.style.display='block';
+  const basla=()=>{
+    _qrScanner=new Html5Qrcode('qr-okuyucu');
+    _qrScanner.start(
+      {facingMode:'environment'},
+      {fps:10,qrbox:{width:220,height:220}},
+      async(text)=>{await qrOkundu(text);},
+      ()=>{} // okuma denemeleri sessiz
+    ).catch(e=>{showToast('⚠️ Kamera açılamadı: '+e);kutu.style.display='none';_qrScanner=null;});
+  };
+  if(typeof Html5Qrcode==='undefined'){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+    s.onload=basla;
+    s.onerror=()=>{showToast('⚠️ QR kütüphanesi yüklenemedi (internet?)');kutu.style.display='none';};
+    document.head.appendChild(s);
+  }else basla();
+}
+
+function qrOkutmaDurdur(){
+  if(_qrScanner){_qrScanner.stop().catch(()=>{});_qrScanner=null;}
+  document.getElementById('qr-okuyucu').style.display='none';
+}
+
+async function qrOkundu(text){
+  if(!text.startsWith('KOLI:'))return; // başka QR'ları yok say
+  qrOkutmaDurdur();
+  const koliId=text.slice(5).trim();
+  showLoading();
+  let koli=null;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/koli_etiketleri?id=eq.'+encodeURIComponent(koliId),{headers:SB_HEADERS});
+    if(r.ok){const rows=await r.json();koli=rows[0]||null;}
+  }catch(e){}
+  hideLoading();
+  if(!koli){showToast('❌ Koli bulunamadı — etiket geçersiz olabilir');return;}
+  if(koli.durum==='cikti'){
+    showToast(`⚠️ Bu koli ZATEN ÇIKMIŞ (${koli.cikis_tarihi?new Date(koli.cikis_tarihi).toLocaleString('tr-TR'):''}${koli.cikis_depo?' → '+koli.cikis_depo:''})`);
+    return;
+  }
+  _okunanKoli=koli;
+  // Formu doldur
+  document.getElementById('cikis-urun-inp').value=koli.urun_adi;
+  document.getElementById('cikis-urun-kod').value=koli.urun_kodu||'';
+  document.getElementById('cikis-miktar').value=koli.miktar;
+  const birimSel=document.getElementById('cikis-birim');
+  if(![...birimSel.options].some(o=>o.value===koli.birim))birimSel.add(new Option(koli.birim,koli.birim));
+  birimSel.value=koli.birim;
+  document.getElementById('cikis-not').value=`Koli ${koli.koli_no||''}${koli.seri_no?' • Lot: '+koli.seri_no:''}${koli.skt_tarihi?' • SKT: '+koli.skt_tarihi:''}`.trim();
+  const sonuc=document.getElementById('qr-sonuc');
+  sonuc.style.display='block';
+  sonuc.innerHTML=`✅ Okundu: <b>${koli.urun_adi}</b> — ${parseFloat(koli.miktar).toFixed(2)} ${koli.birim}${koli.skt_tarihi?' • SKT: '+new Date(koli.skt_tarihi).toLocaleDateString('tr-TR'):''}`;
+  showToast('✅ Koli okundu — kontrol edip Kaydet\'e basın');
+}
+
 async function saveCikis(){
   const depoId=document.getElementById('cikis-depo').value;
   const kod=document.getElementById('cikis-urun-kod').value;
@@ -1167,11 +1235,22 @@ async function saveCikis(){
   showLoading();
   const h=cikis(depoId,kod,ad,miktar,birim,neden,not);
   await saveStok();await saveHareket(h);
+  // QR ile okutulmuş koli varsa 'cikti' olarak işaretle (aynı etiket ikinci kez kullanılamaz)
+  if(_okunanKoli&&_okunanKoli.urun_kodu===kod){
+    try{
+      await fetch(SB_URL+'/rest/v1/koli_etiketleri?id=eq.'+_okunanKoli.id,{
+        method:'PATCH',headers:SB_HEADERS,
+        body:JSON.stringify({durum:'cikti',cikis_depo:depoId,cikis_tarihi:new Date().toISOString()})
+      });
+    }catch(e){}
+    _okunanKoli=null;
+  }
   hideLoading();
   closeModal('modal-cikis');
   document.getElementById('cikis-urun-inp').value='';
   document.getElementById('cikis-urun-kod').value='';
   document.getElementById('cikis-miktar').value='';
+  document.getElementById('qr-sonuc').style.display='none';
   renderStok();showToast(`✅ Çıkış kaydedildi — ${miktar} ${birim}`);
 }
 
@@ -1495,7 +1574,10 @@ function switchTab(tab){
   if(tab==='hareketler')renderHareketler();
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  if(id==='modal-cikis'&&typeof qrOkutmaDurdur==='function')qrOkutmaDurdur();
+}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function gotoPortal(){window.location.href='index.html';}
 function showToast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
