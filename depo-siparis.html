@@ -773,6 +773,9 @@ function rGelen(){
 // ====== ONAY MODALI ======
 function aOnay(id){
   const s=DB.siparisler[id];if(!s)return;
+  _onayKolileri=[]; // önceki talebin okutmaları temizlensin
+  _onayAktifSipId=id;
+  depoQrDurdur();
   const otelId=s.otelId||otelFromBareKod(s.departmanId)||'810';
   const merkeziDepoId=tamDepoId(otelId,merkeziDepoKodu(otelId));
   document.getElementById('mOnayIc').innerHTML=`
@@ -793,6 +796,9 @@ function aOnay(id){
     }).join('')}
     ${s.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${s.not}</div>`:''}
     ${s.durum==='bekleyen'?`
+      <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:8px" onclick="depoQrBaslat('${id}')">📷 Koli Okut (miktarlar otomatik birikir)</button>
+      <div id="depo-qr-okuyucu" style="display:none;margin-bottom:8px;border-radius:12px;overflow:hidden"></div>
+      <div id="depo-qr-liste"></div>
       <div class="field"><label>Red Notu</label><input type="text" id="rednot" placeholder="Neden reddedildi?"></div>
       <div class="brow" style="margin-top:8px;">
         <button class="btn btn-gray btn-sm" onclick="kModal('mOnay')">Kapat</button>
@@ -807,6 +813,107 @@ function aOnay(id){
         <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">🖨️ PDF Çıktı</button>
       </div>`}`;
   aModal('mOnay');
+}
+
+// ============================================================
+// KOLİ QR OKUTMA (İç Talep hazırlama) — okutulan her koli:
+// 1) Talepteki aynı ürün satırının "Onaylanan" miktarına EKLENİR (birikir)
+// 2) Onayda koli hedef depoya devredilir (depo_kodu güncellenir, tekrar okutulabilir)
+// ============================================================
+let _onayKolileri=[];
+let _depoQrScanner=null;
+let _onayAktifSipId=null;
+
+function depoQrBaslat(sipId){
+  const kutu=document.getElementById('depo-qr-okuyucu');
+  if(_depoQrScanner){depoQrDurdur();return;}
+  const basla=()=>{
+    kutu.style.display='block';
+    _depoQrScanner=new Html5Qrcode('depo-qr-okuyucu');
+    _depoQrScanner.start(
+      {facingMode:'environment'},
+      {fps:10,qrbox:{width:220,height:220}},
+      async(text)=>{await depoQrOkundu(text,sipId);},
+      ()=>{}
+    ).catch(e=>{toast('⚠️ Kamera açılamadı: '+e);kutu.style.display='none';_depoQrScanner=null;});
+  };
+  if(typeof Html5Qrcode==='undefined'){
+    const sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+    sc.onload=basla;
+    sc.onerror=()=>toast('⚠️ QR kütüphanesi yüklenemedi (internet?)');
+    document.head.appendChild(sc);
+  }else basla();
+}
+function depoQrDurdur(){
+  if(_depoQrScanner){_depoQrScanner.stop().catch(()=>{});_depoQrScanner=null;}
+  const kutu=document.getElementById('depo-qr-okuyucu');
+  if(kutu)kutu.style.display='none';
+}
+
+let _sonOkumaZamani=0;
+async function depoQrOkundu(text,sipId){
+  if(!text.startsWith('KOLI:'))return;
+  // Aynı kodun art arda tekrar tetiklenmesini engelle (kamera saniyede 10 kare okur)
+  if(Date.now()-_sonOkumaZamani<1500)return;
+  _sonOkumaZamani=Date.now();
+
+  const koliId=text.slice(5).trim();
+  if(_onayKolileri.some(k=>k.id===koliId)){toast('⚠️ Bu koli bu talepte zaten okutuldu');return;}
+
+  let koli=null;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/koli_etiketleri?id=eq.'+encodeURIComponent(koliId),{headers:SB_HEADERS});
+    if(r.ok){const rows=await r.json();koli=rows[0]||null;}
+  }catch(e){}
+  if(!koli){toast('❌ Koli bulunamadı — etiket geçersiz');return;}
+  if(koli.durum!=='depoda'){toast(`⚠️ Bu koli kullanılamaz (durum: ${koli.durum})`);return;}
+
+  const s=DB.siparisler[sipId];if(!s)return;
+  const urunler=s.urunler||s.kalemler||[];
+  const idx=urunler.findIndex(u=>u.kod===koli.urun_kodu);
+  if(idx<0){toast(`⚠️ ${koli.urun_adi} bu talepte YOK — yanlış koli olabilir`);return;}
+
+  _onayKolileri.push({id:koli.id,urunKodu:koli.urun_kodu,urunAdi:koli.urun_adi,miktar:parseFloat(koli.miktar)||0,birim:koli.birim,koliNo:koli.koli_no,skt:koli.skt_tarihi});
+
+  // Onaylanan miktarı okutulan kolilerden yeniden hesapla (birikir)
+  const inp=document.getElementById('om'+idx);
+  if(inp){
+    const okutulanToplam=_onayKolileri.filter(k=>k.urunKodu===koli.urun_kodu).reduce((t,k)=>t+k.miktar,0);
+    inp.value=Math.round(okutulanToplam*100)/100;
+    inp.style.background='#d4edda';
+  }
+  depoQrListeRender();
+  toast(`✅ ${koli.urun_adi} — ${parseFloat(koli.miktar).toFixed(2)} ${koli.birim} eklendi`);
+}
+
+function depoQrListeRender(){
+  const c=document.getElementById('depo-qr-liste');if(!c)return;
+  if(!_onayKolileri.length){c.innerHTML='';return;}
+  c.innerHTML=`<div style="background:#f0fdf4;border:1px solid var(--success);border-radius:8px;padding:8px 10px;margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;color:#155724;margin-bottom:4px">📦 Okutulan koliler (${_onayKolileri.length})</div>
+    ${_onayKolileri.map((k,i)=>`<div style="font-size:11px;color:#155724;display:flex;justify-content:space-between;align-items:center;padding:2px 0">
+      <span>${k.urunAdi} — Koli ${k.koliNo||'?'} — <b>${k.miktar.toFixed(2)} ${k.birim}</b></span>
+      <button onclick="depoKoliCikar(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px">✕</button>
+    </div>`).join('')}
+  </div>`;
+}
+function depoKoliCikar(i){
+  const cikan=_onayKolileri.splice(i,1)[0];
+  if(cikan&&_onayAktifSipId){
+    const s=DB.siparisler[_onayAktifSipId];
+    const urunler=s?(s.urunler||s.kalemler||[]):[];
+    const idx=urunler.findIndex(u=>u.kod===cikan.urunKodu);
+    if(idx>=0){
+      const inp=document.getElementById('om'+idx);
+      if(inp){
+        const kalanToplam=_onayKolileri.filter(k=>k.urunKodu===cikan.urunKodu).reduce((t,k)=>t+k.miktar,0);
+        inp.value=Math.round(kalanToplam*100)/100;
+        if(kalanToplam===0)inp.style.background='';
+      }
+    }
+  }
+  depoQrListeRender();
 }
 
 async function onayla(id){
@@ -863,6 +970,22 @@ async function onayla(id){
   await saveStok(hedefDepoId,DB.stok[hedefDepoId]||{});
   for(const h of harlar)await saveHar(h);
   await saveSipDurum(s);
+
+  // Okutulan kolileri hedef depoya devret — koli fiziken taşındı,
+  // etiketi hedef noktada (tüketim çıkışında) tekrar okutulabilir.
+  if(_onayKolileri.length){
+    for(const k of _onayKolileri){
+      try{
+        await fetch(SB_URL+'/rest/v1/koli_etiketleri?id=eq.'+k.id,{
+          method:'PATCH',headers:SB_HEADERS,
+          body:JSON.stringify({depo_kodu:hedefDepoId})
+        });
+      }catch(e){}
+    }
+    s.okutulanKoliler=_onayKolileri.map(k=>k.id);
+    _onayKolileri=[];
+  }
+  depoQrDurdur();
   hLD();toast('✅ Onaylandı, stok transferi yapıldı');rGelen();rBugun();
 }
 
