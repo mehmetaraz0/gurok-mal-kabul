@@ -527,7 +527,20 @@ function renderKoliModal(){
   const toplam=k.koliler.reduce((t,x)=>t+(parseFloat(x)||0),0);
   document.getElementById('mKoliIc').innerHTML=`
     <div style="font-size:13px;font-weight:700;margin-bottom:2px">${k.ad||'Ürün'}</div>
-    <div style="font-size:11px;color:var(--gray-400);margin-bottom:10px">Her kolinin kendi ${k.birim} değerini gir — her koliye ayrı QR etiketi basılacak.</div>
+    <div style="font-size:11px;color:var(--gray-400);margin-bottom:10px">Her koliye ayrı QR etiketi basılacak.</div>
+
+    <!-- SABİT KİLO MODU — fabrika paketi gibi hepsi aynı ağırlıktaysa tek satırda tümünü doldurur -->
+    <div style="background:#ede9fe;border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:#5b21b6;margin-bottom:6px">⚡ Sabit Kilo Modu — hepsi aynı ağırlıktaysa</div>
+      <div style="display:flex;gap:6px">
+        <input type="number" id="koli-sabit-kg" placeholder="Kilo (örn. 12.5)" min="0" step="0.01" style="flex:1;padding:9px;border:1.5px solid #c4b5fd;border-radius:8px;font-size:13px;outline:none">
+        <input type="number" id="koli-sabit-adet" placeholder="Adet (örn. 120)" min="1" step="1" style="flex:1;padding:9px;border:1.5px solid #c4b5fd;border-radius:8px;font-size:13px;outline:none">
+        <button class="btn btn-sm" style="background:#5b21b6;color:white" onclick="koliSabitUygula()">Uygula</button>
+      </div>
+      <div style="font-size:10px;color:#7c3aed;margin-top:4px">Örn: 1500 kg'lık alım, 12.5 kg'lık 120 koli → 12.5 ve 120 gir, tüm etiketler tek seferde oluşur</div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--gray-500);margin-bottom:6px">— veya farklı ağırlıklarda tek tek gir —</div>
     <div style="display:flex;gap:6px;margin-bottom:10px">
       <input type="number" id="koli-adet" placeholder="Koli sayısı" min="1" step="1" style="flex:1;padding:9px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
       <button class="btn btn-sm btn-gray" onclick="koliSayisiOlustur()">Satır Oluştur</button>
@@ -547,6 +560,16 @@ function renderKoliModal(){
       <span style="font-size:12px;font-weight:700">TOPLAM (Miktar alanına yazılır)</span>
       <span id="koli-toplam" style="font-size:16px;font-weight:800">${toplam.toFixed(2)} ${k.birim}</span>
     </div>`;
+}
+function koliSabitUygula(){
+  const kg=parseFloat(document.getElementById('koli-sabit-kg').value);
+  const adet=parseInt(document.getElementById('koli-sabit-adet').value);
+  if(!kg||kg<=0){toast('⚠️ Kilo girin');return;}
+  if(!adet||adet<1||adet>500){toast('⚠️ 1-500 arası adet girin');return;}
+  const k=formKalemleri[_koliAktifKalem];
+  k.koliler=Array.from({length:adet},()=>String(kg));
+  renderKoliModal();
+  toast(`⚡ ${adet} koli × ${kg} ${k.birim} = ${(kg*adet).toFixed(2)} ${k.birim} dolduruldu`);
 }
 function koliSayisiOlustur(){
   const adet=parseInt(document.getElementById('koli-adet').value)||0;
