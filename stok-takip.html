@@ -722,11 +722,20 @@ async function loadDB(){
       fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)',{headers:SB_HEADERS}),
       loadKullanicilarFromSupabase(),
     ]);
+    // Ürün kataloğunu önce yükle — stok satırlarına ad/birim eklemek için lazım
+    db.urunler=urunR.ok?await urunR.json():[];
+    const katalogMap={};
+    db.urunler.forEach(u=>{katalogMap[u.kod]={ad:u.ad,birim:u.birim};});
+
     db.stok={};
     if(stokR.ok){
       (await stokR.json()).forEach(r=>{
         if(!db.stok[r.depo_kodu])db.stok[r.depo_kodu]={};
-        db.stok[r.depo_kodu][r.urun_kodu]={miktar:parseFloat(r.miktar)||0,_id:r.id};
+        const kat=katalogMap[r.urun_kodu]||{};
+        db.stok[r.depo_kodu][r.urun_kodu]={
+          miktar:parseFloat(r.miktar)||0,_id:r.id,
+          lnKod:r.urun_kodu,urunAd:kat.ad||r.urun_kodu,birim:kat.birim||r.birim||''
+        };
       });
     }
     db.hareketler={};
@@ -745,7 +754,6 @@ async function loadDB(){
       });
     }
     if(kul&&kul.length)db.kullanicilar=kul;
-    if(urunR.ok)db.urunler=await urunR.json();
     if(cariR.ok)db.cariler=await cariR.json();
   }catch(e){console.warn('Supabase yükleme:',e);}
   if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
