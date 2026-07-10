@@ -1620,26 +1620,45 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   setInterval(malKabulOnayKontrolEt,30000);
 })();
 
-const ISLENMIS_KEY='gurok_stok_islenmis';
+// GÜVENLİK AĞI — normalde mal-kabul-v2.html onay anında stoğu ANINDA işler
+// (stok_islendi=true yazarak). Bu fonksiyon artık sadece o adımın herhangi bir
+// nedenle (bağlantı kopması vb.) başarısız kaldığı nadir durumlar için yedek.
+// Eskiden bu, TEK stok işleme yoluydu ve localStorage'a (cihaza özel) bağlıydı —
+// bu yüzden kimse stok-takip.html'i açmadıysa stok hiç işlenmiyordu. Artık
+// sunucu taraflı stok_islendi bayrağını kullanıyor, çift işleme riski yok.
 async function malKabulOnayKontrolEt(){
   try{
-    const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?durum=eq.onaylandi&select=id,otel_id,mal_kabul_urunleri(*)',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?durum=eq.onaylandi&stok_islendi=eq.false&select=id,otel_id,mk_no,firma_ad,mal_kabul_urunleri(*)',{headers:SB_HEADERS});
     if(!r.ok)return;
     const rows=await r.json();
-    const formlar=rows.map(row=>({
-      id:row.id,otel_id:row.otel_id,
-      urunler:(row.mal_kabul_urunleri||[]).map(u=>({kod:u.urun_kodu,ad:u.urun_adi,miktar:parseFloat(u.miktar)||0,birim:u.birim}))
-    }));
-    const islenmis=new Set(JSON.parse(localStorage.getItem(ISLENMIS_KEY)||'[]'));
-    let yeni=false;
-    for(const f of formlar){
-      if(!islenmis.has(String(f.id))){
-        await malKabulOnayGiris(f);
-        islenmis.add(String(f.id));yeni=true;
+    if(!rows.length)return;
+    for(const row of rows){
+      const otelId=row.otel_id||'810';
+      const bareDepoKodu=otelId==='811'?'300':'100';
+      const depoKompozit=otelId+'_'+bareDepoKodu;
+      for(const u of (row.mal_kabul_urunleri||[])){
+        if(!u.urun_kodu||!u.miktar)continue;
+        const miktar=parseFloat(u.miktar)||0;
+        if(miktar<=0)continue;
+        let mevcut=0;
+        try{
+          const rr=await fetch(SB_URL+`/rest/v1/stok?urun_kodu=eq.${encodeURIComponent(u.urun_kodu)}&depo_kodu=eq.${encodeURIComponent(depoKompozit)}&select=miktar`,{headers:SB_HEADERS});
+          if(rr.ok){const rows2=await rr.json();if(rows2[0])mevcut=parseFloat(rows2[0].miktar)||0;}
+        }catch(e){}
+        await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
+          method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+          body:JSON.stringify({urun_kodu:u.urun_kodu,depo_kodu:depoKompozit,otel_id:otelId,miktar:mevcut+miktar})
+        });
+        await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+          urun_kodu:u.urun_kodu,depo_kodu:depoKompozit,otel_id:otelId,tip:'giris',miktar,
+          belge_no:row.mk_no,aciklama:`Mal kabul (gecikmeli işlendi): ${row.mk_no} — ${row.firma_ad||''}`
+        })});
       }
+      await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+row.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({stok_islendi:true})});
     }
-    if(yeni){localStorage.setItem(ISLENMIS_KEY,JSON.stringify([...islenmis]));renderStok();showToast('📦 Mal kabul stoka işlendi');}
-  }catch(e){}
+    await loadDB();renderStok();
+    showToast(`📦 ${rows.length} bekleyen mal kabul stoka işlendi (güvenlik ağı)`);
+  }catch(e){console.warn('malKabulOnayKontrolEt hatası:',e);}
 }
 </script>
 </body>
