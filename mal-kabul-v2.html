@@ -1280,15 +1280,49 @@ async function kaliteOnayla(id){
   if(!confirm(mesaj))return;
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});
+    // Stok, stok-takip.html'in açılmasını beklemeden BURADA, onay anında işlenir.
+    // "810_100" gibi composite depo koduyla — stok-takip.html/depo-siparis.html'in beklediği format bu.
+    await stokaIsle(f);
+    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi',stok_islendi:true})});
     // Sipariş kalan/gelen miktarı SADECE burada, onay anında güncellenir
     await siparisMiktarUygula(f,1);
   }catch(e){console.warn(e);}
   await auditLogYaz('approve','mal_kabul',id,`Kalite onayı verildi: ${f.mkNo}`);
   hLD();
   await loadDB();renderListe();renderKaliteOnay();
-  toast('✅ Onaylandı');
+  toast('✅ Onaylandı — stok işlendi');
   kabulOzetAc(id,{onaylayan:currentUser.ad,onayTarih:Date.now()});
+}
+
+// ============================================================
+// STOĞA İŞLEME — mal kabul onaylanınca, composite depo koduyla
+// (otelId + '_' + bareDepoKodu), stok-takip.html/depo-siparis.html ile
+// AYNI formatta. Buradan başka hiçbir yerin stoğa yazmasına gerek yok.
+// ============================================================
+async function stokaIsle(f){
+  const otelId=f.otelId||'810';
+  const bareDepoKodu=otelId==='811'?'300':'100';
+  const depoKompozit=otelId+'_'+bareDepoKodu;
+  for(const u of (f.urunler||[])){
+    if(!u.kod||!u.miktar)continue;
+    const miktar=parseFloat(u.miktar)||0;
+    if(miktar<=0)continue;
+    // Mevcut miktarı öğren (upsert için)
+    let mevcut=0;
+    try{
+      const r=await fetch(SB_URL+`/rest/v1/stok?urun_kodu=eq.${encodeURIComponent(u.kod)}&depo_kodu=eq.${encodeURIComponent(depoKompozit)}&select=miktar`,{headers:SB_HEADERS});
+      if(r.ok){const rows=await r.json();if(rows[0])mevcut=parseFloat(rows[0].miktar)||0;}
+    }catch(e){}
+    const yeniMiktar=mevcut+miktar;
+    await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
+      method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({urun_kodu:u.kod,depo_kodu:depoKompozit,otel_id:otelId,miktar:yeniMiktar})
+    });
+    await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      urun_kodu:u.kod,depo_kodu:depoKompozit,otel_id:otelId,tip:'giris',miktar,
+      belge_no:f.mkNo,aciklama:`Mal kabul: ${f.mkNo} — ${f.firma}`
+    })});
+  }
 }
 async function kaliteReddet(id){
   const f=malKabuller[id];if(!f)return;
