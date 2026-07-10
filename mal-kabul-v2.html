@@ -1505,7 +1505,7 @@ async function koliEtiketYazdir(mkId){
           <div class="kg">${parseFloat(k.miktar).toFixed(2)} ${k.birim}</div>
           <div class="detay">
             Koli ${k.koli_no||i+1}${k.seri_no?' • Lot: '+k.seri_no:''}<br>
-            ${k.skt_tarihi?'SKT: '+new Date(k.skt_tarihi).toLocaleDateString('tr-TR'):''}
+            Giriş: ${k.olusturma_tarihi?new Date(k.olusturma_tarihi).toLocaleDateString('tr-TR'):'—'}${k.skt_tarihi?' • SKT: '+new Date(k.skt_tarihi).toLocaleDateString('tr-TR'):''}
           </div>
           <div class="mkno">${f?.mkNo||''} • ${f?.firma||''}</div>
         </div>
