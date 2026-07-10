@@ -101,6 +101,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <option value="811">🏨 Resort</option>
     </select>
     <button class="hbtn" id="hbtnYeni" onclick="aModal('mYeni')" style="display:none">➕</button>
+    <button class="hbtn" onclick="yenidenYukle()" title="Yenile">🔄</button>
   </div>
   <div class="sc" id="tVer"><!-- Mutfak: Talep Ver --></div>
   <div class="sc" id="tTaleplerim"><!-- Mutfak: Taleplerim --></div>
@@ -454,6 +455,14 @@ function talepSbdenCamele(r){
       birim:k.birim,not:k.not_alani||''
     }))
   };
+}
+
+async function yenidenYukle(){
+  sLD();
+  await loadDB();
+  hLD();
+  basla();
+  toast('🔄 Veriler tazelendi');
 }
 
 async function loadDB(){
@@ -939,6 +948,25 @@ async function onayla(id){
     toast('⚠️ '+kodsuz[0].ad+' — LN kodu eksik, stok takibi yapılamaz');
     return;
   }
+
+  // Kontrolden hemen önce merkezi depo stoğunu CANLI tazele — sayfa uzun süre açık kalmış,
+  // başka bir sekmede/kişide stok değişmiş olabilir. Önbellekteki (DB.stok) eski veriye güvenme.
+  sLD();
+  try{
+    const kodlar=[...new Set(urunler.filter(u=>u.kod&&u.onaylananMiktar>0).map(u=>u.kod))];
+    if(kodlar.length){
+      const filtre=kodlar.map(k=>`"${k}"`).join(',');
+      const rTaze=await fetch(SB_URL+`/rest/v1/stok?depo_kodu=eq.${encodeURIComponent(merkeziDepoId)}&urun_kodu=in.(${filtre})&select=urun_kodu,miktar`,{headers:SB_HEADERS});
+      if(rTaze.ok){
+        if(!DB.stok[merkeziDepoId])DB.stok[merkeziDepoId]={};
+        (await rTaze.json()).forEach(row=>{
+          if(!DB.stok[merkeziDepoId][row.urun_kodu])DB.stok[merkeziDepoId][row.urun_kodu]={lnKod:row.urun_kodu};
+          DB.stok[merkeziDepoId][row.urun_kodu].miktar=parseFloat(row.miktar)||0;
+        });
+      }
+    }
+  }catch(e){console.warn('Canlı stok tazeleme başarısız, önbellekteki veriyle devam:',e);}
+  hLD();
 
   // ENGEL 3: Merkezi depoda (gerçek 100/300 İşletme Depo) stok yetersiz kontrolü
   const yetersiz=urunler.filter(u=>{
