@@ -1280,13 +1280,25 @@ async function kaliteOnayla(id){
   if(!confirm(mesaj))return;
   sLD();
   try{
-    // Stok, stok-takip.html'in açılmasını beklemeden BURADA, onay anında işlenir.
-    // "810_100" gibi composite depo koduyla — stok-takip.html/depo-siparis.html'in beklediği format bu.
-    await stokaIsle(f);
-    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi',stok_islendi:true})});
+    // 1) Onayı KESİNLEŞTİR — bu, stok_islendi kolonu olmasa bile mutlaka başarılı olmalı
+    const rOnay=await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});
+    if(!rOnay.ok){
+      const hataMetni=await rOnay.text();
+      hLD();
+      alert('❌ Onay kaydedilemedi:\n\n'+hataMetni);
+      return;
+    }
+    // 2) Stoğu işle — composite depo koduyla (810_100 / 811_300)
+    const stokBasarili=await stokaIsle(f);
+    // 3) stok_islendi bayrağını ayrı, kendi başına dene — kolon yoksa (SQL migration çalıştırılmadıysa)
+    //    burada hata alsa bile onay/stok yazımı zaten tamamlanmış olur, geri sarmaz.
+    if(stokBasarili){
+      try{await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({stok_islendi:true})});}
+      catch(e){console.warn('stok_islendi bayrağı yazılamadı (stok-islendi-fix.sql çalıştırıldı mı?):',e);}
+    }
     // Sipariş kalan/gelen miktarı SADECE burada, onay anında güncellenir
     await siparisMiktarUygula(f,1);
-  }catch(e){console.warn(e);}
+  }catch(e){console.warn(e);hLD();alert('❌ Onay sırasında hata: '+e.message);return;}
   await auditLogYaz('approve','mal_kabul',id,`Kalite onayı verildi: ${f.mkNo}`);
   hLD();
   await loadDB();renderListe();renderKaliteOnay();
@@ -1303,26 +1315,41 @@ async function stokaIsle(f){
   const otelId=f.otelId||'810';
   const bareDepoKodu=otelId==='811'?'300':'100';
   const depoKompozit=otelId+'_'+bareDepoKodu;
+  const hatalar=[];
   for(const u of (f.urunler||[])){
     if(!u.kod||!u.miktar)continue;
     const miktar=parseFloat(u.miktar)||0;
     if(miktar<=0)continue;
-    // Mevcut miktarı öğren (upsert için)
     let mevcut=0;
     try{
       const r=await fetch(SB_URL+`/rest/v1/stok?urun_kodu=eq.${encodeURIComponent(u.kod)}&depo_kodu=eq.${encodeURIComponent(depoKompozit)}&select=miktar`,{headers:SB_HEADERS});
       if(r.ok){const rows=await r.json();if(rows[0])mevcut=parseFloat(rows[0].miktar)||0;}
     }catch(e){}
     const yeniMiktar=mevcut+miktar;
-    await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
+    const rStok=await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
       method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify({urun_kodu:u.kod,depo_kodu:depoKompozit,otel_id:otelId,miktar:yeniMiktar})
     });
-    await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+    if(!rStok.ok){
+      const hataMetni=await rStok.text();
+      console.error('stok POST hatası:',hataMetni);
+      hatalar.push(`${u.ad}: ${hataMetni}`);
+      continue; // bu ürün için hareket kaydı da atma, stok yazılmadıysa tutarsız olur
+    }
+    const rHar=await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
       urun_kodu:u.kod,depo_kodu:depoKompozit,otel_id:otelId,tip:'giris',miktar,
       belge_no:f.mkNo,aciklama:`Mal kabul: ${f.mkNo} — ${f.firma}`
     })});
+    if(!rHar.ok){
+      const hataMetni=await rHar.text();
+      console.error('stok_hareketleri POST hatası:',hataMetni);
+      hatalar.push(`${u.ad} (hareket kaydı): ${hataMetni}`);
+    }
   }
+  if(hatalar.length){
+    alert('⚠️ Bazı ürünler stoğa işlenirken hata aldı:\n\n'+hatalar.join('\n\n')+'\n\nOnay yine de tamamlandı ama bu ürünlerin stoğunu Supabase\'de elle kontrol et.');
+  }
+  return hatalar.length===0;
 }
 async function kaliteReddet(id){
   const f=malKabuller[id];if(!f)return;
