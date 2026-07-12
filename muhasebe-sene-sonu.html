@@ -2,6 +2,29 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Erişim kontrolü — Muhasebe modülü, PIN girişi gerektirmeden doğrudan URL ile
+// açılabiliyordu (denetimde bulundu). Sadece yönetici/satınalma rolündeki oturum
+// açık kullanıcılar buradan geçebilir; aksi halde portala yönlendirilir. Bulunan
+// kullanıcı OTURUM_KULLANICI'ya atanır — denetim kaydına (auditLogYaz) doğru ismi
+// yazmak için diğer scriptler bunu kullanabilir.
+let OTURUM_KULLANICI=null;
+(function(){
+  function oturumuBul(){
+    for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+      const s=sessionStorage.getItem(k);
+      if(!s)continue;
+      try{
+        const{user,expiry}=JSON.parse(s);
+        if(Date.now()<expiry&&user&&(user.rol==='yonetici'||user.rol==='satinalma'))return user;
+      }catch(e){}
+    }
+    return null;
+  }
+  OTURUM_KULLANICI=oturumuBul();
+  if(!OTURUM_KULLANICI)location.replace('index.html');
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Sene Sonu Devir</title>
 <meta name="theme-color" content="#1a2744">
@@ -70,7 +93,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
 <script>
-const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
 const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
 const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
@@ -80,7 +102,7 @@ let hesaplar={},yevmiyeler={},kapanmisYillar={};
 // DENETİM İZİ
 // ============================================================
 async function auditLogYaz(action,entityType,entityId,detail){
-  const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'};
+  const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:OTURUM_KULLANICI?.ad||'Bilinmeyen'};
   try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){}
 }
 
@@ -277,16 +299,24 @@ function netKarGuncelle(){
 // ============================================================
 // DÖNEMİ KAPAT
 // ============================================================
+let _donemKapatiliyor=false;
 async function donemiKapat(){
   const onizleme=window._kapanisOnizleme;
   if(!onizleme)return;
+  if(_donemKapatiliyor){toast('⏳ Kapanış zaten işleniyor, bekleyin...');return;}
+  // Önizleme açıldıktan sonra başka bir sekme/kullanıcı aynı yılı kapatmış olabilir —
+  // gerçek yazma işlemine başlamadan hemen önce tekrar kontrol et.
+  if(kapanmisYillar[onizleme.yil]){toast('⚠️ Bu yıl az önce başka bir yerden kapatılmış');donemDurumGoster();return;}
   const vergi=parseFloat(document.getElementById('ss-vergi')?.value)||0;
 
   const onayMetni=`${onizleme.yil} yılı KAPATILACAK.\n\nBrüt Sonuç: ${fmt(Math.abs(onizleme.brutKarZarar))} ₺ (${onizleme.brutKarZarar>=0?'Kâr':'Zarar'})\n${vergi>0?'Vergi Karşılığı: '+fmt(vergi)+' ₺\n':''}\nYanlışlıkla kapatırsan "Geçmiş Kapanışlar" listesinden geri alabilirsin, ama bu ciddi bir işlemdir. Mali müşavirinden onay aldın mı?`;
   if(!confirm(onayMetni))return;
   if(!confirm('Son kez soruyorum — kesinlikle emin misin? Yevmiye defterine kalıcı kapanış fişleri yazılacak (istersen sonra geri alabilirsin).'))return;
+  if(_donemKapatiliyor){toast('⏳ Kapanış zaten işleniyor, bekleyin...');return;}
+  _donemKapatiliyor=true;
 
   sLD();
+  try{
   const yilSonuMs=new Date(onizleme.yil,11,31,23,59,59).getTime();
 
   // 1) Gelir/gider kapanış fişi — her hesabı sıfırla, karşı taraf 690
@@ -320,7 +350,7 @@ async function donemiKapat(){
 
   // Dönemi "kapatıldı" olarak işaretle
   const kayit={yil:onizleme.yil,kapanmaTarihi:Date.now(),brutKarZarar:onizleme.brutKarZarar,vergi,netSonuc,
-    kullanan:localStorage.getItem('gurok_user_name')||'Bilinmeyen'};
+    kullanan:OTURUM_KULLANICI?.ad||'Bilinmeyen'};
   kapanmisYillar[onizleme.yil]=kayit;
   try{
     await fetch(SB_URL+'/rest/v1/sene_sonu_kapanislar?on_conflict=yil',{
@@ -336,6 +366,10 @@ async function donemiKapat(){
   donemDurumGoster();
   renderGecmisKapanislar();
   toast(`✅ ${onizleme.yil} kapatıldı — Net sonuç: ${fmt(netSonuc)} ₺`);
+  }catch(e){console.warn('Dönem kapatma hatası:',e);hLD();toast('❌ Kapatma sırasında hata oluştu: '+(e.message||e));
+  }finally{
+    _donemKapatiliyor=false;
+  }
 }
 
 function renderGecmisKapanislar(){
@@ -351,19 +385,28 @@ function renderGecmisKapanislar(){
   </div>`).join('');
 }
 
+let _geriAliniyor=false;
 async function kapanmisYiliGeriAl(yil){
+  if(_geriAliniyor){toast('⏳ Zaten işleniyor, bekleyin...');return;}
   const mesaj=`${yil} yılının kapanışı GERİ ALINACAK.\n\nBu işlem:\n• ${yil} dönem sonu kapanış fişini siler\n• Vergi karşılığı fişini (varsa) siler\n• Net sonuç aktarım fişini siler\n• Dönemi tekrar "açık" duruma getirir\n\nHesap bakiyeleri kapanış öncesi haline döner. Devam edilsin mi?`;
   if(!confirm(mesaj))return;
   if(!confirm('Emin misin? Bu geri alma işlemi de kendisi kalıcıdır (fişler tamamen silinir, arşivlenmez).'))return;
+  if(_geriAliniyor){toast('⏳ Zaten işleniyor, bekleyin...');return;}
+  _geriAliniyor=true;
 
   sLD();
+  try{
   const silinecekBelgeler=[String(yil)+'-KAPANIS',String(yil)+'-VERGI',String(yil)+'-NETSONUC'];
   for(const belge of silinecekBelgeler){
     try{
       const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.donem_kapanis&belge_no=eq.${encodeURIComponent(belge)}&select=id`,{headers:SB_HEADERS});
       if(r.ok){
         const d=await r.json();
-        if(d&&d.length){await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+d[0].id,{method:'DELETE',headers:SB_HEADERS});}
+        // Bir yarış durumu aynı belge_no ile mükerrer fiş oluşturmuş olabilir —
+        // sadece ilkini değil, eşleşen HEPSİNİ sil (yoksa geri alma kalıntı bırakır).
+        for(const row of (d||[])){
+          await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+row.id,{method:'DELETE',headers:SB_HEADERS});
+        }
       }
     }catch(e){console.warn(e);}
   }
@@ -374,6 +417,10 @@ async function kapanmisYiliGeriAl(yil){
   donemDurumGoster();
   renderGecmisKapanislar();
   toast(`✅ ${yil} kapanışı geri alındı`);
+  }catch(e){console.warn('Geri alma hatası:',e);hLD();toast('❌ Geri alma sırasında hata oluştu: '+(e.message||e));
+  }finally{
+    _geriAliniyor=false;
+  }
 }
 
 // ============================================================

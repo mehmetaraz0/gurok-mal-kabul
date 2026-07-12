@@ -2,6 +2,29 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Erişim kontrolü — Muhasebe modülü, PIN girişi gerektirmeden doğrudan URL ile
+// açılabiliyordu (denetimde bulundu). Sadece yönetici/satınalma rolündeki oturum
+// açık kullanıcılar buradan geçebilir; aksi halde portala yönlendirilir. Bulunan
+// kullanıcı OTURUM_KULLANICI'ya atanır — denetim kaydına (auditLogYaz) doğru ismi
+// yazmak için diğer scriptler bunu kullanabilir.
+let OTURUM_KULLANICI=null;
+(function(){
+  function oturumuBul(){
+    for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+      const s=sessionStorage.getItem(k);
+      if(!s)continue;
+      try{
+        const{user,expiry}=JSON.parse(s);
+        if(Date.now()<expiry&&user&&(user.rol==='yonetici'||user.rol==='satinalma'))return user;
+      }catch(e){}
+    }
+    return null;
+  }
+  OTURUM_KULLANICI=oturumuBul();
+  if(!OTURUM_KULLANICI)location.replace('index.html');
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Muhasebe</title>
 <meta name="theme-color" content="#1a2744">

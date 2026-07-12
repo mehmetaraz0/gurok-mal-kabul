@@ -2,6 +2,29 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Erişim kontrolü — Muhasebe modülü, PIN girişi gerektirmeden doğrudan URL ile
+// açılabiliyordu (denetimde bulundu). Sadece yönetici/satınalma rolündeki oturum
+// açık kullanıcılar buradan geçebilir; aksi halde portala yönlendirilir. Bulunan
+// kullanıcı OTURUM_KULLANICI'ya atanır — denetim kaydına (auditLogYaz) doğru ismi
+// yazmak için diğer scriptler bunu kullanabilir.
+let OTURUM_KULLANICI=null;
+(function(){
+  function oturumuBul(){
+    for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+      const s=sessionStorage.getItem(k);
+      if(!s)continue;
+      try{
+        const{user,expiry}=JSON.parse(s);
+        if(Date.now()<expiry&&user&&(user.rol==='yonetici'||user.rol==='satinalma'))return user;
+      }catch(e){}
+    }
+    return null;
+  }
+  OTURUM_KULLANICI=oturumuBul();
+  if(!OTURUM_KULLANICI)location.replace('index.html');
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Faturalar</title>
 <meta name="theme-color" content="#1a2744">
@@ -250,7 +273,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
 <script>
-const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
 const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
 const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
@@ -294,7 +316,7 @@ async function donemAcikMi(tarihMs){
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={
     action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',
-    kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'
+    kullanici_ad:OTURUM_KULLANICI?.ad||'Bilinmeyen'
   };
   try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}
   catch(e){console.warn('Audit log kaydedilemedi:',e);}
@@ -499,6 +521,7 @@ function renderFaturalar(tur){
     taslak:'<span class="chip chip-gray">📝 Taslak</span>',
     bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',
     onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',
+    kismi_odendi:'<span class="chip chip-orange">💰 Kısmi Ödendi</span>',
     odendi:'<span class="chip chip-blue">💳 Ödendi</span>',
     iptal:'<span class="chip chip-red">❌ İptal</span>'
   };
@@ -546,7 +569,7 @@ function filterF(tur,f,el){
 function openFaturaDetay(id){
   const f=faturalar[id];if(!f)return;
   document.getElementById('mFaturaDetayTitle').textContent=f.no;
-  const durumChip={taslak:'<span class="chip chip-gray">📝 Taslak</span>',bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',odendi:'<span class="chip chip-blue">💳 Ödendi</span>',iptal:'<span class="chip chip-red">❌ İptal</span>'};
+  const durumChip={taslak:'<span class="chip chip-gray">📝 Taslak</span>',bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',kismi_odendi:'<span class="chip chip-orange">💰 Kısmi Ödendi</span>',odendi:'<span class="chip chip-blue">💳 Ödendi</span>',iptal:'<span class="chip chip-red">❌ İptal</span>'};
   document.getElementById('mFaturaDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">
       <div>
@@ -583,7 +606,7 @@ function openFaturaDetay(id){
       <button class="btn btn-gray btn-sm" onclick="kModal('mFaturaDetay')">Kapat</button>
       ${f.durum==='taslak'||f.durum==='bekliyor'?`<button class="btn btn-primary btn-sm" onclick="kModal('mFaturaDetay');openDuzenleFatura('${id}')">✏️ Düzenle</button>`:''}
       ${f.durum==='bekliyor'?`<button class="btn btn-success btn-sm" onclick="kModal('mFaturaDetay');onayla('${id}')">✅ Onayla</button>`:''}
-      ${f.durum==='onaylandi'?`<button class="btn btn-info btn-sm" onclick="kModal('mFaturaDetay');openOdeme('${id}')">💳 Ödeme</button>`:''}
+      ${f.durum==='onaylandi'||f.durum==='kismi_odendi'?`<button class="btn btn-info btn-sm" onclick="kModal('mFaturaDetay');openOdeme('${id}')">💳 Ödeme</button>`:''}
       ${f.durum!=='iptal'&&f.durum!=='odendi'?`<button class="btn btn-danger btn-sm" onclick="kModal('mFaturaDetay');iptalEt('${id}')">❌</button>`:''}
     </div>`;
   aModal('mFaturaDetay');
@@ -721,7 +744,11 @@ function hesaplaToplamlar(){
 // ============================================================
 // FATURA KAYDET
 // ============================================================
+let _faturaKaydetIsleniyor=false;
 async function faturaKaydet(durum){
+  if(_faturaKaydetIsleniyor){toast('⏳ İşleniyor, bekleyin...');return;}
+  _faturaKaydetIsleniyor=true;
+  try{
   const no=document.getElementById('f-no').value.trim();
   let cariId=document.getElementById('f-cari-id').value;
   const cariAd=document.getElementById('f-cari-inp').value.trim();
@@ -783,7 +810,7 @@ async function faturaKaydet(durum){
     cariId,cariAd,
     siparisNo:document.getElementById('f-siparis').value||'',
     kalemler:doluKalemler,
-    araToplam:ara,kdvToplam:kdv,genelToplam:ara+kdv,
+    araToplam:round2(ara),kdvToplam:round2(kdv),genelToplam:round2(ara+kdv),
     komisyonOrani:document.getElementById('f-tur').value==='satis'?komisyonOrani:0,
     komisyonTutari:document.getElementById('f-tur').value==='satis'?komisyonTutari:0,
     not:document.getElementById('f-not').value||'',
@@ -846,6 +873,9 @@ async function faturaKaydet(durum){
   kModal('mFatura');
   renderFaturalar(fatura.tur);
   toast(`✅ ${no} kaydedildi — ${fmt(ara+kdv)} ₺`);
+  }finally{
+    _faturaKaydetIsleniyor=false;
+  }
 }
 
 async function onayla(id){
@@ -886,17 +916,27 @@ function openOdeme(id){
   document.getElementById('od-fatura-id').value=id;
   document.getElementById('od-fatura-no').value=f.no+' — '+fmt(f.genelToplam)+' ₺';
   document.getElementById('od-tarih').value=new Date().toISOString().split('T')[0];
-  document.getElementById('od-tutar').value=f.genelToplam.toFixed(2);
+  const kalanTutar=Math.max(0,round2((parseFloat(f.genelToplam)||0)-(parseFloat(f.odemeTutar)||0)));
+  document.getElementById('od-tutar').value=kalanTutar.toFixed(2);
   document.getElementById('od-aciklama').value='';
   aModal('mOdeme');
 }
 
+let _odemeKaydetIsleniyor=false;
 async function odemeKaydet(){
+  if(_odemeKaydetIsleniyor){toast('⏳ İşleniyor, bekleyin...');return;}
+  _odemeKaydetIsleniyor=true;
+  try{
   const id=document.getElementById('od-fatura-id').value;
   const f=faturalar[id];if(!f)return;
   const tutar=parseFloat(document.getElementById('od-tutar').value);
   if(!tutar||tutar<=0){toast('⚠️ Tutar girin');return;}
-  f.durum='odendi';f.odemeTarih=Date.now();f.odemeTutar=tutar;f.odemeYontem=document.getElementById('od-yontem').value;
+  // Kısmi ödeme desteği: bu ödeme öncesindeki birikmiş ödemeye eklenir, sadece
+  // toplam ödeme genel toplamı (0.01 yuvarlama payıyla) karşılıyorsa "odendi" yapılır.
+  const oncekiOdenen=parseFloat(f.odemeTutar)||0;
+  const toplamOdenen=round2(oncekiOdenen+tutar);
+  f.durum=toplamOdenen>=round2(f.genelToplam)-0.01?'odendi':'kismi_odendi';
+  f.odemeTarih=Date.now();f.odemeTutar=toplamOdenen;f.odemeYontem=document.getElementById('od-yontem').value;
   const tarihVal=document.getElementById('od-tarih').value;
   const harSatir={
     cari_id:f.cariId,tip:'alacak',tarih:tarihVal,belge_no:'ÖD-'+f.no,tutar,
@@ -922,6 +962,9 @@ async function odemeKaydet(){
   renderFaturalar(f.tur);
   renderOdemeBekleyen();
   toast(`✅ Ödeme kaydedildi — ${fmt(tutar)} ₺`);
+  }finally{
+    _odemeKaydetIsleniyor=false;
+  }
 }
 
 // ============================================================
@@ -1014,7 +1057,7 @@ function runMatch(){
 // ÖDEME BEKLEYEN
 // ============================================================
 function renderOdemeBekleyen(){
-  const liste=Object.values(faturalar).filter(f=>f&&f.tur==='alis'&&!f.iade&&(f.durum==='onaylandi'||f.durum==='bekliyor'))
+  const liste=Object.values(faturalar).filter(f=>f&&f.tur==='alis'&&!f.iade&&(f.durum==='onaylandi'||f.durum==='bekliyor'||f.durum==='kismi_odendi'))
     .sort((a,b)=>{
       const av=a.vade?new Date(a.vade):new Date(9999,0);
       const bv=b.vade?new Date(b.vade):new Date(9999,0);

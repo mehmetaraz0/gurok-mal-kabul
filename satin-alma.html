@@ -1434,7 +1434,9 @@ function fkGenelToplamHesapla(f){
   if(el)el.textContent=genel>0?fmt(genel)+' ₺':'— ₺';
 }
 
+let _muhasebeGonderiliyor=false;
 async function muhasebeGonder(){
+  if(_muhasebeGonderiliyor){toast('⏳ Zaten gönderiliyor, bekleyin...');return;}
   const f=_fkFormlar.find(x=>String(x.id)===_fkAktifId);
   if(!f)return;
   const urunler=f.urunler||[];
@@ -1470,6 +1472,7 @@ async function muhasebeGonder(){
   f.fiyatKontrolNotu=document.getElementById('fk-not')?.value||'';
 
   toast('📤 Muhasebe\'ye gönderiliyor...');
+  _muhasebeGonderiliyor=true;
   try{
     const r=await fetch(SB_URL+'/rest/v1/faturalar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(faturaSatir)});
     if(!r.ok){

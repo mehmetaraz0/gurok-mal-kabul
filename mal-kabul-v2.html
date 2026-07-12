@@ -968,6 +968,22 @@ async function formKaydet(){
   const kontrolSiparisNo=document.getElementById('f-siparis-no').value||'';
   if(kontrolSiparisNo){
     const kontrolSiparisNolar=kontrolSiparisNo.split(',').map(s=>s.trim()).filter(Boolean);
+    // Önbellekteki (siparisler) gelen/kalan miktar bayat olabilir — %20 tolerans kontrolünden
+    // hemen önce ilgili siparişlerin kalemlerini canlı tazele, aksi halde eşzamanlı iki
+    // teslimat girişi aynı bayat taban üzerinden ikisi de kontrolü geçebilir.
+    try{
+      const filtre=kontrolSiparisNolar.map(s=>`"${s}"`).join(',');
+      const rTaze=await fetch(SB_URL+`/rest/v1/siparis_kalemleri?siparis_no=in.(${filtre})&select=siparis_no,urun_kodu,gelen_miktar,kalan_miktar`,{headers:SB_HEADERS});
+      if(rTaze.ok){
+        const rows=await rTaze.json();
+        rows.forEach(row=>{
+          const sip=siparisler[row.siparis_no];
+          if(!sip)return;
+          const sk=sip.kalemler.find(x=>x.kod===row.urun_kodu);
+          if(sk){sk.gelenMiktar=parseFloat(row.gelen_miktar)||0;sk.kalanMiktar=parseFloat(row.kalan_miktar)||0;}
+        });
+      }
+    }catch(e){console.warn('Canlı sipariş tazeleme başarısız, önbellekteki veriyle devam:',e);}
     for(const k of dolu){
       if(!k.kod)continue;
       for(const sipNo of kontrolSiparisNolar){

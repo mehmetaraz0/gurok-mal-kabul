@@ -2,6 +2,29 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Erişim kontrolü — Muhasebe modülü, PIN girişi gerektirmeden doğrudan URL ile
+// açılabiliyordu (denetimde bulundu). Sadece yönetici/satınalma rolündeki oturum
+// açık kullanıcılar buradan geçebilir; aksi halde portala yönlendirilir. Bulunan
+// kullanıcı OTURUM_KULLANICI'ya atanır — denetim kaydına (auditLogYaz) doğru ismi
+// yazmak için diğer scriptler bunu kullanabilir.
+let OTURUM_KULLANICI=null;
+(function(){
+  function oturumuBul(){
+    for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+      const s=sessionStorage.getItem(k);
+      if(!s)continue;
+      try{
+        const{user,expiry}=JSON.parse(s);
+        if(Date.now()<expiry&&user&&(user.rol==='yonetici'||user.rol==='satinalma'))return user;
+      }catch(e){}
+    }
+    return null;
+  }
+  OTURUM_KULLANICI=oturumuBul();
+  if(!OTURUM_KULLANICI)location.replace('index.html');
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Yevmiye</title>
 <meta name="theme-color" content="#1a2744">
@@ -206,7 +229,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
 <script>
-const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
 let yevmiyeler={},hesapPlani={};
 let yevKalemler=[];
 const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
@@ -234,7 +256,7 @@ async function donemAcikMi(tarihMs){
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={
     action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',
-    kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'
+    kullanici_ad:OTURUM_KULLANICI?.ad||'Bilinmeyen'
   };
   try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}
   catch(e){console.warn('Audit log kaydedilemedi:',e);}
@@ -535,7 +557,9 @@ document.addEventListener('pointerdown',e=>{
 // ============================================================
 // KAYDET
 // ============================================================
+let _yevmiyeKaydediliyor=false;
 async function yevmiyeKaydet(onayla){
+  if(_yevmiyeKaydediliyor){toast('⏳ İşleniyor, bekleyin...');return;}
   const tarihStr=document.getElementById('y-tarih').value;
   if(!tarihStr){toast('⚠️ Tarih girin');return;}
   const doluKalemler=yevKalemler.filter(k=>k.hesapKod&&(k.borc>0||k.alacak>0));
@@ -566,14 +590,19 @@ async function yevmiyeKaydet(onayla){
     toplamBorc:topBorc,toplamAlacak:topAlacak,
     onaylandi:onayla
   };
+  _yevmiyeKaydediliyor=true;
   sLD();
-  await saveYevmiye(yev); // yeni kayıtta yev.id burada gerçek UUID ile doldurulur
-  const id=yev.id;
-  yevmiyeler[id]=yev;
-  await auditLogYaz(onayla?'approve':'create','yevmiye',id,`Yevmiye fişi ${onayla?'onaylandı':'taslak kaydedildi'}: ${yev.no} (Tutar: ${fmt(topBorc)} ₺)`);
-  hLD();
-  kModal('mYevmiye');renderYevmiye();
-  toast(onayla?`✅ ${yev.no} onaylandı`:`📝 ${yev.no} taslak kaydedildi`);
+  try{
+    await saveYevmiye(yev); // yeni kayıtta yev.id burada gerçek UUID ile doldurulur
+    const id=yev.id;
+    yevmiyeler[id]=yev;
+    await auditLogYaz(onayla?'approve':'create','yevmiye',id,`Yevmiye fişi ${onayla?'onaylandı':'taslak kaydedildi'}: ${yev.no} (Tutar: ${fmt(topBorc)} ₺)`);
+    hLD();
+    kModal('mYevmiye');renderYevmiye();
+    toast(onayla?`✅ ${yev.no} onaylandı`:`📝 ${yev.no} taslak kaydedildi`);
+  }finally{
+    _yevmiyeKaydediliyor=false;
+  }
 }
 
 async function yevmiyeSil(){

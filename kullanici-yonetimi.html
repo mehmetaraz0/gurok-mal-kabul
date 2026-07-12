@@ -112,7 +112,7 @@ const ROL_KODU_ESKI_ENUM={
 const OTEL_ISIMLERI={'810':'Club Manavgat','811':'Resort Sorgun'};
 
 async function auditLogYaz(action,entityType,entityId,detail){
-  const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'};
+  const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:OTURUM_KULLANICI?.ad||'Bilinmeyen'};
   try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){}
 }
 
@@ -198,7 +198,8 @@ async function kullaniciKaydet(){
   const rolId=document.getElementById('k-rol-id').value;
   if(!ad||!pin||pin.length!==6||!/^\d{6}$/.test(pin)){toast('⚠️ Ad ve 6 haneli sayısal PIN girin');return;}
   const rol=roller.find(r=>r.id===rolId);
-  const eskiEnum=ROL_KODU_ESKI_ENUM[rol?.kod]||'depo';
+  if(!rol){toast('⚠️ Rol listesi yüklenemedi veya geçersiz — kaydedilmedi. Sayfayı yenileyip tekrar deneyin.',4000);return;}
+  const eskiEnum=ROL_KODU_ESKI_ENUM[rol.kod]||'depo';
 
   // Aynı PIN başka bir kullanıcıda var mı kontrol et (çakışma = iki kişi aynı PIN ile giremez)
   const editId=document.getElementById('k-id').value;
@@ -254,21 +255,24 @@ function sLD(){document.getElementById('ld').classList.add('show');}
 function hLD(){document.getElementById('ld').classList.remove('show');}
 
 // Erişim kontrolü — bu ekran kullanıcı oluşturma/silme/PIN değiştirme yapabildiği için
-// yalnızca yönetici rolündeki oturum açık kullanıcılar görebilir.
-function erisimVarMi(){
+// yalnızca yönetici rolündeki oturum açık kullanıcılar görebilir. Aynı zamanda oturum
+// sahibinin kim olduğunu döndürür — denetim kaydına (auditLogYaz) doğru ismi yazmak için.
+let OTURUM_KULLANICI=null;
+function oturumAcanKullanici(){
   for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
     const s=sessionStorage.getItem(k);
     if(!s)continue;
     try{
       const{user,expiry}=JSON.parse(s);
-      if(Date.now()<expiry&&user&&user.rol==='yonetici')return true;
+      if(Date.now()<expiry&&user&&user.rol==='yonetici')return user;
     }catch(e){}
   }
-  return false;
+  return null;
 }
 
 (async function(){
-  if(!erisimVarMi()){
+  OTURUM_KULLANICI=oturumAcanKullanici();
+  if(!OTURUM_KULLANICI){
     document.getElementById('app').innerHTML=`
       <div class="header"><h1>🔒 Erişim Reddedildi</h1></div>
       <div class="sc"><div class="uyari">Bu ekranı yalnızca yönetici rolündeki kullanıcılar açabilir. Önce <a href="index.html">portaldan</a> yönetici olarak giriş yapın.</div></div>`;

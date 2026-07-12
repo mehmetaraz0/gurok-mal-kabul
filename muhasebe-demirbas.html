@@ -2,6 +2,29 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Erişim kontrolü — Muhasebe modülü, PIN girişi gerektirmeden doğrudan URL ile
+// açılabiliyordu (denetimde bulundu). Sadece yönetici/satınalma rolündeki oturum
+// açık kullanıcılar buradan geçebilir; aksi halde portala yönlendirilir. Bulunan
+// kullanıcı OTURUM_KULLANICI'ya atanır — denetim kaydına (auditLogYaz) doğru ismi
+// yazmak için diğer scriptler bunu kullanabilir.
+let OTURUM_KULLANICI=null;
+(function(){
+  function oturumuBul(){
+    for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+      const s=sessionStorage.getItem(k);
+      if(!s)continue;
+      try{
+        const{user,expiry}=JSON.parse(s);
+        if(Date.now()<expiry&&user&&(user.rol==='yonetici'||user.rol==='satinalma'))return user;
+      }catch(e){}
+    }
+    return null;
+  }
+  OTURUM_KULLANICI=oturumuBul();
+  if(!OTURUM_KULLANICI)location.replace('index.html');
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Demirbaş</title>
 <meta name="theme-color" content="#1a2744">
@@ -170,7 +193,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
 <script>
-const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
 const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
 const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
@@ -195,7 +217,7 @@ const KATEGORILER={
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={
     action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',
-    kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'
+    kullanici_ad:OTURUM_KULLANICI?.ad||'Bilinmeyen'
   };
   try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}
   catch(e){console.warn('Audit log kaydedilemedi:',e);}
@@ -588,16 +610,23 @@ function amortismanOnizle(){
     </div>`;
 }
 
+let _amortismanCalistiriliyor=false;
 async function amortismanCalistir(yil,ay){
   const donemAnahtari=amortismanDonemAnahtari(yil,ay);
   if(amortismanKosustuler[donemAnahtari]){toast('⚠️ Bu dönem zaten çalıştırılmış');return;}
+  if(_amortismanCalistiriliyor){toast('⏳ Zaten işleniyor, bekleyin...');return;}
   if(!confirm(`${donemAnahtari} dönemi için amortisman çalıştırılacak. Bu işlem geri alınamaz. Devam edilsin mi?`))return;
+  // Onay dialogu açıkken başka bir sekme/kullanıcı aynı dönemi çalıştırmış olabilir — tekrar kontrol et.
+  if(amortismanKosustuler[donemAnahtari]){toast('⚠️ Bu dönem az önce başka bir yerden çalıştırılmış');renderAmortismanGecmis();return;}
+  if(_amortismanCalistiriliyor){toast('⏳ Zaten işleniyor, bekleyin...');return;}
+  _amortismanCalistiriliyor=true;
 
   const donemSonuMs=new Date(yil,ay,0,23,59,59).getTime();
   const uygunDemirbaslar=Object.values(demirbaslar).filter(d=>d&&d.durum==='aktif'&&new Date(d.alimTarihi).getTime()<=donemSonuMs&&netDefterDegeri(d)>0.01);
-  if(!uygunDemirbaslar.length){toast('⚠️ Uygun demirbaş yok');return;}
+  if(!uygunDemirbaslar.length){toast('⚠️ Uygun demirbaş yok');_amortismanCalistiriliyor=false;return;}
 
   sLD();
+  try{
   // Otel bazında grupla (her otel için ayrı fiş)
   const otelGruplari={};
   uygunDemirbaslar.forEach(d=>{
@@ -635,7 +664,7 @@ async function amortismanCalistir(yil,ay){
     await fetch(SB_URL+'/rest/v1/amortisman_kosustu?on_conflict=donem',{
       method:'POST',
       headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({donem:donemAnahtari,demirbas_sayisi:kayit.demirbasSayisi,toplam_tutar:kayit.toplamTutar,kullanan:localStorage.getItem('gurok_user_name')||'Bilinmeyen'})
+      body:JSON.stringify({donem:donemAnahtari,demirbas_sayisi:kayit.demirbasSayisi,toplam_tutar:kayit.toplamTutar,kullanan:OTURUM_KULLANICI?.ad||'Bilinmeyen'})
     });
   }catch(e){console.warn(e);}
   await auditLogYaz('create','amortisman',donemAnahtari,`Amortisman çalıştırıldı: ${donemAnahtari} — ${uygunDemirbaslar.length} demirbaş, ${fmt(kayit.toplamTutar)} ₺`);
@@ -645,6 +674,10 @@ async function amortismanCalistir(yil,ay){
   renderDemirbaslar();
   renderAmortismanGecmis();
   toast(`✅ ${donemAnahtari} amortismanı işlendi — ${fmt(kayit.toplamTutar)} ₺`);
+  }catch(e){console.warn('Amortisman çalıştırma hatası:',e);hLD();toast('❌ Hata oluştu: '+(e.message||e));
+  }finally{
+    _amortismanCalistiriliyor=false;
+  }
 }
 
 function renderAmortismanGecmis(){

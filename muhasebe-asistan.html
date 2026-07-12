@@ -2,6 +2,29 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Erişim kontrolü — Muhasebe modülü, PIN girişi gerektirmeden doğrudan URL ile
+// açılabiliyordu (denetimde bulundu). Sadece yönetici/satınalma rolündeki oturum
+// açık kullanıcılar buradan geçebilir; aksi halde portala yönlendirilir. Bulunan
+// kullanıcı OTURUM_KULLANICI'ya atanır — denetim kaydına (auditLogYaz) doğru ismi
+// yazmak için diğer scriptler bunu kullanabilir.
+let OTURUM_KULLANICI=null;
+(function(){
+  function oturumuBul(){
+    for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+      const s=sessionStorage.getItem(k);
+      if(!s)continue;
+      try{
+        const{user,expiry}=JSON.parse(s);
+        if(Date.now()<expiry&&user&&(user.rol==='yonetici'||user.rol==='satinalma'))return user;
+      }catch(e){}
+    }
+    return null;
+  }
+  OTURUM_KULLANICI=oturumuBul();
+  if(!OTURUM_KULLANICI)location.replace('index.html');
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Muhasebe Asistanı</title>
 <meta name="theme-color" content="#1a2744">
@@ -108,30 +131,41 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Analiz ediliyor...</div></div>
 
 <script>
-const FB='https://gurok-mal-kabul-default-rtdb.europe-west1.firebasedatabase.app';
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 let cariler={},cariHareketler={},faturalar={},yevmiyeler={},bankaKasaHesaplari={},bankaKasaHareketleri={};
 let veriOzeti=null;
 
 // ============================================================
-// FIREBASE YÜKLE
+// SUPABASE'DEN YÜKLE (eskiden Firebase'den okunuyordu — uygulamanın geri
+// kalanı Supabase'e taşındığından beri bu ekran yetim/bayat veri gösteriyordu)
 // ============================================================
+function cariSbdenCamele(r){return{id:r.id,kod:r.kod,ad:r.ad,tip:r.tip,limit:parseFloat(r.risk_limiti)||0};}
+function cariHareketSbdenCamele(r){return{id:r.id,cariId:r.cari_id,tip:r.tip,tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),tutar:parseFloat(r.tutar)||0};}
+function faturaSbdenCamele(r){return{id:r.id,no:r.no,tur:r.tur,cariAd:r.cari_ad,vade:r.vade_tarihi||'',genelToplam:parseFloat(r.genel_toplam)||0,durum:r.durum};}
+function yevSbdenCamele(r){return{id:r.id,tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),onaylandi:!!r.onaylandi,toplamBorc:parseFloat(r.toplam_borc)||0,toplamAlacak:parseFloat(r.toplam_alacak)||0};}
+function hesapSbdenCamele(r){return{id:r.id,ad:r.ad,acilisBakiye:parseFloat(r.acilis_bakiye)||0};}
+function bankaHareketSbdenCamele(r){return{id:r.id,hesapId:r.hesap_id,tip:r.tip,tutar:parseFloat(r.tutar)||0};}
+
 async function loadAll(){
   sLD();
   try{
-    const [c,ch,f,y,bk,bkh]=await Promise.all([
-      fetch(FB+'/muhasebe/cariler.json'),
-      fetch(FB+'/muhasebe/cariHareketler.json'),
-      fetch(FB+'/muhasebe/faturalar.json'),
-      fetch(FB+'/muhasebe/yevmiye.json'),
-      fetch(FB+'/muhasebe/bankaKasaHesaplari.json'),
-      fetch(FB+'/muhasebe/bankaKasaHareketleri.json'),
+    const [cR,chR,fR,yR,bkR,bkhR]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/cariler?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cari_hareketler?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/faturalar?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/banka_kasa_hareketleri?select=*',{headers:SB_HEADERS}),
     ]);
-    if(c.ok){const d=await c.json();if(d)cariler=d;}
-    if(ch.ok){const d=await ch.json();if(d)cariHareketler=d;}
-    if(f.ok){const d=await f.json();if(d)faturalar=d;}
-    if(y.ok){const d=await y.json();if(d)yevmiyeler=d;}
-    if(bk.ok){const d=await bk.json();if(d)bankaKasaHesaplari=d;}
-    if(bkh.ok){const d=await bkh.json();if(d)bankaKasaHareketleri=d;}
+    cariler={};cariHareketler={};faturalar={};yevmiyeler={};bankaKasaHesaplari={};bankaKasaHareketleri={};
+    if(cR.ok)(await cR.json()).forEach(r=>{cariler[r.id]=cariSbdenCamele(r);});
+    if(chR.ok)(await chR.json()).forEach(r=>{cariHareketler[r.id]=cariHareketSbdenCamele(r);});
+    if(fR.ok)(await fR.json()).forEach(r=>{faturalar[r.id]=faturaSbdenCamele(r);});
+    if(yR.ok)(await yR.json()).forEach(r=>{yevmiyeler[r.id]=yevSbdenCamele(r);});
+    if(bkR.ok)(await bkR.json()).forEach(r=>{bankaKasaHesaplari[r.id]=hesapSbdenCamele(r);});
+    if(bkhR.ok)(await bkhR.json()).forEach(r=>{bankaKasaHareketleri[r.id]=bankaHareketSbdenCamele(r);});
   }catch(e){console.warn(e);}
   hLD();
 }
@@ -373,23 +407,14 @@ async function soruSorInput(){
 GÜNCEL VERİ (JSON):
 ${JSON.stringify(ozet)}`;
 
-    const response=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-6",
-        max_tokens:500,
-        messages:[
-          {role:"user",content:sistemPrompt+"\n\nSORU: "+soru}
-        ]
-      })
-    });
-    const data=await response.json();
-    const cevapMetni=data.content?.filter(c=>c.type==='text').map(c=>c.text).join('\n')||'Cevap alınamadı.';
-
-    document.getElementById(loadingId).innerHTML=`<div class="msg-asistan">${cevapMetni.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+    // NOT: Bu çağrı kasıtlı olarak devre dışı bırakıldı. api.anthropic.com'u tarayıcıdan
+    // doğrudan çağırmak bir API anahtarı gerektirir — o anahtar client-side kodda durursa
+    // sayfa kaynağını görebilen herkes çalabilir (Supabase anon key'in aksine, bu özel/faturalı
+    // bir kimlik bilgisidir). Bunu güvenli çalıştırmak için anahtarı SUNUCU tarafında tutan bir
+    // proxy (örn. bir Supabase Edge Function) gerekiyor — bu, ayrı bir kurulum kararı.
+    throw new Error('AI sohbet özelliği için sunucu taraflı bir proxy kurulmadı — bkz. kod yorumu.');
   }catch(e){
-    document.getElementById(loadingId).innerHTML=`<div class="msg-asistan" style="color:var(--danger)">⚠️ Cevap alınamadı, bağlantıyı kontrol edin.</div>`;
+    document.getElementById(loadingId).innerHTML=`<div class="msg-asistan" style="color:var(--danger)">⚠️ AI sohbet özelliği henüz aktif değil — bunu çalıştırmak için Anthropic API anahtarını güvenle saklayacak bir sunucu tarafı bağlantı (proxy) kurulması gerekiyor. Yukarıdaki uyarı kartları (vadesi geçen faturalar, risk limiti vb.) canlı veriyle çalışıyor, bu sohbet kutusu değil.</div>`;
   }
   sohbet.scrollTop=sohbet.scrollHeight;
 }
