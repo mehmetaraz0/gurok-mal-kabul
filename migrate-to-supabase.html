@@ -72,9 +72,11 @@ function baglantiKaydet(){
   SB_URL=document.getElementById('sb-url').value.trim().replace(/\/$/,'');
   SB_KEY=document.getElementById('sb-key').value.trim();
   if(!SB_URL||!SB_KEY){document.getElementById('baglanti-durum').textContent='⚠️ İkisini de gir';return;}
+  // Service role key kalıcı depoya YAZILMAZ — sadece bu sayfa açıkken bellekte tutulur.
+  // (Bu anahtar RLS'yi bypass eder; localStorage'da kalıcı durursa bu cihaza/tarayıcıya
+  // erişen ya da bir XSS ile çalışan herkes tüm veritabanını okuyup yazabilir.)
   localStorage.setItem('sb_url',SB_URL);
-  localStorage.setItem('sb_key',SB_KEY);
-  document.getElementById('baglanti-durum').textContent='✅ Kaydedildi';
+  document.getElementById('baglanti-durum').textContent='✅ Kaydedildi (yalnızca bu oturum için — sayfa kapanınca anahtar silinir)';
 }
 
 function logYaz(msg){
@@ -656,14 +658,38 @@ async function migrateKullanicilar(){
 }
 
 // ============================================================
+// ERİŞİM KONTROLÜ — bu araç RLS'yi bypass eden service_role anahtarı kullanır,
+// sadece yönetici rolündeki oturum açık bir kullanıcı görebilir/çalıştırabilir.
+// ============================================================
+function erisimVarMi(){
+  for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+    const s=sessionStorage.getItem(k);
+    if(!s)continue;
+    try{
+      const{user,expiry}=JSON.parse(s);
+      if(Date.now()<expiry&&user&&user.rol==='yonetici')return true;
+    }catch(e){}
+  }
+  return false;
+}
+
+// ============================================================
 // INIT
 // ============================================================
 (function(){
+  // Önceki (artık kaldırılan) sürümde localStorage'a yazılmış olabilecek
+  // service_role anahtarını temizle — kalıcı düz metin secret bırakmamak için.
+  localStorage.removeItem('sb_key');
+
+  if(!erisimVarMi()){
+    document.body.innerHTML=`
+      <div class="header"><h1>🔒 Erişim Reddedildi</h1><p>Bu araç yalnızca yönetici rolüyle giriş yapmış kullanıcılar tarafından çalıştırılabilir.</p></div>
+      <div class="content"><div class="uyari">Önce <a href="index.html">portaldan</a> yönetici olarak giriş yapın, ardından bu sayfayı tekrar açın.</div></div>`;
+    return;
+  }
+
   SB_URL=localStorage.getItem('sb_url')||'';
-  SB_KEY=localStorage.getItem('sb_key')||'';
   if(SB_URL)document.getElementById('sb-url').value=SB_URL;
-  if(SB_KEY)document.getElementById('sb-key').value=SB_KEY;
-  if(SB_URL&&SB_KEY)document.getElementById('baglanti-durum').textContent='✅ Kayıtlı bağlantı yüklendi';
   renderAdimlar();
 })();
 </script>

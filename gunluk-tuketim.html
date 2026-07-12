@@ -385,7 +385,14 @@ async function tuketimKaydet(){
   try{
     for(const u of girilenler){
       const miktar=parseFloat(u.giris);
-      const yeniMiktar=Math.max(0,u.miktar-miktar);
+      // Önbellekteki (DB.stok) miktar bayat olabilir — yazmadan hemen önce canlı değeri
+      // tazele, aksi halde eşzamanlı iki tüketim girişi birbirinin düşüşünü sessizce siler.
+      let mevcut=u.miktar;
+      try{
+        const rTaze=await fetch(SB_URL+`/rest/v1/stok?depo_kodu=eq.${encodeURIComponent(depoId)}&urun_kodu=eq.${encodeURIComponent(u.kod)}&select=miktar`,{headers:SB_HEADERS});
+        if(rTaze.ok){const rows=await rTaze.json();if(rows[0])mevcut=parseFloat(rows[0].miktar)||0;}
+      }catch(e){}
+      const yeniMiktar=Math.max(0,mevcut-miktar);
       await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
         method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
         body:JSON.stringify({urun_kodu:u.kod,depo_kodu:depoId,otel_id:otelId,miktar:yeniMiktar})
@@ -672,7 +679,7 @@ function renderTuketListe(){
   liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🍽️</div><div class="et">Henüz reçete tanımlı değil</div></div>';return;}
   c.innerHTML=liste.map(r=>`<div class="urow" style="cursor:pointer" onclick="tuketDetayAc('${r.id}')">
-    <div class="urow-top"><div><div class="urow-ad">${r.ad}</div><div class="urow-stok">${r.kalemler.length} malzeme</div></div></div>
+    <div class="urow-top"><div><div class="urow-ad">${escapeHtml(r.ad)}</div><div class="urow-stok">${r.kalemler.length} malzeme</div></div></div>
   </div>`).join('');
 }
 function tuketDetayAc(id){
@@ -702,7 +709,7 @@ function tuketOnizlemeGuncelle(){
   const hepsiYeterli=satirlar.every(s=>s.yeterli);
   el.innerHTML=`
     ${satirlar.map(s=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-100)">
-      <span>${s.ad}</span>
+      <span>${escapeHtml(s.ad)}</span>
       <span style="color:${s.yeterli?'var(--gray-600)':'var(--danger)'};font-weight:${s.yeterli?400:700}">${s.gerekli.toFixed(3)} ${s.birim}${!s.yeterli?' ⚠️ yetersiz ('+s.mevcut.toFixed(2)+' var)':''}</span>
     </div>`).join('')}
     <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;font-weight:800;color:var(--primary)">
@@ -721,7 +728,12 @@ async function tuketKaydet(){
   try{
     for(const k of r.kalemler){
       const gerekli=k.miktar*porsiyon;
-      const mevcut=parseFloat(DB.stok?.[k.kod]?.miktar)||0;
+      // Önbellekteki (DB.stok) miktar bayat olabilir — yazmadan hemen önce canlı değeri tazele.
+      let mevcut=parseFloat(DB.stok?.[k.kod]?.miktar)||0;
+      try{
+        const rTaze=await fetch(SB_URL+`/rest/v1/stok?depo_kodu=eq.${encodeURIComponent(depoId)}&urun_kodu=eq.${encodeURIComponent(k.kod)}&select=miktar`,{headers:SB_HEADERS});
+        if(rTaze.ok){const rows=await rTaze.json();if(rows[0])mevcut=parseFloat(rows[0].miktar)||0;}
+      }catch(e){}
       const yeniMiktar=Math.max(0,mevcut-gerekli);
       await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
         method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
@@ -780,7 +792,7 @@ function renderFoodCost(){
     const renk=r.fc===null?'var(--gray-400)':r.fc<=30?'var(--success)':r.fc<=40?'var(--warning)':'var(--danger)';
     return`<div class="urow" style="border-left-color:${renk}">
       <div class="urow-top">
-        <div><div class="urow-ad">${RIKSON[r.rol]||''} ${r.ad}</div>
+        <div><div class="urow-ad">${RIKSON[r.rol]||''} ${escapeHtml(r.ad)}</div>
           <div class="urow-stok">Maliyet: ${r.maliyet.toFixed(2)}₺${r.satisFiyati?' • Satış: '+r.satisFiyati.toFixed(2)+'₺':' • Satış fiyatı girilmemiş'}${r.eksikSayisi?` • ⚠️ ${r.eksikSayisi} malzeme fiyatsız`:''}</div>
         </div>
         <div style="font-size:16px;font-weight:800;color:${renk}">${r.fc!==null?'%'+r.fc:'—'}</div>
@@ -832,6 +844,7 @@ function basla(){
 // YARDIMCI
 // ============================================================
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),3000);}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function sLD(){document.getElementById('ld').classList.add('show');}
 function hLD(){document.getElementById('ld').classList.remove('show');}
 

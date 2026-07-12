@@ -760,18 +760,23 @@ async function loadDB(){
   hideLoading();
 }
 
-async function saveStok(){
-  // db.stok[depoId][urunKodu]={miktar,_id} — her satırı ayrı ayrı upsert et
+async function saveStok(hedefler){
+  // db.stok[depoId][urunKodu]={miktar,_id} — her satırı ayrı ayrı upsert et.
+  // hedefler=[{depoId,kod},...] verilirse SADECE o satırlar yazılır — bu, bu işlemin
+  // dokunmadığı depo/ürünlerde başka bir sekme/kullanıcının aynı anda yaptığı değişikliği
+  // eski önbellekle üzerine yazma riskini (tam tablo clobber) ortadan kaldırır.
+  // hedefler verilmezse (eski, artık kullanılmaması gereken davranış) tüm db.stok yazılır.
   try{
-    for(const depoId of Object.keys(db.stok)){
-      const urunler=db.stok[depoId];
-      for(const kod of Object.keys(urunler)){
-        const s=urunler[kod];
-        await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
-          method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:otelFromDepoId(depoId),miktar:s.miktar})
-        });
-      }
+    const hedefListesi=(hedefler&&hedefler.length)
+      ?hedefler
+      :Object.keys(db.stok).flatMap(depoId=>Object.keys(db.stok[depoId]).map(kod=>({depoId,kod})));
+    for(const {depoId,kod} of hedefListesi){
+      const s=(db.stok[depoId]||{})[kod];
+      if(!s)continue;
+      await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
+        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:otelFromDepoId(depoId),miktar:s.miktar})
+      });
     }
   }catch(e){console.warn(e);}
 }
@@ -846,7 +851,7 @@ async function malKabulOnayGiris(form){
     const h=giris(depoId,u.kod,u.ad,u.miktar,u.birim,'malkabul',form.id);
     hareketler.push(h);
   }
-  await saveStok();
+  await saveStok(hareketler.map(h=>({depoId:h.depoId,kod:h.lnKod})));
   for(const h of hareketler)await saveHareket(h);
   return hareketler.length;
 }
@@ -913,7 +918,7 @@ function renderStok(){
     return`<div class="stok-item ${d}" onclick="openDetay('${aktifDepoId}','${s.lnKod}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:var(--primary);">${s.urunAd||'—'}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--primary);">${escapeHtml(s.urunAd||'—')}</div>
           <div style="font-size:10px;color:var(--gray-400);font-family:monospace;">${s.lnKod} <span class="kat-badge">${s.lnKod?.slice(0,5)||''}</span></div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
@@ -955,7 +960,7 @@ function openDetay(depoId,lnKod){
     <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px;">
       <div style="font-size:11px;color:var(--gray-500);">${lnKod} • ${depoAd}</div>
       <div style="font-size:28px;font-weight:800;color:${d==='kritik'?'var(--danger)':d==='uyari'?'var(--warning)':'var(--success)'};">${s.miktar||0} ${s.birim||''}</div>
-      <div style="font-size:11px;color:var(--gray-500);cursor:pointer" onclick="minimumDuzenle('${lnKod}','${(s.urunAd||'').replace(/'/g,"\\'")}')">
+      <div style="font-size:11px;color:var(--gray-500);cursor:pointer" onclick="minimumDuzenle('${lnKod}','${escapeHtml((s.urunAd||'').replace(/'/g,"\\'"))}')">
         ${min>0?`Minimum: ${min} ${s.birim||''}`:'Minimum belirlenmemiş'} <span style="color:var(--primary);font-weight:600">✏️ Düzenle</span>
       </div>
     </div>
@@ -1224,7 +1229,7 @@ async function qrOkundu(text){
   document.getElementById('cikis-not').value=`Koli ${koli.koli_no||''}${koli.seri_no?' • Lot: '+koli.seri_no:''}${koli.skt_tarihi?' • SKT: '+koli.skt_tarihi:''}`.trim();
   const sonuc=document.getElementById('qr-sonuc');
   sonuc.style.display='block';
-  sonuc.innerHTML=`✅ Okundu: <b>${koli.urun_adi}</b> — ${parseFloat(koli.miktar).toFixed(2)} ${koli.birim}${koli.skt_tarihi?' • SKT: '+new Date(koli.skt_tarihi).toLocaleDateString('tr-TR'):''}`;
+  sonuc.innerHTML=`✅ Okundu: <b>${escapeHtml(koli.urun_adi)}</b> — ${parseFloat(koli.miktar).toFixed(2)} ${koli.birim}${koli.skt_tarihi?' • SKT: '+new Date(koli.skt_tarihi).toLocaleDateString('tr-TR'):''}`;
   showToast('✅ Koli okundu — kontrol edip Kaydet\'e basın');
 }
 
@@ -1242,7 +1247,7 @@ async function saveCikis(){
   if(miktar>mevcutMiktar){showToast(`⚠️ Stok yetersiz (mevcut: ${mevcutMiktar} ${birim})`);return;}
   showLoading();
   const h=cikis(depoId,kod,ad,miktar,birim,neden,not);
-  await saveStok();await saveHareket(h);
+  await saveStok([{depoId,kod}]);await saveHareket(h);
   // QR ile okutulmuş koli varsa 'cikti' olarak işaretle (aynı etiket ikinci kez kullanılamaz)
   if(_okunanKoli&&_okunanKoli.urun_kodu===kod){
     try{
@@ -1283,7 +1288,7 @@ async function saveTransfer(){
   }
   showLoading();
   const h=transfer(kaynakDepoId,hedefDepoId,kod,ad,miktar,birim,not);
-  await saveStok();await saveHareket(h);
+  await saveStok([{depoId:kaynakDepoId,kod},{depoId:hedefDepoId,kod}]);await saveHareket(h);
   hideLoading();
   closeModal('modal-transfer');
   document.getElementById('tr-urun-inp').value='';
@@ -1348,7 +1353,7 @@ async function applyLNRapor(){
     const h=cikis(_lnDepoId,kod,ad||kod,miktar,birim,'ln_tuketim','');
     harlar.push(h);islem++;
   });
-  await saveStok();for(const h of harlar)await saveHareket(h);
+  await saveStok(harlar.map(h=>({depoId:h.depoId,kod:h.lnKod})));for(const h of harlar)await saveHareket(h);
   hideLoading();
   const depoAd=depoAdi(_lnDepoId);
   document.getElementById('ln-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
@@ -1519,7 +1524,7 @@ async function iadeSiparisiOlustur(){
     const h=cikis(depoId,k.kod,k.ad,parseFloat(k.miktar),k.birim,'iade',`İade Siparişi: ${siparisNo} — ${firmaAd}`);
     hareketler.push(h);
   }
-  await saveStok();
+  await saveStok(hareketler.map(h=>({depoId:h.depoId,kod:h.lnKod})));
   for(const h of hareketler)await saveHareket(h);
   hideLoading();
 
@@ -1589,6 +1594,7 @@ function closeModal(id){
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function gotoPortal(){window.location.href='index.html';}
 function showToast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function showLoading(){document.getElementById('loading').classList.add('show');}
 function hideLoading(){document.getElementById('loading').classList.remove('show');}
 

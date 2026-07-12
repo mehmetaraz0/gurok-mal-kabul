@@ -17,5 +17,5 @@ jobs:
         with:
           node-version: '20'
 
-      - name: TCMB kurunu çek ve Firebase'e yaz
-        run: node scripts/fetch-kur.js
+      - name: TCMB kurunu çek ve Supabase'e yaz
+        run: node fetch-kur.js

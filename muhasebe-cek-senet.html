@@ -334,7 +334,7 @@ function renderListe(yon){
     return`<div class="cs-kart ${k.durum}" onclick="openDetay('${k.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div>
-          <div style="font-size:13px;font-weight:700">${k.cariAd}</div>
+          <div style="font-size:13px;font-weight:700">${escapeHtml(k.cariAd)}</div>
           <div style="font-size:11px;color:var(--gray-500)">${k.tur==='cek'?'📄 Çek':'📝 Senet'}${k.no?' • '+k.no:''}${k.banka?' • '+k.banka:''}</div>
         </div>
         <div style="text-align:right">
@@ -367,7 +367,7 @@ function renderVadeTakvimi(){
     return`<div class="cs-kart ${k.durum}" onclick="openDetay('${k.id}')">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
-          <div style="font-size:13px;font-weight:700">${k.cariAd}</div>
+          <div style="font-size:13px;font-weight:700">${escapeHtml(k.cariAd)}</div>
           <div style="font-size:11px;color:var(--gray-500)">${k.yon==='alinan'?'📥 Alınan':'📤 Verilen'} ${k.tur==='cek'?'Çek':'Senet'}${k.no?' • '+k.no:''}</div>
         </div>
         <div style="text-align:right">
@@ -601,6 +601,7 @@ function gTab(tab,el){
   if(tab==='vade')renderVadeTakvimi();
 }
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));

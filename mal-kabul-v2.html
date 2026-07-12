@@ -489,6 +489,24 @@ async function initApp(){
   document.getElementById('exp-bas').value=today;
   document.getElementById('exp-bit').value=today;
 
+  // Satın Alma'dan "📋 Mal Kabule Aktar" ile geldiyse (satin-alma.html: lnEksikleriAktar)
+  // sipariş numarasını sessionStorage'dan al ve formu otomatik doldur.
+  const aktarSiparisNo=sessionStorage.getItem('gurok_malkabul_siparisNo');
+  if(aktarSiparisNo){
+    sessionStorage.removeItem('gurok_malkabul_siparisNo');
+    const s=siparisler[aktarSiparisNo];
+    if(s){
+      document.getElementById('f-siparis-inp').value=s.siparisNo;
+      document.getElementById('f-siparis-no').value=s.siparisNo;
+      document.getElementById('f-firma-inp').value=s.firma;
+      formKalemleri=s.kalemler.map(k=>({kod:k.kod,ad:k.ad,birim:k.birim,miktar:k.kalanMiktar||k.miktar,sktTarihi:'',sicaklik:'',sicaklikKriter:'',seriNo:'',marka:'',uygunsuz:false,uygunsuzNot:''}));
+      renderKalemler();
+      toast('📦 Satın Alma\'dan aktarılan sipariş forma yüklendi');
+    } else {
+      toast('⚠️ Aktarılan sipariş ('+aktarSiparisNo+') bulunamadı, elle arayın');
+    }
+  }
+
   // Portal'dan #izleme gibi bir hash ile gelindiyse doğrudan o sekmeye geç
   // (v1'de "İzleme" adı kullanılıyordu, v2'de aynı içerik "esleme" sekme id'si altında)
   const hashEslesme={izleme:'esleme'};
@@ -1115,7 +1133,7 @@ function durumKart(f){
   const durumChip={bekleyen:'<span class="chip chip-yellow">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',iptal:'<span class="chip chip-red">❌ İptal</span>',arsivlendi:'<span class="chip chip-gray">📦 Arşiv</span>'};
   return`<div class="mk-kart ${f.durum}" onclick="openDetay('${f.id}')">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div><div style="font-size:13px;font-weight:700">${f.mkNo}</div><div style="font-size:11px;color:var(--gray-500)">${f.firma} • ${f.tarih}</div></div>
+      <div><div style="font-size:13px;font-weight:700">${f.mkNo}</div><div style="font-size:11px;color:var(--gray-500)">${escapeHtml(f.firma)} • ${f.tarih}</div></div>
       <div style="text-align:right">${durumChip[f.durum]||''}</div>
     </div>
     <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
@@ -1133,12 +1151,12 @@ function openDetay(id){
   document.getElementById('mDetayTitle').textContent=f.mkNo;
   document.getElementById('mDetayIc').innerHTML=`
     <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px">
-      <div style="font-size:13px">🏢 ${f.firma}</div>
+      <div style="font-size:13px">🏢 ${escapeHtml(f.firma)}</div>
       <div style="font-size:12px;color:var(--gray-600)">📅 ${f.tarih} • 🏨 ${OTEL_ISIMLERI[f.otelId]}</div>
-      <div style="font-size:12px;color:var(--gray-600)">İrsaliye: ${f.irsaliyeNo||'—'}</div>
-      ${f.lnSiparisNo?`<div style="font-size:12px;color:var(--gray-600)">Sipariş: ${f.lnSiparisNo}</div>`:''}
-      <div style="font-size:12px;color:var(--gray-600)">Personel: ${f.personel}</div>
-      ${f.notlar?`<div style="font-size:12px;color:var(--gray-600);margin-top:4px">📝 ${f.notlar}</div>`:''}
+      <div style="font-size:12px;color:var(--gray-600)">İrsaliye: ${escapeHtml(f.irsaliyeNo)||'—'}</div>
+      ${f.lnSiparisNo?`<div style="font-size:12px;color:var(--gray-600)">Sipariş: ${escapeHtml(f.lnSiparisNo)}</div>`:''}
+      <div style="font-size:12px;color:var(--gray-600)">Personel: ${escapeHtml(f.personel)}</div>
+      ${f.notlar?`<div style="font-size:12px;color:var(--gray-600);margin-top:4px">📝 ${escapeHtml(f.notlar)}</div>`:''}
     </div>
     <div style="padding:10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:8px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:${f.faturaNo?'#155724':'#856404'};margin-bottom:6px">
@@ -1152,8 +1170,8 @@ function openDetay(id){
     <div style="font-size:12px;font-weight:700;margin-bottom:6px">Ürünler</div>
     ${f.urunler.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:12px">
       <div>
-        <div>${u.ad}</div>
-        ${(u.seriNo||u.marka)?`<div style="font-size:10px;color:var(--gray-400)">${u.marka?'🏷️ '+u.marka:''}${u.marka&&u.seriNo?' • ':''}${u.seriNo?'S/N: '+u.seriNo:''}</div>`:''}
+        <div>${escapeHtml(u.ad)}</div>
+        ${(u.seriNo||u.marka)?`<div style="font-size:10px;color:var(--gray-400)">${u.marka?'🏷️ '+escapeHtml(u.marka):''}${u.marka&&u.seriNo?' • ':''}${u.seriNo?'S/N: '+escapeHtml(u.seriNo):''}</div>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:700">${u.miktar} ${u.birim}</span>
@@ -1195,14 +1213,20 @@ async function faturaNoKaydet(id){
 
 async function duzeltmeModuAc(id){
   const f=malKabuller[id];if(!f)return;
-  if(!confirm(`"${f.mkNo}" numaralı onaylı kaydı düzeltme moduna almak istediğinize emin misiniz?\nDüzeltme sonrası yeniden Kalite Onayı'na düşecek ve sipariş üzerine işlenen miktar geri alınacak.`))return;
+  if(!confirm(`"${f.mkNo}" numaralı onaylı kaydı düzeltme moduna almak istediğinize emin misiniz?\nDüzeltme sonrası yeniden Kalite Onayı'na düşecek; sipariş üzerine işlenen miktar VE bu kayıtla stoğa eklenen miktar geri alınacak (yeniden onaylanınca güncel miktarla tekrar işlenecek).`))return;
   const duzeltmeNotu=`✏️ Düzeltme: ${currentUser.ad} — ${new Date().toLocaleDateString('tr-TR')}`;
   const yeniNotlar=f.notlar?`${f.notlar}\n${duzeltmeNotu}`:duzeltmeNotu;
   sLD();
   try{
     // Sipariş üzerine daha önce onayla işlenmiş miktarı geri al (tekrar onaylanınca yeniden eklenecek)
     await siparisMiktarUygula(f,-1);
-    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'bekleyen',notlar:yeniNotlar})});
+    // Bu kaydın onayında stoğa eklenmiş miktarı da geri al — aksi halde yeniden onaylandığında
+    // stokaIsle() aynı miktarı bir daha ekler ve fiziksel karşılığı olmayan stok birikir.
+    // (f.stok_islendi bayrağına güvenmiyoruz — kolon her ortamda garanti değil; düzeltmeModuAc
+    // yalnızca durum==='onaylandi' kayıtlar için açılıyor, ve o duruma sadece stokaIsle() üzerinden
+    // geçiliyor, yani buraya düşen her kayıt zaten stoğa işlenmiştir.)
+    await stoktanGeriAl(f);
+    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'bekleyen',notlar:yeniNotlar,stok_islendi:false})});
     await auditLogYaz('duzelt','mal_kabul',id,`Onaylı kayıt düzeltme moduna alındı: ${f.mkNo}`);
   }catch(e){console.warn(e);toast('⚠️ İşlem başarısız');hLD();return;}
   hLD();
@@ -1211,6 +1235,35 @@ async function duzeltmeModuAc(id){
   renderListe();
   renderKaliteOnay();
   toast(`✏️ ${f.mkNo} düzeltme için açıldı — Kalite Onayı sekmesinde görünecek`);
+}
+
+// stokaIsle()'ın tersi — düzeltme moduna alınan bir kaydın daha önce stoğa eklediği
+// miktarı geri düşer. Aynı composite depo kodu deseniyle çalışır.
+async function stoktanGeriAl(f){
+  const otelId=f.otelId||'810';
+  const bareDepoKodu=otelId==='811'?'300':'100';
+  const depoKompozit=otelId+'_'+bareDepoKodu;
+  for(const u of (f.urunler||[])){
+    if(!u.kod||!u.miktar)continue;
+    const miktar=parseFloat(u.miktar)||0;
+    if(miktar<=0)continue;
+    let mevcut=0;
+    try{
+      const r=await fetch(SB_URL+`/rest/v1/stok?urun_kodu=eq.${encodeURIComponent(u.kod)}&depo_kodu=eq.${encodeURIComponent(depoKompozit)}&select=miktar`,{headers:SB_HEADERS});
+      if(r.ok){const rows=await r.json();if(rows[0])mevcut=parseFloat(rows[0].miktar)||0;}
+    }catch(e){}
+    const yeniMiktar=Math.max(0,mevcut-miktar);
+    try{
+      await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
+        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({urun_kodu:u.kod,depo_kodu:depoKompozit,otel_id:otelId,miktar:yeniMiktar})
+      });
+      await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+        urun_kodu:u.kod,depo_kodu:depoKompozit,otel_id:otelId,tip:'duzeltme-iptal',miktar,
+        belge_no:f.mkNo,aciklama:`Düzeltme için onay iptali: ${f.mkNo} — ${f.firma}`
+      })});
+    }catch(e){console.warn('stoktanGeriAl hatası:',e);}
+  }
 }
 
 // ============================================================
@@ -1678,13 +1731,13 @@ async function renderUygun(){
   if(!rows.length){c.innerHTML='<div class="es"><div class="ei">⚠️</div><div class="et">Kayıt yok</div></div>';return;}
   const kararEtiket={iade:'İade',sartli:'Şartlı Kullanım',imha:'İmha',duzeltme:'Düzeltme/Tekrar İşleme'};
   c.innerHTML=rows.map(r=>`<div class="mk-kart" style="border-left-color:${r.durum==='acik'?'var(--danger)':'var(--success)'}">
-    <div style="font-size:12px">${r.aciklama}</div>
-    <div style="font-size:10px;color:var(--gray-400);margin-top:4px">👤 ${r.bildiren_ad||'—'} • ${new Date(r.olusturma_tarihi).toLocaleDateString('tr-TR')}</div>
+    <div style="font-size:12px">${escapeHtml(r.aciklama)}</div>
+    <div style="font-size:10px;color:var(--gray-400);margin-top:4px">👤 ${escapeHtml(r.bildiren_ad)||'—'} • ${new Date(r.olusturma_tarihi).toLocaleDateString('tr-TR')}</div>
     ${r.durum==='acik'
       ?`<button class="btn btn-warning btn-sm btn-block" style="margin-top:8px" onclick="uygunsuzlukIncele('${r.id}')">🔍 Düzeltici Faaliyet</button>`
       :`<div style="margin-top:8px;padding:8px;background:var(--gray-100);border-radius:6px;font-size:11px">
           <div><b>Karar:</b> ${kararEtiket[r.karar]||'—'}</div>
-          ${r.faaliyet_aciklama?`<div style="margin-top:2px"><b>Faaliyet:</b> ${r.faaliyet_aciklama}</div>`:''}
+          ${r.faaliyet_aciklama?`<div style="margin-top:2px"><b>Faaliyet:</b> ${escapeHtml(r.faaliyet_aciklama)}</div>`:''}
           <div style="color:var(--gray-500);margin-top:2px">${r.faaliyet_yapan||''} ${r.faaliyet_tarih?'• '+r.faaliyet_tarih:''}</div>
         </div>
         <button class="btn btn-primary btn-sm btn-block" style="margin-top:6px" onclick="uygunsuzlukYazdir('${r.id}')">🖨️ Formu Yazdır</button>`}
@@ -1696,8 +1749,8 @@ function uygunsuzlukIncele(id){
   const r=uygunCache[id];if(!r)return;
   document.getElementById('mUygunDetayIc').innerHTML=`
     <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px">
-      <div>${r.aciklama}</div>
-      <div style="color:var(--gray-500);margin-top:4px">👤 ${r.bildiren_ad||'—'} • ${new Date(r.olusturma_tarihi).toLocaleDateString('tr-TR')}</div>
+      <div>${escapeHtml(r.aciklama)}</div>
+      <div style="color:var(--gray-500);margin-top:4px">👤 ${escapeHtml(r.bildiren_ad)||'—'} • ${new Date(r.olusturma_tarihi).toLocaleDateString('tr-TR')}</div>
     </div>
     <div class="field">
       <label>Faaliyet Açıklaması</label>
@@ -1807,7 +1860,7 @@ async function uygunsuzlukYazdir(id){
     </tr>
     <tr>
       <td class="lbl">Formu Açan</td>
-      <td colspan="2"><span class="lbl">Adı-Soyadı:</span> ${r.bildiren_ad||''}</td>
+      <td colspan="2"><span class="lbl">Adı-Soyadı:</span> ${escapeHtml(r.bildiren_ad)}</td>
       <td colspan="2"><span class="lbl">Departmanı:</span></td>
     </tr>
 
@@ -1824,13 +1877,13 @@ async function uygunsuzlukYazdir(id){
     <tr>
       <td rowspan="2" class="vert">Malzeme/Ürün<br>Uygunsuzluklar</td>
       <td colspan="4">
-        <span class="lbl">Firma Adı/Üretim:</span> ${mk?.firma||''}<br>
+        <span class="lbl">Firma Adı/Üretim:</span> ${escapeHtml(mk?.firma)}<br>
         <span class="lbl">Yapılan Bölüm adı:</span> ${OTEL_ISIMLERI[mk?.otelId||r.otel_id]||''}<br>
         <span class="lbl">Malzeme/Ürün Miktarı:</span> ${urunSatir?urunSatir.miktar+' '+urunSatir.birim:''}
       </td>
     </tr>
     <tr>
-      <td colspan="4" class="taller"><span class="lbl">Uygunsuzluğun Açıklaması</span><br>${(r.aciklama||'').replace(/\n/g,'<br>')}</td>
+      <td colspan="4" class="taller"><span class="lbl">Uygunsuzluğun Açıklaması</span><br>${escapeHtml(r.aciklama||'').replace(/\n/g,'<br>')}</td>
     </tr>
 
     <tr>
@@ -1852,7 +1905,7 @@ async function uygunsuzlukYazdir(id){
   <table class="frm">
     <tr>
       <td rowspan="2" class="vert">Düzeltici<br>Faaliyet</td>
-      <td colspan="4" class="taller">${(r.faaliyet_aciklama||'').replace(/\n/g,'<br>')}</td>
+      <td colspan="4" class="taller">${escapeHtml(r.faaliyet_aciklama||'').replace(/\n/g,'<br>')}</td>
     </tr>
     <tr>
       <td colspan="4">
@@ -2011,7 +2064,7 @@ function renderIzlemeAnaliz(){
         return`<div style="padding:8px 0;border-bottom:1px solid var(--gray-100)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
             <div>
-              <div style="font-size:13px;font-weight:600">${firma}</div>
+              <div style="font-size:13px;font-weight:600">${escapeHtml(firma)}</div>
               <div style="font-size:11px;color:var(--gray-500)">${s.total} teslimat • ${s.urunSayisi} ürün • ${s.uygunsuz} uygunsuz</div>
             </div>
             <span class="chip ${kritik?'chip-red':s.uygunsuz>0?'chip-yellow':'chip-green'}">${kritik?'🔴':s.uygunsuz>0?'🟡':'✅'} %${oran}</span>
@@ -2030,8 +2083,8 @@ function renderIzlemeAnaliz(){
         return`<div class="mk-kart" style="cursor:pointer" onclick="openDetay('${f.id}')">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
-              <div style="font-size:13px;font-weight:600">${f.firma}</div>
-              <div style="font-size:11px;color:var(--gray-500)">${f.tarih} • ${f.personel} • ${f.urunler.length} ürün</div>
+              <div style="font-size:13px;font-weight:600">${escapeHtml(f.firma)}</div>
+              <div style="font-size:11px;color:var(--gray-500)">${f.tarih} • ${escapeHtml(f.personel)} • ${f.urunler.length} ürün</div>
               ${uygunsuzlar.length?`<div style="font-size:11px;color:var(--danger);margin-top:2px">⚠️ ${uygunsuzlar.length} uygunsuzluk bildirimi</div>`:''}
             </div>
             ${durumChip[f.durum]||''}
@@ -2070,8 +2123,8 @@ async function renderIzlemeRaporlar(){
     ${filtered.map(u=>`<div class="mk-kart" style="border-left-color:${u.durum==='acik'?'var(--danger)':'var(--success)'}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div style="font-size:12px;color:var(--gray-600)">${u.aciklama||''}</div>
-          <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${new Date(u.olusturma_tarihi).toLocaleDateString('tr-TR')} • ${u.bildiren_ad||'—'}</div>
+          <div style="font-size:12px;color:var(--gray-600)">${escapeHtml(u.aciklama)}</div>
+          <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${new Date(u.olusturma_tarihi).toLocaleDateString('tr-TR')} • ${escapeHtml(u.bildiren_ad)||'—'}</div>
         </div>
         <span class="chip ${u.durum==='acik'?'chip-red':'chip-green'}">${u.durum==='acik'?'⏳ Açık':'✅ Kapatıldı'}</span>
       </div>
@@ -2350,6 +2403,7 @@ function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function sLD(){document.getElementById('ld').classList.add('show');}
 function hLD(){document.getElementById('ld').classList.remove('show');}
 

@@ -356,8 +356,8 @@ function renderDemirbaslar(){
     return`<div class="db-kart ${d.durum}" onclick="openDetay('${d.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div>
-          <div style="font-size:13px;font-weight:700">${d.ad}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${d.kod||'—'} • ${kat.ad||d.kategori}${d.zimmet?' • 👤 '+d.zimmet:''}</div>
+          <div style="font-size:13px;font-weight:700">${escapeHtml(d.ad)}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${d.kod||'—'} • ${kat.ad||d.kategori}${d.zimmet?' • 👤 '+escapeHtml(d.zimmet):''}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:14px;font-weight:800;color:var(--primary)">${fmt(net)} ₺</div>
@@ -671,6 +671,7 @@ function gTab(tab,el){
   }
 }
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));

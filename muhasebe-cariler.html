@@ -421,7 +421,7 @@ function renderCariler(){
     return`<div class="cari-kart ${durum}" onclick="openCariDetay('${cari.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div>
-          <div style="font-size:13px;font-weight:700">${cari.ad}</div>
+          <div style="font-size:13px;font-weight:700">${escapeHtml(cari.ad)}</div>
           <div style="font-size:11px;color:var(--gray-500)">${cari.kod}${cari.vkn?' • VKN: '+cari.vkn:''}</div>
         </div>
         <div style="text-align:right">
@@ -443,7 +443,7 @@ function renderCariler(){
   if(sel){
     sel.innerHTML='<option value="">— Cari seçin —</option>'+
       Object.values(cariler).filter(Boolean).sort((a,b)=>a.ad.localeCompare(b.ad,'tr'))
-        .map(c=>`<option value="${c.id}">${c.ad}</option>`).join('');
+        .map(c=>`<option value="${c.id}">${escapeHtml(c.ad)}</option>`).join('');
   }
 }
 
@@ -486,7 +486,7 @@ function openCariDetay(id){
       harlar.map(h=>`<div class="har-satir">
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600">${h.tip==='borc'?'Borç':h.tip==='alacak'?'Alacak':h.tip==='iade'?'İade':h.tip==='mahsup'?'Mahsup':'Açılış'}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${h.belge||'—'} • ${new Date(h.tarih).toLocaleDateString('tr-TR')}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${escapeHtml(h.belge)||'—'} • ${new Date(h.tarih).toLocaleDateString('tr-TR')}</div>
         </div>
         <div style="font-size:13px;font-weight:700;color:${h.tip==='borc'?'var(--danger)':'var(--success)'}">
           ${h.tip==='borc'?'+':'-'}${fmt(h.tutar)} ₺
@@ -616,7 +616,7 @@ async function cariSil(){
 // ============================================================
 function openHareket(cariId,prefillTip){
   const c=cariler[cariId];if(!c)return;
-  document.getElementById('mHareketTitle').innerHTML='➕ Hareket Ekle — '+c.ad+' <button class="mclose" onclick="kModal(\'mHareket\')">✕</button>';
+  document.getElementById('mHareketTitle').innerHTML='➕ Hareket Ekle — '+escapeHtml(c.ad)+' <button class="mclose" onclick="kModal(\'mHareket\')">✕</button>';
   document.getElementById('h-cari-id').value=cariId;
   document.getElementById('h-cari-ad').value=c.ad;
   document.getElementById('h-tip').value=prefillTip||'borc';
@@ -695,8 +695,8 @@ function renderHareketler(){
         const tipAd=h.tip==='borc'?'Borç':h.tip==='alacak'?'Alacak':h.tip==='iade'?'İade':h.tip==='mahsup'?'Mahsup':'Açılış';
         return`<div class="har-satir">
           <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cari?.ad||h.cariId}</div>
-            <div style="font-size:11px;color:var(--gray-500)">${tipAd} • ${h.belge||'—'}</div>
+            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(cari?.ad||h.cariId)}</div>
+            <div style="font-size:11px;color:var(--gray-500)">${tipAd} • ${escapeHtml(h.belge)||'—'}</div>
           </div>
           <div style="font-size:13px;font-weight:700;color:${tipRenk};flex-shrink:0">${h.tip==='borc'?'+':'-'}${fmt(h.tutar)} ₺</div>
         </div>`;
@@ -727,7 +727,7 @@ function renderMutabakat(){
   document.getElementById('mutabakat-sonuc').innerHTML=`
     <div class="card" style="border-left:4px solid ${son>0?'var(--danger)':son<0?'var(--success)':'var(--gray-300)'}">
       <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-        <div><div style="font-size:15px;font-weight:700">${c.ad}</div><div style="font-size:12px;color:var(--gray-500)">${bas||'—'} → ${bit||'—'}</div></div>
+        <div><div style="font-size:15px;font-weight:700">${escapeHtml(c.ad)}</div><div style="font-size:12px;color:var(--gray-500)">${bas||'—'} → ${bit||'—'}</div></div>
         <div style="text-align:right">
           <div style="font-size:22px;font-weight:800;color:${son>0?'var(--danger)':son<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(son))} ₺</div>
           <div style="font-size:11px;color:var(--gray-500)">${son>0?'Borç Bakiyesi':son<0?'Alacak Bakiyesi':'Bakiyesiz'}</div>
@@ -744,7 +744,7 @@ function renderMutabakat(){
         </tr>
         ${satirlar.map(h=>`<tr style="border-bottom:1px solid var(--gray-100)">
           <td style="padding:6px">${new Date(h.tarih).toLocaleDateString('tr-TR')}</td>
-          <td style="padding:6px">${h.belge||'—'}</td>
+          <td style="padding:6px">${escapeHtml(h.belge)||'—'}</td>
           <td style="padding:6px;text-align:right;color:var(--danger)">${h.tip==='borc'?fmt(h.tutar)+'₺':''}</td>
           <td style="padding:6px;text-align:right;color:var(--success)">${h.tip!=='borc'?fmt(h.tutar)+'₺':''}</td>
           <td style="padding:6px;text-align:right;font-weight:600;color:${h.bakiye>0?'var(--danger)':h.bakiye<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(h.bakiye))}₺</td>
@@ -789,6 +789,7 @@ async function firmaDBaktar(){
 // YARDIMCI
 // ============================================================
 function fmt(n){return (parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function gTab(tab,el){
   document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
   document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
@@ -873,7 +874,7 @@ function renderYaslandirma(){
     return`<div class="cari-kart borc" style="border-left-color:${renk}" onclick="openYaslDetay('${c.cari.id}')">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
-          <div style="font-size:13px;font-weight:700">${c.cari.ad}</div>
+          <div style="font-size:13px;font-weight:700">${escapeHtml(c.cari.ad)}</div>
           <div style="font-size:11px;color:var(--gray-500)">${c.cari.kod||''}</div>
         </div>
         <div style="font-size:15px;font-weight:800;color:${renk}">${fmt(c.toplam)} ₺</div>
@@ -905,7 +906,7 @@ function openYaslDetay(cariId){
         <th style="text-align:right;padding:6px">Tutar</th>
       </tr>
       ${satirlar.map(h=>`<tr style="border-bottom:1px solid var(--gray-100)">
-        <td style="padding:6px">${h.belge||'—'}</td>
+        <td style="padding:6px">${escapeHtml(h.belge)||'—'}</td>
         <td style="padding:6px">${h.vade||new Date(h.tarih).toLocaleDateString('tr-TR')}</td>
         <td style="padding:6px;text-align:center;color:${h.gun>60?'var(--danger)':h.gun>0?'var(--warning)':'var(--gray-500)'}">${h.gun>0?h.gun+' gün':'—'}</td>
         <td style="padding:6px;text-align:right;font-weight:700">${fmt(h.tutar)}₺</td>

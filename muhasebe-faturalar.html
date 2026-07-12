@@ -508,7 +508,7 @@ function renderFaturalar(tur){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div>
           <div style="font-size:13px;font-weight:700">${f.no}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${f.cariAd||'—'} • ${f.tarih||''}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${escapeHtml(f.cariAd)||'—'} • ${f.tarih||''}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:15px;font-weight:800;color:var(--primary)">${fmt(f.genelToplam)} ₺</div>
@@ -550,7 +550,7 @@ function openFaturaDetay(id){
   document.getElementById('mFaturaDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">
       <div>
-        <div style="font-size:15px;font-weight:700">${f.cariAd||'—'}</div>
+        <div style="font-size:15px;font-weight:700">${escapeHtml(f.cariAd)||'—'}</div>
         <div style="font-size:12px;color:var(--gray-500)">${f.tarih} ${f.vade?'• Vade: '+f.vade:''}</div>
       </div>
       ${durumChip[f.durum]||''}
@@ -578,7 +578,7 @@ function openFaturaDetay(id){
       <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>KDV</span><span>${fmt(f.kdvToplam)} ₺</span></div>
       <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700"><span>Genel Toplam</span><span style="color:var(--primary)">${fmt(f.genelToplam)} ₺</span></div>
     </div>
-    ${f.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Not: ${f.not}</div>`:''}
+    ${f.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Not: ${escapeHtml(f.not)}</div>`:''}
     <div class="brow">
       <button class="btn btn-gray btn-sm" onclick="kModal('mFaturaDetay')">Kapat</button>
       ${f.durum==='taslak'||f.durum==='bekliyor'?`<button class="btn btn-primary btn-sm" onclick="kModal('mFaturaDetay');openDuzenleFatura('${id}')">✏️ Düzenle</button>`:''}
@@ -1091,6 +1091,7 @@ function gTab(tab,el){
   if(tab==='eslestir')renderFaturalar('alis');
 }
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));

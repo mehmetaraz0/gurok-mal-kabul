@@ -731,7 +731,7 @@ async function ytKaydet(){
   const aciliyet=document.getElementById('yt-aciliyet').value;
   const not=document.getElementById('yt-not').value;
 
-  const satir={departman:dept,aciliyet,not_alani:not||null,durum:'bekleyen',talep_eden:CU.ad,otel_id:'810'};
+  const satir={departman:dept,aciliyet,not_alani:not||null,durum:'bekleyen',talep_eden:CU.ad,otel_id:CU.otelId||'810'};
   sLD();
   try{
     const r=await fetch(SB_URL+'/rest/v1/satin_alma_talepleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
@@ -809,15 +809,15 @@ function openTalepDetay(id){
             <th style="text-align:left;padding:4px 6px;color:var(--gray-600)">Birim</th>
           </tr>
           ${t.satirlar.map(u=>`<tr style="border-bottom:1px solid var(--gray-200)">
-            <td style="padding:5px 6px;font-weight:600">${u.ad||'—'}</td>
+            <td style="padding:5px 6px;font-weight:600">${escapeHtml(u.ad)||'—'}</td>
             <td style="padding:5px 6px;text-align:right;font-weight:700">${u.miktar||'—'}</td>
-            <td style="padding:5px 6px;color:var(--gray-500)">${u.birim||'KG'}</td>
+            <td style="padding:5px 6px;color:var(--gray-500)">${escapeHtml(u.birim)||'KG'}</td>
           </tr>`).join('')}
         </table>`
         :`<div style="white-space:pre-line;font-size:13px">—</div>`
       }
     </div>
-    ${t.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${t.not}</div>`:''}
+    ${t.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${escapeHtml(t.not)}</div>`:''}
     ${t.durum==='bekleyen'?`
       <div class="brow">
         <button class="btn btn-danger btn-sm" onclick="talepReddet('${id}')">❌ Reddet</button>
@@ -914,9 +914,9 @@ function openLNDetay(siparisNo){
 }
 
 function lnEksikleriAktar(siparisNo){
-  // Mal kabul modülüne yönlendir
+  // Mal kabul modülüne yönlendir (mal-kabul-v2.html — initApp() bu anahtarı okuyup siparişi otomatik yükler)
   sessionStorage.setItem('gurok_malkabul_siparisNo',siparisNo);
-  location.href='gurok_mal_kabul.html';
+  location.href='mal-kabul-v2.html';
 }
 
 // LN Excel Import
@@ -1215,6 +1215,7 @@ function fkSbdenCamele(r){
   return{
     id:r.id,durum:r.durum,faturaNo:r.fatura_no,mkNo:r.mk_no,firma:r.firma_ad,
     formTarih:r.form_tarihi,irsaliyeNo:r.irsaliye_no,lnSiparisNo:r.ln_siparis_no,
+    otelId:r.otel_id||null,
     urunler,
     fiyatlar:urunler.map(u=>u.birimFiyat||0),
     fiyatKontrolDurum:r.fiyat_kontrol_durum||null,
@@ -1388,7 +1389,7 @@ function fkDetayAc(formId){
       </div>
       <div style="margin-top:10px">
         <label style="font-size:11px;opacity:.8">Kontrol Notu (opsiyonel)</label>
-        <input type="text" id="fk-not" value="${f.fiyatKontrolNotu||''}" placeholder="Fiyat farkı, indirim notu vb."
+        <input type="text" id="fk-not" value="${escapeHtml(f.fiyatKontrolNotu||'')}" placeholder="Fiyat farkı, indirim notu vb."
           style="width:100%;margin-top:4px;padding:8px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.1);color:white;font-size:13px;outline:none">
       </div>
     </div>
@@ -1456,7 +1457,7 @@ async function muhasebeGonder(){
     no:f.faturaNo,tur:'alis',cari_ad:f.firma,
     tarih:new Date().toISOString().split('T')[0],
     siparis_no:f.lnSiparisNo?f.lnSiparisNo.trim():null,
-    otel_id:'810',
+    otel_id:f.otelId||'810',
     ara_toplam:Math.round(araToplam*100)/100,kdv_toplam:0,
     genel_toplam:Math.round(araToplam*100)/100,
     durum:'bekliyor',not_alani:document.getElementById('fk-not')?.value||null
@@ -2472,6 +2473,7 @@ async function renderSkorKart(){
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
 function sLD(){document.getElementById('ld').classList.add('show');}

@@ -476,10 +476,13 @@ async function loadDB(){
     DB.siparisler={};
     if(tR.ok)(await tR.json()).forEach(r=>{DB.siparisler[r.id]=talepSbdenCamele(r);});
     if(kR.ok){const d=await kR.json();if(Array.isArray(d)&&d.length)DB.kullanicilar=d.map(u=>({...u,rol:u.rol==='personel'?'depo':u.rol,depoId:u.depo_id||u.depoId||null,otelId:u.otel_id||u.otelId||null}));}
+    const katalogMap={};
+    if(typeof URUN_DB!=='undefined')URUN_DB.forEach(u=>{katalogMap[u.kod]={ad:u.ad,birim:u.birim};});
     DB.stok={};
     if(stR.ok)(await stR.json()).forEach(r=>{
       if(!DB.stok[r.depo_kodu])DB.stok[r.depo_kodu]={};
-      DB.stok[r.depo_kodu][r.urun_kodu]={lnKod:r.urun_kodu,miktar:parseFloat(r.miktar)||0};
+      const kat=katalogMap[r.urun_kodu]||{};
+      DB.stok[r.depo_kodu][r.urun_kodu]={lnKod:r.urun_kodu,miktar:parseFloat(r.miktar)||0,urunAd:kat.ad||r.urun_kodu,birim:kat.birim||''};
     });
   }catch(e){console.warn(e);}
   hLD();
@@ -656,7 +659,9 @@ function fUS(i,val){
   US[i].ad=val;
   const dd=document.getElementById('udd'+i);
   if(!val||val.length<2){dd.style.display='none';return;}
-  const stokItems=Object.values(DB.stok).filter(s=>s.urunAd?.toLowerCase().includes(val.toLowerCase())||s.lnKod?.toLowerCase().includes(val.toLowerCase())).slice(0,8);
+  const otelId=(CU&&CU.otelId)||aktifOtelId||'810';
+  const merkeziDepoId=tamDepoId(otelId,merkeziDepoKodu(otelId));
+  const stokItems=Object.values(DB.stok[merkeziDepoId]||{}).filter(s=>s.urunAd?.toLowerCase().includes(val.toLowerCase())||s.lnKod?.toLowerCase().includes(val.toLowerCase())).slice(0,8);
   const stokKodlar=new Set(stokItems.map(s=>s.lnKod));
   let genel=[];
   const urunDB=DB.urunler.length>0?DB.urunler:(window.URUN_DB||[]);
@@ -1032,6 +1037,17 @@ async function iptalEt(id){
 
 async function reddet(id){
   const s=DB.siparisler[id];if(!s)return;
+  const redNot=document.getElementById('rednot')?.value||'';
+  s.durum='reddedildi';
+  s.redNot=redNot;
+  s.reddeden=CU.ad;
+  s.redTarih=Date.now();
+  s.onaylayanAd=CU.ad;
+  sLD();
+  await saveSipDurum(s);
+  hLD();
+  toast('✅ Talep reddedildi');
+  rGelen();rBugun();
 }
 
 // ====== BUGÜN ======

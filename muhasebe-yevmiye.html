@@ -343,7 +343,7 @@ function renderYevmiye(){
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
           <div>
             <div style="font-size:13px;font-weight:700">${y.no} <span style="font-size:11px;color:var(--gray-500)">• ${y.tip}</span></div>
-            <div style="font-size:12px;color:var(--gray-600)">${y.aciklama||'—'}</div>
+            <div style="font-size:12px;color:var(--gray-600)">${escapeHtml(y.aciklama)||'—'}</div>
           </div>
           <div style="text-align:right">
             <div style="font-size:14px;font-weight:800;color:var(--danger)">${fmt(y.toplamBorc)} ₺</div>
@@ -364,7 +364,7 @@ function openYevmiyeDetay(id){
   document.getElementById('mYevmiyeDetayIc').innerHTML=`
     <div style="margin-bottom:12px">
       <div style="font-size:13px;color:var(--gray-600)">${y.tip} • ${new Date(y.tarih).toLocaleDateString('tr-TR')}</div>
-      <div style="font-size:14px;font-weight:700">${y.aciklama||'—'}</div>
+      <div style="font-size:14px;font-weight:700">${escapeHtml(y.aciklama)||'—'}</div>
       ${y.belge?`<div style="font-size:12px;color:var(--gray-500)">Belge: ${y.belge}</div>`:''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
@@ -786,6 +786,7 @@ function gTab(tab,el){
   }
 }
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function aModal(id){document.getElementById(id).classList.add('open');}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
