@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script src="auth-guard.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Mal Kabul</title>
 <meta name="theme-color" content="#1a2744">
@@ -76,39 +77,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 #ld.show{display:flex}
 .sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-/* LOGIN */
-#loginScreen{position:fixed;inset:0;background:var(--primary);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;padding:20px}
-#loginScreen h2{font-size:20px;margin-bottom:6px}
-#loginScreen p{font-size:12px;opacity:.7;margin-bottom:24px}
-.pin-dots{display:flex;gap:12px;margin-bottom:28px}
-.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.4)}
-.pin-dot.filled{background:white;border-color:white}
-.pin-pad{display:grid;grid-template-columns:repeat(3,64px);gap:14px}
-.pin-key{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:white;font-size:22px;font-weight:600;cursor:pointer}
-.pin-key:active{background:rgba(255,255,255,.25)}
 </style>
 </head>
 <body>
-<div id="loginScreen">
-  <h2>🏨 Mal Kabul</h2>
-  <p>PIN kodunuzu girin</p>
-  <div class="pin-dots" id="pinDots"></div>
-  <div class="pin-pad">
-    <button class="pin-key" onclick="pinInput('1')">1</button>
-    <button class="pin-key" onclick="pinInput('2')">2</button>
-    <button class="pin-key" onclick="pinInput('3')">3</button>
-    <button class="pin-key" onclick="pinInput('4')">4</button>
-    <button class="pin-key" onclick="pinInput('5')">5</button>
-    <button class="pin-key" onclick="pinInput('6')">6</button>
-    <button class="pin-key" onclick="pinInput('7')">7</button>
-    <button class="pin-key" onclick="pinInput('8')">8</button>
-    <button class="pin-key" onclick="pinInput('9')">9</button>
-    <button class="pin-key" onclick="pinClear()">✕</button>
-    <button class="pin-key" onclick="pinInput('0')">0</button>
-    <button class="pin-key" onclick="pinBack()">⌫</button>
-  </div>
-</div>
-
 <div id="app" style="display:none">
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
@@ -387,47 +358,11 @@ const OTEL_ISIMLERI={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'
 const OTEL_KISA={'810':'Club','811':'Resort'};
 const ROL_INDIRGEME={yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalite:'kalite',mutfak:'mutfak',bar:'bar',muhasebe_muduru:'yonetici',muhasebe_calisani:'yonetici',cost_control:'yonetici'};
 
-let currentUser=null, kullanicilar=[];
+let currentUser=null;
 let malKabuller={}, siparisler={}, urunler=[], cariler=[], uygunsuzluklarAcik={};
 let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik', siparisFilter='bekleyen', eslemeFilter='tumu';
 let formKalemleri=[];
 let formOtelId='810', previewMkNo='';
-
-// ============================================================
-// LOGIN
-// ============================================================
-let pinValue='';
-function updateDots(){
-  document.getElementById('pinDots').innerHTML=[0,1,2,3,4,5].map(i=>`<div class="pin-dot ${i<pinValue.length?'filled':''}"></div>`).join('');
-}
-function pinInput(d){
-  if(pinValue.length>=6)return;
-  pinValue+=d; updateDots();
-  if(pinValue.length===6){
-    const u=kullanicilar.find(k=>String(k.pin)===pinValue);
-    if(u){ currentUser=u; girisYap(); } else { setTimeout(()=>{pinValue='';updateDots();toast('⚠️ Hatalı PIN');},300); }
-  }
-}
-function pinClear(){pinValue='';updateDots();}
-function pinBack(){pinValue=pinValue.slice(0,-1);updateDots();}
-
-function girisYap(){
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('app').style.display='flex';
-  document.getElementById('hdrUser').textContent='👤 '+currentUser.ad;
-  document.getElementById('hdrOtel').textContent=currentUser.otelId?('🏨 '+OTEL_KISA[currentUser.otelId]):'';
-  initApp();
-}
-
-async function loadKullanicilar(){
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS});
-    if(r.ok){
-      const rows=await r.json();
-      kullanicilar=rows.map(u=>({id:u.id,ad:u.ad,pin:u.pin||'',rol:ROL_INDIRGEME[u.rol]||'depo',otelId:u.otel_id||''}));
-    }
-  }catch(e){console.warn(e);}
-}
 
 // ============================================================
 // DENETİM İZİ
@@ -2426,9 +2361,14 @@ function hLD(){document.getElementById('ld').classList.remove('show');}
 // ============================================================
 // INIT
 // ============================================================
-(async function(){
-  await loadKullanicilar();
-  updateDots();
+(function(){
+  currentUser = requireLogin();
+  if(!currentUser) return;
+  if(!requireRole(currentUser, ['yonetici','depo','satinalma','kalite'])) return;
+  document.getElementById('app').style.display='flex';
+  document.getElementById('hdrUser').textContent='👤 '+currentUser.ad;
+  document.getElementById('hdrOtel').textContent=currentUser.otelId?('🏨 '+OTEL_KISA[currentUser.otelId]):'';
+  initApp();
 })();
 </script>
 </body>
