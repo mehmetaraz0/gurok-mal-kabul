@@ -769,6 +769,90 @@ async function talepleriExcelAktar(){
   toast(`✅ ${satirlar.length} satır Excel'e aktarıldı`);
 }
 
+async function talepExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  if(typeof XLSX==='undefined'){
+    sLD();
+    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
+    hLD();
+  }
+  sLD();
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',raw:false});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{raw:false});
+      await talepExcelUygula(rows);
+    }catch(err){hLD();toast('❌ Dosya okunamadı: '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function talepExcelUygula(rows){
+  const gruplar={};
+  rows.forEach(r=>{
+    const talepId=String(r['Talep ID']||'').trim();
+    if(!talepId)return;
+    if(!gruplar[talepId])gruplar[talepId]=[];
+    gruplar[talepId].push(r);
+  });
+
+  let onaylanan=0,reddedilen=0,miktarGuncellenen=0;
+  const atlananlar=[];
+
+  for(const talepId of Object.keys(gruplar)){
+    const satirlar=gruplar[talepId];
+    const talep=DB.talepler[talepId];
+    if(!talep){atlananlar.push({talepId,sebep:'talep bulunamadı'});continue;}
+
+    // Canlı durumu tazele — önbellekteki DB.talepler bayat olabilir.
+    let canliDurum=talep.durum;
+    try{
+      const r=await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId+'&select=durum',{headers:SB_HEADERS});
+      if(r.ok){const d=await r.json();if(d[0])canliDurum=d[0].durum;}
+    }catch(e){}
+    if(canliDurum!=='bekleyen'){atlananlar.push({talepId,sebep:'zaten karara bağlanmış ('+canliDurum+')'});continue;}
+
+    // Karar çelişkisi kontrolü — aynı talebin satırlarında farklı Karar varsa atla.
+    const kararlar=[...new Set(satirlar.map(s=>String(s['Karar']||'').trim()).filter(Boolean))];
+    if(kararlar.length>1){atlananlar.push({talepId,sebep:'çelişkili karar: '+kararlar.join(', ')});continue;}
+    const karar=kararlar[0]||'';
+
+    // Miktar güncellemeleri — Kalem ID ile eşleştir.
+    for(const satir of satirlar){
+      const kalemId=String(satir['Kalem ID']||'').trim();
+      if(!kalemId)continue;
+      const kalem=(talep.satirlar||[]).find(k=>String(k.id)===kalemId);
+      if(!kalem)continue;
+      const yeniMiktar=parseFloat(satir['Miktar']);
+      if(!isNaN(yeniMiktar)&&yeniMiktar!==parseFloat(kalem.miktar)){
+        try{
+          await fetch(SB_URL+'/rest/v1/satin_alma_talep_kalemleri?id=eq.'+kalemId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({miktar:yeniMiktar})});
+          miktarGuncellenen++;
+        }catch(e){}
+      }
+    }
+
+    // Karar uygula — talepOnayla()/talepReddet() ile AYNI PATCH.
+    if(karar==='Onayla'){
+      try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});onaylanan++;}catch(e){}
+    }else if(karar==='Reddet'){
+      try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'reddedildi'})});reddedilen++;}catch(e){}
+    }
+  }
+
+  hLD();
+  await loadDB();
+  renderTalepler();
+  let mesaj=`✅ ${onaylanan} onaylandı, ${reddedilen} reddedildi, ${miktarGuncellenen} kalem miktarı güncellendi.`;
+  if(atlananlar.length){
+    mesaj+=` ⚠️ ${atlananlar.length} satır atlandı.`;
+    console.warn('Excel içe aktarma — atlanan talepler:',atlananlar);
+  }
+  toast(mesaj,4000);
+}
+
 function openTalepDetay(id){
   const t=DB.talepler[id];if(!t)return;
   const chipMap={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">✅ Onaylandı</span>',siparis:'<span class="chip chip-info">📦 Siparişe Dönüştü</span>',reddedildi:'<span class="chip chip-err">❌ Reddedildi</span>'};
