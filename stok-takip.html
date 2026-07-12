@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script src="auth-guard.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Stok Takip</title>
 <meta name="theme-color" content="#1a2744">
@@ -116,57 +117,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 #loading.show{display:flex}
 .spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-/* Login */
-#screen-login{position:fixed;inset:0;background:linear-gradient(160deg,var(--primary),var(--primary-light));display:none;align-items:center;justify-content:center;z-index:9999}
-#screen-login.visible{display:flex}
-#screen-login.hidden{display:none}
-.login-box{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;margin:20px}
-.pin-display{display:flex;justify-content:center;gap:10px;margin:12px 0 6px}
-.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--gray-400);transition:all .15s}
-.pin-dot.filled{background:var(--primary);border-color:var(--primary)}
-.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-.pin-btn{height:52px;border:none;border-radius:var(--radius-sm);font-size:20px;font-weight:600;cursor:pointer;background:var(--gray-100);color:var(--primary);transition:all .1s}
-.pin-btn:active{background:var(--gray-300);transform:scale(.95)}
-.pin-btn.empty{background:transparent;cursor:default}
 /* Transfer badge */
 .transfer-tag{font-size:10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:6px;font-weight:600}
 .kat-badge{display:inline-block;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;background:var(--gray-100);color:var(--gray-600)}
 </style>
 </head>
 <body>
-
-<!-- LOGIN -->
-<div id="screen-login">
-  <div class="login-box">
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 10px;">📦</div>
-      <div style="font-size:20px;font-weight:800;color:var(--primary);">Stok Takip</div>
-      <div style="font-size:12px;color:var(--gray-500);margin-top:4px;">Gürok Turizm Grubu</div>
-    </div>
-    <p style="text-align:center;font-size:12px;color:var(--gray-600);margin-bottom:4px;">PIN kodunuzu girin</p>
-    <div style="text-align:center;font-size:13px;font-weight:700;color:var(--primary);min-height:20px;" id="pin-user-show"></div>
-    <div class="pin-display">
-      <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
-      <div class="pin-dot" id="pd4"></div><div class="pin-dot" id="pd5"></div>
-    </div>
-    <div style="text-align:center;font-size:12px;color:var(--danger);min-height:18px;margin-bottom:6px;" id="pin-error"></div>
-    <div class="pin-pad">
-      <button class="pin-btn" onclick="pinInput('1')">1</button>
-      <button class="pin-btn" onclick="pinInput('2')">2</button>
-      <button class="pin-btn" onclick="pinInput('3')">3</button>
-      <button class="pin-btn" onclick="pinInput('4')">4</button>
-      <button class="pin-btn" onclick="pinInput('5')">5</button>
-      <button class="pin-btn" onclick="pinInput('6')">6</button>
-      <button class="pin-btn" onclick="pinInput('7')">7</button>
-      <button class="pin-btn" onclick="pinInput('8')">8</button>
-      <button class="pin-btn" onclick="pinInput('9')">9</button>
-      <button class="pin-btn empty"></button>
-      <button class="pin-btn" onclick="pinInput('0')">0</button>
-      <button class="pin-btn" onclick="pinDelete()" style="font-size:16px;">⌫</button>
-    </div>
-  </div>
-</div>
 
 <!-- APP -->
 <div id="app">
@@ -672,41 +628,6 @@ const DEFAULT_USERS = [
   {id:5,ad:'Kalite Kontrol',rol:'kalite',   pin:'444444'},
 ];
 const ROL_IKON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍'};
-
-// ============================================================
-// LOGIN
-// ============================================================
-let pinValue='';
-function pinInput(d){
-  if(pinValue.length>=6)return;
-  pinValue+=d; updatePinDots();
-  const match=db.kullanicilar.filter(u=>u.pin.startsWith(pinValue));
-  const el=document.getElementById('pin-user-show');
-  el.textContent=match.length===1&&pinValue.length>=3?(ROL_IKON[match[0].rol]||'👤')+' '+match[0].ad:'';
-  document.getElementById('pin-error').textContent='';
-  if(pinValue.length===6)setTimeout(checkPin,200);
-}
-function pinDelete(){pinValue=pinValue.slice(0,-1);updatePinDots();if(!pinValue)document.getElementById('pin-user-show').textContent='';}
-function updatePinDots(){for(let i=0;i<6;i++)document.getElementById('pd'+i).classList.toggle('filled',i<pinValue.length);}
-function checkPin(){
-  const user=db.kullanicilar.find(u=>u.pin===pinValue);
-  if(!user){
-    document.getElementById('pin-error').textContent='❌ Hatalı PIN';
-    setTimeout(()=>document.getElementById('pin-error').textContent='',2000);
-    pinValue='';updatePinDots();document.getElementById('pin-user-show').textContent='';return;
-  }
-  currentUser=user;
-  sessionStorage.setItem('gurok_stok_session',JSON.stringify({user,expiry:Date.now()+30*60*1000}));
-  document.getElementById('screen-login').classList.remove('visible');
-  document.getElementById('screen-login').classList.add('hidden');
-}
-function checkSession(){
-  for(const key of['gurok_portal_session','gurok_stok_session']){
-    const s=sessionStorage.getItem(key);
-    if(s){try{const{user,expiry}=JSON.parse(s);if(Date.now()<expiry){currentUser={...user,rol:user.rol==='personel'?'depo':user.rol};return true;}}catch(e){}}
-  }
-  return false;
-}
 
 // ============================================================
 // FIREBASE
@@ -1605,6 +1526,10 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
 // INIT
 // ============================================================
 (async function init(){
+  currentUser = requireLogin();
+  if(!currentUser) return;
+  if(!requireRole(currentUser, ['yonetici','depo'])) return;
+
   aktifDepoId=tamDepoId(aktifOtelId,depolarForOtel(aktifOtelId)[0].id);
   buildDepoSelectors(aktifOtelId);
   document.getElementById('otel-selector').value=aktifOtelId;
@@ -1613,8 +1538,6 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   renderIadeKalemler();
   await loadDB();
   buildIadeFirmaSelector(); // db.cariler loadDB() içinde dolduğu için ondan sonra çağrılmalı
-  if(checkSession())document.getElementById('screen-login').classList.add('hidden');
-  else document.getElementById('screen-login').classList.add('visible');
 
   const today=new Date().toISOString().split('T')[0];
   const weekAgo=new Date(Date.now()-7*86400000).toISOString().split('T')[0];
