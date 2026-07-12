@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script src="auth-guard.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok Turizm — Depo Yönetim Sistemi</title>
 <meta name="theme-color" content="#1a2744">
@@ -334,7 +335,7 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
 const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-const SESSION_KEY  = 'gurok_portal_session';
+// SESSION_KEY artık auth-guard.js'de tanımlı (paylaşılan) — burada tekrar tanımlanmıyor.
 
 // Modül tanımları
 const MODULLER = [
@@ -470,8 +471,12 @@ async function loadUsers() {
 // PIN
 // ============================================================
 let pinValue = '';
+// PIN kilitleme fonksiyonları (pinKilitliMi/pinBasarisizKaydet/pinBasariliTemizle)
+// artık auth-guard.js'de tanımlı (paylaşılan) — burada tekrar tanımlanmıyor.
 
 function pinInput(d) {
+  const kalanSn=pinKilitliMi();
+  if(kalanSn>0){document.getElementById('pin-error').textContent=`⏳ Çok fazla hatalı deneme — ${kalanSn} sn bekleyin`;return;}
   if (pinValue.length >= 6) return;
   pinValue += d;
   updateDots();
@@ -506,18 +511,25 @@ function checkPin() {
   const tumKullanicilar = users.length > 0 ? users : DEFAULT_USERS;
   const user = tumKullanicilar.find(u => String(u.pin) === String(pinValue));
   if (!user) {
+    pinBasarisizKaydet();
+    const kalanSn=pinKilitliMi();
     const errEl = document.getElementById('pin-error');
-    errEl.textContent = '❌ Hatalı PIN';
-    setTimeout(() => errEl.textContent = '', 2000);
+    errEl.textContent = kalanSn>0?`🔒 Çok fazla hatalı deneme — ${kalanSn} sn kilitlendi`:'❌ Hatalı PIN';
+    setTimeout(() => errEl.textContent = '', kalanSn>0?4000:2000);
     pinValue = '';
     updateDots();
     document.getElementById('pin-user-show').textContent = '';
     return;
   }
+  pinBasariliTemizle();
   currentUser = user;
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-    user, expiry: Date.now() + 30*60*1000
-  }));
+  oturumKaydet(user);
+  const params = new URLSearchParams(location.search);
+  const returnTo = params.get('returnTo');
+  if (returnTo && /^[a-z0-9_-]+\.html(\?[^#]*)?(#.*)?$/i.test(returnTo)) {
+    location.replace(returnTo);
+    return;
+  }
   showPortal();
 }
 
@@ -597,17 +609,11 @@ function showToast(msg, dur=2500) {
   await loadUsers();
   document.getElementById('loading').classList.remove('show');
 
-  // Session kontrolü
-  const s = sessionStorage.getItem(SESSION_KEY);
-  if (s) {
-    try {
-      const { user, expiry } = JSON.parse(s);
-      if (Date.now() < expiry) {
-        currentUser = user;
-        showPortal();
-        return;
-      }
-    } catch(e) {}
+  // Session kontrolü — paylaşılan auth-guard.js üzerinden
+  const user = oturumGetir();
+  if (user) {
+    currentUser = user;
+    showPortal();
   }
 })();
 </script>
