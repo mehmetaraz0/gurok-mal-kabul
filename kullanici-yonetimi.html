@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script src="auth-guard.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Kullanıcı Yönetimi</title>
 <meta name="theme-color" content="#1a2744">
@@ -254,30 +255,13 @@ function toast(msg,d=2500){const t=document.getElementById('toast');t.textConten
 function sLD(){document.getElementById('ld').classList.add('show');}
 function hLD(){document.getElementById('ld').classList.remove('show');}
 
-// Erişim kontrolü — bu ekran kullanıcı oluşturma/silme/PIN değiştirme yapabildiği için
-// yalnızca yönetici rolündeki oturum açık kullanıcılar görebilir. Aynı zamanda oturum
-// sahibinin kim olduğunu döndürür — denetim kaydına (auditLogYaz) doğru ismi yazmak için.
+// OTURUM_KULLANICI — auditLogYaz() bunu kullanıyor, requireLogin() dolduruyor.
 let OTURUM_KULLANICI=null;
-function oturumAcanKullanici(){
-  for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
-    const s=sessionStorage.getItem(k);
-    if(!s)continue;
-    try{
-      const{user,expiry}=JSON.parse(s);
-      if(Date.now()<expiry&&user&&user.rol==='yonetici')return user;
-    }catch(e){}
-  }
-  return null;
-}
 
 (async function(){
-  OTURUM_KULLANICI=oturumAcanKullanici();
-  if(!OTURUM_KULLANICI){
-    document.getElementById('app').innerHTML=`
-      <div class="header"><h1>🔒 Erişim Reddedildi</h1></div>
-      <div class="sc"><div class="uyari">Bu ekranı yalnızca yönetici rolündeki kullanıcılar açabilir. Önce <a href="index.html">portaldan</a> yönetici olarak giriş yapın.</div></div>`;
-    return;
-  }
+  OTURUM_KULLANICI = requireLogin();
+  if(!OTURUM_KULLANICI) return;
+  if(!requireRole(OTURUM_KULLANICI, ['yonetici'])) return;
   await loadDB();
   render();
 })();

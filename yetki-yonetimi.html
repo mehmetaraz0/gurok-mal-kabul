@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script src="auth-guard.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gürok — Yetki Yönetimi</title>
 <style>
@@ -154,24 +155,8 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'),1500);
 }
 
-// Erişim kontrolü — bu ekran tüm rollerin yetki matrisini değiştirebildiği için
-// yalnızca yönetici rolündeki oturum açık kullanıcılar görebilir.
-function erisimVarMi(){
-  for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
-    const s=sessionStorage.getItem(k);
-    if(!s)continue;
-    try{
-      const{user,expiry}=JSON.parse(s);
-      if(Date.now()<expiry&&user&&user.rol==='yonetici')return true;
-    }catch(e){}
-  }
-  return false;
-}
-if(!erisimVarMi()){
-  document.body.innerHTML=`
-    <div class="header"><h1>🔒 Erişim Reddedildi</h1></div>
-    <div class="uyari">Bu ekranı yalnızca yönetici rolündeki kullanıcılar açabilir. Önce <a href="index.html">portaldan</a> yönetici olarak giriş yapın.</div>`;
-} else {
+const OTURUM_KULLANICI = requireLogin();
+if (OTURUM_KULLANICI && requireRole(OTURUM_KULLANICI, ['yonetici'])) {
   yukle();
 }
 </script>
