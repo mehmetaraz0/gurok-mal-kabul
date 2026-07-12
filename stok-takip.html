@@ -1538,7 +1538,10 @@ async function iadeSiparisiOlustur(){
     <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length} kalem, ${depoAd}'dan stoktan düşüldü.</div>
     <button class="btn btn-sm btn-gray" style="margin-top:8px;" onclick="iadeBelgeYazdir('${siparisNo}')">🖨️ İade Belgesini Yazdır</button>
   </div>`;
-  window._sonIadeSiparis=siparis;
+  window._sonIadeSiparis={
+    siparisNo,otelId,firma:firmaAd,donusSekli:neden,orijinalFaturaNo:faturaNo||'',
+    tarih:new Date().toISOString().split('T')[0],olusturanAd:currentUser?.ad||'—',kalemler
+  };
 
   // Formu sıfırla
   IADE_KALEMLER=[{id:Date.now()+'_0',kod:'',ad:'',birim:'KG',miktar:''}];
