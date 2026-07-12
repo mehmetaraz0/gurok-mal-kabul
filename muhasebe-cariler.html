@@ -2,6 +2,29 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script>
+// Erişim kontrolü — Muhasebe modülü, PIN girişi gerektirmeden doğrudan URL ile
+// açılabiliyordu (denetimde bulundu). Sadece yönetici/satınalma rolündeki oturum
+// açık kullanıcılar buradan geçebilir; aksi halde portala yönlendirilir. Bulunan
+// kullanıcı OTURUM_KULLANICI'ya atanır — denetim kaydına (auditLogYaz) doğru ismi
+// yazmak için diğer scriptler bunu kullanabilir.
+let OTURUM_KULLANICI=null;
+(function(){
+  function oturumuBul(){
+    for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+      const s=sessionStorage.getItem(k);
+      if(!s)continue;
+      try{
+        const{user,expiry}=JSON.parse(s);
+        if(Date.now()<expiry&&user&&(user.rol==='yonetici'||user.rol==='satinalma'))return user;
+      }catch(e){}
+    }
+    return null;
+  }
+  OTURUM_KULLANICI=oturumuBul();
+  if(!OTURUM_KULLANICI)location.replace('index.html');
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Cari Hesaplar</title>
 <meta name="theme-color" content="#1a2744">
@@ -308,7 +331,9 @@ function hareketSbdenCamele(r){
   };
 }
 function faturaSbdenCamele(r){
-  return{id:r.id,no:r.no,cariId:r.cari_id,durum:r.durum};
+  return{id:r.id,no:r.no,cariId:r.cari_id,durum:r.durum,
+    genelToplam:parseFloat(r.genel_toplam)||0,
+    odemeTutar:r.odeme_tutari?parseFloat(r.odeme_tutari):0};
 }
 
 // ============================================================
@@ -317,7 +342,7 @@ function faturaSbdenCamele(r){
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={
     action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',
-    kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'
+    kullanici_ad:OTURUM_KULLANICI?.ad||'Bilinmeyen'
   };
   try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}
   catch(e){console.warn('Audit log kaydedilemedi:',e);}
@@ -329,7 +354,7 @@ async function loadDB(){
     const [cR,hR,fR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/cariler?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cari_hareketler?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/faturalar?select=id,no,cari_id,durum',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/faturalar?select=id,no,cari_id,durum,genel_toplam,odeme_tutari',{headers:SB_HEADERS}),
     ]);
     cariler={};hareketler={};faturalar={};
     if(cR.ok){(await cR.json()).forEach(r=>{cariler[r.id]=cariSbdenCamele(r);});}
@@ -557,7 +582,11 @@ document.getElementById('c-efatura').addEventListener('change',function(){
   document.getElementById('c-alias-field').style.display=this.value==='evet'?'block':'none';
 });
 
+let _cariKaydetIsleniyor=false;
 async function cariKaydet(){
+  if(_cariKaydetIsleniyor){toast('⏳ İşleniyor, bekleyin...');return;}
+  _cariKaydetIsleniyor=true;
+  try{
   const ad=document.getElementById('c-ad').value.trim();
   const kod=document.getElementById('c-kod').value.trim();
   if(!ad||!kod){toast('⚠️ Kod ve ad zorunlu');return;}
@@ -590,6 +619,9 @@ async function cariKaydet(){
   kModal('mCari');
   renderCariler();
   toast(`✅ ${cari.ad} kaydedildi`);
+  }finally{
+    _cariKaydetIsleniyor=false;
+  }
 }
 
 async function cariSil(){
@@ -633,7 +665,11 @@ function openHareket(cariId,prefillTip){
   aModal('mHareket');
 }
 
+let _hareketKaydetIsleniyor=false;
 async function hareketKaydet(){
+  if(_hareketKaydetIsleniyor){toast('⏳ İşleniyor, bekleyin...');return;}
+  _hareketKaydetIsleniyor=true;
+  try{
   const cariId=document.getElementById('h-cari-id').value;
   const tutar=parseFloat(document.getElementById('h-tutar').value);
   const tarih=document.getElementById('h-tarih').value;
@@ -662,6 +698,9 @@ async function hareketKaydet(){
   kModal('mHareket');
   renderCariler();
   toast(`✅ Hareket kaydedildi — ${fmt(tutar)} ₺`);
+  }finally{
+    _hareketKaydetIsleniyor=false;
+  }
 }
 
 // ============================================================
@@ -788,6 +827,7 @@ async function firmaDBaktar(){
 // ============================================================
 // YARDIMCI
 // ============================================================
+function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
 function fmt(n){return (parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function gTab(tab,el){
@@ -804,9 +844,10 @@ function kModal(id){document.getElementById(id).classList.remove('open');}
 
 // ============================================================
 // YAŞLANDIRMA ANALİZİ
-// Sadece "açık" hareketler dahil edilir:
-//   - belge no'suyla eşleşen bir fatura varsa ve o fatura odendi/iptal ise HARİÇ
-//   - eşleşen fatura yoksa (elle girilmiş hareket) veya durumu bekliyor/onaylandi ise DAHİL
+// Sadece "açık" (kalan bakiyesi >0) hareketler dahil edilir:
+//   - belge no'suyla eşleşen bir fatura varsa ve o fatura odendi/iptal ise HARİÇ (kalan: 0)
+//   - eşleşen fatura kısmi_odendi ise DAHİL, ama tam tutar değil KALAN bakiye (genelToplam-odemeTutar) sayılır
+//   - eşleşen fatura yoksa (elle girilmiş hareket) veya durumu bekliyor/onaylandi ise tam tutarla DAHİL
 // Vade tarihi olmayan hareketlerde hareketin kendi tarihi vade sayılır.
 // ============================================================
 const YASL_BUCKETLAR=[
@@ -818,9 +859,23 @@ const YASL_BUCKETLAR=[
 ];
 
 function hareketAcikMi(h){
+  return hareketKalanTutar(h)>0;
+}
+
+// h: cari_hareketler kaydı. Belge no'suyla eşleşen bir fatura varsa faturanın kalan
+// (ödenmemiş) bakiyesini döndürür: tam ödenmişse/iptaldeyse 0, kısmi ödenmişse kalan
+// tutarı (genelToplam-odemeTutar), eşleşme yoksa (elle girilmiş hareket) ihtiyatlı
+// davranıp hareketin kendi tutarını döndürür.
+function hareketKalanTutar(h){
+  const tutar=parseFloat(h.tutar)||0;
   const fatura=Object.values(faturalar).find(f=>f&&(f.no===h.belge||('ÖD-'+f.no)===h.belge));
-  if(!fatura)return true; // elle girilmiş / eşleşmeyen hareket -> ihtiyatlı davran, dahil et
-  return fatura.durum!=='odendi'&&fatura.durum!=='iptal';
+  if(!fatura)return tutar; // elle girilmiş / eşleşmeyen hareket -> ihtiyatlı davran, dahil et
+  if(fatura.durum==='odendi'||fatura.durum==='iptal')return 0;
+  if(fatura.durum==='kismi_odendi'){
+    const kalan=round2((parseFloat(fatura.genelToplam)||0)-(parseFloat(fatura.odemeTutar)||0));
+    return kalan>0?Math.min(tutar,kalan):0;
+  }
+  return tutar;
 }
 
 function gunGecikme(h){
@@ -832,7 +887,8 @@ function hesaplaYaslandirma(){
   const sonuc={}; // cariId -> {cari, bucketlar:{key:tutar}, toplam}
   Object.values(hareketler).filter(Boolean).forEach(h=>{
     if(h.tip!=='borc')return; // sadece borç yönlü (tedarikçiye borç / müşteriden alacak) hareketler yaşlandırılır
-    if(!hareketAcikMi(h))return;
+    const kalanTutar=hareketKalanTutar(h); // tam ödenmiş/iptal -> 0 (hariç), kısmi ödenmiş -> kalan bakiye
+    if(kalanTutar<=0)return;
     const cari=cariler[h.cariId];
     if(!cari)return;
     if(yaslFilter==='tedarikci'&&cari.tip!=='tedarikci'&&cari.tip!=='her_ikisi')return;
@@ -840,9 +896,9 @@ function hesaplaYaslandirma(){
     const gun=gunGecikme(h);
     const bucket=YASL_BUCKETLAR.find(b=>gun>=b.min&&gun<=b.max)||YASL_BUCKETLAR[YASL_BUCKETLAR.length-1];
     if(!sonuc[h.cariId])sonuc[h.cariId]={cari,bucketlar:{},toplam:0,hareketler:[]};
-    sonuc[h.cariId].bucketlar[bucket.key]=(sonuc[h.cariId].bucketlar[bucket.key]||0)+(parseFloat(h.tutar)||0);
-    sonuc[h.cariId].toplam+=parseFloat(h.tutar)||0;
-    sonuc[h.cariId].hareketler.push({...h,gun,bucketKey:bucket.key});
+    sonuc[h.cariId].bucketlar[bucket.key]=(sonuc[h.cariId].bucketlar[bucket.key]||0)+kalanTutar;
+    sonuc[h.cariId].toplam+=kalanTutar;
+    sonuc[h.cariId].hareketler.push({...h,tutar:kalanTutar,gun,bucketKey:bucket.key});
   });
   return sonuc;
 }
