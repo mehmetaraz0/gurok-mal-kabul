@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script src="auth-guard.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Günlük Tüketim</title>
 <meta name="theme-color" content="#1a2744">
@@ -44,15 +45,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
 .har-item{background:white;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .har-icon{width:32px;height:32px;border-radius:50%;background:#fde8e8;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-#login{position:fixed;inset:0;background:linear-gradient(160deg,var(--primary),var(--primary-light));display:flex;align-items:center;justify-content:center;z-index:9999}
-#login.gizle{display:none}
-.lbox{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:340px;margin:20px}
-.pdots{display:flex;justify-content:center;gap:10px;margin:12px 0 6px}
-.pdot{width:16px;height:16px;border-radius:50%;border:2px solid var(--gray-400);transition:all .15s}
-.pdot.f{background:var(--primary);border-color:var(--primary)}
-.ppad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-.pbtn{height:52px;border:none;border-radius:var(--radius-sm);font-size:20px;font-weight:600;cursor:pointer;background:var(--gray-100);color:var(--primary)}
-.pbtn:active{background:var(--gray-300);transform:scale(.95)}.pbtn.e{background:transparent;cursor:default}
 #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
@@ -62,26 +54,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 </style>
 </head>
 <body>
-
-<div id="login">
-  <div class="lbox">
-    <div style="text-align:center;margin-bottom:20px">
-      <div style="width:56px;height:56px;background:var(--primary);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 10px">📉</div>
-      <div style="font-size:20px;font-weight:800;color:var(--primary)">Günlük Tüketim</div>
-      <div style="font-size:12px;color:var(--gray-500);margin-top:4px">Gürok Turizm Grubu</div>
-    </div>
-    <p style="text-align:center;font-size:12px;color:var(--gray-600);margin-bottom:4px">PIN kodunuzu girin</p>
-    <div id="pshow" style="text-align:center;font-size:13px;font-weight:700;color:var(--primary);min-height:20px"></div>
-    <div class="pdots"><div class="pdot" id="d0"></div><div class="pdot" id="d1"></div><div class="pdot" id="d2"></div><div class="pdot" id="d3"></div><div class="pdot" id="d4"></div><div class="pdot" id="d5"></div></div>
-    <div id="perr" style="text-align:center;font-size:12px;color:var(--danger);min-height:18px;margin-bottom:6px"></div>
-    <div class="ppad">
-      <button class="pbtn" onclick="pi('1')">1</button><button class="pbtn" onclick="pi('2')">2</button><button class="pbtn" onclick="pi('3')">3</button>
-      <button class="pbtn" onclick="pi('4')">4</button><button class="pbtn" onclick="pi('5')">5</button><button class="pbtn" onclick="pi('6')">6</button>
-      <button class="pbtn" onclick="pi('7')">7</button><button class="pbtn" onclick="pi('8')">8</button><button class="pbtn" onclick="pi('9')">9</button>
-      <button class="pbtn e"></button><button class="pbtn" onclick="pi('0')">0</button><button class="pbtn" onclick="pd()" style="font-size:16px">⌫</button>
-    </div>
-  </div>
-</div>
 
 <div id="app" style="display:none">
   <div class="header">
@@ -201,47 +173,7 @@ const YONETICI_NOKTA_SECENEKLERI=[
 
 let CU=null;
 let DB={kullanicilar:[],stok:{},hareketler:[]};
-let pv='';
 let GT='giris';
-
-// ============================================================
-// PIN GİRİŞİ
-// ============================================================
-function pi(d){
-  if(pv.length>=6)return;
-  pv+=d;dots();
-  const all=[...DB.kullanicilar,...DEFAULT_USERS];
-  const m=all.filter(u=>String(u.pin).startsWith(pv));
-  document.getElementById('pshow').textContent=m.length===1&&pv.length>=3?(RIKSON[m[0].rol]||'👤')+' '+m[0].ad:'';
-  document.getElementById('perr').textContent='';
-  if(pv.length===6)setTimeout(checkPin,200);
-}
-function pd(){pv=pv.slice(0,-1);dots();if(!pv)document.getElementById('pshow').textContent='';}
-function dots(){for(let i=0;i<6;i++)document.getElementById('d'+i).classList.toggle('f',i<pv.length);}
-function checkPin(){
-  const all=[...DB.kullanicilar,...DEFAULT_USERS];
-  const user=all.find(u=>String(u.pin)===String(pv));
-  if(!user||(user.rol!=='mutfak'&&user.rol!=='bar'&&user.rol!=='yonetici')){
-    document.getElementById('perr').textContent=!user?'❌ Hatalı PIN':'❌ Bu modül sadece Mutfak/Bar personeli içindir';
-    setTimeout(()=>document.getElementById('perr').textContent='',2500);
-    pv='';dots();document.getElementById('pshow').textContent='';return;
-  }
-  CU=user;
-  sessionStorage.setItem('gurok_tuketim_session',JSON.stringify({user,expiry:Date.now()+8*60*60*1000}));
-  document.getElementById('login').classList.add('gizle');
-  basla();
-}
-function getSession(){
-  const s=sessionStorage.getItem('gurok_tuketim_session');
-  if(!s)return null;
-  try{
-    const{user,expiry}=JSON.parse(s);
-    if(Date.now()>=expiry)return null;
-    const all=[...DB.kullanicilar,...DEFAULT_USERS];
-    const tam=all.find(u=>u.id===user.id||String(u.pin)===String(user.pin))||user;
-    return tam;
-  }catch(e){return null;}
-}
 
 // ============================================================
 // SUPABASE
@@ -852,16 +784,12 @@ function hLD(){document.getElementById('ld').classList.remove('show');}
 // INIT
 // ============================================================
 (async function(){
+  CU = requireLogin();
+  if(!CU) return;
+  if(!requireRole(CU, ['mutfak','bar','yonetici'])) return;
   await loadKullanicilar();
   await loadUrunAdlari();
-  const sess=getSession();
-  if(sess){
-    CU=sess;
-    document.getElementById('login').classList.add('gizle');
-    basla();
-  }else{
-    document.getElementById('login').classList.remove('gizle');
-  }
+  basla();
 })();
 </script>
 </body>
