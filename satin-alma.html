@@ -741,6 +741,34 @@ function renderTalepler(){
     </div>`).join('');
 }
 
+// ====== İÇ TALEPLER — EXCEL AL/VER ======
+async function talepleriExcelAktar(){
+  let liste=Object.values(DB.talepler||{}).filter(Boolean);
+  if(talepFilter!=='tumu')liste=liste.filter(t=>t.durum===talepFilter);
+  const satirlar=[];
+  liste.forEach(t=>{
+    (t.satirlar||[]).forEach(k=>{
+      satirlar.push({
+        'Talep ID':t.id,'Kalem ID':k.id||'','Departman':t.departman||'','Tarih':t.tarih||'',
+        'Personel':t.personel||'','Aciliyet':t.aciliyet||'','Talep Notu':t.not||'',
+        'Ürün Adı':k.ad||'','Miktar':k.miktar,'Birim':k.birim||'',
+        'Mevcut Durum':t.durum||'','Karar':''
+      });
+    });
+  });
+  if(!satirlar.length){toast('⚠️ Aktarılacak talep yok');return;}
+  if(typeof XLSX==='undefined'){
+    sLD();
+    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
+    hLD();
+  }
+  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'IcTalepler');
+  XLSX.writeFile(wb,'ic-talepler-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  toast(`✅ ${satirlar.length} satır Excel'e aktarıldı`);
+}
+
 function openTalepDetay(id){
   const t=DB.talepler[id];if(!t)return;
   const chipMap={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">✅ Onaylandı</span>',siparis:'<span class="chip chip-info">📦 Siparişe Dönüştü</span>',reddedildi:'<span class="chip chip-err">❌ Reddedildi</span>'};
