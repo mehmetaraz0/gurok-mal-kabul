@@ -1076,10 +1076,12 @@ function depoYeniSiparis(){
 }
 
 // ====== 2. ONAY SİSTEMİ ======
-function onayOzetGoster(id, tip){
+async function onayOzetGoster(id, tip){
   const s=DB.siparisler[id];if(!s)return;
   _onayId=id;
   const urunler=s.urunler||s.kalemler||[];
+  const otelId=s.otelId||otelFromBareKod(s.departmanId)||'810';
+  const merkeziDepoId=tamDepoId(otelId,merkeziDepoKodu(otelId));
 
   // Onaylanan miktarları topla
   const onaylananlar=urunler.map((u,i)=>({
@@ -1087,10 +1089,32 @@ function onayOzetGoster(id, tip){
     onaylananMiktar: parseFloat(document.getElementById('om'+i)?.value||u.miktar)||0
   }));
 
+  // Ekranı önce mevcut (belki bayat) veriyle göster, sonra canlı stokla güncelle —
+  // kullanıcı beklemeden ekranı görsün, ama karar canlı veriye göre verilsin.
   let icerik='';
   if(tip==='onayla'){
+    // Merkezi depo stoğunu CANLI çek — DB.stok önbelleği bayat olabilir
+    sLD();
+    try{
+      const kodlar=[...new Set(onaylananlar.filter(u=>u.kod).map(u=>u.kod))];
+      if(kodlar.length){
+        const filtre=kodlar.map(k=>`"${k}"`).join(',');
+        const rTaze=await fetch(SB_URL+`/rest/v1/stok?depo_kodu=eq.${encodeURIComponent(merkeziDepoId)}&urun_kodu=in.(${filtre})&select=urun_kodu,miktar`,{headers:SB_HEADERS});
+        if(rTaze.ok){
+          if(!DB.stok[merkeziDepoId])DB.stok[merkeziDepoId]={};
+          (await rTaze.json()).forEach(row=>{
+            if(!DB.stok[merkeziDepoId][row.urun_kodu])DB.stok[merkeziDepoId][row.urun_kodu]={lnKod:row.urun_kodu};
+            DB.stok[merkeziDepoId][row.urun_kodu].miktar=parseFloat(row.miktar)||0;
+          });
+        }
+      }
+    }catch(e){console.warn('Canlı stok tazeleme başarısız:',e);}
+    hLD();
+
     const dept=sipDepartmanGoster(s);
-    const stokYetersiz=onaylananlar.some(u=>u.kod&&u.onaylananMiktar>parseFloat((DB.stok[u.kod]||{}).miktar||0));
+    // DÜZELTME: stok artık doğru yoldan (merkeziDepoId → kod) okunuyor — önceden DB.stok[u.kod]
+    // diye YANLIŞ aranıyordu, bu yüzden her zaman 0 dönüyor ve buton hep kilitli kalıyordu.
+    const stokYetersiz=onaylananlar.some(u=>u.kod&&u.onaylananMiktar>parseFloat((DB.stok[merkeziDepoId]?.[u.kod]||{}).miktar||0));
     icerik=`
       <div style="background:#d4edda;border-radius:8px;padding:12px;margin-bottom:12px;">
         <div style="font-size:13px;font-weight:700;color:#155724;margin-bottom:4px;">✅ Onaylanacak Transfer</div>
@@ -1098,7 +1122,7 @@ function onayOzetGoster(id, tip){
       </div>
       <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;">Gönderilecek Ürünler:</div>
       ${onaylananlar.map(u=>{
-        const stok=parseFloat((DB.stok[u.kod]||{}).miktar||0);
+        const stok=parseFloat((DB.stok[merkeziDepoId]?.[u.kod]||{}).miktar||0);
         const yeterli=!u.kod||stok>=u.onaylananMiktar;
         return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:${yeterli?'var(--gray-100)':'#fff8f8'};border-radius:6px;margin-bottom:4px;border-left:3px solid ${yeterli?'var(--success)':'var(--danger)'}">
           <div>
