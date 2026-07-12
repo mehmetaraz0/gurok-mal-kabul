@@ -2,258 +2,159 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — Kullanıcı Yönetimi</title>
-<meta name="theme-color" content="#1a2744">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — Yetki Yönetimi</title>
 <style>
-:root{--primary:#1a2744;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
-#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
-.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
-.header h1{font-size:15px;font-weight:700;flex:1}
-.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.hbtn:active{background:rgba(255,255,255,.3)}
-.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
-.uyari{background:#fff3cd;color:#856404;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.5;border:1.5px solid #fcd34d}
-.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
-.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px}
-.field{margin-bottom:12px}
-.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
-.field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
-.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
-.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
-.btn-primary{background:var(--primary);color:white}.btn-danger{background:var(--danger);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
-.brow{display:flex;gap:8px}.brow .btn{flex:1}
-.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
-.chip-blue{background:#dbeafe;color:#1e40af}.chip-orange{background:#fed7aa;color:#92400e}.chip-purple{background:#ede9fe;color:#5b21b6}.chip-gray{background:var(--gray-200);color:var(--gray-700)}.chip-red{background:#fde8e8;color:#9b1c1c}
-.u-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;display:flex;align-items:center;gap:10px}
-.u-kart.pasif{opacity:.5}
-.avatar{width:38px;height:38px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
-.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
-.mo.open{display:flex}
-.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:92vh;overflow-y:auto}
-.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
-.es{text-align:center;padding:30px 20px;color:var(--gray-400)}
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;text-align:center}
+:root{--primary:#1a2744;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-500:#adb5bd;--gray-600:#6c757d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);font-size:12px}
+.header{background:var(--primary);color:white;padding:14px 20px;display:flex;align-items:center;gap:10px}
+.header h1{font-size:16px}
+.header p{font-size:11px;opacity:.8;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:32px;height:32px;border-radius:50%;cursor:pointer;flex-shrink:0}
+.uyari{background:#fff3cd;color:#856404;padding:10px 20px;font-size:12px;border-bottom:1px solid #fcd34d}
+.wrap{overflow:auto;height:calc(100vh - 100px)}
+table{border-collapse:collapse;min-width:100%;background:white}
+th,td{border:1px solid var(--gray-300);padding:6px 8px;white-space:nowrap;text-align:center}
+th{background:var(--primary);color:white;position:sticky;top:0;z-index:2;font-size:11px}
+th.kat-depo{background:#1e3a8a}
+th.kat-satinalma{background:#92400e}
+th.kat-muhasebe{background:#065f46}
+th.kat-sistem{background:#5b21b6}
+td.rol-ad{position:sticky;left:0;background:var(--gray-100);text-align:left;font-weight:700;z-index:1;min-width:180px}
+td.rol-seviye{position:sticky;left:180px;background:var(--gray-100);z-index:1;font-size:10px;color:var(--gray-600);min-width:60px}
+tr:nth-child(even) td.rol-ad, tr:nth-child(even) td.rol-seviye{background:#e9ecef}
+.yetki-hucre{cursor:pointer;font-weight:700;font-size:10px;padding:6px 4px;user-select:none}
+.yetki-yok{color:var(--gray-300)}
+.yetki-goruntule{background:#fff3cd;color:#856404}
+.yetki-kayit{background:#dbeafe;color:#1e40af}
+.yetki-tam{background:#d4edda;color:#155724}
+.legend{display:flex;gap:14px;padding:8px 20px;background:white;border-bottom:1px solid var(--gray-300);font-size:11px;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend i{width:14px;height:14px;border-radius:3px;display:inline-block}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:9px 18px;border-radius:18px;font-size:12px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
-#ld.show{display:flex}
-.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div id="app">
-  <div class="header">
-    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
-    <div style="flex:1"><h1>👥 Kullanıcı Yönetimi</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">PIN, rol ve otel ataması</span></div>
-    <button class="hbtn" onclick="openYeniKullanici()">➕</button>
-  </div>
-  <div class="sc">
-    <div class="uyari">🔒 Bu ekrana yalnızca yönetici rolüyle giriş yapmış kullanıcılar erişebilir (istemci taraflı kontrol — sunucu tarafında Supabase RLS ile de desteklenmesi önerilir). Rol listesi (19 rol) <b>yetki-yonetimi.html</b> ekranındaki Excel matrisiyle aynı kaynaktan gelir.</div>
-    <div id="kullanici-liste"></div>
-  </div>
+<div class="header">
+  <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+  <div><h1>🔐 Rol / Yetki Yönetimi</h1><p>Bir hücreye tıkla, yetki seviyesi otomatik sırayla değişir: Yok → Görüntüle → Kayıt → Tam</p></div>
 </div>
-
-<!-- MODAL: Yeni/Düzenle Kullanıcı -->
-<div class="mo" id="mKullanici">
-  <div class="mbox">
-    <div class="mtitle" id="mKullaniciTitle">➕ Yeni Kullanıcı <button class="mclose" onclick="kModal()">✕</button></div>
-    <input type="hidden" id="k-id">
-    <div class="field"><label>Ad Soyad *</label><input type="text" id="k-ad" placeholder="Ad Soyad"></div>
-    <div class="field"><label>Rol *</label>
-      <select id="k-rol-id"></select>
-    </div>
-    <div class="rfields">
-      <div class="field"><label>PIN (6 hane) *</label><input type="text" id="k-pin" placeholder="123456" maxlength="6" inputmode="numeric"></div>
-      <div class="field"><label>Otel</label>
-        <select id="k-otel">
-          <option value="">🌐 Her İkisi (Grup rolü)</option>
-          <option value="810">🏨 810 — Club Manavgat</option>
-          <option value="811">🏨 811 — Resort Sorgun</option>
-        </select>
-      </div>
-    </div>
-    <div class="field"><label>Departman (opsiyonel)</label><input type="text" id="k-departman" placeholder="Örn. Mutfak, Muhasebe"></div>
-    <div class="field">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px">
-        <input type="checkbox" id="k-aktif" checked style="width:18px;height:18px">
-        Aktif kullanıcı (kapatılırsa giriş yapamaz, silinmez)
-      </label>
-    </div>
-    <div class="brow">
-      <button class="btn btn-gray" onclick="kModal()">İptal</button>
-      <button class="btn btn-danger btn-sm" id="k-sil-btn" onclick="kullaniciSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" onclick="kullaniciKaydet()">💾 Kaydet</button>
-    </div>
-  </div>
+<div class="uyari">🔒 Bu ekrana yalnızca yönetici rolüyle giriş yapmış kullanıcılar erişebilir (istemci taraflı kontrol — sunucu tarafında Supabase RLS ile de desteklenmesi önerilir). Değişiklikler anında kaydedilir.</div>
+<div class="legend">
+  <span><i style="background:#f1f3f5"></i> Yok</span>
+  <span><i style="background:#fff3cd"></i> Görüntüle</span>
+  <span><i style="background:#dbeafe"></i> Kayıt (ekle/düzenle)</span>
+  <span><i style="background:#d4edda"></i> Tam (onay/silme dahil)</span>
 </div>
-
+<div class="wrap"><table id="tablo"><tr><td>Yükleniyor...</td></tr></table></div>
 <div id="toast"></div>
-<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
 <script>
 const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
 const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-let kullanicilar={},roller=[];
+const SIRALAMA=['yok','goruntule','kayit','tam'];
+const KAT_ADLARI={depo:'DEPO OPERASYONLARI',satinalma:'SATIN ALMA',muhasebe:'MUHASEBE',sistem:'SİSTEM'};
 
-// Yeni zengin rol (roller.kod) -> eski basit enum (kullanicilar.rol) — geriye dönük uyumluluk için.
-// Diğer modüller (satin-alma.html, gurok_mal_kabul.html vb.) hâlâ bu eski 6-9 değerli alanı okuyor.
-const ROL_KODU_ESKI_ENUM={
-  grup_direktor:'yonetici',grup_finans:'muhasebe_muduru',grup_satinalma:'satinalma',grup_kalite:'kalite',
-  gm:'yonetici',mali_isler_mdr:'muhasebe_muduru',muhasebe_mdr:'muhasebe_muduru',muhasebe:'muhasebe_calisani',
-  cost_control_mdr:'cost_control',cost_control:'cost_control',satinalma_mdr:'satinalma',satinalma:'satinalma',
-  depo_sef:'depo',depo:'depo',kalite:'kalite',fb_mdr:'yonetici',mutfak:'mutfak',bar:'bar',it_admin:'yonetici'
-};
+let roller=[],moduller=[],matris={}; // matris[rolId+'_'+modulId] = {id,yetki}
 
-const OTEL_ISIMLERI={'810':'Club Manavgat','811':'Resort Sorgun'};
-
-async function auditLogYaz(action,entityType,entityId,detail){
-  const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:localStorage.getItem('gurok_user_name')||'Bilinmeyen'};
-  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){}
-}
-
-async function loadDB(){
-  sLD();
+async function yukle(){
   try{
-    const [kR,rR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/kullanicilar?select=*,roller(id,ad,kod,seviye)&or=(gizli.is.null,gizli.eq.false)',{headers:SB_HEADERS}),
+    const [rR,mR,yR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/roller?select=*&order=sira',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/moduller?select=*&order=sira',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/yetki_matrisi?select=*',{headers:SB_HEADERS}),
     ]);
-    kullanicilar={};roller=[];
-    if(rR.ok)roller=await rR.json();
-    if(kR.ok){
-      (await kR.json()).forEach(r=>{
-        kullanicilar[r.id]={
-          id:r.id,ad:r.ad,pin:r.pin||'',departman:r.departman||'',otelId:r.otel_id||'',
-          aktif:r.aktif!==false,rolId:r.rol_id||'',rolAd:r.roller?.ad||r.rol||'—',rolSeviye:r.roller?.seviye||''
-        };
-      });
+    if(!rR.ok||!mR.ok||!yR.ok){
+      const hataMetni=await (rR.ok?(mR.ok?yR:mR):rR).text();
+      document.getElementById('tablo').innerHTML=`<tr><td style="padding:20px;color:red">❌ Veri çekilemedi: ${hataMetni.slice(0,300)}</td></tr>`;
+      return;
     }
-  }catch(e){console.warn(e);}
-  hLD();
+    roller=await rR.json();
+    moduller=await mR.json();
+    matris={};
+    (await yR.json()).forEach(y=>{matris[y.rol_id+'_'+y.modul_id]={id:y.id,yetki:y.yetki};});
+    if(!roller.length||!moduller.length){
+      document.getElementById('tablo').innerHTML=`<tr><td style="padding:20px;color:#856404">⚠️ Tablolar boş görünüyor (roller: ${roller.length}, moduller: ${moduller.length}). 03_yetki_sistemi.sql ve/veya 04_yetki_gercek_veri.sql Supabase'de çalıştırıldı mı kontrol et.</td></tr>`;
+      return;
+    }
+    render();
+  }catch(e){
+    document.getElementById('tablo').innerHTML=`<tr><td style="padding:20px;color:red">❌ Bağlantı hatası: ${e.message}</td></tr>`;
+  }
 }
-
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 function render(){
-  const liste=Object.values(kullanicilar).sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
-  const c=document.getElementById('kullanici-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div style="font-size:40px;margin-bottom:10px">👥</div><div>Kullanıcı bulunamadı</div></div>';return;}
-  c.innerHTML=liste.map(u=>{
-    const bas=u.ad.split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
-    return`<div class="u-kart ${u.aktif?'':'pasif'}" onclick="openDuzenleKullanici('${u.id}')">
-      <div class="avatar">${escapeHtml(bas)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700">${escapeHtml(u.ad)}</div>
-        <div style="font-size:11px;color:var(--gray-500)">${escapeHtml(u.rolAd)}${u.departman?' • '+escapeHtml(u.departman):''}</div>
-        <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">
-          <span class="chip ${u.otelId==='811'?'chip-blue':u.otelId==='810'?'chip-orange':'chip-purple'}">${u.otelId?'🏨 '+OTEL_ISIMLERI[u.otelId]:'🌐 Grup'}</span>
-          ${!u.aktif?'<span class="chip chip-red">Pasif</span>':''}
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--gray-400);font-family:monospace">PIN ••${u.pin.slice(-2)}</div>
-    </div>`;
-  }).join('');
+  const kategoriler=[...new Set(moduller.map(m=>m.kategori))];
+  let thead1='<tr><th rowspan="2" style="left:0;position:sticky;z-index:3">ROL</th><th rowspan="2" style="left:180px;position:sticky;z-index:3">KAPSAM</th>';
+  kategoriler.forEach(k=>{
+    const say=moduller.filter(m=>m.kategori===k).length;
+    thead1+=`<th colspan="${say}" class="kat-${k}">${KAT_ADLARI[k]||k}</th>`;
+  });
+  thead1+='</tr><tr>';
+  moduller.forEach(m=>{thead1+=`<th class="kat-${m.kategori}">${m.ad}</th>`;});
+  thead1+='</tr>';
+
+  let gövde='';
+  roller.forEach(r=>{
+    gövde+=`<tr><td class="rol-ad">${r.ad}</td><td class="rol-seviye">${r.seviye==='grup'?'🌐 Grup':'🏨 Otel'}</td>`;
+    moduller.forEach(m=>{
+      const key=r.id+'_'+m.id;
+      const yetki=matris[key]?.yetki||'yok';
+      gövde+=`<td class="yetki-hucre yetki-${yetki}" onclick="hucreDegistir('${r.id}','${m.id}')" id="h-${key}">${etiket(yetki)}</td>`;
+    });
+    gövde+='</tr>';
+  });
+
+  document.getElementById('tablo').innerHTML=thead1+gövde;
 }
 
-function rolSecenekleriDoldur(seciliId){
-  const sel=document.getElementById('k-rol-id');
-  sel.innerHTML=roller.map(r=>`<option value="${r.id}"${r.id===seciliId?' selected':''}>${r.seviye==='grup'?'🌐':'🏨'} ${r.ad}</option>`).join('');
+function etiket(yetki){
+  return{yok:'—',goruntule:'GÖRÜNTÜLE',kayit:'KAYIT',tam:'TAM'}[yetki]||'—';
 }
 
-function openYeniKullanici(){
-  document.getElementById('mKullaniciTitle').innerHTML='➕ Yeni Kullanıcı <button class="mclose" onclick="kModal()">✕</button>';
-  document.getElementById('k-id').value='';
-  document.getElementById('k-ad').value='';
-  document.getElementById('k-pin').value='';
-  document.getElementById('k-otel').value='';
-  document.getElementById('k-departman').value='';
-  document.getElementById('k-aktif').checked=true;
-  rolSecenekleriDoldur(roller[0]?.id);
-  document.getElementById('k-sil-btn').style.display='none';
-  aModal();
-}
+async function hucreDegistir(rolId,modulId){
+  const key=rolId+'_'+modulId;
+  const mevcut=matris[key];
+  const suankiYetki=mevcut?.yetki||'yok';
+  const siradakiIndex=(SIRALAMA.indexOf(suankiYetki)+1)%SIRALAMA.length;
+  const yeniYetki=SIRALAMA[siradakiIndex];
 
-function openDuzenleKullanici(id){
-  const u=kullanicilar[id];if(!u)return;
-  document.getElementById('mKullaniciTitle').innerHTML='✏️ Kullanıcı Düzenle <button class="mclose" onclick="kModal()">✕</button>';
-  document.getElementById('k-id').value=id;
-  document.getElementById('k-ad').value=u.ad;
-  document.getElementById('k-pin').value=u.pin;
-  document.getElementById('k-otel').value=u.otelId||'';
-  document.getElementById('k-departman').value=u.departman||'';
-  document.getElementById('k-aktif').checked=u.aktif;
-  rolSecenekleriDoldur(u.rolId);
-  document.getElementById('k-sil-btn').style.display='flex';
-  aModal();
-}
+  const hucre=document.getElementById('h-'+key);
+  hucre.className='yetki-hucre yetki-'+yeniYetki;
+  hucre.textContent=etiket(yeniYetki);
 
-async function kullaniciKaydet(){
-  const ad=document.getElementById('k-ad').value.trim();
-  const pin=document.getElementById('k-pin').value.trim();
-  const rolId=document.getElementById('k-rol-id').value;
-  if(!ad||!pin||pin.length!==6||!/^\d{6}$/.test(pin)){toast('⚠️ Ad ve 6 haneli sayısal PIN girin');return;}
-  const rol=roller.find(r=>r.id===rolId);
-  const eskiEnum=ROL_KODU_ESKI_ENUM[rol?.kod]||'depo';
-
-  // Aynı PIN başka bir kullanıcıda var mı kontrol et (çakışma = iki kişi aynı PIN ile giremez)
-  const editId=document.getElementById('k-id').value;
-  const cakisan=Object.values(kullanicilar).find(u=>u.pin===pin&&u.id!==editId);
-  if(cakisan){toast(`⚠️ Bu PIN zaten "${cakisan.ad}" kullanıcısında kayıtlı`,3500);return;}
-
-  const satir={
-    ad,pin,rol_id:rolId,rol:eskiEnum,
-    otel_id:document.getElementById('k-otel').value||null,
-    departman:document.getElementById('k-departman').value||null,
-    aktif:document.getElementById('k-aktif').checked
-  };
-  sLD();
   try{
-    if(editId){
-      await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+editId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
-      await auditLogYaz('update','kullanici',editId,`Kullanıcı güncellendi: ${ad} (${rol?.ad||''})`);
+    if(mevcut?.id){
+      await fetch(SB_URL+'/rest/v1/yetki_matrisi?id=eq.'+mevcut.id,{
+        method:'PATCH',headers:SB_HEADERS,
+        body:JSON.stringify({yetki:yeniYetki,guncelleme_tarihi:new Date().toISOString()})
+      });
+      matris[key]={id:mevcut.id,yetki:yeniYetki};
     }else{
-      const r=await fetch(SB_URL+'/rest/v1/kullanicilar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+      const r=await fetch(SB_URL+'/rest/v1/yetki_matrisi',{
+        method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
+        body:JSON.stringify({rol_id:rolId,modul_id:modulId,yetki:yeniYetki})
+      });
       const d=await r.json();
-      await auditLogYaz('create','kullanici',d[0]?.id,`Kullanıcı oluşturuldu: ${ad} (${rol?.ad||''})`);
+      matris[key]={id:d[0].id,yetki:yeniYetki};
     }
-  }catch(e){console.warn(e);toast('⚠️ Kaydedilemedi');hLD();return;}
-  hLD();
-  kModal();
-  await loadDB();
-  render();
-  toast(`✅ ${ad} kaydedildi`);
+    toast('✅ Kaydedildi: '+etiket(yeniYetki));
+  }catch(e){
+    toast('⚠️ Kaydedilemedi, tekrar dene');
+    console.warn(e);
+  }
 }
 
-async function kullaniciSil(){
-  const id=document.getElementById('k-id').value;
-  const u=kullanicilar[id];if(!u)return;
-  if(!confirm(`"${u.ad}" tamamen silinsin mi?\n\n(Silmek yerine "Aktif kullanıcı" kutusunu kapatıp kaydetmen önerilir — geçmiş işlemlerdeki adı/izleri bozmaz, sadece girişini engeller.)`))return;
-  sLD();
-  try{
-    await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});
-    await auditLogYaz('delete','kullanici',id,`Kullanıcı silindi: ${u.ad}`);
-  }catch(e){console.warn(e);}
-  hLD();
-  kModal();
-  await loadDB();
-  render();
-  toast('🗑️ Silindi');
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1500);
 }
 
-function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR');}
-function aModal(){document.getElementById('mKullanici').classList.add('open');}
-function kModal(){document.getElementById('mKullanici').classList.remove('open');}
-document.getElementById('mKullanici').addEventListener('click',e=>{if(e.target.id==='mKullanici')kModal();});
-function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
-function sLD(){document.getElementById('ld').classList.add('show');}
-function hLD(){document.getElementById('ld').classList.remove('show');}
-
-// Erişim kontrolü — bu ekran kullanıcı oluşturma/silme/PIN değiştirme yapabildiği için
+// Erişim kontrolü — bu ekran tüm rollerin yetki matrisini değiştirebildiği için
 // yalnızca yönetici rolündeki oturum açık kullanıcılar görebilir.
 function erisimVarMi(){
   for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
@@ -266,17 +167,13 @@ function erisimVarMi(){
   }
   return false;
 }
-
-(async function(){
-  if(!erisimVarMi()){
-    document.getElementById('app').innerHTML=`
-      <div class="header"><h1>🔒 Erişim Reddedildi</h1></div>
-      <div class="sc"><div class="uyari">Bu ekranı yalnızca yönetici rolündeki kullanıcılar açabilir. Önce <a href="index.html">portaldan</a> yönetici olarak giriş yapın.</div></div>`;
-    return;
-  }
-  await loadDB();
-  render();
-})();
+if(!erisimVarMi()){
+  document.body.innerHTML=`
+    <div class="header"><h1>🔒 Erişim Reddedildi</h1></div>
+    <div class="uyari">Bu ekranı yalnızca yönetici rolündeki kullanıcılar açabilir. Önce <a href="index.html">portaldan</a> yönetici olarak giriş yapın.</div>`;
+} else {
+  yukle();
+}
 </script>
 </body>
 </html>
