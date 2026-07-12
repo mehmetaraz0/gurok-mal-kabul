@@ -157,6 +157,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="filter-tab" onclick="filterStok('normal',this)">✅ Normal</button>
     </div>
     <div class="filter-tabs" id="kat-tabs"></div>
+    <button class="btn btn-gray btn-block" style="margin-bottom:8px" onclick="stokExcelAktar()">📤 Excel'e Aktar</button>
     <div id="stok-liste"></div>
   </div>
 
@@ -851,6 +852,39 @@ function renderStok(){
       <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">Son güncelleme: ${s.sonGuncelleme?new Date(s.sonGuncelleme).toLocaleString('tr-TR'):'—'}</div>
     </div>`;
   }).join('');
+}
+
+// Salt görüntüleme — geri yükleme yok. Ekranda o an görünen (arama+kategori+durum
+// filtresi uygulanmış) listeyle birebir aynı satırları Excel'e indirir.
+async function stokExcelAktar(){
+  const depoStok=db.stok[aktifDepoId]||{};
+  const items=Object.values(depoStok);
+  const search=(document.getElementById('stok-search')?.value||'').toLowerCase();
+  const filtered=items.filter(s=>{
+    if(search&&!s.urunAd?.toLowerCase().includes(search)&&!s.lnKod?.toLowerCase().includes(search))return false;
+    if(katFilter!=='tumu'&&!s.lnKod?.startsWith(katFilter))return false;
+    const d=getStokDurum(s.lnKod,s.miktar);
+    if(stokFilter==='kritik'&&d!=='kritik')return false;
+    if(stokFilter==='uyari'&&d!=='uyari')return false;
+    if(stokFilter==='normal'&&d!=='normal')return false;
+    return true;
+  });
+  if(!filtered.length){showToast('⚠️ Aktarılacak stok yok');return;}
+  const durumEtiket={kritik:'Kritik',uyari:'Uyarı',normal:'Normal'};
+  const satirlar=filtered.map(s=>({
+    'Ürün Kodu':s.lnKod||'','Ürün Adı':s.urunAd||'','Miktar':s.miktar,'Birim':s.birim||'',
+    'Minimum':db.minimumlar[s.lnKod]||0,'Durum':durumEtiket[getStokDurum(s.lnKod,s.miktar)]||''
+  }));
+  if(typeof XLSX==='undefined'){
+    showLoading();
+    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
+    hideLoading();
+  }
+  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Stok');
+  XLSX.writeFile(wb,'stok-'+depoAdi(aktifDepoId).replace(/[^a-zA-Z0-9]+/g,'-')+'-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  showToast(`✅ ${satirlar.length} ürün Excel'e aktarıldı`);
 }
 
 function filterStok(f,el){
