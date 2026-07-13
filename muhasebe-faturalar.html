@@ -1274,6 +1274,9 @@ async function eFaturaKontrolEt(){
 
 // g: eFaturaGelenleriCek()'ten dönen tek bir gelen e-fatura kaydı
 async function gelenEfaturaTaslakOlustur(g){
+  const mevcutR=await fetch(SB_URL+'/rest/v1/gelen_efaturalar?ettn=eq.'+encodeURIComponent(g.ettn)+'&select=id&limit=1',{headers:SB_HEADERS});
+  const mevcut=await mevcutR.json();
+  if(mevcut.length){console.warn('Bu ETTN zaten işlenmiş, atlanıyor:',g.ettn);return;}
   const eslesenCari=Object.values(cariler).find(c=>c.vkn===g.gonderenVkn);
   const yeniFatura={
     tur:'alis',no:g.gibFaturaNo,tarih:g.tarih,
