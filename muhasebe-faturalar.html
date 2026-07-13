@@ -88,6 +88,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('satis',this)">📤 Satış</button>
     <button class="tabbtn" onclick="gTab('eslestir',this)">🔗 3-Way Match</button>
     <button class="tabbtn" onclick="gTab('odeme',this)">💳 Ödeme Bekleyen</button>
+    <button class="tabbtn" onclick="gTab('gelenkutu',this)">📬 Gelen e-Fatura</button>
   </div>
 
   <!-- ALIŞ FATURALARI -->
@@ -141,6 +142,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- ÖDEME BEKLEYEN -->
   <div class="sc" id="tab-odeme">
     <div id="odeme-liste"></div>
+  </div>
+
+  <!-- GELEN E-FATURA KUTUSU -->
+  <div class="sc" id="tab-gelenkutu">
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:#92400e;font-weight:600">⚠️ SİMÜLASYON MODU — gerçek GİB'den fatura çekilmiyor</div>
+    <button class="btn btn-primary btn-block" style="margin-bottom:10px" onclick="eFaturaKontrolEt()">🔄 Yeni e-Fatura Kontrol Et</button>
+    <div id="gelenkutu-liste"></div>
   </div>
 </div>
 
@@ -1226,6 +1234,66 @@ function gTab(tab,el){
   if(tab==='satis')renderFaturalar('satis');
   if(tab==='odeme')renderOdemeBekleyen();
   if(tab==='eslestir')renderFaturalar('alis');
+  if(tab==='gelenkutu')renderGelenKutusu();
+}
+function renderGelenKutusu(){
+  const liste=Object.values(gelenEfaturalar).sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+  const c=document.getElementById('gelenkutu-liste');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📬</div><div class="et">Henüz gelen e-fatura yok</div></div>';return;}
+  c.innerHTML=liste.map(g=>`
+    <div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:700;font-size:13px">${escapeHtml(g.gonderenAd)}</div>
+        <span class="chip ${g.durum==='islendi'?'chip-blue':'chip-yellow'}">${g.durum==='islendi'?'✅ İşlendi':'🆕 Yeni'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">VKN: ${g.gonderenVkn} • ${g.tarih}</div>
+      <div style="font-size:12px;font-weight:600">${fmt(g.genelToplam)} ₺</div>
+      <div style="font-size:10px;color:var(--gray-400);margin-top:4px">ETTN: ${g.ettn}</div>
+    </div>
+  `).join('');
+}
+
+async function eFaturaKontrolEt(){
+  sLD();
+  try{
+    const sonCekim=localStorage.getItem('efatura_son_cekim');
+    const gelenler=await eFaturaGelenleriCek(sonCekim?parseInt(sonCekim):null);
+    for(const g of gelenler){
+      await gelenEfaturaTaslakOlustur(g);
+    }
+    localStorage.setItem('efatura_son_cekim',String(Date.now()));
+    await loadDB();
+    renderGelenKutusu();
+    toast(gelenler.length?`✅ ${gelenler.length} yeni e-fatura alındı`:'ℹ️ Yeni e-fatura yok');
+  }catch(e){
+    console.warn(e);
+    toast('❌ Gelen e-fatura kontrolü başarısız');
+  }
+  hLD();
+}
+
+// g: eFaturaGelenleriCek()'ten dönen tek bir gelen e-fatura kaydı
+async function gelenEfaturaTaslakOlustur(g){
+  const eslesenCari=Object.values(cariler).find(c=>c.vkn===g.gonderenVkn);
+  const yeniFatura={
+    tur:'alis',no:g.gibFaturaNo,tarih:g.tarih,
+    cariId:eslesenCari?eslesenCari.id:null,
+    cariAd:eslesenCari?eslesenCari.ad:g.gonderenAd,
+    araToplam:g.araToplam,kdvToplam:g.kdvToplam,genelToplam:g.genelToplam,
+    otelId:'810',durum:'taslak',
+    not:eslesenCari?'':`⚠️ Cari eşleşmedi, VKN: ${g.gonderenVkn}`,
+    kalemler:g.kalemler.map(k=>({
+      kod:k.kod||'',ad:k.ad,miktar:k.miktar,birim:k.birim,
+      birimFiyat:k.birimFiyat,iskonto:0,kdvOran:k.kdvOran,toplam:k.toplam
+    }))
+  };
+  await saveFatura(yeniFatura);
+  const satir={
+    ettn:g.ettn,gonderen_vkn:g.gonderenVkn,gonderen_ad:g.gonderenAd,tarih:g.tarih,
+    kalemler:g.kalemler,ara_toplam:g.araToplam,kdv_toplam:g.kdvToplam,genel_toplam:g.genelToplam,
+    durum:'islendi',alis_fatura_id:yeniFatura.id
+  };
+  await fetch(SB_URL+'/rest/v1/gelen_efaturalar',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(satir)});
 }
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
