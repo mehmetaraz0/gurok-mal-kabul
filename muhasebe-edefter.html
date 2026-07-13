@@ -369,7 +369,149 @@ function ayAraligiHesapla(ay){
   };
 }
 
+function yevSbdenCamele(r){
+  return{
+    id:r.id,no:r.no,tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),
+    tarihStr:r.tarih,tip:r.tip,belge:r.belge_no||'',aciklama:r.aciklama||'',
+    otelId:r.otel_id,toplamBorc:parseFloat(r.toplam_borc)||0,toplamAlacak:parseFloat(r.toplam_alacak)||0,
+    onaylandi:!!r.onaylandi,otomatik:!!r.otomatik,
+    kalemler:(r.yevmiye_kalemleri||[]).map(k=>({
+      hesapKod:k.hesap_kodu,aciklama:k.aciklama||'',borc:parseFloat(k.borc)||0,alacak:parseFloat(k.alacak)||0
+    }))
+  };
+}
+
+async function loadDB(){
+  sLD();
+  try{
+    const [yR,hR]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=*,yevmiye_kalemleri(*)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad',{headers:SB_HEADERS}),
+    ]);
+    yevmiyeler={};hesapPlani={};
+    if(yR.ok){(await yR.json()).forEach(r=>{yevmiyeler[r.id]=yevSbdenCamele(r);});}
+    if(hR.ok){(await hR.json()).forEach(r=>{hesapPlani[r.kod.replace(/\./g,'_')]={kod:r.kod,ad:r.ad};});}
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+function yevmiyeDogrula(fisler){
+  const hatalar=[];
+  fisler.forEach(f=>{
+    const borc=round2(f.kalemler.reduce((t,k)=>t+(k.borc||0),0));
+    const alacak=round2(f.kalemler.reduce((t,k)=>t+(k.alacak||0),0));
+    if(borc!==alacak)hatalar.push(`${f.no}: Borç (${borc}) ≠ Alacak (${alacak})`);
+    if(f.kalemler.length<2)hatalar.push(`${f.no}: En az 2 kalem olmalı (${f.kalemler.length} bulundu)`);
+    f.kalemler.forEach(k=>{
+      if(!k.hesapKod||k.hesapKod.length<3||k.hesapKod.length>4)hatalar.push(`${f.no}: Geçersiz hesap kodu "${k.hesapKod}" (3-4 karakter olmalı)`);
+    });
+  });
+  return hatalar;
+}
+
+function buildEntryDetail(kalem,lineNo,entryCounter,fisNo,tarihStr){
+  const hesapAd=hesapPlani[kalem.hesapKod.replace(/\./g,'_')]?.ad||'';
+  const tutar=kalem.borc>0?kalem.borc:kalem.alacak;
+  const yon=kalem.borc>0?'D':'C';
+  return `<gl-cor:entryDetail>
+<gl-cor:lineNumber>${lineNo}</gl-cor:lineNumber>
+<gl-cor:lineNumberCounter>${entryCounter}</gl-cor:lineNumberCounter>
+<gl-cor:account>
+<gl-cor:accountMainID>${escapeXml(kalem.hesapKod)}</gl-cor:accountMainID>
+<gl-cor:accountMainDescription>${escapeXml(hesapAd)}</gl-cor:accountMainDescription>
+</gl-cor:account>
+<gl-cor:amount decimals="INF">${tutar.toFixed(2)}</gl-cor:amount>
+<gl-cor:debitCreditCode>${yon}</gl-cor:debitCreditCode>
+<gl-cor:postingDate>${tarihStr}</gl-cor:postingDate>
+<gl-cor:documentType>other</gl-cor:documentType>
+<gl-cor:documentTypeDescription>Muhasebe Fişi</gl-cor:documentTypeDescription>
+<gl-cor:documentNumber>${escapeXml(fisNo)}</gl-cor:documentNumber>
+<gl-cor:documentDate>${tarihStr}</gl-cor:documentDate>
+<gl-cor:documentReference>${escapeXml(fisNo)}</gl-cor:documentReference>
+</gl-cor:entryDetail>`;
+}
+
+function buildYevmiyeEntryHeader(fis,counter){
+  const kalemlerXml=fis.kalemler.map((k,i)=>buildEntryDetail(k,i+1,counter,fis.no,fis.tarihStr)).join('\n');
+  return `<gl-cor:entryHeader>
+<gl-cor:entryNumber>${escapeXml(fis.no)}</gl-cor:entryNumber>
+<gl-cor:entryNumberCounter>${counter}</gl-cor:entryNumberCounter>
+<gl-cor:enteredBy>${escapeXml(OTURUM_KULLANICI?.ad||'Sistem')}</gl-cor:enteredBy>
+<gl-cor:enteredDate>${fis.tarihStr}</gl-cor:enteredDate>
+<gl-bus:totalDebit>${fis.toplamBorc.toFixed(2)}</gl-bus:totalDebit>
+<gl-bus:totalCredit>${fis.toplamAlacak.toFixed(2)}</gl-bus:totalCredit>
+${kalemlerXml}
+</gl-cor:entryHeader>`;
+}
+
+async function donemAcikMi(tarihMs){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/mali_donemler?select=*',{headers:SB_HEADERS});
+    if(!r.ok)return{acik:true};
+    const donemler=await r.json();
+    if(!donemler||!donemler.length)return{acik:true};
+    for(const don of donemler){
+      const bas=new Date(don.baslangic).getTime();
+      const bit=new Date(don.bitis+'T23:59:59').getTime();
+      if(tarihMs>=bas&&tarihMs<=bit)return{acik:don.durum!=='kapali',donem:don};
+    }
+    return{acik:true};
+  }catch(e){return{acik:true};}
+}
+
+function renderYevXmlAlani(){
+  const c=document.getElementById('yevxml-alani');
+  c.innerHTML=`
+    <div class="uyari-serit">⚠️ İMZASIZ TASLAK — GİB'e yüklemeden önce mali mühür ile imzalanmalı</div>
+    <div class="card">
+      <div class="card-title">📒 Yevmiye Defteri XML</div>
+      <div class="field"><label>Ay</label><input type="month" id="yxml-ay"></div>
+      <div class="field"><label>Otel</label><select id="yxml-otel">${Object.keys(OTEL_ISIMLERI).map(id=>`<option value="${id}">${OTEL_ISIMLERI[id]}</option>`).join('')}</select></div>
+      <button class="btn btn-primary btn-block" onclick="yevmiyeXmlOlustur()">📥 XML Oluştur ve İndir</button>
+    </div>`;
+}
+
+async function yevmiyeXmlOlustur(){
+  const ay=document.getElementById('yxml-ay').value;
+  const otelId=document.getElementById('yxml-otel').value;
+  if(!ay){toast('⚠️ Ay seçin');return;}
+
+  await loadDB();
+  kurumBilgi=await kurumBilgileriYukle();
+  const kHatalar=kurumBilgileriDogrula(kurumBilgi);
+  if(kHatalar.length){toast('❌ '+kHatalar[0]);return;}
+
+  const sube=await subeBilgileriYukle(otelId);
+  if(!sube||!sube.subeNo){toast('❌ Bu otel için Şube Bilgisi girilmemiş (Kurum Bilgileri sekmesi)');return;}
+
+  const{yil,ayNo,ayBaslangic,ayBitis,ayBasMs,ayBitMs}=ayAraligiHesapla(ay);
+
+  let fisler=Object.values(yevmiyeler).filter(f=>f.otelId===otelId&&f.tarih>=ayBasMs&&f.tarih<=ayBitMs);
+  const taslakSayisi=fisler.filter(f=>!f.onaylandi).length;
+  fisler=fisler.filter(f=>f.onaylandi).sort((a,b)=>a.tarih-b.tarih);
+
+  if(!fisler.length){toast('⚠️ Seçilen ayda onaylı fiş bulunamadı');return;}
+
+  const hatalar=yevmiyeDogrula(fisler);
+  if(hatalar.length){
+    alert('XML üretilemedi, düzeltilmesi gereken sorunlar:\n\n'+hatalar.join('\n'));
+    return;
+  }
+
+  const donemDurum=await donemAcikMi(ayBasMs);
+  if(donemDurum.acik){
+    if(!confirm(`⚠️ ${ay} dönemi henüz kapatılmamış. Yine de devam edilsin mi?`))return;
+  }
+
+  const entryHeadersXml=fisler.map((f,i)=>buildYevmiyeEntryHeader(f,i+1)).join('\n');
+  const xml=buildEDefterXml('yevmiye',kurumBilgi,sube,ayBaslangic,ayBitis,entryHeadersXml);
+
+  indirXml(xml,`yevmiye-${kurumBilgi.vkn}-${yil}${ayNo}-imzasiz.xml`);
+  toast(taslakSayisi?`✅ XML oluşturuldu (${taslakSayisi} taslak fiş dahil edilmedi)`:'✅ XML oluşturuldu');
+}
+
 (async function(){
+  await loadDB();
   await kurumBilgileriFormaDoldur();
   renderSubeAlani();
 })();
