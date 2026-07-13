@@ -1670,6 +1670,46 @@ function sayimAciklamaGuncelle(lnKod,val){
   if(sayimSatirlari[lnKod])sayimSatirlari[lnKod].aciklama=val;
 }
 
+let _sayimKaydediliyor=false;
+
+async function sayimTamamla(){
+  if(_sayimKaydediliyor){showToast('⏳ İşleniyor, bekleyin...');return;}
+  const satirlar=Object.entries(sayimSatirlari).filter(([,v])=>v.sayilan!==undefined&&!isNaN(v.sayilan));
+  if(!satirlar.length){showToast('⚠️ En az bir ürün için sayılan miktar girin');return;}
+  const eksikAciklama=satirlar.filter(([,v])=>v.farkYuzde>SAYIM_ESIK_YUZDE&&!v.aciklama.trim());
+  if(eksikAciklama.length){
+    alert('Sayım kaydedilemedi, açıklama eksik:\n\n'+eksikAciklama.map(([k])=>_sayimUrunAdi[k]||k).join('\n'));
+    return;
+  }
+  _sayimKaydediliyor=true;
+  showLoading();
+  try{
+    const farkliSayisi=satirlar.filter(([,v])=>v.fark!==0).length;
+    const oturumR=await fetch(SB_URL+'/rest/v1/sayim_oturumlari',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify({
+      depo_kodu:aktifDepoId,otel_id:otelFromDepoId(aktifDepoId),olusturan_ad:currentUser?.ad||'—',
+      durum:'onay_bekliyor',toplam_urun_sayisi:satirlar.length,farkli_urun_sayisi:farkliSayisi
+    })});
+    if(!oturumR.ok)throw new Error('Oturum oluşturulamadı');
+    const oturumD=await oturumR.json();
+    const oturumId=oturumD[0].id;
+    const detaySatirlar=satirlar.map(([kod,v])=>({
+      oturum_id:oturumId,urun_kodu:kod,urun_adi:_sayimUrunAdi[kod]||'',birim:_sayimBirim[kod]||'',
+      sistem_miktar:_sayimSistemMiktar[kod]||0,sayilan_miktar:v.sayilan,fark:v.fark,fark_yuzde:v.farkYuzde,
+      aciklama:v.aciklama||null
+    }));
+    const detayR=await fetch(SB_URL+'/rest/v1/sayim_detaylari',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(detaySatirlar)});
+    if(!detayR.ok)throw new Error('Detaylar kaydedilemedi');
+    showToast(`✅ Sayım kaydedildi — ${satirlar.length} ürün, ${farkliSayisi} farklı, onay bekliyor`);
+    sayimSatirlari={};
+    renderSayimYeni();
+  }catch(e){
+    console.warn(e);
+    showToast('❌ Sayım kaydedilemedi, tekrar deneyin');
+  }
+  _sayimKaydediliyor=false;
+  hideLoading();
+}
+
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){
   document.getElementById(id).classList.remove('open');
