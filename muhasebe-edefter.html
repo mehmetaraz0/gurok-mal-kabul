@@ -510,6 +510,80 @@ async function yevmiyeXmlOlustur(){
   toast(taslakSayisi?`✅ XML oluşturuldu (${taslakSayisi} taslak fiş dahil edilmedi)`:'✅ XML oluşturuldu');
 }
 
+// fisler: onaylı yevmiye fişleri dizisi. Döner: {hesapKod: [{borc,alacak,fisNo,tarihStr}, ...]}
+function kebirGrupla(fisler){
+  const gruplar={};
+  fisler.forEach(f=>{
+    f.kalemler.forEach(k=>{
+      if(!gruplar[k.hesapKod])gruplar[k.hesapKod]=[];
+      gruplar[k.hesapKod].push({hesapKod:k.hesapKod,borc:k.borc,alacak:k.alacak,fisNo:f.no,tarihStr:f.tarihStr});
+    });
+  });
+  return gruplar;
+}
+
+function buildKebirEntryHeader(hesapKod,hareketler,counter){
+  const toplamBorc=round2(hareketler.reduce((t,h)=>t+(h.borc||0),0));
+  const toplamAlacak=round2(hareketler.reduce((t,h)=>t+(h.alacak||0),0));
+  const detaylarXml=hareketler.map((h,i)=>buildEntryDetail(h,i+1,counter,h.fisNo,h.tarihStr)).join('\n');
+  return `<gl-cor:entryHeader>
+<gl-cor:entryNumber>${escapeXml(hesapKod)}</gl-cor:entryNumber>
+<gl-cor:entryNumberCounter>${counter}</gl-cor:entryNumberCounter>
+<gl-cor:enteredBy>${escapeXml(OTURUM_KULLANICI?.ad||'Sistem')}</gl-cor:enteredBy>
+<gl-cor:enteredDate>${hareketler[0].tarihStr}</gl-cor:enteredDate>
+<gl-bus:totalDebit>${toplamBorc.toFixed(2)}</gl-bus:totalDebit>
+<gl-bus:totalCredit>${toplamAlacak.toFixed(2)}</gl-bus:totalCredit>
+${detaylarXml}
+</gl-cor:entryHeader>`;
+}
+
+function renderKebXmlAlani(){
+  const c=document.getElementById('kebxml-alani');
+  c.innerHTML=`
+    <div class="uyari-serit">⚠️ İMZASIZ TASLAK — GİB'e yüklemeden önce mali mühür ile imzalanmalı</div>
+    <div class="card">
+      <div class="card-title">📗 Defteri Kebir XML</div>
+      <div class="field"><label>Ay</label><input type="month" id="kxml-ay"></div>
+      <div class="field"><label>Otel</label><select id="kxml-otel">${Object.keys(OTEL_ISIMLERI).map(id=>`<option value="${id}">${OTEL_ISIMLERI[id]}</option>`).join('')}</select></div>
+      <button class="btn btn-primary btn-block" onclick="kebirXmlOlustur()">📥 XML Oluştur ve İndir</button>
+    </div>`;
+}
+
+async function kebirXmlOlustur(){
+  const ay=document.getElementById('kxml-ay').value;
+  const otelId=document.getElementById('kxml-otel').value;
+  if(!ay){toast('⚠️ Ay seçin');return;}
+
+  await loadDB();
+  kurumBilgi=await kurumBilgileriYukle();
+  const kHatalar=kurumBilgileriDogrula(kurumBilgi);
+  if(kHatalar.length){toast('❌ '+kHatalar[0]);return;}
+
+  const sube=await subeBilgileriYukle(otelId);
+  if(!sube||!sube.subeNo){toast('❌ Bu otel için Şube Bilgisi girilmemiş (Kurum Bilgileri sekmesi)');return;}
+
+  const{yil,ayNo,ayBaslangic,ayBitis,ayBasMs,ayBitMs}=ayAraligiHesapla(ay);
+
+  let fisler=Object.values(yevmiyeler).filter(f=>f.otelId===otelId&&f.tarih>=ayBasMs&&f.tarih<=ayBitMs);
+  const taslakSayisi=fisler.filter(f=>!f.onaylandi).length;
+  fisler=fisler.filter(f=>f.onaylandi).sort((a,b)=>a.tarih-b.tarih);
+
+  if(!fisler.length){toast('⚠️ Seçilen ayda onaylı fiş bulunamadı');return;}
+
+  const donemDurum=await donemAcikMi(ayBasMs);
+  if(donemDurum.acik){
+    if(!confirm(`⚠️ ${ay} dönemi henüz kapatılmamış. Yine de devam edilsin mi?`))return;
+  }
+
+  const gruplar=kebirGrupla(fisler);
+  const hesapKodlari=Object.keys(gruplar).sort();
+  const entryHeadersXml=hesapKodlari.map((kod,i)=>buildKebirEntryHeader(kod,gruplar[kod],i+1)).join('\n');
+  const xml=buildEDefterXml('kebir',kurumBilgi,sube,ayBaslangic,ayBitis,entryHeadersXml);
+
+  indirXml(xml,`kebir-${kurumBilgi.vkn}-${yil}${ayNo}-imzasiz.xml`);
+  toast(taslakSayisi?`✅ XML oluşturuldu (${taslakSayisi} taslak fiş dahil edilmedi)`:'✅ XML oluşturuldu');
+}
+
 (async function(){
   await loadDB();
   await kurumBilgileriFormaDoldur();
