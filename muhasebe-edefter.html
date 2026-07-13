@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script>
+let OTURUM_KULLANICI = requireLogin();
+if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma']);
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — e-Defter</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.tab-bar{background:white;display:flex;border-bottom:2px solid var(--gray-200);flex-shrink:0;overflow-x:auto}
+.tab-bar::-webkit-scrollbar{display:none}
+.tabbtn{padding:12px 16px;border:none;background:none;font-size:12px;font-weight:600;color:var(--gray-500);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-2px;flex-shrink:0}
+.tabbtn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:none}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.rfields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rfields .field{margin-bottom:0}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.uyari-serit{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:#92400e;font-weight:600}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <div style="flex:1"><h1>e-Defter</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Yevmiye / Kebir XML (imzasız taslak)</span></div>
+  </div>
+  <div class="tab-bar">
+    <button class="tabbtn active" onclick="gTab('kurum',this)">🏢 Kurum Bilgileri</button>
+    <button class="tabbtn" onclick="gTab('yevxml',this)">📒 Yevmiye XML</button>
+    <button class="tabbtn" onclick="gTab('kebxml',this)">📗 Kebir XML</button>
+  </div>
+
+  <!-- KURUM BİLGİLERİ -->
+  <div class="sc" id="tab-kurum" style="display:block">
+    <div class="card">
+      <div class="card-title">🏢 Firma Bilgileri</div>
+      <div class="field"><label>VKN (10 haneli)</label><input type="text" id="kb-vkn" maxlength="10"></div>
+      <div class="field"><label>Unvan</label><input type="text" id="kb-unvan"></div>
+      <div class="rfields">
+        <div class="field"><label>Bina No</label><input type="text" id="kb-bina"></div>
+        <div class="field"><label>Sokak</label><input type="text" id="kb-sokak"></div>
+      </div>
+      <div class="rfields">
+        <div class="field"><label>Şehir</label><input type="text" id="kb-sehir"></div>
+        <div class="field"><label>Posta Kodu</label><input type="text" id="kb-posta"></div>
+      </div>
+      <div class="field"><label>Ülke</label><input type="text" id="kb-ulke" value="Türkiye"></div>
+      <div class="rfields">
+        <div class="field"><label>Telefon</label><input type="text" id="kb-telefon"></div>
+        <div class="field"><label>E-posta</label><input type="text" id="kb-eposta"></div>
+      </div>
+      <div class="field"><label>Website</label><input type="text" id="kb-website"></div>
+      <div class="field"><label>İş Tanımı</label><input type="text" id="kb-istanimi" placeholder="Örn: Turizm ve otelcilik"></div>
+      <div class="rfields">
+        <div class="field"><label>Mali Yıl Başlangıç</label><input type="date" id="kb-myb"></div>
+        <div class="field"><label>Mali Yıl Bitiş</label><input type="date" id="kb-mye"></div>
+      </div>
+      <div class="rfields">
+        <div class="field"><label>Muhasebeci Adı</label><input type="text" id="kb-muhad"></div>
+        <div class="field"><label>Muhasebeci Unvanı</label><input type="text" id="kb-muhunvan" placeholder="Örn: Serbest Muhasebeci Mali Müşavir"></div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="kurumBilgileriFormKaydet()">💾 Kaydet</button>
+    </div>
+    <div id="sube-alani"></div>
+  </div>
+
+  <!-- YEVMİYE XML -->
+  <div class="sc" id="tab-yevxml">
+    <div id="yevxml-alani"></div>
+  </div>
+
+  <!-- KEBİR XML -->
+  <div class="sc" id="tab-kebxml">
+    <div id="kebxml-alani"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div>Yükleniyor...</div></div>
+<script>
+const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+const OTEL_ISIMLERI={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'};
+
+let kurumBilgi=null,subeBilgileri={},yevmiyeler={},hesapPlani={};
+
+function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+function sLD(){document.getElementById('ld').classList.add('show');}
+function hLD(){document.getElementById('ld').classList.remove('show');}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
+function gTab(tab,el){
+  document.querySelectorAll('.sc').forEach(s=>s.style.display='none');
+  document.querySelectorAll('.tabbtn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).style.display='block';
+  el.classList.add('active');
+  if(tab==='kurum')renderSubeAlani();
+  if(tab==='yevxml')renderYevXmlAlani();
+  if(tab==='kebxml')renderKebXmlAlani();
+}
+
+async function kurumBilgileriYukle(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/edefter_kurum_bilgileri?select=*&limit=1',{headers:SB_HEADERS});
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(!d.length)return null;
+    const k=d[0];
+    return{
+      id:k.id,vkn:k.vkn||'',unvan:k.unvan||'',
+      adresBinaNo:k.adres_bina_no||'',adresSokak:k.adres_sokak||'',adresSehir:k.adres_sehir||'',
+      adresPostaKodu:k.adres_posta_kodu||'',adresUlke:k.adres_ulke||'Türkiye',
+      telefon:k.telefon||'',eposta:k.eposta||'',website:k.website||'',
+      isTanimi:k.is_tanimi||'',maliYilBaslangic:k.mali_yil_baslangic||'',maliYilBitis:k.mali_yil_bitis||'',
+      muhasebeciAd:k.muhasebeci_ad||'',muhasebeciUnvan:k.muhasebeci_unvan||''
+    };
+  }catch(e){return null;}
+}
+
+async function kurumBilgileriKaydet(k){
+  const satir={
+    vkn:k.vkn||null,unvan:k.unvan||null,adres_bina_no:k.adresBinaNo||null,adres_sokak:k.adresSokak||null,
+    adres_sehir:k.adresSehir||null,adres_posta_kodu:k.adresPostaKodu||null,adres_ulke:k.adresUlke||null,
+    telefon:k.telefon||null,eposta:k.eposta||null,website:k.website||null,is_tanimi:k.isTanimi||null,
+    mali_yil_baslangic:k.maliYilBaslangic||null,mali_yil_bitis:k.maliYilBitis||null,
+    muhasebeci_ad:k.muhasebeciAd||null,muhasebeci_unvan:k.muhasebeciUnvan||null
+  };
+  if(k.id){
+    await fetch(SB_URL+'/rest/v1/edefter_kurum_bilgileri?id=eq.'+k.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+  }else{
+    await fetch(SB_URL+'/rest/v1/edefter_kurum_bilgileri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(satir)});
+  }
+}
+
+async function subeBilgileriYukle(otelId){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri?otel_id=eq.'+otelId+'&select=*',{headers:SB_HEADERS});
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(!d.length)return null;
+    return{subeNo:d[0].sube_no||'',subeAdi:d[0].sube_adi||''};
+  }catch(e){return null;}
+}
+
+async function subeBilgileriKaydet(otelId,subeNo,subeAdi){
+  const mevcutR=await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri?otel_id=eq.'+otelId+'&select=otel_id',{headers:SB_HEADERS});
+  const varMi=mevcutR.ok&&(await mevcutR.json()).length>0;
+  const satir={sube_no:subeNo||null,sube_adi:subeAdi||null};
+  if(varMi){
+    await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri?otel_id=eq.'+otelId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+  }else{
+    await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({otel_id:otelId,...satir})});
+  }
+}
+
+async function kurumBilgileriFormaDoldur(){
+  kurumBilgi=await kurumBilgileriYukle();
+  if(!kurumBilgi)return;
+  document.getElementById('kb-vkn').value=kurumBilgi.vkn;
+  document.getElementById('kb-unvan').value=kurumBilgi.unvan;
+  document.getElementById('kb-bina').value=kurumBilgi.adresBinaNo;
+  document.getElementById('kb-sokak').value=kurumBilgi.adresSokak;
+  document.getElementById('kb-sehir').value=kurumBilgi.adresSehir;
+  document.getElementById('kb-posta').value=kurumBilgi.adresPostaKodu;
+  document.getElementById('kb-ulke').value=kurumBilgi.adresUlke;
+  document.getElementById('kb-telefon').value=kurumBilgi.telefon;
+  document.getElementById('kb-eposta').value=kurumBilgi.eposta;
+  document.getElementById('kb-website').value=kurumBilgi.website;
+  document.getElementById('kb-istanimi').value=kurumBilgi.isTanimi;
+  document.getElementById('kb-myb').value=kurumBilgi.maliYilBaslangic;
+  document.getElementById('kb-mye').value=kurumBilgi.maliYilBitis;
+  document.getElementById('kb-muhad').value=kurumBilgi.muhasebeciAd;
+  document.getElementById('kb-muhunvan').value=kurumBilgi.muhasebeciUnvan;
+}
+
+async function kurumBilgileriFormKaydet(){
+  const k={
+    id:kurumBilgi?.id,
+    vkn:document.getElementById('kb-vkn').value.trim(),
+    unvan:document.getElementById('kb-unvan').value.trim(),
+    adresBinaNo:document.getElementById('kb-bina').value.trim(),
+    adresSokak:document.getElementById('kb-sokak').value.trim(),
+    adresSehir:document.getElementById('kb-sehir').value.trim(),
+    adresPostaKodu:document.getElementById('kb-posta').value.trim(),
+    adresUlke:document.getElementById('kb-ulke').value.trim(),
+    telefon:document.getElementById('kb-telefon').value.trim(),
+    eposta:document.getElementById('kb-eposta').value.trim(),
+    website:document.getElementById('kb-website').value.trim(),
+    isTanimi:document.getElementById('kb-istanimi').value.trim(),
+    maliYilBaslangic:document.getElementById('kb-myb').value,
+    maliYilBitis:document.getElementById('kb-mye').value,
+    muhasebeciAd:document.getElementById('kb-muhad').value.trim(),
+    muhasebeciUnvan:document.getElementById('kb-muhunvan').value.trim()
+  };
+  await kurumBilgileriKaydet(k);
+  kurumBilgi=await kurumBilgileriYukle();
+  toast('✅ Kurum bilgileri kaydedildi');
+}
+</script>
+</body>
+</html>
