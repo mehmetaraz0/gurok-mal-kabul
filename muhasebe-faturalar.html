@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
+<script src="efatura-adapter.js"></script>
 <script>
 let OTURUM_KULLANICI = requireLogin();
 if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma']);
@@ -258,7 +259,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
 const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-let faturalar={},cariler={},malKabulFormlar={},satinAlmaSiparisler={};
+let faturalar={},cariler={},malKabulFormlar={},satinAlmaSiparisler={},gelenEfaturalar={};
 let kalemler=[];
 let alisFilter='tumu',satisFilter='tumu';
 
@@ -378,6 +379,10 @@ function faturaSbdenCamele(r){
     not:r.not_alani||'',durum:r.durum,
     odemeTarih:r.odeme_tarihi?new Date(r.odeme_tarihi).getTime():null,
     odemeTutar:r.odeme_tutari?parseFloat(r.odeme_tutari):null,odemeYontem:r.odeme_yontemi||'',
+    efaturaDurum:r.efatura_durum||null,efaturaTip:r.efatura_tip||null,
+    ettn:r.ettn||null,gibFaturaNo:r.gib_fatura_no||null,gibPdfUrl:r.gib_pdf_url||null,
+    efaturaGonderimTarihi:r.efatura_gonderim_tarihi?new Date(r.efatura_gonderim_tarihi).getTime():null,
+    efaturaHataMesaji:r.efatura_hata_mesaji||null,
     kalemler:(r.fatura_kalemleri||[]).map(k=>({
       kod:k.urun_kodu||'',ad:k.urun_adi,miktar:parseFloat(k.miktar),birim:k.birim,
       birimFiyat:parseFloat(k.birim_fiyat),iskonto:parseFloat(k.iskonto_yuzde)||0,
@@ -396,21 +401,32 @@ function cariSbdenCamele(r){
     acente:!!r.acente,komisyonOrani:parseFloat(r.komisyon_orani)||0,not:r.not_alani||''
   };
 }
+function gelenEfaturaSbdenCamele(r){
+  return{
+    id:r.id,ettn:r.ettn,gibFaturaNo:r.gib_fatura_no||'',gonderenVkn:r.gonderen_vkn||'',
+    gonderenAd:r.gonderen_ad||'',tarih:r.tarih,kalemler:r.kalemler||[],
+    araToplam:parseFloat(r.ara_toplam)||0,kdvToplam:parseFloat(r.kdv_toplam)||0,
+    genelToplam:parseFloat(r.genel_toplam)||0,durum:r.durum,alisFaturaId:r.alis_fatura_id||null,
+    olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now()
+  };
+}
 
 async function loadDB(){
   sLD();
   try{
-    const [fR,cR,mkR,spR]=await Promise.all([
+    const [fR,cR,mkR,spR,geR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/faturalar?select=*,fatura_kalemleri(*)',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cariler?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/mal_kabuller?select=*,mal_kabul_urunleri(*)',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/siparisler?select=*,siparis_kalemleri(*)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/gelen_efaturalar?select=*&order=olusturma_tarihi.desc',{headers:SB_HEADERS}),
     ]);
-    faturalar={};cariler={};malKabulFormlar={};satinAlmaSiparisler={};
+    faturalar={};cariler={};malKabulFormlar={};satinAlmaSiparisler={};gelenEfaturalar={};
     if(fR.ok){(await fR.json()).forEach(r=>{faturalar[r.id]=faturaSbdenCamele(r);});}
     if(cR.ok){(await cR.json()).forEach(r=>{cariler[r.id]=cariSbdenCamele(r);});}
     if(mkR.ok){(await mkR.json()).forEach(r=>{malKabulFormlar[r.id]=malKabulSbdenCamele(r);});}
     if(spR.ok){(await spR.json()).forEach(r=>{satinAlmaSiparisler[r.siparis_no]=siparisSbdenCamele(r);});}
+    if(geR.ok){(await geR.json()).forEach(r=>{gelenEfaturalar[r.id]=gelenEfaturaSbdenCamele(r);});}
   }catch(e){console.warn(e);}
   hLD();
 }
