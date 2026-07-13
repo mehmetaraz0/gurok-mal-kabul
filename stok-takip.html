@@ -1569,6 +1569,107 @@ function switchTab(tab){
   if(tab==='hareketler')renderHareketler();
   if(tab==='sayim')renderSayimTab();
 }
+
+const SAYIM_ESIK_YUZDE=10;
+let sayimSatirlari={}; // {lnKod:{sayilan,fark,farkYuzde,aciklama}}
+let sayimKatFilter='tumu';
+let sayimGorunum='yeni'; // 'yeni' | 'onay'
+let _sayimSistemMiktar={},_sayimUrunAdi={},_sayimBirim={};
+function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
+
+function sayimGorunumDegistir(g,el){
+  sayimGorunum=g;
+  document.querySelectorAll('#sayim-gorunum-tabs .filter-tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  document.getElementById('sayim-yeni-alani').style.display=g==='yeni'?'block':'none';
+  document.getElementById('sayim-onay-alani').style.display=g==='onay'?'block':'none';
+  if(g==='onay')sayimOnayBekleyenleriYukle();
+}
+
+function renderSayimTab(){
+  const costControlMi=currentUser?.rol==='cost_control';
+  document.getElementById('sayim-gorunum-tabs').style.display=costControlMi?'flex':'none';
+  if(!costControlMi){sayimGorunumDegistir('yeni',null);}
+  sayimSatirlari={};
+  renderSayimYeni();
+  if(costControlMi)sayimOnayBekleyenSayisiGuncelle();
+}
+
+function filterSayimKat(k,el){
+  sayimKatFilter=k;
+  document.querySelectorAll('#sayim-kat-tabs .filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  sayimSatirlari={};
+  renderSayimYeni();
+}
+
+function renderSayimYeni(){
+  const depoStok=db.stok[aktifDepoId]||{};
+  const items=Object.values(depoStok);
+  const search=(document.getElementById('sayim-search')?.value||'').toLowerCase();
+
+  const katSet=new Set();
+  items.forEach(s=>{if(s.lnKod)katSet.add(s.lnKod.slice(0,5));});
+  document.getElementById('sayim-kat-tabs').innerHTML=
+    `<button class="filter-tab ${sayimKatFilter==='tumu'?'active':''}" onclick="filterSayimKat('tumu',this)">Tümü</button>`+
+    [...katSet].sort().map(k=>`<button class="filter-tab ${sayimKatFilter===k?'active':''}" onclick="filterSayimKat('${k}',this)">${k}</button>`).join('');
+
+  const filtered=items.filter(s=>{
+    if(search&&!s.urunAd?.toLowerCase().includes(search)&&!s.lnKod?.toLowerCase().includes(search))return false;
+    if(sayimKatFilter!=='tumu'&&!s.lnKod?.startsWith(sayimKatFilter))return false;
+    return true;
+  });
+  filtered.sort((a,b)=>(a.urunAd||'').localeCompare(b.urunAd||'','tr'));
+
+  _sayimSistemMiktar={};_sayimUrunAdi={};_sayimBirim={};
+  const c=document.getElementById('sayim-liste');
+  if(!filtered.length){c.innerHTML='<div class="card" style="text-align:center;color:var(--gray-500)">Ürün bulunamadı</div>';return;}
+  c.innerHTML=filtered.map(s=>{
+    _sayimSistemMiktar[s.lnKod]=parseFloat(s.miktar)||0;
+    _sayimUrunAdi[s.lnKod]=s.urunAd;
+    _sayimBirim[s.lnKod]=s.birim;
+    return `
+    <div class="card" style="padding:10px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
+        <div><div style="font-weight:700;font-size:13px">${escapeHtml(s.urunAd)}</div><div style="font-size:10px;color:var(--gray-400)">${escapeHtml(s.lnKod)} • Sistem: ${s.miktar} ${escapeHtml(s.birim||'')}</div></div>
+        <input type="number" step="any" placeholder="Sayılan" style="width:90px;padding:8px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm)" oninput="sayimFarkGuncelle('${s.lnKod}',this.value)">
+      </div>
+      <div id="sayim-fark-${s.lnKod}"></div>
+      <div id="sayim-aciklama-alan-${s.lnKod}"></div>
+    </div>`;
+  }).join('');
+}
+
+function sayimFarkGuncelle(lnKod,val){
+  const farkEl=document.getElementById('sayim-fark-'+lnKod);
+  const aciklamaEl=document.getElementById('sayim-aciklama-alan-'+lnKod);
+  if(val===''){
+    delete sayimSatirlari[lnKod];
+    if(farkEl)farkEl.innerHTML='';
+    if(aciklamaEl)aciklamaEl.innerHTML='';
+    return;
+  }
+  const sistemMiktar=_sayimSistemMiktar[lnKod]||0;
+  const sayilan=parseFloat(val);
+  if(isNaN(sayilan))return;
+  const fark=round2(sayilan-sistemMiktar);
+  const farkYuzde=sistemMiktar>0?round2(Math.abs(fark)/sistemMiktar*100):(fark!==0?100:0);
+  const oncekiAciklama=sayimSatirlari[lnKod]?.aciklama||'';
+  sayimSatirlari[lnKod]={sayilan,fark,farkYuzde,aciklama:oncekiAciklama};
+  const buyukFark=farkYuzde>SAYIM_ESIK_YUZDE;
+  const renk=fark===0?'var(--gray-500)':(buyukFark?'var(--danger)':'var(--warning)');
+  if(farkEl)farkEl.innerHTML=fark===0
+    ?`<span style="color:${renk};font-size:12px">Fark yok</span>`
+    :`<span style="color:${renk};font-weight:700;font-size:12px">${fark>0?'+':''}${fark} (${fark>0?'+':''}${farkYuzde}%)</span>`;
+  if(aciklamaEl)aciklamaEl.innerHTML=buyukFark
+    ?`<input type="text" placeholder="⚠️ Açıklama (zorunlu)" style="width:100%;margin-top:6px;padding:8px;border:1.5px solid var(--danger);border-radius:var(--radius-sm)" oninput="sayimAciklamaGuncelle('${lnKod}',this.value)" value="${escapeHtml(oncekiAciklama)}">`
+    :(fark!==0?`<input type="text" placeholder="Açıklama (isteğe bağlı)" style="width:100%;margin-top:6px;padding:8px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm)" oninput="sayimAciklamaGuncelle('${lnKod}',this.value)" value="${escapeHtml(oncekiAciklama)}">`:'');
+}
+
+function sayimAciklamaGuncelle(lnKod,val){
+  if(sayimSatirlari[lnKod])sayimSatirlari[lnKod].aciklama=val;
+}
+
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){
   document.getElementById(id).classList.remove('open');
