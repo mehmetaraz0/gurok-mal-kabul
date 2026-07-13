@@ -361,6 +361,18 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 </div>
 
+<!-- MODAL: Sayım Detay/Onay -->
+<div class="modal-overlay" id="modal-sayim-detay">
+  <div class="modal-box">
+    <div class="modal-title">📊 Sayım Detayı <button class="modal-close" onclick="closeModal('modal-sayim-detay')">✕</button></div>
+    <div id="sayim-detay-icerik"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-danger" onclick="sayimReddet(_sayimAktifOturumId)">❌ Reddet</button>
+      <button class="btn btn-success" onclick="sayimOnayla(_sayimAktifOturumId)">✅ Onayla</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: LN Kolon -->
 <div class="modal-overlay" id="modal-ln-kolon">
   <div class="modal-box">
@@ -1707,6 +1719,130 @@ async function sayimTamamla(){
     showToast('❌ Sayım kaydedilemedi, tekrar deneyin');
   }
   _sayimKaydediliyor=false;
+  hideLoading();
+}
+
+let sayimOnayBekleyenler=[];
+
+async function sayimOnayBekleyenleriYukle(){
+  showLoading();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/sayim_oturumlari?durum=eq.onay_bekliyor&select=*&order=olusturma_tarihi.desc',{headers:SB_HEADERS});
+    sayimOnayBekleyenler=r.ok?await r.json():[];
+  }catch(e){console.warn(e);sayimOnayBekleyenler=[];}
+  hideLoading();
+  renderSayimOnayListesi();
+  sayimOnayBekleyenSayisiGuncelle();
+}
+
+async function sayimOnayBekleyenSayisiGuncelle(){
+  if(currentUser?.rol!=='cost_control')return;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/sayim_oturumlari?durum=eq.onay_bekliyor&select=id',{headers:SB_HEADERS});
+    const n=r.ok?(await r.json()).length:0;
+    const badge=document.getElementById('sayim-onay-badge');
+    if(n>0){badge.textContent=n;badge.style.display='block';}else badge.style.display='none';
+  }catch(e){console.warn(e);}
+}
+
+function renderSayimOnayListesi(){
+  const c=document.getElementById('sayim-onay-liste');
+  if(!sayimOnayBekleyenler.length){c.innerHTML='<div class="card" style="text-align:center;color:var(--gray-500)">Onay bekleyen sayım yok</div>';return;}
+  c.innerHTML=sayimOnayBekleyenler.map(o=>`
+    <div class="card">
+      <div class="card-title">${escapeHtml(depoAdi(o.depo_kodu))} — ${new Date(o.olusturma_tarihi).toLocaleString('tr-TR')}</div>
+      <div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">Oluşturan: ${escapeHtml(o.olusturan_ad)} • ${o.toplam_urun_sayisi} ürün sayıldı, ${o.farkli_urun_sayisi} üründe fark var</div>
+      <button class="btn btn-primary btn-sm btn-block" onclick="sayimDetayGoster('${o.id}')">🔍 İncele</button>
+    </div>
+  `).join('');
+}
+
+let _sayimAktifOturumId=null;
+
+async function sayimDetayGoster(oturumId){
+  _sayimAktifOturumId=oturumId;
+  showLoading();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/sayim_detaylari?oturum_id=eq.'+oturumId+'&select=*',{headers:SB_HEADERS});
+    const detaylar=r.ok?await r.json():[];
+    const c=document.getElementById('sayim-detay-icerik');
+    c.innerHTML=detaylar.map(d=>{
+      const fark=parseFloat(d.fark)||0;
+      const renk=fark===0?'var(--gray-500)':(parseFloat(d.fark_yuzde)>SAYIM_ESIK_YUZDE?'var(--danger)':'var(--warning)');
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--gray-100)">
+        <div style="display:flex;justify-content:space-between"><b style="font-size:13px">${escapeHtml(d.urun_adi)}</b><span style="color:${renk};font-weight:700">${fark>0?'+':''}${fark}</span></div>
+        <div style="font-size:11px;color:var(--gray-500)">Sistem: ${d.sistem_miktar} → Sayılan: ${d.sayilan_miktar} ${escapeHtml(d.birim||'')}</div>
+        ${d.aciklama?`<div style="font-size:11px;color:var(--gray-600);margin-top:2px">📝 ${escapeHtml(d.aciklama)}</div>`:''}
+      </div>`;
+    }).join('');
+  }catch(e){console.warn(e);}
+  hideLoading();
+  openModal('modal-sayim-detay');
+}
+
+let _sayimOnayIsleniyor=false;
+
+async function sayimOnayla(oturumId){
+  if(currentUser?.rol!=='cost_control'){showToast('❌ Bu işlem için yetkiniz yok');return;}
+  if(_sayimOnayIsleniyor)return;
+  _sayimOnayIsleniyor=true;
+  showLoading();
+  try{
+    const oturum=sayimOnayBekleyenler.find(o=>o.id===oturumId);
+    if(!oturum)throw new Error('Oturum bulunamadı');
+    const detR=await fetch(SB_URL+'/rest/v1/sayim_detaylari?oturum_id=eq.'+oturumId+'&select=*',{headers:SB_HEADERS});
+    const detaylar=detR.ok?await detR.json():[];
+    const hareketler=[];
+    for(const d of detaylar){
+      // Bayat veri kontrolü: onay anındaki GÜNCEL sistem miktarını yeniden oku, oturumdaki donmuş değeri değil
+      const guncelR=await fetch(SB_URL+'/rest/v1/stok?depo_kodu=eq.'+encodeURIComponent(oturum.depo_kodu)+'&urun_kodu=eq.'+encodeURIComponent(d.urun_kodu)+'&select=miktar',{headers:SB_HEADERS});
+      const guncelD=guncelR.ok?await guncelR.json():[];
+      const guncelMiktar=guncelD.length?parseFloat(guncelD[0].miktar)||0:0;
+      const guncelFark=round2(parseFloat(d.sayilan_miktar)-guncelMiktar);
+      if(guncelFark===0)continue;
+      const h=guncelFark>0
+        ?giris(oturum.depo_kodu,d.urun_kodu,d.urun_adi,guncelFark,d.birim,'sayim',oturumId)
+        :cikis(oturum.depo_kodu,d.urun_kodu,d.urun_adi,Math.abs(guncelFark),d.birim,'sayim',d.aciklama||'Fiziksel sayım düzeltmesi');
+      hareketler.push(h);
+    }
+    if(hareketler.length){
+      await saveStok(hareketler.map(h=>({depoId:h.depoId,kod:h.lnKod})));
+      for(const h of hareketler)await saveHareket(h);
+    }
+    await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+      durum:'onaylandi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString()
+    })});
+    showToast(`✅ Sayım onaylandı — ${hareketler.length} üründe stok güncellendi`);
+    closeModal('modal-sayim-detay');
+    if(aktifDepoId)renderStok();
+    await sayimOnayBekleyenleriYukle();
+  }catch(e){
+    console.warn(e);
+    showToast('❌ Onaylama başarısız, tekrar deneyin');
+  }
+  _sayimOnayIsleniyor=false;
+  hideLoading();
+}
+
+async function sayimReddet(oturumId){
+  if(currentUser?.rol!=='cost_control'){showToast('❌ Bu işlem için yetkiniz yok');return;}
+  if(_sayimOnayIsleniyor)return;
+  const nedenGirdi=prompt('Red nedeni (opsiyonel):','');
+  if(nedenGirdi===null)return; // kullanıcı iptal etti
+  _sayimOnayIsleniyor=true;
+  showLoading();
+  try{
+    await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+      durum:'reddedildi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString(),red_nedeni:nedenGirdi||null
+    })});
+    showToast('❌ Sayım reddedildi, stok değişmedi');
+    closeModal('modal-sayim-detay');
+    await sayimOnayBekleyenleriYukle();
+  }catch(e){
+    console.warn(e);
+    showToast('❌ İşlem başarısız, tekrar deneyin');
+  }
+  _sayimOnayIsleniyor=false;
   hideLoading();
 }
 
