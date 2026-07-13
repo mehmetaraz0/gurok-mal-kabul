@@ -568,6 +568,7 @@ function openFaturaDetay(id){
   const f=faturalar[id];if(!f)return;
   document.getElementById('mFaturaDetayTitle').textContent=f.no;
   const durumChip={taslak:'<span class="chip chip-gray">📝 Taslak</span>',bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',kismi_odendi:'<span class="chip chip-orange">💰 Kısmi Ödendi</span>',odendi:'<span class="chip chip-blue">💳 Ödendi</span>',iptal:'<span class="chip chip-red">❌ İptal</span>'};
+  const efDurumChip={taslak:'<span class="chip chip-gray">📝 Taslak</span>',gonderiliyor:'<span class="chip chip-yellow">⏳ Gönderiliyor</span>',gonderildi:'<span class="chip chip-blue">✅ Gönderildi</span>',onaylandi:'<span class="chip chip-green">✔️ Onaylandı</span>',reddedildi:'<span class="chip chip-red">❌ Reddedildi</span>',iptal:'<span class="chip chip-gray">🚫 İptal</span>'};
   document.getElementById('mFaturaDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">
       <div>
@@ -577,6 +578,16 @@ function openFaturaDetay(id){
       ${durumChip[f.durum]||''}
     </div>
     ${f.siparisNo||f.otelId?`<div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">${f.siparisNo?`<span class="chip chip-purple">📋 LN Sipariş: ${f.siparisNo}</span>`:''}${f.otelId?`<span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_ISIMLERI[f.otelId]||f.otelId}</span>`:''}</div>`:''}
+    ${f.tur==='satis'?`
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:#92400e;font-weight:600">⚠️ SİMÜLASYON MODU — gerçek GİB gönderimi yapılmıyor</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      ${efDurumChip[f.efaturaDurum]||'<span class="chip chip-gray">— Gönderilmedi</span>'}
+      ${!f.efaturaDurum||f.efaturaDurum==='reddedildi'||(f.efaturaDurum==='gonderiliyor'&&Date.now()-(f.efaturaGonderimTarihi||0)>120000)?`<button class="btn btn-sm ${f.efaturaDurum==='reddedildi'?'btn-danger':'btn-primary'}" onclick="eFaturaGonderTikla('${id}')">📤 ${cariler[f.cariId]?.efatura==='evet'?'e-Fatura Gönder':'e-Arşiv Gönder'}</button>`:''}
+      ${f.efaturaDurum==='gonderiliyor'&&Date.now()-(f.efaturaGonderimTarihi||0)<=120000?'<span style="font-size:11px;color:var(--gray-500)">Gönderiliyor, bekleyin...</span>':''}
+    </div>
+    ${f.ettn?`<div style="font-size:11px;color:var(--gray-600);margin-bottom:6px">ETTN: ${f.ettn}${f.gibFaturaNo?' • GİB No: '+f.gibFaturaNo:''}</div>`:''}
+    ${f.efaturaHataMesaji?`<div style="font-size:11px;color:var(--danger);margin-bottom:6px">⚠️ ${escapeHtml(f.efaturaHataMesaji)}</div>`:''}
+    `:''}
     <!-- Kalemler -->
     <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
       <tr style="background:var(--gray-100)">
@@ -608,6 +619,33 @@ function openFaturaDetay(id){
       ${f.durum!=='iptal'&&f.durum!=='odendi'?`<button class="btn btn-danger btn-sm" onclick="kModal('mFaturaDetay');iptalEt('${id}')">❌</button>`:''}
     </div>`;
   aModal('mFaturaDetay');
+}
+
+async function eFaturaGonderTikla(id){
+  const f=faturalar[id];if(!f||f.tur!=='satis')return;
+  const cari=cariler[f.cariId]||null;
+  f.efaturaDurum='gonderiliyor';f.efaturaGonderimTarihi=Date.now();
+  await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+    efatura_durum:'gonderiliyor',efatura_gonderim_tarihi:new Date(f.efaturaGonderimTarihi).toISOString()
+  })});
+  openFaturaDetay(id);
+  const sonuc=await eFaturaGonder(f,cari);
+  if(sonuc.basarili){
+    f.efaturaDurum='gonderildi';f.efaturaTip=sonuc.tip;f.ettn=sonuc.ettn;
+    f.gibFaturaNo=sonuc.gibFaturaNo;f.gibPdfUrl=sonuc.pdfUrl;f.efaturaHataMesaji=null;
+    await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+      efatura_durum:'gonderildi',efatura_tip:sonuc.tip,ettn:sonuc.ettn,
+      gib_fatura_no:sonuc.gibFaturaNo,gib_pdf_url:sonuc.pdfUrl,efatura_hata_mesaji:null
+    })});
+    toast(`✅ ${sonuc.tip==='e-fatura'?'e-Fatura':'e-Arşiv'} gönderildi (simülasyon)`);
+  }else{
+    f.efaturaDurum='reddedildi';f.efaturaHataMesaji=sonuc.hataMesaji;
+    await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+      efatura_durum:'reddedildi',efatura_hata_mesaji:sonuc.hataMesaji
+    })});
+    toast(`❌ Gönderim başarısız: ${sonuc.hataMesaji}`);
+  }
+  openFaturaDetay(id);
 }
 
 // ============================================================
