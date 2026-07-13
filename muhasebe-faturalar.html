@@ -621,31 +621,89 @@ function openFaturaDetay(id){
   aModal('mFaturaDetay');
 }
 
+let _efaturaGonderIsleniyor=false;
 async function eFaturaGonderTikla(id){
-  const f=faturalar[id];if(!f||f.tur!=='satis')return;
+  if(_efaturaGonderIsleniyor){toast('⏳ İşleniyor, bekleyin...');return;}
+  _efaturaGonderIsleniyor=true;
+  const f=faturalar[id];
+  if(!f||f.tur!=='satis'){_efaturaGonderIsleniyor=false;return;}
   const cari=cariler[f.cariId]||null;
-  f.efaturaDurum='gonderiliyor';f.efaturaGonderimTarihi=Date.now();
-  await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
-    efatura_durum:'gonderiliyor',efatura_gonderim_tarihi:new Date(f.efaturaGonderimTarihi).toISOString()
-  })});
-  openFaturaDetay(id);
-  const sonuc=await eFaturaGonder(f,cari);
-  if(sonuc.basarili){
-    f.efaturaDurum='gonderildi';f.efaturaTip=sonuc.tip;f.ettn=sonuc.ettn;
-    f.gibFaturaNo=sonuc.gibFaturaNo;f.gibPdfUrl=sonuc.pdfUrl;f.efaturaHataMesaji=null;
-    await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
-      efatura_durum:'gonderildi',efatura_tip:sonuc.tip,ettn:sonuc.ettn,
-      gib_fatura_no:sonuc.gibFaturaNo,gib_pdf_url:sonuc.pdfUrl,efatura_hata_mesaji:null
+  let asama='baslatma'; // hangi adımdayız: baslatma (1. PATCH) | gonderim (entegratör) | sonuclandirma (2./3. PATCH)
+  try{
+    f.efaturaDurum='gonderiliyor';f.efaturaGonderimTarihi=Date.now();
+    const r1=await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+      efatura_durum:'gonderiliyor',efatura_gonderim_tarihi:new Date(f.efaturaGonderimTarihi).toISOString()
     })});
-    toast(`✅ ${sonuc.tip==='e-fatura'?'e-Fatura':'e-Arşiv'} gönderildi (simülasyon)`);
-  }else{
-    f.efaturaDurum='reddedildi';f.efaturaHataMesaji=sonuc.hataMesaji;
-    await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
-      efatura_durum:'reddedildi',efatura_hata_mesaji:sonuc.hataMesaji
-    })});
-    toast(`❌ Gönderim başarısız: ${sonuc.hataMesaji}`);
+    if(!r1.ok)throw new Error('İlk PATCH başarısız: HTTP '+r1.status);
+    openFaturaDetay(id);
+
+    asama='gonderim';
+    const sonuc=await eFaturaGonder(f,cari);
+
+    asama='sonuclandirma';
+    if(sonuc.basarili){
+      try{
+        const r2=await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+          efatura_durum:'gonderildi',efatura_tip:sonuc.tip,ettn:sonuc.ettn,
+          gib_fatura_no:sonuc.gibFaturaNo,gib_pdf_url:sonuc.pdfUrl,efatura_hata_mesaji:null
+        })});
+        if(!r2.ok)throw new Error('İkinci PATCH başarısız: HTTP '+r2.status);
+      }catch(e2){
+        // Entegratör gönderimi başarılı oldu ama sonucu DB'ye yazamadık. Local durumu
+        // "reddedildi"ye düşürüyoruz ki modal "gönderiliyor" durumunda sonsuza kadar takılı
+        // kalmasın; mevcut 2 dakikalık stale-retry mekanizması kullanıcının tekrar
+        // denemesine izin verir. Tutarsızlığı toast ile de açıkça gösteriyoruz.
+        console.warn(e2);
+        f.efaturaDurum='reddedildi';
+        f.efaturaHataMesaji='Gönderim entegratörde başarılı oldu ama kayıt güncellenemedi, tekrar deneyin';
+        try{
+          const r2b=await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+            efatura_durum:'reddedildi',efatura_hata_mesaji:f.efaturaHataMesaji
+          })});
+          if(!r2b.ok)console.warn('Reddedildi (düzeltme) PATCH başarısız: HTTP '+r2b.status);
+        }catch(e3){console.warn(e3);}
+        toast('⚠️ '+f.efaturaHataMesaji);
+        openFaturaDetay(id);
+        return;
+      }
+      f.efaturaDurum='gonderildi';f.efaturaTip=sonuc.tip;f.ettn=sonuc.ettn;
+      f.gibFaturaNo=sonuc.gibFaturaNo;f.gibPdfUrl=sonuc.pdfUrl;f.efaturaHataMesaji=null;
+      toast(`✅ ${sonuc.tip==='e-fatura'?'e-Fatura':'e-Arşiv'} gönderildi (simülasyon)`);
+    }else{
+      f.efaturaDurum='reddedildi';f.efaturaHataMesaji=sonuc.hataMesaji;
+      try{
+        const r3=await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+          efatura_durum:'reddedildi',efatura_hata_mesaji:sonuc.hataMesaji
+        })});
+        if(!r3.ok)console.warn('Reddedildi PATCH başarısız: HTTP '+r3.status);
+      }catch(e3){console.warn(e3);}
+      toast(`❌ Gönderim başarısız: ${sonuc.hataMesaji}`);
+    }
+    openFaturaDetay(id);
+  }catch(err){
+    console.warn(err);
+    if(asama==='baslatma'){
+      // İlk PATCH (durumu "gonderiliyor" yapan) hiç başarılı olmadı — DB değişmedi,
+      // local state'i de geri alıp kullanıcıya net bir hata gösteriyoruz.
+      f.efaturaDurum=null;f.efaturaGonderimTarihi=null;
+      toast('❌ Gönderim başlatılamadı');
+    }else{
+      // eFaturaGonder() adaptörü fırlattı (ör. gerçek entegratör henüz bağlı değil) —
+      // normal başarısızlık akışıyla aynı şekilde ele alıyoruz: reddedildi olarak işaretle.
+      const hataMesaji=(err&&err.message)||'Beklenmeyen hata';
+      f.efaturaDurum='reddedildi';f.efaturaHataMesaji=hataMesaji;
+      try{
+        const r4=await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+          efatura_durum:'reddedildi',efatura_hata_mesaji:hataMesaji
+        })});
+        if(!r4.ok)console.warn('Reddedildi (hata) PATCH başarısız: HTTP '+r4.status);
+      }catch(e4){console.warn(e4);}
+      toast(`❌ Gönderim başarısız: ${hataMesaji}`);
+    }
+    openFaturaDetay(id);
+  }finally{
+    _efaturaGonderIsleniyor=false;
   }
-  openFaturaDetay(id);
 }
 
 // ============================================================
