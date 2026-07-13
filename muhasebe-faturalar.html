@@ -403,7 +403,7 @@ function cariSbdenCamele(r){
 }
 function gelenEfaturaSbdenCamele(r){
   return{
-    id:r.id,ettn:r.ettn,gibFaturaNo:r.gib_fatura_no||'',gonderenVkn:r.gonderen_vkn||'',
+    id:r.id,ettn:r.ettn,gonderenVkn:r.gonderen_vkn||'',
     gonderenAd:r.gonderen_ad||'',tarih:r.tarih,kalemler:r.kalemler||[],
     araToplam:parseFloat(r.ara_toplam)||0,kdvToplam:parseFloat(r.kdv_toplam)||0,
     genelToplam:parseFloat(r.genel_toplam)||0,durum:r.durum,alisFaturaId:r.alis_fatura_id||null,
