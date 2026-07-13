@@ -570,6 +570,12 @@ async function kebirXmlOlustur(){
 
   if(!fisler.length){toast('⚠️ Seçilen ayda onaylı fiş bulunamadı');return;}
 
+  const hatalar=yevmiyeDogrula(fisler);
+  if(hatalar.length){
+    alert('XML üretilemedi, düzeltilmesi gereken sorunlar:\n\n'+hatalar.join('\n'));
+    return;
+  }
+
   const donemDurum=await donemAcikMi(ayBasMs);
   if(donemDurum.acik){
     if(!confirm(`⚠️ ${ay} dönemi henüz kapatılmamış. Yine de devam edilsin mi?`))return;
