@@ -244,6 +244,26 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="ln-sonuc"></div>
   </div>
 
+  <!-- SAYIM TAB -->
+  <div class="scroll-content" id="tab-sayim" style="display:none;flex-direction:column;">
+    <div class="filter-tabs" id="sayim-gorunum-tabs" style="display:none">
+      <button class="filter-tab active" onclick="sayimGorunumDegistir('yeni',this)">📝 Yeni Sayım</button>
+      <button class="filter-tab" onclick="sayimGorunumDegistir('onay',this)">✅ Onay Bekleyen</button>
+    </div>
+    <div id="sayim-yeni-alani">
+      <div class="search-bar">
+        <input type="text" id="sayim-search" placeholder="Ürün adı veya LN kodu ara..." oninput="renderSayimYeni()">
+        <span class="search-icon">🔍</span>
+      </div>
+      <div class="filter-tabs" id="sayim-kat-tabs"></div>
+      <div id="sayim-liste"></div>
+      <button class="btn btn-primary btn-block" style="margin-top:10px" onclick="sayimTamamla()">✅ Sayımı Tamamla</button>
+    </div>
+    <div id="sayim-onay-alani" style="display:none">
+      <div id="sayim-onay-liste"></div>
+    </div>
+  </div>
+
   <nav class="bottom-nav">
     <button class="nav-btn active" id="nav-stok" onclick="switchTab('stok')">
       <span class="nav-icon">📦</span><span class="nav-label">Stok</span>
@@ -257,6 +277,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </button>
     <button class="nav-btn" id="nav-iade" onclick="switchTab('iade')">
       <span class="nav-icon">↩️</span><span class="nav-label">İade Başlat</span>
+    </button>
+    <button class="nav-btn" id="nav-sayim" onclick="switchTab('sayim')">
+      <span class="nav-icon">📊</span><span class="nav-label">Sayım</span>
+      <span class="nav-badge" id="sayim-onay-badge" style="display:none;"></span>
     </button>
   </nav>
 </div>
@@ -1538,11 +1562,12 @@ function iadeBelgeYazdir(siparisNo){
 // TAB & YARDIMCI
 // ============================================================
 function switchTab(tab){
-  ['stok','hareketler','ln','iade'].forEach(t=>{
+  ['stok','hareketler','ln','iade','sayim'].forEach(t=>{
     document.getElementById('tab-'+t).style.display=t===tab?'flex':'none';
     document.getElementById('nav-'+t).classList.toggle('active',t===tab);
   });
   if(tab==='hareketler')renderHareketler();
+  if(tab==='sayim')renderSayimTab();
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){
@@ -1562,7 +1587,7 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
 (async function init(){
   currentUser = requireLogin();
   if(!currentUser) return;
-  if(!requireRole(currentUser, ['yonetici','depo'])) return;
+  if(!requireRole(currentUser, ['yonetici','depo','cost_control'])) return;
 
   aktifDepoId=tamDepoId(aktifOtelId,depolarForOtel(aktifOtelId)[0].id);
   buildDepoSelectors(aktifOtelId);
