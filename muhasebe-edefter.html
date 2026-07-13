@@ -234,6 +234,145 @@ async function kurumBilgileriFormKaydet(){
     toast('❌ Kaydetme başarısız, tekrar deneyin');
   }
 }
+
+function renderSubeAlani(){
+  const c=document.getElementById('sube-alani');
+  c.innerHTML=Object.keys(OTEL_ISIMLERI).map(otelId=>`
+    <div class="card">
+      <div class="card-title">🏨 ${OTEL_ISIMLERI[otelId]} — Şube Bilgisi</div>
+      <div class="rfields">
+        <div class="field"><label>Şube No</label><input type="text" id="sube-no-${otelId}"></div>
+        <div class="field"><label>Şube Adı</label><input type="text" id="sube-adi-${otelId}"></div>
+      </div>
+      <button class="btn btn-gray btn-block" onclick="subeFormKaydet('${otelId}')">💾 Kaydet</button>
+    </div>
+  `).join('');
+  Object.keys(OTEL_ISIMLERI).forEach(async otelId=>{
+    const s=await subeBilgileriYukle(otelId);
+    if(s){
+      document.getElementById('sube-no-'+otelId).value=s.subeNo;
+      document.getElementById('sube-adi-'+otelId).value=s.subeAdi;
+    }
+  });
+}
+
+async function subeFormKaydet(otelId){
+  const subeNo=document.getElementById('sube-no-'+otelId).value.trim();
+  const subeAdi=document.getElementById('sube-adi-'+otelId).value.trim();
+  const basarili=await subeBilgileriKaydet(otelId,subeNo,subeAdi);
+  if(basarili){
+    toast('✅ '+OTEL_ISIMLERI[otelId]+' şube bilgisi kaydedildi');
+  }else{
+    toast('❌ Kaydetme başarısız, tekrar deneyin');
+  }
+}
+
+function escapeXml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));}
+
+function kurumBilgileriDogrula(kurum){
+  const hatalar=[];
+  if(!kurum){hatalar.push('Kurum Bilgileri hiç girilmemiş — önce "Kurum Bilgileri" sekmesini doldurun.');return hatalar;}
+  if(!kurum.vkn||kurum.vkn.length!==10)hatalar.push('VKN 10 haneli olmalı');
+  if(!kurum.unvan)hatalar.push('Unvan zorunlu');
+  if(!kurum.adresSehir)hatalar.push('Adres (şehir) zorunlu');
+  if(!kurum.maliYilBaslangic||!kurum.maliYilBitis)hatalar.push('Mali yıl başlangıç/bitiş zorunlu');
+  if(!kurum.muhasebeciAd)hatalar.push('Muhasebeci adı zorunlu');
+  return hatalar;
+}
+
+function buildDocumentInfoXml(tur,kurum,ayBaslangic,ayBitis){
+  const simdi=new Date().toISOString();
+  const uniqueId=(tur==='yevmiye'?'YEV':'KEB')+kurum.vkn;
+  return `<gl-cor:documentInfo>
+<gl-cor:entriesType>${tur==='yevmiye'?'journal':'ledger'}</gl-cor:entriesType>
+<gl-cor:uniqueID>${escapeXml(uniqueId)}</gl-cor:uniqueID>
+<gl-cor:creationDate>${simdi}</gl-cor:creationDate>
+<gl-cor:periodCoveredStart>${ayBaslangic}</gl-cor:periodCoveredStart>
+<gl-cor:periodCoveredEnd>${ayBitis}</gl-cor:periodCoveredEnd>
+<gl-bus:sourceApplication>Gurok ERP</gl-bus:sourceApplication>
+</gl-cor:documentInfo>`;
+}
+
+function buildEntityInfoXml(kurum,sube){
+  return `<gl-cor:entityInformation>
+<gl-bus:entityPhoneNumber><gl-bus:phoneNumber>${escapeXml(kurum.telefon)}</gl-bus:phoneNumber></gl-bus:entityPhoneNumber>
+<gl-bus:entityEmailAddressStructure><gl-bus:entityEmailAddress>${escapeXml(kurum.eposta)}</gl-bus:entityEmailAddress></gl-bus:entityEmailAddressStructure>
+<gl-bus:organizationIdentifiers>
+<gl-bus:organizationDescription>Kurum Unvanı</gl-bus:organizationDescription>
+<gl-bus:organizationIdentifier>${escapeXml(kurum.unvan)}</gl-bus:organizationIdentifier>
+</gl-bus:organizationIdentifiers>
+<gl-bus:organizationIdentifiers>
+<gl-bus:organizationDescription>Şube No</gl-bus:organizationDescription>
+<gl-bus:organizationIdentifier>${escapeXml(sube.subeNo)}</gl-bus:organizationIdentifier>
+</gl-bus:organizationIdentifiers>
+<gl-bus:organizationIdentifiers>
+<gl-bus:organizationDescription>Şube Adı</gl-bus:organizationDescription>
+<gl-bus:organizationIdentifier>${escapeXml(sube.subeAdi)}</gl-bus:organizationIdentifier>
+</gl-bus:organizationIdentifiers>
+<gl-bus:organizationAddress>
+<gl-bus:organizationBuildingNumber>${escapeXml(kurum.adresBinaNo)}</gl-bus:organizationBuildingNumber>
+<gl-bus:organizationAddressStreet>${escapeXml(kurum.adresSokak)}</gl-bus:organizationAddressStreet>
+<gl-bus:organizationAddressCity>${escapeXml(kurum.adresSehir)}</gl-bus:organizationAddressCity>
+<gl-bus:organizationAddressZipOrPostalCode>${escapeXml(kurum.adresPostaKodu)}</gl-bus:organizationAddressZipOrPostalCode>
+<gl-bus:organizationAddressCountry>${escapeXml(kurum.adresUlke)}</gl-bus:organizationAddressCountry>
+</gl-bus:organizationAddress>
+<gl-bus:entityWebSite><gl-bus:webSiteURL>${escapeXml(kurum.website)}</gl-bus:webSiteURL></gl-bus:entityWebSite>
+<gl-bus:businessDescription>${escapeXml(kurum.isTanimi)}</gl-bus:businessDescription>
+<gl-bus:fiscalYearStart>${kurum.maliYilBaslangic}</gl-bus:fiscalYearStart>
+<gl-bus:fiscalYearEnd>${kurum.maliYilBitis}</gl-bus:fiscalYearEnd>
+<gl-bus:accountantInformation>
+<gl-bus:accountantName>${escapeXml(kurum.muhasebeciAd)}</gl-bus:accountantName>
+<gl-bus:accountantEngagementTypeDescription>${escapeXml(kurum.muhasebeciUnvan)}</gl-bus:accountantEngagementTypeDescription>
+</gl-bus:accountantInformation>
+</gl-cor:entityInformation>`;
+}
+
+function buildEDefterXml(tur,kurum,sube,ayBaslangic,ayBitis,entryHeadersXml){
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<edefter:defter xmlns:edefter="http://www.edefter.gov.tr" xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:gl-cor="http://www.xbrl.org/int/gl/cor/2006-10-25" xmlns:gl-bus="http://www.xbrl.org/int/gl/bus/2006-10-25">
+<xbrli:xbrl>
+<xbrli:context id="c1">
+<xbrli:entity>
+<xbrli:identifier scheme="http://www.gib.gov.tr">${escapeXml(kurum.vkn)}</xbrli:identifier>
+</xbrli:entity>
+<xbrli:period><xbrli:startDate>${ayBaslangic}</xbrli:startDate><xbrli:endDate>${ayBitis}</xbrli:endDate></xbrli:period>
+</xbrli:context>
+<xbrli:unit id="TRY"><xbrli:measure>iso4217:TRY</xbrli:measure></xbrli:unit>
+<gl-cor:accountingEntries>
+${buildDocumentInfoXml(tur,kurum,ayBaslangic,ayBitis)}
+${buildEntityInfoXml(kurum,sube)}
+${entryHeadersXml}
+</gl-cor:accountingEntries>
+</xbrli:xbrl>
+</edefter:defter>`;
+}
+
+function indirXml(xmlIcerik,dosyaAdi){
+  const blob=new Blob([xmlIcerik],{type:'application/xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=dosyaAdi;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ay: "YYYY-MM" formatında. Döner: {ayBaslangic:"YYYY-MM-DD", ayBitis:"YYYY-MM-DD", ayBasMs, ayBitMs}
+function ayAraligiHesapla(ay){
+  const [yil,ayNo]=ay.split('-');
+  const ayBaslangic=`${yil}-${ayNo}-01`;
+  const sonGun=new Date(parseInt(yil),parseInt(ayNo),0).getDate();
+  const ayBitis=`${yil}-${ayNo}-${String(sonGun).padStart(2,'0')}`;
+  return{
+    yil,ayNo,ayBaslangic,ayBitis,
+    ayBasMs:new Date(ayBaslangic).getTime(),
+    ayBitMs:new Date(ayBitis+'T23:59:59').getTime()
+  };
+}
+
+(async function(){
+  await kurumBilgileriFormaDoldur();
+  renderSubeAlani();
+})();
 </script>
 </body>
 </html>
