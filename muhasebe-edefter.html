@@ -144,18 +144,22 @@ async function kurumBilgileriYukle(){
 }
 
 async function kurumBilgileriKaydet(k){
-  const satir={
-    vkn:k.vkn||null,unvan:k.unvan||null,adres_bina_no:k.adresBinaNo||null,adres_sokak:k.adresSokak||null,
-    adres_sehir:k.adresSehir||null,adres_posta_kodu:k.adresPostaKodu||null,adres_ulke:k.adresUlke||null,
-    telefon:k.telefon||null,eposta:k.eposta||null,website:k.website||null,is_tanimi:k.isTanimi||null,
-    mali_yil_baslangic:k.maliYilBaslangic||null,mali_yil_bitis:k.maliYilBitis||null,
-    muhasebeci_ad:k.muhasebeciAd||null,muhasebeci_unvan:k.muhasebeciUnvan||null
-  };
-  if(k.id){
-    await fetch(SB_URL+'/rest/v1/edefter_kurum_bilgileri?id=eq.'+k.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
-  }else{
-    await fetch(SB_URL+'/rest/v1/edefter_kurum_bilgileri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(satir)});
-  }
+  try{
+    const satir={
+      vkn:k.vkn||null,unvan:k.unvan||null,adres_bina_no:k.adresBinaNo||null,adres_sokak:k.adresSokak||null,
+      adres_sehir:k.adresSehir||null,adres_posta_kodu:k.adresPostaKodu||null,adres_ulke:k.adresUlke||null,
+      telefon:k.telefon||null,eposta:k.eposta||null,website:k.website||null,is_tanimi:k.isTanimi||null,
+      mali_yil_baslangic:k.maliYilBaslangic||null,mali_yil_bitis:k.maliYilBitis||null,
+      muhasebeci_ad:k.muhasebeciAd||null,muhasebeci_unvan:k.muhasebeciUnvan||null
+    };
+    let r;
+    if(k.id){
+      r=await fetch(SB_URL+'/rest/v1/edefter_kurum_bilgileri?id=eq.'+k.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+    }else{
+      r=await fetch(SB_URL+'/rest/v1/edefter_kurum_bilgileri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(satir)});
+    }
+    return r.ok;
+  }catch(e){return false;}
 }
 
 async function subeBilgileriYukle(otelId){
@@ -169,14 +173,18 @@ async function subeBilgileriYukle(otelId){
 }
 
 async function subeBilgileriKaydet(otelId,subeNo,subeAdi){
-  const mevcutR=await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri?otel_id=eq.'+otelId+'&select=otel_id',{headers:SB_HEADERS});
-  const varMi=mevcutR.ok&&(await mevcutR.json()).length>0;
-  const satir={sube_no:subeNo||null,sube_adi:subeAdi||null};
-  if(varMi){
-    await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri?otel_id=eq.'+otelId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
-  }else{
-    await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({otel_id:otelId,...satir})});
-  }
+  try{
+    const mevcutR=await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri?otel_id=eq.'+otelId+'&select=otel_id',{headers:SB_HEADERS});
+    const varMi=mevcutR.ok&&(await mevcutR.json()).length>0;
+    const satir={sube_no:subeNo||null,sube_adi:subeAdi||null};
+    let r;
+    if(varMi){
+      r=await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri?otel_id=eq.'+otelId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+    }else{
+      r=await fetch(SB_URL+'/rest/v1/edefter_sube_bilgileri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({otel_id:otelId,...satir})});
+    }
+    return r.ok;
+  }catch(e){return false;}
 }
 
 async function kurumBilgileriFormaDoldur(){
@@ -218,9 +226,13 @@ async function kurumBilgileriFormKaydet(){
     muhasebeciAd:document.getElementById('kb-muhad').value.trim(),
     muhasebeciUnvan:document.getElementById('kb-muhunvan').value.trim()
   };
-  await kurumBilgileriKaydet(k);
-  kurumBilgi=await kurumBilgileriYukle();
-  toast('✅ Kurum bilgileri kaydedildi');
+  const basarili=await kurumBilgileriKaydet(k);
+  if(basarili){
+    kurumBilgi=await kurumBilgileriYukle();
+    toast('✅ Kurum bilgileri kaydedildi');
+  }else{
+    toast('❌ Kaydetme başarısız, tekrar deneyin');
+  }
 }
 </script>
 </body>
