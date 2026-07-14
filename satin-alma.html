@@ -691,6 +691,54 @@ async function talepKaydet(departman,aciliyet,notAlani,satirlar,otelId){
   }catch(e){console.warn(e);return null;}
 }
 
+let YENIDEN_SIPARIS_ONERI=[]; // [{otelId,depoKodu,urunKodu,urunAdi,birim,mevcutMiktar,minMiktar,onerilenMiktar}]
+
+async function stokMinimumKontrolEt(){
+  try{
+    const [stokR,minR]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/stok?select=urun_kodu,depo_kodu,otel_id,miktar',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/stok_minimumlar?select=urun_kodu,min_miktar',{headers:SB_HEADERS})
+    ]);
+    if(!stokR.ok||!minR.ok)return;
+    const stokListe=await stokR.json();
+    const minListe=await minR.json();
+    const minMap={};
+    minListe.forEach(m=>{
+      const mevcut=minMap[m.urun_kodu]||0;
+      minMap[m.urun_kodu]=Math.max(mevcut,parseFloat(m.min_miktar)||0);
+    });
+    const urunMap={};
+    (DB.urunler||[]).forEach(u=>{urunMap[u.kod]=u;});
+    const oneri=[];
+    stokListe.forEach(s=>{
+      const min=minMap[s.urun_kodu];
+      if(!min||min<=0)return;
+      const miktar=parseFloat(s.miktar)||0;
+      if(miktar>min)return;
+      const urun=urunMap[s.urun_kodu]||{};
+      oneri.push({
+        otelId:s.otel_id||(s.depo_kodu||'').split('_')[0]||'810',
+        depoKodu:s.depo_kodu,urunKodu:s.urun_kodu,
+        urunAdi:urun.ad||s.urun_kodu,birim:urun.birim||'',
+        mevcutMiktar:miktar,minMiktar:min,onerilenMiktar:round2(min-miktar)
+      });
+    });
+    YENIDEN_SIPARIS_ONERI=oneri;
+  }catch(e){console.warn(e);}
+  renderYenidenSiparisUyarisi();
+}
+
+function renderYenidenSiparisUyarisi(){
+  const el=document.getElementById('yeniden-siparis-uyari');
+  if(!el)return;
+  if(YENIDEN_SIPARIS_ONERI.length){
+    el.style.display='block';
+    document.getElementById('yeniden-siparis-uyari-metin').textContent=`⚠️ ${YENIDEN_SIPARIS_ONERI.length} ürün minimum altında — Öneri listesini gör`;
+  }else{
+    el.style.display='none';
+  }
+}
+
 async function ytKaydet(){
   const doluSatirlar=YT_SATIRLAR.filter(u=>u.ad&&u.miktar&&parseFloat(u.miktar)>0);
   if(!doluSatirlar.length){toast('⚠️ En az bir ürün ekleyin');return;}
