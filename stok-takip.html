@@ -1824,6 +1824,15 @@ async function sayimOnayla(oturumId){
       await saveStok(hareketler.map(h=>({depoId:h.depoId,kod:h.lnKod})));
       for(const h of hareketler)await saveHareket(h);
     }
+    if(yazilanlar.length){
+      // Bu çağrıda en az bir satır yazıldı — genel onay bloklansa bile (başka bir satır
+      // atlandı/doğrulanamadı) bunu kalıcı olarak işaretle, böylece sayimReddet bu oturumu
+      // artık "stok değişmedi" diyerek reddedemez. Tam başarılı onayda da zararsız: durum
+      // hemen 'onaylandi'ya geçtiği için kismi_uygulandi bir daha kontrol edilmez.
+      try{
+        await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({kismi_uygulandi:true})});
+      }catch(e){console.warn('kismi_uygulandi işaretlenemedi',e);}
+    }
     // saveStok/saveHareket hatayı içeride yutuyor (catch(e){console.warn(e)}, rethrow yok)
     // — bu yüzden PATCH'ten önce her yazılan satırın gerçekten kalıcı olduğunu canlı bir
     // GET ile doğrula. Doğrulanamayan ya da hiç denenmemiş (atlanan) satır varsa onaylama.
@@ -1863,6 +1872,20 @@ async function sayimReddet(oturumId){
   _sayimOnayIsleniyor=true;
   showLoading();
   try{
+    // Reddetmeden önce bu oturumun kismi_uygulandi durumunu canlı GET ile kontrol et —
+    // yerel sayimOnayBekleyenler listesi bayat olabilir. Önceki bir onay denemesi bazı
+    // satırları zaten yazmışsa (kismi_uygulandi=true), reddetmeye izin verme: kullanıcı
+    // 'stok değişmedi' mesajını görüp yanılabilir, oysa bazı ürünlerin stoğu zaten değişti.
+    const kismiR=await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId+'&select=kismi_uygulandi',{headers:SB_HEADERS});
+    if(kismiR.ok){
+      const kismiD=await kismiR.json();
+      if(kismiD.length&&kismiD[0].kismi_uygulandi===true){
+        alert('❌ Bu sayım reddedilemez: önceki bir onay denemesinde bazı ürünlerin stoğu zaten güncellendi. Lütfen "Onayla" işlemini tekrar deneyerek onayı tamamlayın (tekrar denemek güvenlidir).');
+        _sayimOnayIsleniyor=false;
+        hideLoading();
+        return;
+      }
+    }
     await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
       durum:'reddedildi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString(),red_nedeni:nedenGirdi||null
     })});
