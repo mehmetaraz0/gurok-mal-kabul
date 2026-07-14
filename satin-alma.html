@@ -790,20 +790,35 @@ async function yenidenSiparisOlustur(){
       if(!otelGruplari[o.otelId])otelGruplari[o.otelId]=[];
       otelGruplari[o.otelId].push(o);
     });
+    const otelAdlari={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'};
     let toplamTalep=0;
+    const basariliOtelIdler=new Set();
+    const basarisizOtelIdler=[];
     for(const otelId of Object.keys(otelGruplari)){
       const grup=otelGruplari[otelId];
       const kritikVarMi=grup.some(o=>o.mevcutMiktar<=0||o.mevcutMiktar<=o.minMiktar*0.5);
       const satirlar=grup.map(o=>({ad:o.urunAdi,kod:o.urunKodu,miktar:o.onerilenMiktar,birim:o.birim}));
       const talepId=await talepKaydet('DEPO',kritikVarMi?'acil':'normal','Otomatik stok kontrolü önerisi',satirlar,otelId);
-      if(talepId)toplamTalep++;
+      if(talepId){
+        toplamTalep++;
+        basariliOtelIdler.add(otelId);
+      }else{
+        basarisizOtelIdler.push(otelId);
+      }
     }
     if(toplamTalep){
-      toast(`✅ ${toplamTalep} talep oluşturuldu`);
       kModal('mYenidenSiparis');
-      YENIDEN_SIPARIS_ONERI=YENIDEN_SIPARIS_ONERI.filter((o,i)=>!secilenIdx.includes(i));
+      // Sadece talebi başarıyla oluşturulan otel gruplarına ait kalemleri listeden çıkar;
+      // başarısız otel gruplarının kalemleri tekrar denenebilmesi için listede kalır.
+      YENIDEN_SIPARIS_ONERI=YENIDEN_SIPARIS_ONERI.filter((o,i)=>!(secilenIdx.includes(i)&&basariliOtelIdler.has(o.otelId)));
       renderYenidenSiparisUyarisi();
       renderTalepler();
+      if(basarisizOtelIdler.length){
+        const isimler=basarisizOtelIdler.map(id=>otelAdlari[id]||id).join(', ');
+        toast(`⚠️ ${toplamTalep} talep oluşturuldu, ${isimler} için oluşturulamadı — tekrar deneyin`);
+      }else{
+        toast(`✅ ${toplamTalep} talep oluşturuldu`);
+      }
     }else{
       toast('❌ Talep oluşturulamadı, tekrar deneyin');
     }
