@@ -174,8 +174,49 @@ async function renderTuketimTrend(){
   });
 }
 
+async function renderFoodCostTrend(){
+  const el=document.getElementById('tab-foodcost-trend');
+  el.innerHTML=`
+    <div class="card-title">💰 Food-Cost Trendi (tüm oteller)</div>
+    <div style="position:relative;height:220px"><canvas id="foodcost-trend-canvas"></canvas></div>`;
+
+  const baslangicTarih=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString().slice(0,10);
+  let kayitlar=[];
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/recete_tuketimleri?tarih=gte.'+encodeURIComponent(baslangicTarih)+'&select=tarih,food_cost_yuzde&order=tarih.asc',{headers:SB_HEADERS});
+    if(r.ok)kayitlar=await r.json();
+  }catch(e){}
+
+  const gecerli=kayitlar.filter(k=>k.food_cost_yuzde!==null&&k.food_cost_yuzde!==undefined);
+  if(!gecerli.length){
+    document.getElementById('foodcost-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei">💰</div><div class="et">Bu aralıkta food-cost verisi yok</div></div>';
+    return;
+  }
+
+  const gunlukToplam={},gunlukSayi={};
+  gecerli.forEach(k=>{
+    const gun=k.tarih;
+    gunlukToplam[gun]=(gunlukToplam[gun]||0)+(parseFloat(k.food_cost_yuzde)||0);
+    gunlukSayi[gun]=(gunlukSayi[gun]||0)+1;
+  });
+
+  const gunler=[];
+  for(let i=aralikGun-1;i>=0;i--){
+    gunler.push(new Date(Date.now()-i*24*60*60*1000).toISOString().slice(0,10));
+  }
+  const veri=gunler.map(g=>gunlukSayi[g]?Math.round((gunlukToplam[g]/gunlukSayi[g])*10)/10:null);
+
+  new Chart(document.getElementById('foodcost-trend-canvas'),{
+    type:'line',
+    data:{labels:gunler,datasets:[{label:'Ortalama food-cost %',data:veri,borderColor:'#27ae60',backgroundColor:'rgba(39,174,96,.08)',fill:true,tension:.2,spanGaps:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  });
+}
+
 function renderTumTrendler(){
-  // Task 2 ve Task 3 burada kendi render fonksiyonlarını çağıracak
+  renderStokTrend();
+  renderTuketimTrend();
+  renderFoodCostTrend();
 }
 
 function basla(){
