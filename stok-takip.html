@@ -1403,6 +1403,10 @@ function onDepoChange(depoId){
   document.getElementById('header-depo-label').textContent=depoAdi(depoId);
   katFilter='tumu';stokFilter='tumu';
   renderStok();
+  sayimSatirlari={};
+  if(document.getElementById('tab-sayim')&&document.getElementById('tab-sayim').style.display!=='none'){
+    renderSayimYeni();
+  }
 }
 
 // ============================================================
@@ -1667,7 +1671,7 @@ function sayimFarkGuncelle(lnKod,val){
   const fark=round2(sayilan-sistemMiktar);
   const farkYuzde=sistemMiktar>0?round2(Math.abs(fark)/sistemMiktar*100):(fark!==0?100:0);
   const oncekiAciklama=sayimSatirlari[lnKod]?.aciklama||'';
-  sayimSatirlari[lnKod]={sayilan,fark,farkYuzde,aciklama:oncekiAciklama};
+  sayimSatirlari[lnKod]={sayilan,fark,farkYuzde,aciklama:oncekiAciklama,urunAd:_sayimUrunAdi[lnKod],birim:_sayimBirim[lnKod],sistemMiktar:_sayimSistemMiktar[lnKod]};
   const buyukFark=farkYuzde>SAYIM_ESIK_YUZDE;
   const renk=fark===0?'var(--gray-500)':(buyukFark?'var(--danger)':'var(--warning)');
   if(farkEl)farkEl.innerHTML=fark===0
@@ -1690,7 +1694,7 @@ async function sayimTamamla(){
   if(!satirlar.length){showToast('⚠️ En az bir ürün için sayılan miktar girin');return;}
   const eksikAciklama=satirlar.filter(([,v])=>v.farkYuzde>SAYIM_ESIK_YUZDE&&!v.aciklama.trim());
   if(eksikAciklama.length){
-    alert('Sayım kaydedilemedi, açıklama eksik:\n\n'+eksikAciklama.map(([k])=>_sayimUrunAdi[k]||k).join('\n'));
+    alert('Sayım kaydedilemedi, açıklama eksik:\n\n'+eksikAciklama.map(([k])=>sayimSatirlari[k]?.urunAd||k).join('\n'));
     return;
   }
   _sayimKaydediliyor=true;
@@ -1705,8 +1709,8 @@ async function sayimTamamla(){
     const oturumD=await oturumR.json();
     const oturumId=oturumD[0].id;
     const detaySatirlar=satirlar.map(([kod,v])=>({
-      oturum_id:oturumId,urun_kodu:kod,urun_adi:_sayimUrunAdi[kod]||'',birim:_sayimBirim[kod]||'',
-      sistem_miktar:_sayimSistemMiktar[kod]||0,sayilan_miktar:v.sayilan,fark:v.fark,fark_yuzde:v.farkYuzde,
+      oturum_id:oturumId,urun_kodu:kod,urun_adi:v.urunAd||'',birim:v.birim||'',
+      sistem_miktar:v.sistemMiktar||0,sayilan_miktar:v.sayilan,fark:v.fark,fark_yuzde:v.farkYuzde,
       aciklama:v.aciklama||null
     }));
     const detayR=await fetch(SB_URL+'/rest/v1/sayim_detaylari',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(detaySatirlar)});
