@@ -775,6 +775,46 @@ function openYenidenSiparisOneri(){
   aModal('mYenidenSiparis');
 }
 
+let _yenidenSiparisOlusturuluyor=false;
+
+async function yenidenSiparisOlustur(){
+  if(_yenidenSiparisOlusturuluyor)return;
+  const secilenIdx=[...document.querySelectorAll('.yeniden-siparis-check:checked')].map(el=>parseInt(el.dataset.idx));
+  if(!secilenIdx.length){toast('⚠️ En az bir ürün seçin');return;}
+  _yenidenSiparisOlusturuluyor=true;
+  sLD();
+  try{
+    const secilenler=secilenIdx.map(i=>YENIDEN_SIPARIS_ONERI[i]);
+    const otelGruplari={};
+    secilenler.forEach(o=>{
+      if(!otelGruplari[o.otelId])otelGruplari[o.otelId]=[];
+      otelGruplari[o.otelId].push(o);
+    });
+    let toplamTalep=0;
+    for(const otelId of Object.keys(otelGruplari)){
+      const grup=otelGruplari[otelId];
+      const kritikVarMi=grup.some(o=>o.mevcutMiktar<=0||o.mevcutMiktar<=o.minMiktar*0.5);
+      const satirlar=grup.map(o=>({ad:o.urunAdi,kod:o.urunKodu,miktar:o.onerilenMiktar,birim:o.birim}));
+      const talepId=await talepKaydet('DEPO',kritikVarMi?'acil':'normal','Otomatik stok kontrolü önerisi',satirlar,otelId);
+      if(talepId)toplamTalep++;
+    }
+    if(toplamTalep){
+      toast(`✅ ${toplamTalep} talep oluşturuldu`);
+      kModal('mYenidenSiparis');
+      YENIDEN_SIPARIS_ONERI=YENIDEN_SIPARIS_ONERI.filter((o,i)=>!secilenIdx.includes(i));
+      renderYenidenSiparisUyarisi();
+      renderTalepler();
+    }else{
+      toast('❌ Talep oluşturulamadı, tekrar deneyin');
+    }
+  }catch(e){
+    console.warn(e);
+    toast('❌ Talep oluşturulamadı, tekrar deneyin');
+  }
+  _yenidenSiparisOlusturuluyor=false;
+  hLD();
+}
+
 async function ytKaydet(){
   const doluSatirlar=YT_SATIRLAR.filter(u=>u.ad&&u.miktar&&parseFloat(u.miktar)>0);
   if(!doluSatirlar.length){toast('⚠️ En az bir ürün ekleyin');return;}
