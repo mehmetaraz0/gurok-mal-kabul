@@ -94,6 +94,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <!-- İÇ TALEPLER -->
   <div class="sc" id="tab-talepler" style="display:block">
+    <div id="yeniden-siparis-uyari" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:10px;cursor:pointer" onclick="openYenidenSiparisOneri()">
+      <span style="font-weight:700;font-size:13px;color:#856404" id="yeniden-siparis-uyari-metin"></span>
+    </div>
     <div class="ftabs" id="talep-ftabs">
       <button class="ftab active" onclick="filterTalep('tumu',this)">Tümü</button>
       <button class="ftab" onclick="filterTalep('bekleyen',this)">⏳ Bekleyen</button>
@@ -372,6 +375,18 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow" style="margin-top:8px">
       <button class="btn btn-gray" onclick="kModal('mYeniTalep')">İptal</button>
       <button class="btn btn-primary" onclick="ytKaydet()">📤 Talep Gönder</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Yeniden Sipariş Önerileri -->
+<div class="mo" id="mYenidenSiparis">
+  <div class="mbox" style="max-height:95vh">
+    <div class="mtitle">⚠️ Yeniden Sipariş Önerileri <button class="mclose" onclick="kModal('mYenidenSiparis')">✕</button></div>
+    <div id="yeniden-siparis-liste" style="max-height:65vh;overflow-y:auto"></div>
+    <div class="brow" style="margin-top:10px">
+      <button class="btn btn-gray" onclick="kModal('mYenidenSiparis')">Kapat</button>
+      <button class="btn btn-primary" onclick="yenidenSiparisOlustur()">📤 Seçilenlerden Talep Oluştur</button>
     </div>
   </div>
 </div>
@@ -737,6 +752,27 @@ function renderYenidenSiparisUyarisi(){
   }else{
     el.style.display='none';
   }
+}
+
+function openYenidenSiparisOneri(){
+  const gruplar={};
+  YENIDEN_SIPARIS_ONERI.forEach((o,i)=>{
+    if(!gruplar[o.otelId])gruplar[o.otelId]=[];
+    gruplar[o.otelId].push({...o,_idx:i});
+  });
+  const otelAdlari={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'};
+  const c=document.getElementById('yeniden-siparis-liste');
+  c.innerHTML=Object.keys(gruplar).sort().map(otelId=>`
+    <div style="font-weight:700;font-size:13px;margin:10px 0 6px;color:var(--primary)">🏨 ${escapeHtml(otelAdlari[otelId]||otelId)}</div>
+    ${gruplar[otelId].map(o=>`
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--gray-100);font-size:12px">
+        <input type="checkbox" class="yeniden-siparis-check" data-idx="${o._idx}" checked>
+        <span style="flex:1">${escapeHtml(o.urunAdi)}<br><span style="color:var(--gray-500);font-size:10px">${escapeHtml(o.depoKodu)} • Mevcut: ${o.mevcutMiktar} / Min: ${o.minMiktar} ${escapeHtml(o.birim)}</span></span>
+        <span style="font-weight:700">+${o.onerilenMiktar}</span>
+      </label>
+    `).join('')}
+  `).join('');
+  aModal('mYenidenSiparis');
 }
 
 async function ytKaydet(){
