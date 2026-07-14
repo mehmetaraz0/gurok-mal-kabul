@@ -1,0 +1,411 @@
+<title>Depo Modülü Kıyaslama ve Eksik Analizi</title>
+<style>
+:root{
+  --paper:#f5f2ea;
+  --surface:#efe9db;
+  --ink:#1c2430;
+  --muted:#5c6672;
+  --line:#ddd5c3;
+  --accent:#b8752f;
+  --accent-ink:#6b4419;
+  --good:#3f7d58;
+  --good-bg:#e3ece5;
+  --gap:#ac4530;
+  --gap-bg:#f2e2dd;
+  --partial-bg:#f1e6d5;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#141922;
+    --surface:#1b2230;
+    --ink:#e9e5da;
+    --muted:#9aa3b0;
+    --line:#2b3444;
+    --accent:#dd9e52;
+    --accent-ink:#f4d9ab;
+    --good:#6cb389;
+    --good-bg:#1c2c24;
+    --gap:#e0806a;
+    --gap-bg:#2e211e;
+    --partial-bg:#2b2519;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141922;
+  --surface:#1b2230;
+  --ink:#e9e5da;
+  --muted:#9aa3b0;
+  --line:#2b3444;
+  --accent:#dd9e52;
+  --accent-ink:#f4d9ab;
+  --good:#6cb389;
+  --good-bg:#1c2c24;
+  --gap:#e0806a;
+  --gap-bg:#2e211e;
+  --partial-bg:#2b2519;
+}
+:root[data-theme="light"]{
+  --paper:#f5f2ea;
+  --surface:#efe9db;
+  --ink:#1c2430;
+  --muted:#5c6672;
+  --line:#ddd5c3;
+  --accent:#b8752f;
+  --accent-ink:#6b4419;
+  --good:#3f7d58;
+  --good-bg:#e3ece5;
+  --gap:#ac4530;
+  --gap-bg:#f2e2dd;
+  --partial-bg:#f1e6d5;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+  font-size:16.5px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+}
+
+.wrap{max-width:920px;margin:0 auto;padding:56px 24px 96px}
+
+.eyebrow{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin:0 0 10px;
+}
+h1{
+  font-size:clamp(28px,4.2vw,40px);
+  line-height:1.14;
+  margin:0 0 14px;
+  text-wrap:balance;
+  letter-spacing:-.01em;
+}
+.dek{
+  max-width:62ch;
+  color:var(--muted);
+  font-size:17.5px;
+  margin:0 0 34px;
+}
+.meta{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:12px;
+  color:var(--muted);
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  padding:12px 0;
+  display:flex;
+  gap:28px;
+  flex-wrap:wrap;
+  margin-bottom:40px;
+}
+.meta b{color:var(--ink);font-weight:600}
+
+/* scorecard */
+.scorecard{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:1px;
+  background:var(--line);
+  border:1px solid var(--line);
+  margin-bottom:48px;
+}
+.scard{
+  background:var(--surface);
+  padding:20px 18px;
+}
+.scard .n{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:32px;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  margin-bottom:6px;
+}
+.scard.crit .n{color:var(--gap)}
+.scard.imp .n{color:var(--accent)}
+.scard.low .n{color:var(--muted)}
+.scard .l{font-size:13px;color:var(--muted)}
+
+section{margin-bottom:52px}
+h2{
+  font-size:22px;
+  letter-spacing:-.005em;
+  margin:0 0 6px;
+  text-wrap:balance;
+}
+.sec-tag{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 18px;
+}
+p{margin:0 0 16px;max-width:68ch}
+ul.strengths{margin:0 0 0;padding:0;list-style:none;display:grid;gap:10px}
+ul.strengths li{
+  display:flex;
+  gap:12px;
+  align-items:baseline;
+  padding:10px 14px;
+  background:var(--good-bg);
+  border-left:3px solid var(--good);
+}
+ul.strengths li .tag{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11px;
+  color:var(--good);
+  flex-shrink:0;
+  padding-top:2px;
+}
+ul.strengths li span.t{font-size:15px}
+
+/* comparison table */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line)}
+table{
+  border-collapse:collapse;
+  width:100%;
+  min-width:760px;
+  font-size:14.5px;
+}
+thead th{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+  text-align:left;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+  white-space:nowrap;
+}
+tbody td{
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+  vertical-align:top;
+}
+tbody tr:last-child td{border-bottom:none}
+tbody td.feat{font-weight:600;width:23%}
+tbody td.note{color:var(--muted);font-size:13.5px;width:37%}
+.badge{
+  display:inline-block;
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11px;
+  letter-spacing:.04em;
+  padding:3px 9px;
+  border-radius:2px;
+  white-space:nowrap;
+}
+.badge.var{background:var(--good-bg);color:var(--good)}
+.badge.kismi{background:var(--partial-bg);color:var(--accent-ink)}
+.badge.yok{background:var(--gap-bg);color:var(--gap)}
+
+/* roadmap */
+.road{display:grid;gap:14px}
+.ritem{
+  border-left:4px solid var(--line);
+  padding:14px 18px;
+  background:var(--surface);
+}
+.ritem.crit{border-left-color:var(--gap)}
+.ritem.imp{border-left-color:var(--accent)}
+.ritem.low{border-left-color:var(--muted)}
+.ritem .rh{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  margin-bottom:5px;
+}
+.ritem .sev{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:10.5px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.ritem.crit .sev{color:var(--gap)}
+.ritem.imp .sev{color:var(--accent)}
+.ritem.low .sev{color:var(--muted)}
+.ritem .rt{font-weight:700;font-size:15.5px}
+.ritem p{margin:0;font-size:14.5px;color:var(--muted);max-width:none}
+
+.group-h{
+  font-size:14px;
+  font-weight:700;
+  margin:28px 0 12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.group-h .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.group-h.crit .dot{background:var(--gap)}
+.group-h.imp .dot{background:var(--accent)}
+.group-h.low .dot{background:var(--muted)}
+
+footer{
+  margin-top:64px;
+  padding-top:20px;
+  border-top:1px solid var(--line);
+  font-size:12.5px;
+  color:var(--muted);
+}
+footer a{color:var(--muted)}
+footer ol{padding-left:18px;margin:8px 0 0}
+footer li{margin-bottom:4px}
+
+@media (max-width:600px){
+  .scorecard{grid-template-columns:1fr}
+  .wrap{padding:36px 16px 64px}
+}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Gürok Turizm Grubu — Depo Yönetim Sistemi</p>
+  <h1>Depo modülü kıyaslama ve eksik analizi</h1>
+  <p class="dek">Mevcut kod tabanındaki 6 depo/envanter modülünün (stok-takip, depo-siparis, mal-kabul-v2, günlük-tüketim, satın-alma, muhasebe-cariler) envanteri çıkarıldı ve standart WMS/ERP uygulamaları ile Türkiye pazarındaki Logo/Netsis/Mikro ve otelcilik-özel (Oracle Hospitality, food-cost) sistemleriyle karşılaştırıldı.</p>
+
+  <div class="meta">
+    <span><b>Kapsam</b> — 6 dosya, 19 Supabase tablosu</span>
+    <span><b>Yöntem</b> — kod envanteri + dış araştırma</span>
+    <span><b>Tarih</b> — 2026-07-13</span>
+  </div>
+
+  <div class="scorecard">
+    <div class="scard crit"><div class="n">3</div><div class="l">Kritik eksik</div></div>
+    <div class="scard imp"><div class="n">5</div><div class="l">Önemli eksik</div></div>
+    <div class="scard low"><div class="n">3</div><div class="l">Düşük öncelik</div></div>
+  </div>
+
+  <section>
+    <p class="sec-tag">01 — Mevcut Güç</p>
+    <h2>Sistem sanıldığından zengin — özellikle mal kabul ve tedarikçi tarafında</h2>
+    <p>Uçtan uca süreç zaten kapalı bir döngü kuruyor: iç talep → LN sipariş → mal kabul (3-way match) → stok girişi → tüketim/transfer/iade. Aşağıdaki alanlar orta ölçekli ticari ERP'lerin çoğuyla aynı seviyede veya üzerinde:</p>
+    <ul class="strengths">
+      <li><span class="tag">SKT/Lot</span><span class="t">Mal kabulde parti no + son kullanma tarihi takibi, ayrı bir <span class="mono">skt_kayitlari</span> tablosunda — çoğu KOBİ ölçekli Türk ERP'sinde bile bu detayda yok.</span></li>
+      <li><span class="tag">Koli QR</span><span class="t">Mal kabulde üretilen koli etiketleri, depo çıkışında ve iç talep teslimatında QR ile okutulup doğrulanıyor.</span></li>
+      <li><span class="tag">Reçete/Food Cost</span><span class="t">Malzeme bazlı reçete maliyeti, satış karşılığı otomatik stok düşümü, %food-cost riskli reçete uyarısı — otelcilik F&B yazılımlarının kalbi olan özellik.</span></li>
+      <li><span class="tag">Tedarikçi Skoru</span><span class="t">Kalite (%40) + Teslimat Hızı (%40) + Fatura Eşleşme (%20) formülüyle otomatik 0-100 puanlama — birçok kurumsal ERP'de bile modül olarak ayrı satılan bir özellik.</span></li>
+      <li><span class="tag">FIFO Fiyat</span><span class="t">Tüketim ve reçete maliyeti, depoda kalan en eski kolinin gerçek alım fiyatına öncelik veriyor (<span class="mono">urun_fifo_fiyat</span>).</span></li>
+      <li><span class="tag">Otel Transferi</span><span class="t">810 Manavgat ↔ 811 Sorgun arası depo transferi, hareket geçmişiyle birlikte.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <p class="sec-tag">02 — Karşılaştırma</p>
+    <h2>Standart WMS/ERP özellikleri karşısında Gürok'un durumu</h2>
+    <p>Sıralama önem derecesine göre değil, tipik bir depo/envanter modülünün akışına göre.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Özellik</th><th>Standart ERP/WMS'te</th><th>Gürok'ta</th><th>Not</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="feat">Raf/lokasyon (bin) seviyesi</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Stok sadece depo/departman kodu seviyesinde (örn. 811_ANA_DEPO); raf/koridor bazlı adres yok.</td></tr>
+          <tr><td class="feat">Lot/SKT takibi</td><td><span class="badge var">Var</span></td><td><span class="badge kismi">Kısmi</span></td><td class="note">Mal kabulde tutuluyor ama çıkışta hangi lotun önce tüketileceğini sistem yönlendirmiyor.</td></tr>
+          <tr><td class="feat">Min/maks + otomatik sipariş tetikleme</td><td><span class="badge var">Var</span></td><td><span class="badge kismi">Kısmi</span></td><td class="note">Sadece minimum tanımlı; eşik altına düşünce otomatik satın alma talebi açılmıyor.</td></tr>
+          <tr><td class="feat">Fiziksel sayım (cycle count)</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Hiçbir dosyada sayım ekranı yok; günlük-tüketimde sadece "sayım farkı olabilir" uyarı metni var.</td></tr>
+          <tr><td class="feat">Barkod/QR okutma</td><td><span class="badge var">Var</span></td><td><span class="badge kismi">Kısmi</span></td><td class="note">Koli bazlı QR var; tekil ürün/raf barkodu yok.</td></tr>
+          <tr><td class="feat">Stok değerleme (FIFO/ort. maliyet)</td><td><span class="badge var">Var</span></td><td><span class="badge kismi">Kısmi</span></td><td class="note">FIFO view olarak var; resmi muhasebe politikası olarak tanımlı değil.</td></tr>
+          <tr><td class="feat">Depolar arası transfer</td><td><span class="badge var">Var</span></td><td><span class="badge var">Var</span></td><td class="note">810↔811 arası, hareket geçmişiyle.</td></tr>
+          <tr><td class="feat">ABC / stok sınıflandırması</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Hangi ürünlerin sıkı takip gerektirdiği sisteme yansımıyor.</td></tr>
+          <tr><td class="feat">Güvenlik stoğu hesaplaması</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Min değerler sabit/manuel; talep dalgalanmasına göre otomatik ayarlanmıyor.</td></tr>
+          <tr><td class="feat">Talep tahmini</td><td><span class="badge kismi">Kısmi</span></td><td><span class="badge yok">Yok</span></td><td class="note">Gelişmiş ERP'lerde bile opsiyonel modül; Gürok'ta hiç yok.</td></tr>
+          <tr><td class="feat">Reçete/food-cost yönetimi</td><td><span class="badge kismi">Kısmi</span></td><td><span class="badge var">Var</span></td><td class="note">Otelcilik-özel ERP'ler (Oracle Hospitality vb.) dışında genel ERP'lerde nadir; Gürok'ta güçlü.</td></tr>
+          <tr><td class="feat">Tedarikçi performans skoru</td><td><span class="badge kismi">Kısmi</span></td><td><span class="badge var">Var</span></td><td class="note">Genelde ayrı modül; Gürok'ta yerleşik ve otomatik.</td></tr>
+          <tr><td class="feat">3-way match (sipariş/mal kabul/fatura)</td><td><span class="badge var">Var</span></td><td><span class="badge var">Var</span></td><td class="note">—</td></tr>
+          <tr><td class="feat">Grafik/trend raporlama</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Sadece anlık sayısal stat kartları; zaman serisi/grafik kütüphanesi yok.</td></tr>
+          <tr><td class="feat">Rol bazlı erişim</td><td><span class="badge var">Var</span></td><td><span class="badge var">Var</span></td><td class="note">yonetici/depo/satinalma/kalite/mutfak/bar, view-as özelliğiyle.</td></tr>
+          <tr><td class="feat">Audit log</td><td><span class="badge var">Var</span></td><td><span class="badge var">Var</span></td><td class="note">—</td></tr>
+          <tr><td class="feat">HACCP/hijyen alanları</td><td><span class="badge kismi">Kısmi</span></td><td><span class="badge var">Var</span></td><td class="note">Mal kabul Excel formunda Hijyen/Sıcaklık sütunları — gıda sektörüne özel ERP'lerin özelliği.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="sec-tag">03 — Yol Haritası</p>
+    <h2>Öncelik sırasına göre eksikler</h2>
+
+    <div class="group-h crit"><span class="dot"></span>Kritik — stok doğruluğu riski</div>
+    <div class="road">
+      <div class="ritem crit">
+        <div class="rh"><span class="sev">01</span><span class="rt">Fiziksel sayım (cycle count) ekranı yok</span></div>
+        <p>Sistemdeki miktar ile depodaki gerçek miktar zamanla sapar; düzeltme için sistematik bir mekanizma yok. Barkod/QR altyapısı zaten var, sayım ekranı bunun üzerine kurulabilir.</p>
+      </div>
+      <div class="ritem crit">
+        <div class="rh"><span class="sev">02</span><span class="rt">Otomatik yeniden sipariş tetikleme yok</span></div>
+        <p>Minimum altına düşen ürünler için depo sorumlusunun fark edip manuel talep açması gerekiyor — unutma/gecikme riski. Minimum zaten tanımlı, eksik olan sadece tetikleme.</p>
+      </div>
+      <div class="ritem crit">
+        <div class="rh"><span class="sev">03</span><span class="rt">FEFO çıkışta otomatik uygulanmıyor</span></div>
+        <p>SKT verisi tutuluyor ama tüketim/transfer sırasında hangi lotun önce çıkacağını sistem önermiyor — fire riski, veri var ama kullanılmıyor.</p>
+      </div>
+    </div>
+
+    <div class="group-h imp"><span class="dot"></span>Önemli — verimlilik ve görünürlük</div>
+    <div class="road">
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">04</span><span class="rt">ABC analizi / stok sınıflandırması yok</span></div>
+        <p>Yüksek değerli/sık hareket eden ürünlerle düşük değerli ürünler aynı titizlikte (ya da aynı gevşeklikte) takip ediliyor.</p>
+      </div>
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">05</span><span class="rt">Grafik/trend raporlama yok</span></div>
+        <p>Tüm ekranlar anlık sayı gösteriyor; stok/tüketim/food-cost'un zaman içindeki eğilimi görülemiyor.</p>
+      </div>
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">06</span><span class="rt">Raf/lokasyon seviyesinde adresleme yok</span></div>
+        <p>Depo büyüdükçe "bu ürün depoda nerede" sorusunun cevabı kişisel hafızaya kalıyor.</p>
+      </div>
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">07</span><span class="rt">Güvenlik stoğu hesaplanmıyor</span></div>
+        <p>Minimum değerler elle girilip sabit kalıyor; talep dalgalanmasına (sezon, özel etkinlik) göre otomatik ayarlanmıyor.</p>
+      </div>
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">08</span><span class="rt">Ürün/raf bazlı barkod yok</span></div>
+        <p>QR altyapısı sadece koli seviyesinde; tekil ürün sayımı/çıkışı barkodla hızlandırılamıyor.</p>
+      </div>
+    </div>
+
+    <div class="group-h low"><span class="dot"></span>Düşük öncelik</div>
+    <div class="road">
+      <div class="ritem low">
+        <div class="rh"><span class="sev">09</span><span class="rt">Talep tahmini (demand forecasting) yok</span></div>
+        <p>Gelişmiş ERP'lerde de çoğunlukla opsiyonel bir modül; mevcut ölçekte acil değil.</p>
+      </div>
+      <div class="ritem low">
+        <div class="rh"><span class="sev">10</span><span class="rt">Resmi stok değerleme politikası tanımlı değil</span></div>
+        <p>FIFO view olarak çalışıyor ama muhasebe tarafında resmi bir yöntem seçimi/onayı yok.</p>
+      </div>
+      <div class="ritem low">
+        <div class="rh"><span class="sev">11</span><span class="rt">El terminali / native mobil entegrasyonu yok</span></div>
+        <p>Tarayıcı üzerinden QR okutma şu an yeterli; ölçek büyürse ayrı bir konu olabilir.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Bu rapor <span class="mono">gurok-mal-kabul</span> kod tabanının kod incelemesi ve genel WMS/ERP endüstri kaynaklarının araştırılmasıyla hazırlanmıştır. Dış kaynaklar:</p>
+    <ol>
+      <li><a href="https://www.logicerp.com/blog/warehouse-management-system-complete-guide-to-meaning-types-features-benefits-implementation-2026/">LogicERP — Warehouse Management System 2026 Guide</a></li>
+      <li><a href="https://getatomiq.ai/blog/15-top-warehouse-management-system-features-for-2026/">Atomiq — Top 15 WMS Features for 2026</a></li>
+      <li><a href="https://www.explorewms.com/complete-wms-modules-and-features-checklist.html">ExploreWMS — Complete WMS Modules and Features Checklist</a></li>
+      <li><a href="https://siparismasanda.com/blog/restoran-stok-takip-programi-malzeme-yonetimi-fire-kontrolu">Sipariş Masanda — Restoran Stok Takip Programı</a></li>
+      <li><a href="https://acadezone.com/blog/fefo-nedir">Acadezone — FEFO Nedir?</a></li>
+      <li><a href="https://www.mikro.com.tr/depo-takip-programi/">Mikro Yazılım — Depo Takip Programı</a></li>
+      <li><a href="https://www.logo.com.tr/lp/stok-takip-programi">Logo Yazılım — Stok Takip Programı</a></li>
+      <li><a href="https://xn--endstrihub-ceb.com.tr/article-abcxyz.html">EndüstriHub — ABC-XYZ Analizi ve Envanter Yönetimi</a></li>
+      <li><a href="https://www.sap.com/turkey/resources/inventory-management">SAP Türkiye — Stok Yönetimi Nedir?</a></li>
+    </ol>
+  </footer>
+
+</div>
