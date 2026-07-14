@@ -158,6 +158,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="filter-tabs" id="kat-tabs"></div>
     <button class="btn btn-gray btn-block" style="margin-bottom:8px" onclick="stokExcelAktar()">📤 Excel'e Aktar</button>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <label style="font-size:12px;color:var(--gray-400);white-space:nowrap">Tampon gün:</label>
+      <input id="tamponGunInput" type="number" min="1" value="7" style="width:60px">
+      <button class="btn btn-sm" style="flex:1" onclick="guvenlikStoguHesapla(parseInt(document.getElementById('tamponGunInput').value)||7)">🔄 Güvenlik Stoğunu Yeniden Hesapla</button>
+    </div>
     <div id="stok-liste"></div>
   </div>
 
@@ -1001,6 +1006,46 @@ async function minimumDuzenle(lnKod,urunAd){
   closeModal('modal-detay');
   renderStok();
   showToast(`✅ Minimum güncellendi: ${yeni}`);
+}
+
+async function guvenlikStoguHesapla(tamponGun){
+  if(!tamponGun||tamponGun<1)tamponGun=7;
+  showLoading();
+  const yediGunOnce=new Date(Date.now()-7*24*60*60*1000).toISOString();
+  let hareketler=[];
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/stok_hareketleri?tip=eq.cikis&tarih=gte.'+encodeURIComponent(yediGunOnce)+'&or=(aciklama.ilike.*gunluk_tuketim*,aciklama.ilike.*recete_tuketim*)&select=urun_kodu,miktar,tarih',{headers:SB_HEADERS});
+    if(r.ok)hareketler=await r.json();
+    else{hideLoading();showToast('❌ Tüketim verisi alınamadı');return;}
+  }catch(e){hideLoading();showToast('❌ Tüketim verisi alınamadı');return;}
+
+  const grup={};
+  hareketler.forEach(h=>{
+    if(!h.urun_kodu)return;
+    if(!grup[h.urun_kodu])grup[h.urun_kodu]={toplam:0,gunler:new Set()};
+    grup[h.urun_kodu].toplam+=parseFloat(h.miktar)||0;
+    grup[h.urun_kodu].gunler.add(String(h.tarih).slice(0,10));
+  });
+
+  let guncellenen=0,atlanan=0;
+  for(const urunKodu in grup){
+    const g=grup[urunKodu];
+    if(g.gunler.size<3){atlanan++;continue;}
+    const ortalamaGunluk=g.toplam/7;
+    const yeniMin=Math.round(ortalamaGunluk*tamponGun*100)/100;
+    try{
+      const r=await fetch(SB_URL+'/rest/v1/stok_minimumlar?on_conflict=urun_kodu',{
+        method:'POST',
+        headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({urun_kodu:urunKodu,min_miktar:yeniMin})
+      });
+      if(r.ok)guncellenen++;else atlanan++;
+    }catch(e){atlanan++;}
+  }
+  await loadDB();
+  renderStok();
+  hideLoading();
+  showToast(`✅ ${guncellenen} ürün güncellendi, ${atlanan} ürün yeterli veri olmadığı için atlandı`);
 }
 
 function prefillCikis(kod,ad,birim,depoId){
