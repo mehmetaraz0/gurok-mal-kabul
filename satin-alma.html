@@ -672,6 +672,25 @@ document.addEventListener('pointerdown',e=>{
   });
 });
 
+// departman: string, aciliyet: 'acil'|'normal'|'rutin', notAlani: string|null,
+// satirlar: [{ad,kod,miktar,birim}], otelId: string
+// Döner: yeni talep id'si (string) veya hata durumunda null.
+async function talepKaydet(departman,aciliyet,notAlani,satirlar,otelId){
+  const doluSatirlar=satirlar.filter(u=>u.ad&&u.miktar&&parseFloat(u.miktar)>0);
+  if(!doluSatirlar.length)return null;
+  const satir={departman,aciliyet,not_alani:notAlani||null,durum:'bekleyen',talep_eden:CU.ad,otel_id:otelId||'810'};
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/satin_alma_talepleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
+    if(!r.ok)return null;
+    const d=await r.json();
+    const talepId=d[0].id;
+    const kalemSatirlar=doluSatirlar.map(u=>({talep_id:talepId,urun_adi:u.ad,urun_kodu:u.kod||null,miktar:u.miktar,birim:u.birim}));
+    await fetch(SB_URL+'/rest/v1/satin_alma_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    DB.talepler[talepId]={id:talepId,tarih:new Date().toISOString().split('T')[0],olusturmaTarih:Date.now(),departman,personel:CU.ad,satirlar:doluSatirlar,aciliyet,not:notAlani||'',durum:'bekleyen'};
+    return talepId;
+  }catch(e){console.warn(e);return null;}
+}
+
 async function ytKaydet(){
   const doluSatirlar=YT_SATIRLAR.filter(u=>u.ad&&u.miktar&&parseFloat(u.miktar)>0);
   if(!doluSatirlar.length){toast('⚠️ En az bir ürün ekleyin');return;}
@@ -680,17 +699,10 @@ async function ytKaydet(){
   const aciliyet=document.getElementById('yt-aciliyet').value;
   const not=document.getElementById('yt-not').value;
 
-  const satir={departman:dept,aciliyet,not_alani:not||null,durum:'bekleyen',talep_eden:CU.ad,otel_id:CU.otelId||'810'};
   sLD();
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/satin_alma_talepleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
-    const d=await r.json();
-    const talepId=d[0].id;
-    const kalemSatirlar=doluSatirlar.map(u=>({talep_id:talepId,urun_adi:u.ad,urun_kodu:u.kod||null,miktar:u.miktar,birim:u.birim}));
-    await fetch(SB_URL+'/rest/v1/satin_alma_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
-    DB.talepler[talepId]={id:talepId,tarih:new Date().toISOString().split('T')[0],olusturmaTarih:Date.now(),departman:dept,personel:CU.ad,satirlar:doluSatirlar,aciliyet,not,durum:'bekleyen'};
-  }catch(e){console.warn(e);toast('⚠️ Talep kaydedilemedi');}
+  const talepId=await talepKaydet(dept,aciliyet,not,YT_SATIRLAR,CU.otelId||'810');
   hLD();
+  if(!talepId){toast('⚠️ Talep kaydedilemedi');return;}
   kModal('mYeniTalep');
   YT_SATIRLAR=[];
   document.getElementById('yt-not').value='';
