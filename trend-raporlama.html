@@ -76,6 +76,104 @@ function aralikSec(gun){
   renderTumTrendler();
 }
 
+let _urunListesiCache=null;
+async function urunListesiGetir(){
+  if(_urunListesiCache)return _urunListesiCache;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/urunler?select=kod,ad&order=ad',{headers:SB_HEADERS});
+    _urunListesiCache=r.ok?await r.json():[];
+  }catch(e){_urunListesiCache=[];}
+  return _urunListesiCache;
+}
+
+let _stokTrendUrun=null;
+async function renderStokTrend(){
+  const el=document.getElementById('tab-stok-trend');
+  const urunler=await urunListesiGetir();
+  if(!_stokTrendUrun&&urunler.length)_stokTrendUrun=urunler[0].kod;
+  const secenekler=urunler.map(u=>`<option value="${u.kod}" ${u.kod===_stokTrendUrun?'selected':''}>${escapeHtml(u.ad)}</option>`).join('');
+  el.innerHTML=`
+    <div class="card-title">📦 Stok Trendi (pencere içi kümülatif net hareket)</div>
+    <div class="field"><select id="stok-trend-urun" onchange="_stokTrendUrun=this.value;renderStokTrend()">${secenekler}</select></div>
+    <div style="position:relative;height:220px"><canvas id="stok-trend-canvas"></canvas></div>`;
+  if(!_stokTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Ürün bulunamadı</div></div>';return;}
+
+  const baslangic=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString();
+  let hareketler=[];
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/stok_hareketleri?urun_kodu=eq.'+encodeURIComponent(_stokTrendUrun)+'&tarih=gte.'+encodeURIComponent(baslangic)+'&or=(tip.eq.giris,tip.eq.cikis)&select=tip,miktar,tarih&order=tarih.asc',{headers:SB_HEADERS});
+    if(r.ok)hareketler=await r.json();
+  }catch(e){}
+
+  const gunlukNet={};
+  hareketler.forEach(h=>{
+    const gun=String(h.tarih).slice(0,10);
+    const isaret=h.tip==='giris'?1:-1;
+    gunlukNet[gun]=(gunlukNet[gun]||0)+isaret*(parseFloat(h.miktar)||0);
+  });
+
+  const gunler=[];
+  for(let i=aralikGun-1;i>=0;i--){
+    gunler.push(new Date(Date.now()-i*24*60*60*1000).toISOString().slice(0,10));
+  }
+  let kumulatif=0;
+  const veri=gunler.map(g=>{kumulatif+=(gunlukNet[g]||0);return kumulatif;});
+
+  if(!hareketler.length){
+    document.getElementById('stok-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Bu aralıkta hareket yok</div></div>';
+    return;
+  }
+
+  new Chart(document.getElementById('stok-trend-canvas'),{
+    type:'line',
+    data:{labels:gunler,datasets:[{label:'Kümülatif net hareket',data:veri,borderColor:'#1a2744',backgroundColor:'rgba(26,39,68,.08)',fill:true,tension:.2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  });
+}
+
+let _tuketimTrendUrun=null;
+async function renderTuketimTrend(){
+  const el=document.getElementById('tab-tuketim-trend');
+  const urunler=await urunListesiGetir();
+  if(!_tuketimTrendUrun&&urunler.length)_tuketimTrendUrun=urunler[0].kod;
+  const secenekler=urunler.map(u=>`<option value="${u.kod}" ${u.kod===_tuketimTrendUrun?'selected':''}>${escapeHtml(u.ad)}</option>`).join('');
+  el.innerHTML=`
+    <div class="card-title">📉 Tüketim Trendi</div>
+    <div class="field"><select id="tuketim-trend-urun" onchange="_tuketimTrendUrun=this.value;renderTuketimTrend()">${secenekler}</select></div>
+    <div style="position:relative;height:220px"><canvas id="tuketim-trend-canvas"></canvas></div>`;
+  if(!_tuketimTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei">📉</div><div class="et">Ürün bulunamadı</div></div>';return;}
+
+  const baslangic=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString();
+  let hareketler=[];
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/stok_hareketleri?urun_kodu=eq.'+encodeURIComponent(_tuketimTrendUrun)+'&tip=eq.cikis&tarih=gte.'+encodeURIComponent(baslangic)+'&or=(aciklama.ilike.*gunluk_tuketim*,aciklama.ilike.*recete_tuketim*)&select=miktar,tarih&order=tarih.asc',{headers:SB_HEADERS});
+    if(r.ok)hareketler=await r.json();
+  }catch(e){}
+
+  if(!hareketler.length){
+    document.getElementById('tuketim-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei">📉</div><div class="et">Bu aralıkta tüketim yok</div></div>';
+    return;
+  }
+
+  const gunlukToplam={};
+  hareketler.forEach(h=>{
+    const gun=String(h.tarih).slice(0,10);
+    gunlukToplam[gun]=(gunlukToplam[gun]||0)+(parseFloat(h.miktar)||0);
+  });
+
+  const gunler=[];
+  for(let i=aralikGun-1;i>=0;i--){
+    gunler.push(new Date(Date.now()-i*24*60*60*1000).toISOString().slice(0,10));
+  }
+  const veri=gunler.map(g=>gunlukToplam[g]||0);
+
+  new Chart(document.getElementById('tuketim-trend-canvas'),{
+    type:'line',
+    data:{labels:gunler,datasets:[{label:'Günlük tüketim',data:veri,borderColor:'#f39c12',backgroundColor:'rgba(243,156,18,.08)',fill:true,tension:.2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  });
+}
+
 function renderTumTrendler(){
   // Task 2 ve Task 3 burada kendi render fonksiyonlarını çağıracak
 }
