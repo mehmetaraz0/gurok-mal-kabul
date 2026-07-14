@@ -700,7 +700,8 @@ async function talepKaydet(departman,aciliyet,notAlani,satirlar,otelId){
     const d=await r.json();
     const talepId=d[0].id;
     const kalemSatirlar=doluSatirlar.map(u=>({talep_id:talepId,urun_adi:u.ad,urun_kodu:u.kod||null,miktar:u.miktar,birim:u.birim}));
-    await fetch(SB_URL+'/rest/v1/satin_alma_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    const kr=await fetch(SB_URL+'/rest/v1/satin_alma_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    if(!kr.ok){console.warn('talepKaydet: kalem insert failed, orphaned satin_alma_talepleri header id='+talepId);return null;}
     DB.talepler[talepId]={id:talepId,tarih:new Date().toISOString().split('T')[0],olusturmaTarih:Date.now(),departman,personel:CU.ad,satirlar:doluSatirlar,aciliyet,not:notAlani||'',durum:'bekleyen'};
     return talepId;
   }catch(e){console.warn(e);return null;}
