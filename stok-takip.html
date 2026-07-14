@@ -649,6 +649,7 @@ function depoAdi(depoId){
 }
 let stokFilter   = 'tumu';
 let katFilter    = 'tumu';
+let abcFilter    = 'tumu';
 let harFilter    = 'tumu';
 let _lnRows      = [];
 let _lnDepoId    = 'ANA_DEPO';
@@ -721,6 +722,54 @@ async function loadDB(){
   }catch(e){console.warn('Supabase yükleme:',e);}
   if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
   hideLoading();
+}
+
+async function loadFiyatMap(){
+  db.fiyatMap={};
+  try{
+    const rSon=await fetch(SB_URL+'/rest/v1/urun_guncel_fiyat?select=urun_kodu,birim_fiyat,birim',{headers:SB_HEADERS});
+    if(rSon.ok){(await rSon.json()).forEach(row=>{db.fiyatMap[row.urun_kodu]={fiyat:parseFloat(row.birim_fiyat)||0,birim:row.birim,kaynak:'son_fatura'};});}
+  }catch(e){console.warn(e);}
+  try{
+    const rFifo=await fetch(SB_URL+'/rest/v1/urun_fifo_fiyat?select=urun_kodu,birim_fiyat,birim,fiyat_kaynagi',{headers:SB_HEADERS});
+    if(rFifo.ok){(await rFifo.json()).forEach(row=>{db.fiyatMap[row.urun_kodu]={fiyat:parseFloat(row.birim_fiyat)||0,birim:row.birim,kaynak:row.fiyat_kaynagi==='tahmini'?'fifo_tahmini':'fifo'};});}
+  }catch(e){console.warn(e);}
+}
+
+function hesaplaAbcSiniflari(){
+  db.abcSiniflari={};
+  const stokMiktar={};
+  Object.values(db.stok).forEach(depoStok=>{
+    Object.values(depoStok).forEach(s=>{
+      stokMiktar[s.lnKod]=(stokMiktar[s.lnKod]||0)+(parseFloat(s.miktar)||0);
+    });
+  });
+  const yediGunOnce=Date.now()-7*24*60*60*1000;
+  const tuketimMiktar={};
+  Object.values(db.hareketler).forEach(h=>{
+    if(h.tip!=='cikis'||h.tarih<yediGunOnce)return;
+    if(!/gunluk_tuketim|recete_tuketim/.test(h.aciklama||''))return;
+    tuketimMiktar[h.lnKod]=(tuketimMiktar[h.lnKod]||0)+h.miktar;
+  });
+  const tumUrunKodlari=new Set([...Object.keys(stokMiktar),...Object.keys(tuketimMiktar)]);
+  const skorlar=[...tumUrunKodlari].map(kod=>{
+    const fiyat=db.fiyatMap[kod]?.fiyat||0;
+    const stokDegeri=(stokMiktar[kod]||0)*fiyat;
+    const tuketimDegeri=(tuketimMiktar[kod]||0)*fiyat;
+    return{kod,skor:stokDegeri+(tuketimDegeri*4)};
+  });
+  const toplamSkor=skorlar.reduce((t,s)=>t+s.skor,0);
+  if(toplamSkor<=0){
+    skorlar.forEach(s=>db.abcSiniflari[s.kod]='C');
+    return;
+  }
+  skorlar.sort((a,b)=>b.skor-a.skor);
+  let kumulatif=0;
+  skorlar.forEach(s=>{
+    kumulatif+=s.skor;
+    const yuzde=kumulatif/toplamSkor;
+    db.abcSiniflari[s.kod]=yuzde<=0.80?'A':yuzde<=0.95?'B':'C';
+  });
 }
 
 async function saveStok(hedefler){
@@ -2042,6 +2091,8 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   onIadeOtelChange(document.getElementById('iade-otel').value);
   renderIadeKalemler();
   await loadDB();
+  await loadFiyatMap();
+  hesaplaAbcSiniflari();
   buildIadeFirmaSelector(); // db.cariler loadDB() içinde dolduğu için ondan sonra çağrılmalı
 
   const today=new Date().toISOString().split('T')[0];
