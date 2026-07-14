@@ -2701,6 +2701,7 @@ function hLD(){document.getElementById('ld').classList.remove('show');}
   if(!requireRole(CU, ['yonetici','satinalma','depo'])) return;
   await loadDB();
   basla();
+  stokMinimumKontrolEt();
 })();
 </script>
 </body>
