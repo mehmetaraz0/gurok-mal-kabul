@@ -794,6 +794,21 @@ function depoQrDurdur(){
 }
 
 let _sonOkumaZamani=0;
+// koli: okutulan koli nesnesi ({id,urun_kodu,depo_kodu,skt_tarihi,...}).
+// Döner: aynı üründen/depodan, hâlâ depoda olan ve okutulandan daha eski
+// SKT'li bir koli varsa {koli_no,skt_tarihi}, yoksa null.
+async function fefoKontrolEt(koli){
+  if(!koli.skt_tarihi)return null;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/koli_etiketleri?urun_kodu=eq.'+encodeURIComponent(koli.urun_kodu)+'&depo_kodu=eq.'+encodeURIComponent(koli.depo_kodu)+'&durum=eq.depoda&skt_tarihi=not.is.null&id=neq.'+koli.id+'&select=koli_no,skt_tarihi&order=skt_tarihi.asc&limit=1',{headers:SB_HEADERS});
+    if(!r.ok)return null;
+    const rows=await r.json();
+    if(!rows.length)return null;
+    const enEski=rows[0];
+    if(new Date(enEski.skt_tarihi)<new Date(koli.skt_tarihi))return enEski;
+    return null;
+  }catch(e){return null;}
+}
 async function depoQrOkundu(text,sipId){
   if(!text.startsWith('KOLI:'))return;
   // Aynı kodun art arda tekrar tetiklenmesini engelle (kamera saniyede 10 kare okur)
@@ -810,6 +825,12 @@ async function depoQrOkundu(text,sipId){
   }catch(e){}
   if(!koli){toast('❌ Koli bulunamadı — etiket geçersiz');return;}
   if(koli.durum!=='depoda'){toast(`⚠️ Bu koli kullanılamaz (durum: ${koli.durum})`);return;}
+
+  const eskiKoli=await fefoKontrolEt(koli);
+  if(eskiKoli){
+    const devam=confirm(`⚠️ FEFO Uyarısı: Bu üründen daha eski SKT'li bir koli var (Koli No: ${eskiKoli.koli_no||'?'}, SKT: ${new Date(eskiKoli.skt_tarihi).toLocaleDateString('tr-TR')}).\n\nÖnce o koli çıkarılmalı. Yine de bu koliyle devam etmek istiyor musunuz?`);
+    if(!devam)return;
+  }
 
   const s=DB.siparisler[sipId];if(!s)return;
   const urunler=s.urunler||s.kalemler||[];
