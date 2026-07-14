@@ -1793,29 +1793,60 @@ async function sayimOnayla(oturumId){
     const detR=await fetch(SB_URL+'/rest/v1/sayim_detaylari?oturum_id=eq.'+oturumId+'&select=*',{headers:SB_HEADERS});
     const detaylar=detR.ok?await detR.json():[];
     const hareketler=[];
+    const yazilanlar=[]; // {depoId,kod,urunAd,beklenen} — yazma sonrası doğrulanacak satırlar
+    const atlananUrunler=[]; // canlı GET başarısız olduğu için hiç işlenemeyen ürün adları
     for(const d of detaylar){
       // Bayat veri kontrolü: onay anındaki GÜNCEL sistem miktarını yeniden oku, oturumdaki donmuş değeri değil
       const guncelR=await fetch(SB_URL+'/rest/v1/stok?depo_kodu=eq.'+encodeURIComponent(oturum.depo_kodu)+'&urun_kodu=eq.'+encodeURIComponent(d.urun_kodu)+'&select=miktar',{headers:SB_HEADERS});
-      const guncelD=guncelR.ok?await guncelR.json():[];
+      if(!guncelR.ok){
+        // Canlı okuma başarısız oldu — bunu "ürün stok tablosunda yok, miktar 0" ile
+        // ASLA karıştırma. Bu satırı tamamen atla ve onayı engelleyecek şekilde işaretle.
+        atlananUrunler.push(d.urun_adi);
+        continue;
+      }
+      const guncelD=await guncelR.json();
       const guncelMiktar=guncelD.length?parseFloat(guncelD[0].miktar)||0:0;
       const guncelFark=round2(parseFloat(d.sayilan_miktar)-guncelMiktar);
       if(guncelFark===0)continue;
+      // Bellek içi önbelleği (db.stok) az önce okunan CANLI değerle senkronize et.
+      // Aksi halde giris()/cikis() bu farkı sayfa yüklemesinde donmuş kalan eski
+      // db.stok değeri üzerine uygular ve saveStok() bu yanlış sonucu (tam değer
+      // upsert olarak) Supabase'e yazıp canlı yeniden-okumanın tüm amacını boşa çıkarır.
+      if(!db.stok[oturum.depo_kodu])db.stok[oturum.depo_kodu]={};
+      db.stok[oturum.depo_kodu][d.urun_kodu]={lnKod:d.urun_kodu,urunAd:d.urun_adi,miktar:guncelMiktar,birim:d.birim,sonGuncelleme:Date.now()};
       const h=guncelFark>0
         ?giris(oturum.depo_kodu,d.urun_kodu,d.urun_adi,guncelFark,d.birim,'sayim',oturumId)
         :cikis(oturum.depo_kodu,d.urun_kodu,d.urun_adi,Math.abs(guncelFark),d.birim,'sayim',d.aciklama||'Fiziksel sayım düzeltmesi');
       hareketler.push(h);
+      yazilanlar.push({depoId:oturum.depo_kodu,kod:d.urun_kodu,urunAd:d.urun_adi,beklenen:parseFloat(d.sayilan_miktar)});
     }
     if(hareketler.length){
       await saveStok(hareketler.map(h=>({depoId:h.depoId,kod:h.lnKod})));
       for(const h of hareketler)await saveHareket(h);
     }
-    await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
-      durum:'onaylandi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString()
-    })});
-    showToast(`✅ Sayım onaylandı — ${hareketler.length} üründe stok güncellendi`);
-    closeModal('modal-sayim-detay');
-    if(aktifDepoId)renderStok();
-    await sayimOnayBekleyenleriYukle();
+    // saveStok/saveHareket hatayı içeride yutuyor (catch(e){console.warn(e)}, rethrow yok)
+    // — bu yüzden PATCH'ten önce her yazılan satırın gerçekten kalıcı olduğunu canlı bir
+    // GET ile doğrula. Doğrulanamayan ya da hiç denenmemiş (atlanan) satır varsa onaylama.
+    const dogrulanamayanUrunler=[];
+    for(const y of yazilanlar){
+      const dogR=await fetch(SB_URL+'/rest/v1/stok?depo_kodu=eq.'+encodeURIComponent(y.depoId)+'&urun_kodu=eq.'+encodeURIComponent(y.kod)+'&select=miktar',{headers:SB_HEADERS});
+      if(!dogR.ok){dogrulanamayanUrunler.push(y.urunAd);continue;}
+      const dogD=await dogR.json();
+      const yazilanMiktar=dogD.length?parseFloat(dogD[0].miktar)||0:0;
+      if(round2(yazilanMiktar)!==round2(y.beklenen))dogrulanamayanUrunler.push(y.urunAd);
+    }
+    if(atlananUrunler.length||dogrulanamayanUrunler.length){
+      const basarisizListesi=[...new Set([...atlananUrunler,...dogrulanamayanUrunler])].join(', ');
+      showToast(`❌ Onay tamamlanamadı — doğrulanamayan ürünler: ${basarisizListesi}. Tekrar deneyin.`,4000);
+    }else{
+      await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+        durum:'onaylandi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString()
+      })});
+      showToast(`✅ Sayım onaylandı — ${hareketler.length} üründe stok güncellendi`);
+      closeModal('modal-sayim-detay');
+      if(aktifDepoId)renderStok();
+      await sayimOnayBekleyenleriYukle();
+    }
   }catch(e){
     console.warn(e);
     showToast('❌ Onaylama başarısız, tekrar deneyin');
