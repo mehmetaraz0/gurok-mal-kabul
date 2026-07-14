@@ -1829,9 +1829,27 @@ async function sayimOnayla(oturumId){
       // atlandı/doğrulanamadı) bunu kalıcı olarak işaretle, böylece sayimReddet bu oturumu
       // artık "stok değişmedi" diyerek reddedemez. Tam başarılı onayda da zararsız: durum
       // hemen 'onaylandi'ya geçtiği için kismi_uygulandi bir daha kontrol edilmez.
-      try{
-        await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({kismi_uygulandi:true})});
-      }catch(e){console.warn('kismi_uygulandi işaretlenemedi',e);}
+      // Bu PATCH'in HTTP düzeyinde başarısı response.ok ile kontrol edilir (sadece throw
+      // yeterli değil — 5xx/izin hatası gibi durumlar normal şekilde ok:false ile döner).
+      // Başarısız olursa kısa bir gecikmeyle bir kez daha denenir. İkinci deneme de
+      // başarısız olursa: bu kod tabanında hiçbir yerde veritabanı transaction'ı
+      // kullanılmadığından tutarlılığı garanti etmenin bir yolu yoktur — tek telafi edici
+      // kontrol, cost_control kullanıcısını engelleyici/yüksek sesli bir alert() ile uyarıp
+      // bu oturumu reddetmemesini istemektir.
+      let kismiPatchOk=false;
+      for(let deneme=0;deneme<2 && !kismiPatchOk;deneme++){
+        if(deneme>0)await new Promise(r=>setTimeout(r,500));
+        try{
+          const kismiPatchR=await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({kismi_uygulandi:true})});
+          kismiPatchOk=kismiPatchR.ok;
+          if(!kismiPatchOk)console.warn('kismi_uygulandi işaretlenemedi (HTTP '+kismiPatchR.status+', deneme '+(deneme+1)+')');
+        }catch(e){
+          console.warn('kismi_uygulandi işaretlenemedi (deneme '+(deneme+1)+')',e);
+        }
+      }
+      if(!kismiPatchOk){
+        alert('⚠️ DİKKAT: Bu sayımda bazı ürünlerin stoğu güncellendi, ancak sistem bunu güvenlik bayrağıyla (kismi_uygulandi) işaretleyemedi. BU OTURUMU HİÇBİR ŞEKİLDE REDDETMEYİN — stok zaten değişmiş olabilir ve reddetme "stok değişmedi" gibi yanlış bir mesaj gösterecektir. Lütfen "Onayla" işlemini tekrar deneyin (tekrar denemek güvenlidir) veya bir yöneticiyle iletişime geçin.');
+      }
     }
     // saveStok/saveHareket hatayı içeride yutuyor (catch(e){console.warn(e)}, rethrow yok)
     // — bu yüzden PATCH'ten önce her yazılan satırın gerçekten kalıcı olduğunu canlı bir
@@ -1876,15 +1894,42 @@ async function sayimReddet(oturumId){
     // yerel sayimOnayBekleyenler listesi bayat olabilir. Önceki bir onay denemesi bazı
     // satırları zaten yazmışsa (kismi_uygulandi=true), reddetmeye izin verme: kullanıcı
     // 'stok değişmedi' mesajını görüp yanılabilir, oysa bazı ürünlerin stoğu zaten değişti.
-    const kismiR=await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId+'&select=kismi_uygulandi',{headers:SB_HEADERS});
-    if(kismiR.ok){
-      const kismiD=await kismiR.json();
-      if(kismiD.length&&kismiD[0].kismi_uygulandi===true){
-        alert('❌ Bu sayım reddedilemez: önceki bir onay denemesinde bazı ürünlerin stoğu zaten güncellendi. Lütfen "Onayla" işlemini tekrar deneyerek onayı tamamlayın (tekrar denemek güvenlidir).');
-        _sayimOnayIsleniyor=false;
-        hideLoading();
-        return;
-      }
+    // GÜVENLİ VARSAYILAN (fail-closed): bu kontrolün sonucu doğrulanamıyorsa — GET throw
+    // ederse, HTTP düzeyinde başarısız olursa (!kismiR.ok; bu durum throw ETMEZ, fetch
+    // sadece gerçek ağ hatasında reject eder) ya da eşleşen satır dönmezse — reddetmeye
+    // İZİN VERME. Sadece kismi_uygulandi açıkça false/null (hiç dokunulmamış oturumun
+    // DEFAULT false değeri) olarak doğrulandığında devam et. Bu, sayimOnayla içindeki
+    // guncelR fail-closed deseniyle aynı yaklaşımdır (bkz. yukarıda "!guncelR.ok").
+    let kismiR;
+    try{
+      kismiR=await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId+'&select=kismi_uygulandi',{headers:SB_HEADERS});
+    }catch(e){
+      console.warn('kismi_uygulandi kontrolü başarısız (ağ hatası)',e);
+      alert('⚠️ Güvenlik kontrolü tamamlanamadı (bağlantı hatası). Bu sayım şu an güvenli şekilde reddedilemiyor. Lütfen kısa süre sonra tekrar deneyin.');
+      _sayimOnayIsleniyor=false;
+      hideLoading();
+      return;
+    }
+    if(!kismiR.ok){
+      console.warn('kismi_uygulandi kontrolü başarısız (HTTP '+kismiR.status+')');
+      alert('⚠️ Güvenlik kontrolü tamamlanamadı (sunucu hatası). Bu sayım şu an güvenli şekilde reddedilemiyor. Lütfen kısa süre sonra tekrar deneyin.');
+      _sayimOnayIsleniyor=false;
+      hideLoading();
+      return;
+    }
+    const kismiD=await kismiR.json();
+    if(!kismiD.length){
+      console.warn('kismi_uygulandi kontrolü başarısız (eşleşen oturum satırı yok)');
+      alert('⚠️ Güvenlik kontrolü tamamlanamadı (oturum bulunamadı). Bu sayım şu an güvenli şekilde reddedilemiyor. Lütfen kısa süre sonra tekrar deneyin.');
+      _sayimOnayIsleniyor=false;
+      hideLoading();
+      return;
+    }
+    if(kismiD[0].kismi_uygulandi===true){
+      alert('❌ Bu sayım reddedilemez: önceki bir onay denemesinde bazı ürünlerin stoğu zaten güncellendi. Lütfen "Onayla" işlemini tekrar deneyerek onayı tamamlayın (tekrar denemek güvenlidir).');
+      _sayimOnayIsleniyor=false;
+      hideLoading();
+      return;
     }
     await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
       durum:'reddedildi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString(),red_nedeni:nedenGirdi||null
