@@ -80,6 +80,8 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 .pin-btn:active { background: var(--gray-300); transform: scale(0.95); }
 .pin-btn.empty { background: transparent; cursor: default; }
 .pin-btn.del { font-size: 18px; }
+.btn-ms{width:100%;margin-top:14px;padding:12px;border:1.5px solid var(--primary);border-radius:12px;background:white;color:var(--primary);font-size:14px;font-weight:600;cursor:pointer}
+.btn-ms:active{background:var(--gray-100)}
 
 /* ===== PORTAL ===== */
 #screen-portal { display: none; min-height: 100vh; flex-direction: column; }
@@ -284,6 +286,7 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
       <button class="pin-btn" onclick="pinInput('0')">0</button>
       <button class="pin-btn del" onclick="pinDelete()">⌫</button>
     </div>
+    <button class="btn-ms" onclick="showToast('🔷 Microsoft girişi yakında aktif olacak')">🔷 Microsoft ile Giriş</button>
   </div>
 </div>
 
@@ -475,6 +478,10 @@ async function loadUsers() {
       }
     }
   } catch(e) {}
+}
+
+function findUserByEmail(email) {
+  return users.find(u => u.eposta && u.eposta.toLowerCase() === String(email).toLowerCase()) || null;
 }
 
 // ============================================================
