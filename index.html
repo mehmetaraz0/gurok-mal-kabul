@@ -454,8 +454,8 @@ const DEFAULT_USERS = [
   { id:7, ad:'Bar Sefi',        rol:'bar',       departman:'Bar',        pin:'666666', depoId:'CSM301', otelId:'810' }
 ];
 
-const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹' };
-const ROL_AD   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite', mutfak:'Mutfak', bar:'Bar' };
+const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹', cost_control:'💵', muhasebe_muduru:'💰', muhasebe_calisani:'🧾' };
+const ROL_AD   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite', mutfak:'Mutfak', bar:'Bar', cost_control:'Cost Control', muhasebe_muduru:'Muhasebe Müdürü', muhasebe_calisani:'Muhasebe Çalışanı' };
 
 let users = [...DEFAULT_USERS];
 let currentUser = null;
@@ -497,7 +497,7 @@ function pinInput(d) {
   const errEl = document.getElementById('pin-error');
   errEl.textContent = '';
   if (match.length === 1 && pinValue.length >= 3) {
-    el.textContent = ROL_IKON[match[0].rol] + ' ' + match[0].ad;
+    el.textContent = (ROL_IKON[match[0].rol]||'👤') + ' ' + match[0].ad;
   } else {
     el.textContent = '';
   }
@@ -553,7 +553,7 @@ function showPortal() {
 
   // Header
   document.getElementById('header-user-name').textContent = u.ad;
-  document.getElementById('header-user-rol').textContent = ROL_IKON[u.rol] + ' ' + ROL_AD[u.rol];
+  document.getElementById('header-user-rol').textContent = (ROL_IKON[u.rol]||'👤') + ' ' + (ROL_AD[u.rol]||u.rol);
 
   // Hoşgeldin
   document.getElementById('welcome-text').textContent = 'Hoş geldin, ' + u.ad.split(' ')[0];
