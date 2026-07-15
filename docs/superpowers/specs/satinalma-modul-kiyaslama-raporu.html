@@ -1,0 +1,399 @@
+<title>Satın Alma Modülü Kıyaslama ve Eksik Analizi</title>
+<style>
+:root{
+  --paper:#f5f2ea;
+  --surface:#efe9db;
+  --ink:#1c2430;
+  --muted:#5c6672;
+  --line:#ddd5c3;
+  --accent:#b8752f;
+  --accent-ink:#6b4419;
+  --good:#3f7d58;
+  --good-bg:#e3ece5;
+  --gap:#ac4530;
+  --gap-bg:#f2e2dd;
+  --partial-bg:#f1e6d5;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#141922;
+    --surface:#1b2230;
+    --ink:#e9e5da;
+    --muted:#9aa3b0;
+    --line:#2b3444;
+    --accent:#dd9e52;
+    --accent-ink:#f4d9ab;
+    --good:#6cb389;
+    --good-bg:#1c2c24;
+    --gap:#e0806a;
+    --gap-bg:#2e211e;
+    --partial-bg:#2b2519;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#141922;
+  --surface:#1b2230;
+  --ink:#e9e5da;
+  --muted:#9aa3b0;
+  --line:#2b3444;
+  --accent:#dd9e52;
+  --accent-ink:#f4d9ab;
+  --good:#6cb389;
+  --good-bg:#1c2c24;
+  --gap:#e0806a;
+  --gap-bg:#2e211e;
+  --partial-bg:#2b2519;
+}
+:root[data-theme="light"]{
+  --paper:#f5f2ea;
+  --surface:#efe9db;
+  --ink:#1c2430;
+  --muted:#5c6672;
+  --line:#ddd5c3;
+  --accent:#b8752f;
+  --accent-ink:#6b4419;
+  --good:#3f7d58;
+  --good-bg:#e3ece5;
+  --gap:#ac4530;
+  --gap-bg:#f2e2dd;
+  --partial-bg:#f1e6d5;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+  font-size:16.5px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+}
+
+.wrap{max-width:920px;margin:0 auto;padding:56px 24px 96px}
+
+.eyebrow{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin:0 0 10px;
+}
+h1{
+  font-size:clamp(28px,4.2vw,40px);
+  line-height:1.14;
+  margin:0 0 14px;
+  text-wrap:balance;
+  letter-spacing:-.01em;
+}
+.dek{
+  max-width:62ch;
+  color:var(--muted);
+  font-size:17.5px;
+  margin:0 0 34px;
+}
+.meta{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:12px;
+  color:var(--muted);
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  padding:12px 0;
+  display:flex;
+  gap:28px;
+  flex-wrap:wrap;
+  margin-bottom:40px;
+}
+.meta b{color:var(--ink);font-weight:600}
+
+/* scorecard */
+.scorecard{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:1px;
+  background:var(--line);
+  border:1px solid var(--line);
+  margin-bottom:48px;
+}
+.scard{
+  background:var(--surface);
+  padding:20px 18px;
+}
+.scard .n{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:32px;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  margin-bottom:6px;
+}
+.scard.crit .n{color:var(--gap)}
+.scard.imp .n{color:var(--accent)}
+.scard.low .n{color:var(--muted)}
+.scard .l{font-size:13px;color:var(--muted)}
+
+section{margin-bottom:52px}
+h2{
+  font-size:22px;
+  letter-spacing:-.005em;
+  margin:0 0 6px;
+  text-wrap:balance;
+}
+.sec-tag{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 18px;
+}
+p{margin:0 0 16px;max-width:68ch}
+ul.strengths{margin:0 0 0;padding:0;list-style:none;display:grid;gap:10px}
+ul.strengths li{
+  display:flex;
+  gap:12px;
+  align-items:baseline;
+  padding:10px 14px;
+  background:var(--good-bg);
+  border-left:3px solid var(--good);
+}
+ul.strengths li .tag{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11px;
+  color:var(--good);
+  flex-shrink:0;
+  padding-top:2px;
+}
+ul.strengths li span.t{font-size:15px}
+
+/* comparison table */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line)}
+table{
+  border-collapse:collapse;
+  width:100%;
+  min-width:760px;
+  font-size:14.5px;
+}
+thead th{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+  text-align:left;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+  white-space:nowrap;
+}
+tbody td{
+  padding:12px 14px;
+  border-bottom:1px solid var(--line);
+  vertical-align:top;
+}
+tbody tr:last-child td{border-bottom:none}
+tbody td.feat{font-weight:600;width:23%}
+tbody td.note{color:var(--muted);font-size:13.5px;width:37%}
+.badge{
+  display:inline-block;
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:11px;
+  letter-spacing:.04em;
+  padding:3px 9px;
+  border-radius:2px;
+  white-space:nowrap;
+}
+.badge.var{background:var(--good-bg);color:var(--good)}
+.badge.kismi{background:var(--partial-bg);color:var(--accent-ink)}
+.badge.yok{background:var(--gap-bg);color:var(--gap)}
+
+/* roadmap */
+.road{display:grid;gap:14px}
+.ritem{
+  border-left:4px solid var(--line);
+  padding:14px 18px;
+  background:var(--surface);
+}
+.ritem.crit{border-left-color:var(--gap)}
+.ritem.imp{border-left-color:var(--accent)}
+.ritem.low{border-left-color:var(--muted)}
+.ritem .rh{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  margin-bottom:5px;
+}
+.ritem .sev{
+  font-family:ui-monospace,"Cascadia Code","JetBrains Mono","SF Mono",Consolas,monospace;
+  font-size:10.5px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.ritem.crit .sev{color:var(--gap)}
+.ritem.imp .sev{color:var(--accent)}
+.ritem.low .sev{color:var(--muted)}
+.ritem .rt{font-weight:700;font-size:15.5px}
+.ritem p{margin:0;font-size:14.5px;color:var(--muted);max-width:none}
+
+.group-h{
+  font-size:14px;
+  font-weight:700;
+  margin:28px 0 12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.group-h .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.group-h.crit .dot{background:var(--gap)}
+.group-h.imp .dot{background:var(--accent)}
+.group-h.low .dot{background:var(--muted)}
+
+footer{
+  margin-top:64px;
+  padding-top:20px;
+  border-top:1px solid var(--line);
+  font-size:12.5px;
+  color:var(--muted);
+}
+footer a{color:var(--muted)}
+footer ol{padding-left:18px;margin:8px 0 0}
+footer li{margin-bottom:4px}
+
+@media (max-width:600px){
+  .scorecard{grid-template-columns:1fr}
+  .wrap{padding:36px 16px 64px}
+}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Gürok Turizm Grubu — Depo Yönetim Sistemi</p>
+  <h1>Satın alma modülü kıyaslama ve eksik analizi</h1>
+  <p class="dek"><span class="mono">satin-alma.html</span> (2.709 satır, 8 sekme) ve bağlantılı mal kabul akışının envanteri çıkarıldı; SAP, Oracle, Dynamics 365, NetSuite, Odoo gibi genel ERP'lerin satın alma modülleri ve otelcilik-özel tedarik sistemleriyle (Oracle Hospitality/Adaco) karşılaştırıldı.</p>
+
+  <div class="meta">
+    <span><b>Kapsam</b> — 3 dosya (satin-alma, mal-kabul-v2, depo-siparis)</span>
+    <span><b>Yöntem</b> — kod envanteri + dış araştırma</span>
+    <span><b>Tarih</b> — 2026-07-15</span>
+  </div>
+
+  <div class="scorecard">
+    <div class="scard crit"><div class="n">3</div><div class="l">Kritik eksik</div></div>
+    <div class="scard imp"><div class="n">4</div><div class="l">Önemli eksik</div></div>
+    <div class="scard low"><div class="n">2</div><div class="l">Düşük öncelik</div></div>
+  </div>
+
+  <section>
+    <p class="sec-tag">01 — Mevcut Güç</p>
+    <h2>Tedarikçi tarafı sanılandan güçlü — otomatik skorlama zaten kurumsal seviyede</h2>
+    <p>Uçtan uca akış zaten var: iç talep → onay → tedarikçiye göre gruplanmış sipariş → mal kabul → fiyat kontrolü. Aşağıdaki alanlar orta ölçekli ticari ERP'lerin çoğuyla aynı seviyede veya üzerinde:</p>
+    <ul class="strengths">
+      <li><span class="tag">Tedarikçi Skoru</span><span class="t">Kalite (%40) + Teslimat Hızı (%40) + Fatura Eşleşme (%20) formülüyle canlı, otomatik 0-100 puanlama — birçok kurumsal ERP'de bile ayrı satılan bir modül.</span></li>
+      <li><span class="tag">Otomatik Yeniden Sipariş</span><span class="t">Minimum stok altına düşen ürünler için sayfa açılışında öneri şeridi — talebin kendisi zaten otomatik tetikleniyor.</span></li>
+      <li><span class="tag">Sipariş → Mal Kabul Bağlantısı</span><span class="t">Mal kabul, sipariş numarasına bağlanıp gelen/kalan miktarı otomatik güncelliyor, tahmini fiyatı sipariş satırından devralıyor.</span></li>
+      <li><span class="tag">Rol Bazlı Erişim</span><span class="t">yonetici/satinalma/depo rolleri, modül genelinde tutarlı auth-guard koruması.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <p class="sec-tag">02 — Karşılaştırma</p>
+    <h2>Standart satın alma modülü özellikleri karşısında Gürok'un durumu</h2>
+    <p>Sıralama önem derecesine göre değil, tipik bir talep→sipariş→ödeme akışına göre.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Özellik</th><th>Standart ERP'de</th><th>Gürok'ta</th><th>Not</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="feat">Talep onay akışı</td><td><span class="badge var">Var</span></td><td><span class="badge kismi">Kısmi</span></td><td class="note">Onay adımı var ama rolden bağımsız — sayfaya erişimi olan herkes herhangi bir talebi onaylayabiliyor.</td></tr>
+          <tr><td class="feat">Tutar bazlı onay eşiği</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Talep tutarına göre yönetici/müdür onayına yönlendirme yok; 50 TL'lik talep ile 50.000 TL'lik talep aynı yoldan geçiyor.</td></tr>
+          <tr><td class="feat">Tedarikçi master verisi</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note"><span class="mono">FIRMA_DB</span> sadece ad/kod/ürün listesi tutuyor; vergi no, IBAN, ödeme vadesi, adres alanları hiç yok (kodda referans var ama veri hep boş).</td></tr>
+          <tr><td class="feat">RFQ / çoklu teklif karşılaştırma</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Her ürün tek bir tedarikçiye sabit eşlenmiş; birden fazla firmadan teklif isteyip karşılaştırma yok.</td></tr>
+          <tr><td class="feat">Kontrat / sabit fiyat yönetimi</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Fiyat serbest metin alanı; geçmiş fiyat gösterimi, geçerlilik tarihli anlaşmalı fiyat yok.</td></tr>
+          <tr><td class="feat">3-way match (sipariş/mal kabul/fatura)</td><td><span class="badge var">Var</span></td><td><span class="badge kismi">Kısmi</span></td><td class="note">Üç kayıt birbirine bağlı ama sapma toleransı otomatik değil — sadece serbest metin not alanı var.</td></tr>
+          <tr><td class="feat">Otomatik tolerans/varyans uyarısı</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Otelcilik-özel sistemlerde (Adaco) bu temel özellik sayılıyor; Gürok'ta hiç yok.</td></tr>
+          <tr><td class="feat">Tedarikçi performans skoru</td><td><span class="badge kismi">Kısmi</span></td><td><span class="badge var">Var</span></td><td class="note">Genelde ayrı modül; Gürok'ta yerleşik, otomatik ve canlı hesaplanıyor.</td></tr>
+          <tr><td class="feat">Min/maks + otomatik sipariş tetikleme</td><td><span class="badge var">Var</span></td><td><span class="badge var">Var</span></td><td class="note">Bu oturumda eklendi — sayfa açılışında öneri şeridi.</td></tr>
+          <tr><td class="feat">Tedarikçi bazlı harcama raporu</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Hangi tedarikçiye ne kadar harcandığı hiçbir ekranda görünmüyor.</td></tr>
+          <tr><td class="feat">Sipariş durum paneli</td><td><span class="badge var">Var</span></td><td><span class="badge kismi">Kısmi</span></td><td class="note">Sipariş Takip sekmesi var ama basit filtre sekmeleriyle sınırlı, özet/dashboard görünümü yok.</td></tr>
+          <tr><td class="feat">Satın alma bütçesi (bütçe vs gerçekleşen)</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">Genel <span class="mono">muhasebe-butce.html</span> var ama satın almaya özel bütçe karşılaştırması yok.</td></tr>
+          <tr><td class="feat">Döviz/çoklu para birimi</td><td><span class="badge var">Var</span></td><td><span class="badge yok">Yok</span></td><td class="note">TCMB kur otomasyonu (<span class="mono">fetch-kur.js</span>) muhasebede var ama satın almaya hiç bağlı değil — tüm siparişler TL varsayıyor.</td></tr>
+          <tr><td class="feat">İade / tedarikçiye geri gönderim</td><td><span class="badge var">Var</span></td><td><span class="badge var">Var</span></td><td class="note">—</td></tr>
+          <tr><td class="feat">Rol bazlı erişim</td><td><span class="badge var">Var</span></td><td><span class="badge var">Var</span></td><td class="note">—</td></tr>
+          <tr><td class="feat">Audit log</td><td><span class="badge var">Var</span></td><td><span class="badge var">Var</span></td><td class="note"><span class="mono">muhasebe-denetim.html</span> üzerinden.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="sec-tag">03 — Yol Haritası</p>
+    <h2>Öncelik sırasına göre eksikler</h2>
+
+    <div class="group-h crit"><span class="dot"></span>Kritik — mali kontrol ve hesap verebilirlik riski</div>
+    <div class="road">
+      <div class="ritem crit">
+        <div class="rh"><span class="sev">01</span><span class="rt">Tutar bazlı onay eşiği yok</span></div>
+        <p>Herhangi bir talep, tutarından bağımsız olarak sayfaya erişimi olan herkes tarafından onaylanabiliyor — büyük tutarlı alımlarda ikinci bir göz/imza garantisi yok. Standart ERP'lerde bu neredeyse evrensel bir temel özellik.</p>
+      </div>
+      <div class="ritem crit">
+        <div class="rh"><span class="sev">02</span><span class="rt">Tedarikçi master verisi eksik</span></div>
+        <p>Vergi no, IBAN, ödeme vadesi, adres gibi alanlar hiç tutulmuyor — bu veriler olmadan e-Fatura eşleştirmesi, ödeme planlama ve tedarikçi durum takibi kalıcı olarak elle/hafızayla yürütülüyor.</p>
+      </div>
+      <div class="ritem crit">
+        <div class="rh"><span class="sev">03</span><span class="rt">3-way match toleransı otomatik değil</span></div>
+        <p>Sipariş/mal kabul/fatura üçü birbirine bağlı ama miktar veya fiyat sapması sistem tarafından otomatik işaretlenmiyor — sadece serbest metin not alanı var. Otelcilik-özel tedarik sistemlerinde bu temel/beklenen özellik sayılıyor.</p>
+      </div>
+    </div>
+
+    <div class="group-h imp"><span class="dot"></span>Önemli — maliyet optimizasyonu ve görünürlük</div>
+    <div class="road">
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">04</span><span class="rt">RFQ / çoklu tedarikçi teklif karşılaştırması yok</span></div>
+        <p>Her ürün tek bir tedarikçiye sabit eşlenmiş; farklı firmalardan fiyat toplayıp karşılaştırma imkânı yok — fiyat rekabeti sisteme hiç yansımıyor.</p>
+      </div>
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">05</span><span class="rt">Kontrat/sabit fiyat yönetimi yok</span></div>
+        <p>Geçmiş fiyat gösterimi veya geçerlilik tarihli anlaşmalı fiyat kaydı yok — özellikle tekrar eden F&B alımlarında bu, otel gruplarında yaygın beklenen bir özellik.</p>
+      </div>
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">06</span><span class="rt">Tedarikçi bazlı harcama görünürlüğü yok</span></div>
+        <p>Hangi tedarikçiye ne kadar harcandığı hiçbir ekranda görünmüyor — temel harcama görünürlüğü küçük/orta ölçekli sistemlerde bile standart kabul ediliyor.</p>
+      </div>
+      <div class="ritem imp">
+        <div class="rh"><span class="sev">07</span><span class="rt">Döviz/çoklu para birimi satın almaya bağlı değil</span></div>
+        <p>TCMB kur otomasyonu zaten var ama satın alma tamamen TL varsayıyor — döviz bazlı alım yapan tedarikçiler için manuel hesap gerekiyor.</p>
+      </div>
+    </div>
+
+    <div class="group-h low"><span class="dot"></span>Düşük öncelik</div>
+    <div class="road">
+      <div class="ritem low">
+        <div class="rh"><span class="sev">08</span><span class="rt">Gelişmiş/ağırlıklı RFQ ve ihale özellikleri yok</span></div>
+        <p>Çok turlu teklif, ağırlıklı puanlama, ters müzayede gibi özellikler kurumsal tedarik platformlarının (Ariba/Coupa) ayırt edici özellikleri — bu ölçekte gereksiz karmaşıklık olur.</p>
+      </div>
+      <div class="ritem low">
+        <div class="rh"><span class="sev">09</span><span class="rt">BI seviyesinde harcama analitiği yok</span></div>
+        <p>Bütçe-varyans panoları, çok boyutlu harcama küpleri gibi ileri analitik araçlar genelde premium katman özellikleri; temel harcama raporu (madde 06) yeterli olur.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Bu rapor <span class="mono">gurok-mal-kabul</span> kod tabanının kod incelemesi ve genel ERP/tedarik endüstrisi kaynaklarının araştırılmasıyla hazırlanmıştır. Dış kaynaklar:</p>
+    <ol>
+      <li><a href="https://learn.microsoft.com/en-us/dynamics365/finance/accounts-payable/accounts-payable-invoice-matching">Microsoft Learn — Dynamics 365 Invoice Matching</a></li>
+      <li><a href="https://ramp.com/blog/accounts-payable/3-way-match">Ramp — 3-Way Match</a></li>
+      <li><a href="https://www.exploretech.io/en/product/fourth-adaco">Fourth/Adaco — Hospitality Procurement</a></li>
+      <li><a href="https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_4077162015.html">NetSuite — Purchase Contracts</a></li>
+      <li><a href="https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/purchase/products/pricelist.html">Odoo — Vendor Pricelists</a></li>
+      <li><a href="https://sourceday.com/blog/vendor-master-data/">SourceDay — Vendor Master Data</a></li>
+      <li><a href="https://www.stampli.com/resources/requisition-approval-routing/">Stampli — Requisition Approval Routing</a></li>
+      <li><a href="https://www.erpresearch.com/en-us/erp-for-procurement">ERP Research — RFQ Across SAP/Oracle/Dynamics/NetSuite/Odoo</a></li>
+    </ol>
+  </footer>
+
+</div>
