@@ -1,0 +1,10 @@
+/* theme.css — Gürok ERP paylaşılan renk/spacing paleti.
+   Sayfalar bunu <head> içinde kendi <style> bloğundan ÖNCE linkler;
+   sayfaya özel ekstra değişkenler (--accent gibi) page-local :root'ta kalır. */
+:root{
+  --primary:#1a2744;--primary-light:#2d4080;
+  --success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;
+  --gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;
+  --gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;
+  --radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)
+}
