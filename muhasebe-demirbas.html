@@ -230,7 +230,7 @@ async function loadDB(){
   sLD();
   try{
     const [dR,aR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/demirbaslar?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/demirbaslar?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/amortisman_kosustu?select=*',{headers:SB_HEADERS}),
     ]);
     demirbaslar={};amortismanKosustuler={};
@@ -478,7 +478,7 @@ async function demirbasSil(){
   if(!confirm(`"${d.ad}" tamamen silinsin mi? (Elden çıkarma için bunun yerine "Elden Çıkar" kullanmanı öneririz)`))return;
   sLD();
   delete demirbaslar[id];
-  try{await fetch(SB_URL+'/rest/v1/demirbaslar?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
+  try{await fetch(SB_URL+'/rest/v1/demirbaslar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});}catch(e){console.warn(e);}
   await auditLogYaz('delete','demirbas',id,`Demirbaş silindi: ${d.kod} — ${d.ad}`);
   hLD();
   kModal('mDemirbas');
