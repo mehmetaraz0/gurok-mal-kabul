@@ -79,7 +79,8 @@ CREATE TABLE IF NOT EXISTS tedarikci_teklif_kalemleri (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tedarikci_teklif_id uuid REFERENCES tedarikci_teklifler(id),
   teklif_talep_kalem_id uuid REFERENCES teklif_talep_kalemleri(id),
-  birim_fiyat numeric, not_alani text
+  birim_fiyat numeric, not_alani text,
+  UNIQUE(tedarikci_teklif_id, teklif_talep_kalem_id)
 );
 ```
 

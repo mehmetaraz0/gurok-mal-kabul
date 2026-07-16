@@ -52,7 +52,9 @@ teklif_talep_id (FK), firma_ad, firma_kodu, durum
 
 **`tedarikci_teklif_kalemleri`** — tedarikçinin ürün başına verdiği fiyat:
 `id, tedarikci_teklif_id (FK), teklif_talep_kalem_id (FK), birim_fiyat,
-not_alani`.
+not_alani`. `(tedarikci_teklif_id, teklif_talep_kalem_id)` üzerinde UNIQUE
+kısıtı var — Excel toplu yüklemenin `on_conflict` upsert'i bu kısıta
+dayanıyor (bkz. Excel import akışı).
 
 Mevcut desenlerin doğrudan uyarlaması:
 - `teklifIste(talepId)` — `talepSipariseDonustur`'daki POST deseni.
