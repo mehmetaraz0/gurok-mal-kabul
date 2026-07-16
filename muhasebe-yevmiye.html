@@ -295,9 +295,15 @@ async function saveYevmiye(y){
         fis_id:fisUuid,hesap_kodu:k.hesapKod,masraf_merkezi:k.masrafMerkezi||null,
         aciklama:k.aciklama||null,borc:k.borc||0,alacak:k.alacak||0
       }));
-      await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+      const rK=await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+      if(!rK.ok){
+        console.error('yevmiye_kalemleri reinsert hatası:',await rK.text());
+        alert('⚠️ DİKKAT: Fiş başlığı güncellendi ama satır kalemleri yazılamadı — bu fiş şu an EKSİK/DENGESİZ olabilir. Lütfen fişi tekrar açıp yeniden kaydedin veya bir yetkiliyle iletişime geçin.');
+        return false;
+      }
     }
-  }catch(e){console.warn(e);}
+    return true;
+  }catch(e){console.warn(e);return false;}
 }
 
 // ============================================================
