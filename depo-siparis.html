@@ -948,8 +948,17 @@ async function onayla(id){
 
   s.durum='onaylandi';s.onaylayanAd=CU.ad;s.onayTarih=Date.now();
 
-  await saveStok(merkeziDepoId,DB.stok[merkeziDepoId]||{});
-  await saveStok(hedefDepoId,DB.stok[hedefDepoId]||{});
+  // Atomik transfer (rpc/stok_transfer) — her ürün için düş+ekle tek transaction'da.
+  // Eski whole-depot saveStok'u tam-tablo clobber riski taşıyordu; kaldırıldı.
+  for(const h of harlar){
+    try{
+      const rT=await fetch(SB_URL+'/rest/v1/rpc/stok_transfer',{
+        method:'POST',headers:SB_HEADERS,
+        body:JSON.stringify({p_urun_kodu:h.lnKod,p_kaynak_depo:h.kaynakDepoId,p_hedef_depo:h.hedefDepoId,p_hedef_otel:otelFromDepoId(h.hedefDepoId),p_miktar:h.miktar})
+      });
+      if(!rT.ok)console.warn('stok_transfer RPC hatası',await rT.text());
+    }catch(e){console.warn('stok_transfer RPC hatası',e);}
+  }
   for(const h of harlar)await saveHar(h);
   await saveSipDurum(s);
 
