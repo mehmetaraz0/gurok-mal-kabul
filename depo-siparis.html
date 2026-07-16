@@ -455,18 +455,6 @@ async function saveHar(h){
     }
   }catch(e){console.warn(e);}
 }
-async function saveStok(depoId,stokObj){
-  try{
-    for(const kod of Object.keys(stokObj)){
-      const s=stokObj[kod];
-      await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
-        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:otelFromDepoId(depoId),miktar:s.miktar})
-      });
-    }
-  }catch(e){console.warn(e);}
-}
-
 // ====== STOK İŞLEMLERİ (stok-takip.html ile aynı desen) ======
 function ensureDepoStok(depoId){if(!DB.stok[depoId])DB.stok[depoId]={};}
 function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
@@ -946,21 +934,33 @@ async function onayla(id){
     harlar.push(h);
   });
 
-  s.durum='onaylandi';s.onaylayanAd=CU.ad;s.onayTarih=Date.now();
-
   // Atomik transfer (rpc/stok_transfer) — her ürün için düş+ekle tek transaction'da.
   // Eski whole-depot saveStok'u tam-tablo clobber riski taşıyordu; kaldırıldı.
+  const hatalar=[];
   for(const h of harlar){
     try{
       const rT=await fetch(SB_URL+'/rest/v1/rpc/stok_transfer',{
         method:'POST',headers:SB_HEADERS,
         body:JSON.stringify({p_urun_kodu:h.lnKod,p_kaynak_depo:h.kaynakDepoId,p_hedef_depo:h.hedefDepoId,p_hedef_otel:otelFromDepoId(h.hedefDepoId),p_miktar:h.miktar})
       });
-      if(!rT.ok)console.warn('stok_transfer RPC hatası',await rT.text());
-    }catch(e){console.warn('stok_transfer RPC hatası',e);}
+      if(!rT.ok){
+        const hataMetni=await rT.text();
+        console.error('stok_transfer RPC hatası',hataMetni);
+        hatalar.push(`${h.urunAd||h.lnKod}: ${hataMetni}`);
+        continue; // transfer olmadıysa hareket kaydı da atma, tutarsız olur
+      }
+      await saveHar(h);
+    }catch(e){console.error('stok_transfer RPC hatası',e);hatalar.push(`${h.urunAd||h.lnKod}: ${e.message||e}`);}
   }
-  for(const h of harlar)await saveHar(h);
+
+  // Onay kararı zaten verildi (kalite/miktar kontrolleri yukarıda geçti) — RPC hatası olsa
+  // bile talebi 'bekleyen'de bırakmak, kısmen transfer olmuş ürünleri limbo'da bırakır.
+  // mal-kabul-v2.html stokaIsle() ile aynı yaklaşım: onayı tamamla, hatayı görünür şekilde bildir.
+  s.durum='onaylandi';s.onaylayanAd=CU.ad;s.onayTarih=Date.now();
   await saveSipDurum(s);
+  if(hatalar.length){
+    alert('⚠️ Onay tamamlandı ama bazı ürünlerde stok transferi başarısız oldu:\n\n'+hatalar.join('\n\n')+'\n\nBu ürünlerin stoğunu Supabase\'de elle kontrol et.');
+  }
 
   // Okutulan kolileri hedef depoya devret — koli fiziken taşındı,
   // etiketi hedef noktada (tüketim çıkışında) tekrar okutulabilir.
