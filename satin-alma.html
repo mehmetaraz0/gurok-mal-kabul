@@ -1282,6 +1282,12 @@ function openTeklifDetay(id){
           ${tk.durum==='acik'?`<button class="btn btn-sm btn-gray" onclick="tedarikciTeklifGirModalAc('${f.id}')">💰 Fiyat Gir</button>`:''}
         </div>`).join(''):'<div style="font-size:12px;color:var(--gray-500)">Henüz tedarikçi eklenmedi.</div>'}
     </div>
+    ${tk.durum==='acik'&&tk.tedarikciler.length?`
+    <div class="brow" style="margin-bottom:12px">
+      <button class="btn btn-sm btn-gray" onclick="teklifleriExcelAktar('${id}')">📤 Excel'e Aktar</button>
+      <button class="btn btn-sm btn-gray" onclick="document.getElementById('teklif-excel-input').click()">📥 Excel'den Yükle</button>
+      <input type="file" id="teklif-excel-input" accept=".xlsx,.xls" style="display:none" onchange="teklifExcelYukle(event)">
+    </div>`:''}
     ${tk.durum==='acik'?`
     <div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;margin-bottom:6px">Tedarikçi Ekle</div>
@@ -1389,6 +1395,130 @@ async function tedarikciTeklifKaydet(tedarikciTeklifId){
     hLD();kModal('mTedarikciTeklif');toast('✅ Teklif kaydedildi');
     await loadTeklifler();openTeklifDetay(tk.id);
   }catch(e){console.warn(e);hLD();toast('❌ Kaydetme başarısız');}
+}
+
+// ====== TEKLİFLER — EXCEL AL/VER ======
+async function teklifleriExcelAktar(teklifTalepId){
+  const tk=DB.teklifler[teklifTalepId];if(!tk)return;
+  if(!tk.tedarikciler.length){toast('⚠️ Önce en az bir tedarikçi ekleyin');return;}
+  const satirlar=[];
+  const fiyatMapFor=f=>{const m={};(f.fiyatlar||[]).forEach(fy=>{m[fy.kalemId]=fy.birimFiyat;});return m;};
+  tk.tedarikciler.forEach(f=>{
+    const fiyatMap=fiyatMapFor(f);
+    tk.kalemler.forEach(k=>{
+      satirlar.push({
+        'Teklif Talep ID':tk.id,'Ürün Kodu':k.kod||'','Ürün Adı':k.ad||'','Miktar':k.miktar,'Birim':k.birim||'',
+        'Firma':f.firmaAd,'Birim Fiyat':fiyatMap[k.id]!=null?fiyatMap[k.id]:''
+      });
+    });
+  });
+  if(!satirlar.length){toast('⚠️ Aktarılacak kalem yok');return;}
+  if(typeof XLSX==='undefined'){
+    sLD();
+    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
+    hLD();
+  }
+  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Teklifler');
+  XLSX.writeFile(wb,'teklif-'+teklifTalepId.slice(0,8)+'-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  toast(`✅ ${satirlar.length} satır Excel'e aktarıldı`);
+}
+
+async function teklifExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  if(typeof XLSX==='undefined'){
+    sLD();
+    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
+    hLD();
+  }
+  sLD();
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',raw:false});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{raw:false});
+      await teklifExcelUygula(rows);
+    }catch(err){hLD();toast('❌ Dosya okunamadı: '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function teklifExcelUygula(rows){
+  const gruplar={}; // teklifTalepId -> {firmaAd -> satirlar[]}
+  rows.forEach(r=>{
+    const teklifTalepId=String(r['Teklif Talep ID']||'').trim();
+    const firmaAd=String(r['Firma']||'').trim();
+    if(!teklifTalepId||!firmaAd)return;
+    if(!gruplar[teklifTalepId])gruplar[teklifTalepId]={};
+    if(!gruplar[teklifTalepId][firmaAd])gruplar[teklifTalepId][firmaAd]=[];
+    gruplar[teklifTalepId][firmaAd].push(r);
+  });
+
+  let uygulananSatir=0;const atlananlar=[];
+
+  for(const teklifTalepId of Object.keys(gruplar)){
+    // Canlı durumu tazele — önbellekteki DB.teklifler bayat olabilir, RFQ az önce kapanmış olabilir.
+    let canliDurum='acik';
+    try{
+      const dr=await fetch(SB_URL+'/rest/v1/teklif_talepleri?id=eq.'+teklifTalepId+'&select=durum',{headers:SB_HEADERS});
+      if(dr.ok){const d=await dr.json();if(d[0])canliDurum=d[0].durum;else canliDurum='yok';}
+    }catch(e){canliDurum='yok';}
+    if(canliDurum!=='acik'){
+      atlananlar.push({teklifTalepId,sebep:canliDurum==='yok'?'teklif talebi bulunamadı':'zaten kapanmış'});
+      continue;
+    }
+
+    const tk=DB.teklifler[teklifTalepId];
+    const kalemKoduMap={}; // urun_kodu -> teklif_talep_kalem_id (Excel'de sadece kod/ad var, id yok)
+    if(tk)tk.kalemler.forEach(k=>{if(k.kod)kalemKoduMap[k.kod]=k.id;});
+
+    for(const firmaAd of Object.keys(gruplar[teklifTalepId])){
+      const satirlarFirma=gruplar[teklifTalepId][firmaAd];
+      // Bu firma için tedarikci_teklifler satırı var mı — yoksa oluştur.
+      let tedarikciTeklifId=tk?.tedarikciler.find(f=>f.firmaAd===firmaAd)?.id;
+      if(!tedarikciTeklifId){
+        try{
+          const cr=await fetch(SB_URL+'/rest/v1/tedarikci_teklifler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
+            body:JSON.stringify({teklif_talep_id:teklifTalepId,firma_ad:firmaAd})});
+          if(!cr.ok){atlananlar.push({teklifTalepId,firmaAd,sebep:'tedarikçi oluşturulamadı'});continue;}
+          tedarikciTeklifId=(await cr.json())[0].id;
+        }catch(e){atlananlar.push({teklifTalepId,firmaAd,sebep:'tedarikçi oluşturulamadı'});continue;}
+      }
+
+      let firmaSatirUygulandi=0;
+      for(const r of satirlarFirma){
+        const kod=String(r['Ürün Kodu']||'').trim();
+        const fiyatStr=String(r['Birim Fiyat']||'').trim();
+        if(!kod||fiyatStr===''){continue;} // boş fiyat = henüz teklif verilmemiş, atla
+        const fiyat=parseFloat(fiyatStr.replace(',','.'));
+        if(isNaN(fiyat))continue;
+        const kalemId=kalemKoduMap[kod];
+        if(!kalemId){atlananlar.push({teklifTalepId,firmaAd,urunKodu:kod,sebep:'RFQ kalemi bulunamadı'});continue;}
+        try{
+          await fetch(SB_URL+'/rest/v1/tedarikci_teklif_kalemleri?on_conflict=tedarikci_teklif_id,teklif_talep_kalem_id',{
+            method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+            body:JSON.stringify({tedarikci_teklif_id:tedarikciTeklifId,teklif_talep_kalem_id:kalemId,birim_fiyat:fiyat})
+          });
+          firmaSatirUygulandi++;uygulananSatir++;
+        }catch(e){atlananlar.push({teklifTalepId,firmaAd,urunKodu:kod,sebep:'yazma başarısız'});}
+      }
+      if(firmaSatirUygulandi>0){
+        await fetch(SB_URL+'/rest/v1/tedarikci_teklifler?id=eq.'+tedarikciTeklifId,{method:'PATCH',headers:SB_HEADERS,
+          body:JSON.stringify({durum:'geldi',teklif_tarihi:new Date().toISOString()})});
+      }
+    }
+  }
+
+  hLD();
+  await loadTeklifler();
+  let mesaj=`✅ ${uygulananSatir} fiyat işlendi.`;
+  if(atlananlar.length){
+    mesaj+=` ⚠️ ${atlananlar.length} satır atlandı.`;
+    console.warn('Teklif Excel içe aktarma — atlanan satırlar:',atlananlar);
+  }
+  toast(mesaj,4000);
 }
 
 // ====== LN SİPARİŞLER ======
