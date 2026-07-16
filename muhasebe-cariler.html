@@ -336,7 +336,7 @@ async function loadDB(){
     const [cR,hR,fR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/cariler?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cari_hareketler?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/faturalar?select=id,no,cari_id,durum,genel_toplam,odeme_tutari',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/faturalar?select=id,no,cari_id,durum,genel_toplam,odeme_tutari&silindi=eq.false',{headers:SB_HEADERS}),
     ]);
     cariler={};hareketler={};faturalar={};
     if(cR.ok){(await cR.json()).forEach(r=>{cariler[r.id]=cariSbdenCamele(r);});}

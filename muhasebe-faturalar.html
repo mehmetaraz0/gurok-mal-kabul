@@ -428,7 +428,7 @@ async function loadDB(){
   sLD();
   try{
     const [fR,cR,mkR,spR,geR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/faturalar?select=*,fatura_kalemleri(*)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/faturalar?select=*,fatura_kalemleri(*)&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cariler?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/mal_kabuller?select=*,mal_kabul_urunleri(*)',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/siparisler?select=*,siparis_kalemleri(*)',{headers:SB_HEADERS}),
@@ -1015,7 +1015,7 @@ async function faturaSil(){
   const f=faturalar[id];if(!f)return;
   if(!confirm(`"${f.no}" silinsin mi?`))return;
   sLD();delete faturalar[id];
-  try{await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
+  try{await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});}catch(e){console.warn(e);}
   await auditLogYaz('delete','fatura',id,`Fatura silindi: ${f.no} — ${f.cariAd}`);
   hLD();kModal('mFatura');
   renderFaturalar(f.tur);toast('🗑️ Fatura silindi');
