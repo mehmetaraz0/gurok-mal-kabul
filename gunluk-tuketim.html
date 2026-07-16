@@ -314,6 +314,7 @@ async function tuketimKaydet(){
   sLD();
   const otelId=CU.otelId||otelFromBareKod(CU.depoId);
   const depoId=tamDepoId(otelId,CU.depoId);
+  const hatalar=[];
   try{
     for(const u of girilenler){
       const miktar=parseFloat(u.giris);
@@ -324,7 +325,13 @@ async function tuketimKaydet(){
         method:'POST',headers:SB_HEADERS,
         body:JSON.stringify({p_urun_kodu:u.kod,p_depo_kodu:depoId,p_otel_id:otelId,p_delta:-miktar})
       });
-      const yeniMiktar=rStok.ok?(parseFloat(await rStok.json())||0):Math.max(0,u.miktar-miktar);
+      if(!rStok.ok){
+        const hataMetni=await rStok.text();
+        console.error('tuketimKaydet — stok_ekle RPC hatası:',hataMetni);
+        hatalar.push(`${DB.urunAdlari?.[u.kod]?.ad||u.kod}: ${hataMetni}`);
+        continue; // stok düşmediyse hareket kaydı da atma, tutarsız olur; giris alanını da temizleme
+      }
+      const yeniMiktar=parseFloat(await rStok.json())||0;
       await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:u.kod,depo_kodu:depoId,otel_id:otelId,tip:'cikis',miktar:miktar,
         aciklama:`gunluk_tuketim — ${CU.ad}`
@@ -333,7 +340,11 @@ async function tuketimKaydet(){
     }
   }catch(e){console.warn(e);toast('⚠️ Kaydetme sırasında hata oluştu');hLD();return;}
   hLD();
-  toast(`✅ ${girilenler.length} ürün için tüketim kaydedildi`);
+  if(hatalar.length){
+    alert('⚠️ Bazı ürünlerde tüketim kaydedilemedi:\n\n'+hatalar.join('\n\n')+'\n\nBu ürünler için tekrar deneyin.');
+  }
+  const basariliSayisi=girilenler.length-hatalar.length;
+  if(basariliSayisi)toast(`✅ ${basariliSayisi} ürün için tüketim kaydedildi`);
   renderUrunler();
 }
 
@@ -653,6 +664,7 @@ async function tuketKaydet(){
   sLD();
   const otelId=CU.otelId||otelFromBareKod(CU.depoId);
   const depoId=tamDepoId(otelId,CU.depoId);
+  const hatalar=[];
   try{
     for(const k of r.kalemler){
       const gerekli=k.miktar*porsiyon;
@@ -662,7 +674,13 @@ async function tuketKaydet(){
         method:'POST',headers:SB_HEADERS,
         body:JSON.stringify({p_urun_kodu:k.kod,p_depo_kodu:depoId,p_otel_id:otelId,p_delta:-gerekli})
       });
-      const yeniMiktar=rStok.ok?(parseFloat(await rStok.json())||0):Math.max(0,(parseFloat(DB.stok?.[k.kod]?.miktar)||0)-gerekli);
+      if(!rStok.ok){
+        const hataMetni=await rStok.text();
+        console.error('tuketKaydet — stok_ekle RPC hatası:',hataMetni);
+        hatalar.push(`${k.ad||k.kod}: ${hataMetni}`);
+        continue; // stok düşmediyse hareket kaydı da atma, tutarsız olur
+      }
+      const yeniMiktar=parseFloat(await rStok.json())||0;
       await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:k.kod,depo_kodu:depoId,otel_id:otelId,tip:'cikis',miktar:gerekli,
         aciklama:`recete_tuketim — ${r.ad} x${porsiyon} — ${CU.ad}`
@@ -681,7 +699,10 @@ async function tuketKaydet(){
     })});
   }catch(e){hLD();toast('❌ Hata: '+e.message);return;}
   hLD();
-  toast(`✅ ${r.ad} — ${porsiyon} porsiyon stoktan düşüldü`);
+  if(hatalar.length){
+    alert('⚠️ Bazı malzemelerde stok düşülemedi:\n\n'+hatalar.join('\n\n')+'\n\nBu malzemeler için Supabase\'de stoğu elle kontrol et.');
+  }
+  toast(`✅ ${r.ad} — ${porsiyon} porsiyon stoktan düşüldü${hatalar.length?` (${hatalar.length} malzeme hariç)`:''}`);
   document.getElementById('tuket-detay').innerHTML='';
   _tuketAktifRecete=null;
   loadStok();
