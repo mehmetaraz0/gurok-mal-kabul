@@ -319,16 +319,12 @@ async function tuketimKaydet(){
       const miktar=parseFloat(u.giris);
       // Önbellekteki (DB.stok) miktar bayat olabilir — yazmadan hemen önce canlı değeri
       // tazele, aksi halde eşzamanlı iki tüketim girişi birbirinin düşüşünü sessizce siler.
-      let mevcut=u.miktar;
-      try{
-        const rTaze=await fetch(SB_URL+`/rest/v1/stok?depo_kodu=eq.${encodeURIComponent(depoId)}&urun_kodu=eq.${encodeURIComponent(u.kod)}&select=miktar`,{headers:SB_HEADERS});
-        if(rTaze.ok){const rows=await rTaze.json();if(rows[0])mevcut=parseFloat(rows[0].miktar)||0;}
-      }catch(e){}
-      const yeniMiktar=Math.max(0,mevcut-miktar);
-      await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
-        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({urun_kodu:u.kod,depo_kodu:depoId,otel_id:otelId,miktar:yeniMiktar})
+      // Atomik stok düşümü (rpc/stok_ekle, negatif delta) — yarış durumu yok
+      const rStok=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
+        method:'POST',headers:SB_HEADERS,
+        body:JSON.stringify({p_urun_kodu:u.kod,p_depo_kodu:depoId,p_otel_id:otelId,p_delta:-miktar})
       });
+      const yeniMiktar=rStok.ok?(parseFloat(await rStok.json())||0):Math.max(0,u.miktar-miktar);
       await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:u.kod,depo_kodu:depoId,otel_id:otelId,tip:'cikis',miktar:miktar,
         aciklama:`gunluk_tuketim — ${CU.ad}`
@@ -661,16 +657,12 @@ async function tuketKaydet(){
     for(const k of r.kalemler){
       const gerekli=k.miktar*porsiyon;
       // Önbellekteki (DB.stok) miktar bayat olabilir — yazmadan hemen önce canlı değeri tazele.
-      let mevcut=parseFloat(DB.stok?.[k.kod]?.miktar)||0;
-      try{
-        const rTaze=await fetch(SB_URL+`/rest/v1/stok?depo_kodu=eq.${encodeURIComponent(depoId)}&urun_kodu=eq.${encodeURIComponent(k.kod)}&select=miktar`,{headers:SB_HEADERS});
-        if(rTaze.ok){const rows=await rTaze.json();if(rows[0])mevcut=parseFloat(rows[0].miktar)||0;}
-      }catch(e){}
-      const yeniMiktar=Math.max(0,mevcut-gerekli);
-      await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
-        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({urun_kodu:k.kod,depo_kodu:depoId,otel_id:otelId,miktar:yeniMiktar})
+      // Atomik stok düşümü (rpc/stok_ekle, negatif delta) — yarış durumu yok
+      const rStok=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
+        method:'POST',headers:SB_HEADERS,
+        body:JSON.stringify({p_urun_kodu:k.kod,p_depo_kodu:depoId,p_otel_id:otelId,p_delta:-gerekli})
       });
+      const yeniMiktar=rStok.ok?(parseFloat(await rStok.json())||0):Math.max(0,(parseFloat(DB.stok?.[k.kod]?.miktar)||0)-gerekli);
       await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:k.kod,depo_kodu:depoId,otel_id:otelId,tip:'cikis',miktar:gerekli,
         aciklama:`recete_tuketim — ${r.ad} x${porsiyon} — ${CU.ad}`
