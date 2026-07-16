@@ -1189,22 +1189,24 @@ async function teklifIste(talepId){
 async function loadTeklifler(){
   try{
     const r=await fetch(SB_URL+'/rest/v1/teklif_talepleri?select=*,teklif_talep_kalemleri(*),tedarikci_teklifler(*,tedarikci_teklif_kalemleri(*))&order=olusturma_tarihi.desc',{headers:SB_HEADERS});
-    if(!r.ok)return;
-    DB.teklifler={};
-    (await r.json()).forEach(rw=>{
-      DB.teklifler[rw.id]={
-        id:rw.id,talepId:rw.talep_id,otelId:rw.otel_id,olusturanAd:rw.olusturan_ad||'',
-        olusturmaTarih:rw.olusturma_tarihi?new Date(rw.olusturma_tarihi).getTime():Date.now(),
-        durum:rw.durum||'acik',not:rw.not_alani||'',
-        kalemler:(rw.teklif_talep_kalemleri||[]).map(k=>({id:k.id,kod:k.urun_kodu||'',ad:k.urun_adi,miktar:k.miktar,birim:k.birim})),
-        tedarikciler:(rw.tedarikci_teklifler||[]).map(tf=>({
-          id:tf.id,firmaAd:tf.firma_ad,firmaKodu:tf.firma_kodu||'',durum:tf.durum||'bekleniyor',
-          teklifTarihi:tf.teklif_tarihi,
-          fiyatlar:(tf.tedarikci_teklif_kalemleri||[]).map(k=>({id:k.id,kalemId:k.teklif_talep_kalem_id,birimFiyat:k.birim_fiyat}))
-        }))
-      };
-    });
+    if(r.ok){
+      DB.teklifler={};
+      (await r.json()).forEach(rw=>{
+        DB.teklifler[rw.id]={
+          id:rw.id,talepId:rw.talep_id,otelId:rw.otel_id,olusturanAd:rw.olusturan_ad||'',
+          olusturmaTarih:rw.olusturma_tarihi?new Date(rw.olusturma_tarihi).getTime():Date.now(),
+          durum:rw.durum||'acik',not:rw.not_alani||'',
+          kalemler:(rw.teklif_talep_kalemleri||[]).map(k=>({id:k.id,kod:k.urun_kodu||'',ad:k.urun_adi,miktar:k.miktar,birim:k.birim})),
+          tedarikciler:(rw.tedarikci_teklifler||[]).map(tf=>({
+            id:tf.id,firmaAd:tf.firma_ad,firmaKodu:tf.firma_kodu||'',durum:tf.durum||'bekleniyor',
+            teklifTarihi:tf.teklif_tarihi,
+            fiyatlar:(tf.tedarikci_teklif_kalemleri||[]).map(k=>({id:k.id,kalemId:k.teklif_talep_kalem_id,birimFiyat:k.birim_fiyat}))
+          }))
+        };
+      });
+    }
   }catch(e){console.warn(e);}
+  renderTeklifler();
 }
 
 function filterTeklif(f,el){
