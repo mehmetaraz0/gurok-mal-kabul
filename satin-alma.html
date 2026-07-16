@@ -91,6 +91,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('fiyatKontrol',this)" id="tab-btn-fiyatKontrol">💰 Fiyat Kontrolü <span id="fk-badge" style="display:none;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
     <button class="tabbtn" onclick="gTab('iade',this)">↩️ İade</button>
     <button class="tabbtn" onclick="gTab('skorKart',this)">⭐ Tedarikçi Skor Kartı</button>
+    <button class="tabbtn" onclick="gTab('teklifler',this)">📨 Teklifler</button>
   </div>
 
   <!-- İÇ TALEPLER -->
@@ -310,6 +311,16 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="skorKart-stats" class="rfields"></div>
     <div id="skorKart-liste"></div>
   </div>
+
+  <!-- TEKLİFLER (RFQ) -->
+  <div class="sc" id="tab-teklifler">
+    <div class="ftabs" id="teklif-ftabs">
+      <button class="ftab active" onclick="filterTeklif('tumu',this)">Tümü</button>
+      <button class="ftab" onclick="filterTeklif('acik',this)">⏳ Açık</button>
+      <button class="ftab" onclick="filterTeklif('kapandi',this)">✅ Kapandı</button>
+    </div>
+    <div id="teklifler-liste"></div>
+  </div>
 </div>
 
 <!-- MODAL: Fiyat Kontrol Detay -->
@@ -400,6 +411,30 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 </div>
 
+<!-- MODAL: Teklif (RFQ) Detay -->
+<div class="mo" id="mTeklifDetay">
+  <div class="mbox">
+    <div class="mtitle">📨 Teklif Talebi <button class="mclose" onclick="kModal('mTeklifDetay')">✕</button></div>
+    <div id="mTeklifDetayIc"></div>
+  </div>
+</div>
+
+<!-- MODAL: Tedarikçi Teklif Fiyat Girişi -->
+<div class="mo" id="mTedarikciTeklif">
+  <div class="mbox">
+    <div class="mtitle">💰 Teklif Fiyatı Gir <button class="mclose" onclick="kModal('mTedarikciTeklif')">✕</button></div>
+    <div id="mTedarikciTeklifIc"></div>
+  </div>
+</div>
+
+<!-- MODAL: Teklif Karşılaştırma -->
+<div class="mo" id="mTeklifKarsilastirma">
+  <div class="mbox" style="max-width:700px">
+    <div class="mtitle">⚖️ Teklif Karşılaştırma <button class="mclose" onclick="kModal('mTeklifKarsilastirma')">✕</button></div>
+    <div id="mTeklifKarsilastirmaIc"></div>
+  </div>
+</div>
+
 <!-- MODAL: LN Sipariş Detay -->
 <div class="mo" id="mLNDetay">
   <div class="mbox">
@@ -449,10 +484,10 @@ const TUSERS = [
 const RIKSON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍',mutfak:'🍳',bar:'🍹'};
 
 let CU=null;
-let DB={talepler:{},lnSiparisler:{},siparisler:{},kullanicilar:[...TUSERS],firmalar:[]};
+let DB={talepler:{},lnSiparisler:{},siparisler:{},kullanicilar:[...TUSERS],firmalar:[],teklifler:{}};
 // SP_SATIRLAR aşağıda tanımlandı
 let lnRows=[];
-let talepFilter='tumu', lnFilter='bekleyen';
+let talepFilter='tumu', lnFilter='bekleyen', teklifFilter='tumu';
 
 // CU'nun onay yetkisi olduğu asama'lar — kullaniciAsamaYetkiliMi() async olduğu için
 // renderTalepler() senkron kalabilsin diye loadDB() sonrası bir kez önceden hesaplanır.
@@ -506,7 +541,7 @@ async function loadDB(){
         DB.talepler[r.id]={
           id:r.id,tarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).toISOString().split('T')[0]:'',
           olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
-          departman:r.departman,personel:r.talep_eden||'',aciliyet:r.aciliyet,not:r.not_alani||'',
+          departman:r.departman,personel:r.talep_eden||'',aciliyet:r.aciliyet,not:r.not_alani||'',otelId:r.otel_id||'810',
           durum:r.durum,asama:r.asama||'depo',tutar:r.tutar,onaylayanAd:r.onaylayan_ad||'',onayTarih:r.onay_tarihi||null,
           satirlar:(r.satin_alma_talep_kalemleri||[]).map(k=>({id:k.id,ad:k.urun_adi,kod:k.urun_kodu||'',miktar:k.miktar,birim:k.birim}))
         };
@@ -578,6 +613,7 @@ function gTab(tab,el){
     loadIadeTakip();
   }
   if(tab==='skorKart')renderSkorKart();
+  if(tab==='teklifler')loadTeklifler();
 }
 
 // ====== İÇ TALEPLER ======
@@ -1086,7 +1122,8 @@ async function openTalepDetay(id){
       </div>`:''}
     ${t.durum==='onaylandi'?`
       <div class="brow" style="margin-top:8px">
-        <button class="btn btn-info btn-block btn-sm" onclick="talepSipariseDonustur('${id}')">📦 Siparişe Dönüştür</button>
+        <button class="btn btn-gray btn-sm" onclick="teklifIste('${id}')">📨 Teklif İste</button>
+        <button class="btn btn-info btn-sm" onclick="talepSipariseDonustur('${id}')">📦 Siparişe Dönüştür</button>
       </div>`:''}
     <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTalepDetay')">Kapat</button>`;
   aModal('mTalepDetay');
@@ -1126,6 +1163,153 @@ async function talepSipariseDonustur(id){
   try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'siparis'})});}catch(e){console.warn(e);}
   gTab('yeniSiparis',document.querySelectorAll('.tabbtn')[2]);
   toast('📦 Ürünler sipariş formuna aktarıldı');
+}
+
+// ====== TEKLİFLER (RFQ) ======
+async function teklifIste(talepId){
+  const t=DB.talepler[talepId];if(!t)return;
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/teklif_talepleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
+      body:JSON.stringify({talep_id:talepId,otel_id:t.otelId||'810',olusturan_ad:CU.ad})});
+    if(!r.ok){hLD();toast('❌ Teklif talebi oluşturulamadı');return;}
+    const d=await r.json();const teklifTalepId=d[0].id;
+    const kalemSatirlar=(t.satirlar||[]).map(u=>({teklif_talep_id:teklifTalepId,urun_kodu:u.kod||null,urun_adi:u.ad,miktar:u.miktar,birim:u.birim}));
+    if(kalemSatirlar.length){
+      const kr=await fetch(SB_URL+'/rest/v1/teklif_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+      if(!kr.ok)console.warn('teklif_talep_kalemleri insert hatası');
+    }
+    hLD();kModal('mTalepDetay');toast('📨 Teklif talebi oluşturuldu');
+    await loadTeklifler();
+    gTab('teklifler',[...document.querySelectorAll('.tabbtn')].find(b=>b.getAttribute('onclick')?.includes("'teklifler'")));
+    openTeklifDetay(teklifTalepId);
+  }catch(e){console.warn(e);hLD();toast('❌ İşlem başarısız');}
+}
+
+async function loadTeklifler(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/teklif_talepleri?select=*,teklif_talep_kalemleri(*),tedarikci_teklifler(*,tedarikci_teklif_kalemleri(*))&order=olusturma_tarihi.desc',{headers:SB_HEADERS});
+    if(!r.ok)return;
+    DB.teklifler={};
+    (await r.json()).forEach(rw=>{
+      DB.teklifler[rw.id]={
+        id:rw.id,talepId:rw.talep_id,otelId:rw.otel_id,olusturanAd:rw.olusturan_ad||'',
+        olusturmaTarih:rw.olusturma_tarihi?new Date(rw.olusturma_tarihi).getTime():Date.now(),
+        durum:rw.durum||'acik',not:rw.not_alani||'',
+        kalemler:(rw.teklif_talep_kalemleri||[]).map(k=>({id:k.id,kod:k.urun_kodu||'',ad:k.urun_adi,miktar:k.miktar,birim:k.birim})),
+        tedarikciler:(rw.tedarikci_teklifler||[]).map(tf=>({
+          id:tf.id,firmaAd:tf.firma_ad,firmaKodu:tf.firma_kodu||'',durum:tf.durum||'bekleniyor',
+          teklifTarihi:tf.teklif_tarihi,
+          fiyatlar:(tf.tedarikci_teklif_kalemleri||[]).map(k=>({id:k.id,kalemId:k.teklif_talep_kalem_id,birimFiyat:k.birim_fiyat}))
+        }))
+      };
+    });
+  }catch(e){console.warn(e);}
+}
+
+function filterTeklif(f,el){
+  teklifFilter=f;
+  document.querySelectorAll('#teklif-ftabs .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderTeklifler();
+}
+
+function renderTeklifler(){
+  const c=document.getElementById('teklifler-liste');if(!c)return;
+  let liste=Object.values(DB.teklifler||{}).filter(Boolean);
+  if(teklifFilter!=='tumu')liste=liste.filter(tk=>tk.durum===teklifFilter);
+  liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📨</div><div class="et">Teklif talebi bulunamadı</div></div>';return;}
+  const chipMap={acik:'<span class="chip chip-warn">⏳ Açık</span>',kapandi:'<span class="chip chip-ok">✅ Kapandı</span>'};
+  c.innerHTML=liste.map(tk=>`
+    <div class="skart" onclick="openTeklifDetay('${tk.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${tk.kalemler.length} ürün</div>
+          <div style="font-size:11px;color:var(--gray-500)">${new Date(tk.olusturmaTarih).toLocaleDateString('tr-TR')} • ${escapeHtml(tk.olusturanAd)}</div>
+        </div>
+        ${chipMap[tk.durum]||''}
+      </div>
+      <div style="font-size:12px;color:var(--gray-600)">${tk.tedarikciler.length} tedarikçi eklendi — ${tk.tedarikciler.filter(f=>f.durum==='geldi').length} teklif geldi</div>
+    </div>`).join('');
+}
+
+// RFQ kalemlerindeki her ürün için TÜM eşleşen firmaları toplar (autoFirma sadece
+// ilkini alıyor — burada karşılaştırma için birden fazla öneri gerekiyor).
+function teklifTedarikciOnerileriGetir(kalemler){
+  const eslesenler=new Map(); // firmaAd -> firma
+  (kalemler||[]).forEach(k=>{
+    if(!k.kod)return;
+    (DB.firmalar||[]).forEach(f=>{
+      if(f.urunler&&f.urunler.includes(k.kod))eslesenler.set(f.ad,f);
+    });
+  });
+  return [...eslesenler.values()];
+}
+
+async function teklifTedarikciEkle(teklifTalepId,firmaAd,firmaKodu){
+  if(!firmaAd)return;
+  const tk=DB.teklifler[teklifTalepId];
+  if(tk&&tk.tedarikciler.some(f=>f.firmaAd===firmaAd)){toast('⚠️ Bu tedarikçi zaten eklenmiş');return;}
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/tedarikci_teklifler',{method:'POST',headers:SB_HEADERS,
+      body:JSON.stringify({teklif_talep_id:teklifTalepId,firma_ad:firmaAd,firma_kodu:firmaKodu||null})});
+    if(!r.ok){toast('❌ Tedarikçi eklenemedi');return;}
+    await loadTeklifler();openTeklifDetay(teklifTalepId);
+  }catch(e){console.warn(e);toast('❌ Tedarikçi eklenemedi');}
+}
+
+function openTeklifDetay(id){
+  const tk=DB.teklifler[id];if(!tk)return;
+  const chipMap={acik:'<span class="chip chip-warn">⏳ Açık</span>',kapandi:'<span class="chip chip-ok">✅ Kapandı</span>'};
+  const oneriler=tk.durum==='acik'?teklifTedarikciOnerileriGetir(tk.kalemler).filter(f=>!tk.tedarikciler.some(t=>t.firmaAd===f.ad)):[];
+  document.getElementById('mTeklifDetayIc').innerHTML=`
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+      <div><div style="font-size:13px;color:var(--gray-500)">${new Date(tk.olusturmaTarih).toLocaleDateString('tr-TR')} • ${escapeHtml(tk.olusturanAd)}</div></div>
+      ${chipMap[tk.durum]||''}
+    </div>
+    <div style="background:var(--gray-100);border-radius:8px;padding:10px;margin-bottom:12px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="border-bottom:1px solid var(--gray-300)"><th style="text-align:left;padding:4px 6px">Ürün</th><th style="text-align:right;padding:4px 6px">Miktar</th></tr>
+        ${tk.kalemler.map(k=>`<tr style="border-bottom:1px solid var(--gray-200)"><td style="padding:5px 6px;font-weight:600">${escapeHtml(k.ad)}</td><td style="padding:5px 6px;text-align:right">${k.miktar} ${escapeHtml(k.birim||'')}</td></tr>`).join('')}
+      </table>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;margin-bottom:6px">Tedarikçiler</div>
+    <div style="margin-bottom:12px">
+      ${tk.tedarikciler.length?tk.tedarikciler.map(f=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid var(--gray-100)">
+          <div><div style="font-size:13px;font-weight:600">${escapeHtml(f.firmaAd)}</div><div style="font-size:11px;color:var(--gray-500)">${f.durum==='geldi'?'✅ Teklif geldi':'⏳ Bekleniyor'}</div></div>
+          ${tk.durum==='acik'?`<button class="btn btn-sm btn-gray" onclick="tedarikciTeklifGirModalAc('${f.id}')">💰 Fiyat Gir</button>`:''}
+        </div>`).join(''):'<div style="font-size:12px;color:var(--gray-500)">Henüz tedarikçi eklenmedi.</div>'}
+    </div>
+    ${tk.durum==='acik'?`
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;margin-bottom:6px">Tedarikçi Ekle</div>
+      ${oneriler.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${oneriler.map(f=>`<button class="btn btn-sm btn-gray" onclick="teklifTedarikciEkle('${id}','${escapeHtml(f.ad).replace(/'/g,"\\'")}','${f.kod||''}')">➕ ${escapeHtml(f.ad)}</button>`).join('')}</div>`:''}
+      <div style="position:relative">
+        <input type="text" id="teklif-firma-ara-${id}" placeholder="Firma ara..." oninput="filterTeklifFirma('${id}',this.value)" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none">
+        <div id="teklif-firma-dd-${id}" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--gray-300);border-radius:8px;max-height:200px;overflow-y:auto;z-index:10;display:none"></div>
+      </div>
+    </div>
+    <div class="brow" style="margin-bottom:8px">
+      <button class="btn btn-info btn-block btn-sm" onclick="renderTeklifKarsilastirma('${id}')">⚖️ Karşılaştır</button>
+    </div>`:`
+    <div class="brow" style="margin-bottom:8px">
+      <button class="btn btn-info btn-block btn-sm" onclick="renderTeklifKarsilastirma('${id}')">⚖️ Karşılaştırmayı Gör</button>
+    </div>`}
+    <button class="btn btn-gray btn-block" onclick="kModal('mTeklifDetay')">Kapat</button>`;
+  aModal('mTeklifDetay');
+}
+
+function filterTeklifFirma(teklifTalepId,val){
+  const dd=document.getElementById('teklif-firma-dd-'+teklifTalepId);if(!dd)return;
+  if(!val||val.length<2){dd.style.display='none';return;}
+  const tk=DB.teklifler[teklifTalepId];
+  const eklenmis=new Set((tk?.tedarikciler||[]).map(f=>f.firmaAd));
+  const eslesenler=(DB.firmalar||[]).filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())&&!eklenmis.has(f.ad)).slice(0,20);
+  if(!eslesenler.length){dd.style.display='none';return;}
+  dd.innerHTML=eslesenler.map(f=>`<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--gray-100)" onclick="teklifTedarikciEkle('${teklifTalepId}','${escapeHtml(f.ad).replace(/'/g,"\\'")}','${f.kod||''}');document.getElementById('teklif-firma-dd-${teklifTalepId}').style.display='none'">${escapeHtml(f.ad)}</div>`).join('');
+  dd.style.display='block';
 }
 
 // ====== LN SİPARİŞLER ======
