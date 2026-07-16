@@ -313,7 +313,11 @@ async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,ot
       fis_id:fisUuid,hesap_kodu:k.hesapKod,masraf_merkezi:k.masrafMerkezi||null,
       aciklama:k.aciklama||null,borc:k.borc||0,alacak:k.alacak||0
     }));
-    await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    const rDK=await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    if(!rDK.ok){
+      console.error('yevmiye_kalemleri reinsert hatası:',await rDK.text());
+      alert('⚠️ DİKKAT: Muhasebe fişi başlığı oluştu ama satır kalemleri yazılamadı — bu fiş EKSİK/DENGESİZ olabilir. Lütfen işlemi tekrarlayın veya muhasebe kayıtlarını kontrol edin.');
+    }
     await auditLogYaz('create','yevmiye',fisUuid,`Otomatik yevmiye fişi: ${no} — ${aciklama} (${fmt(topBorc)} ₺)`);
   }catch(e){console.warn('Yevmiye fişi oluşturulamadı:',e);}
 }
