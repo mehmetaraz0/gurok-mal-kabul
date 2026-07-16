@@ -99,13 +99,13 @@ arayüzü YOK — kapsam dışı, ayrı bir iş olarak sonra eklenebilir.
 
 Statik: Her tabloda silme butonunun artık `DELETE` değil `PATCH
 {silindi:true}` gönderdiğini; alt-kayıt DELETE'lerinin (cari_hareketler,
-banka_kasa_hareketleri) kaldırıldığını; listelenen her okuma noktasının
-(yönetim ekranı hariç) `&silindi=eq.false` içerdiğini kod okuyarak
+banka_kasa_hareketleri) kaldırıldığını; listelenen HER okuma noktasının
+(yönetim ekranı DAHİL) `&silindi=eq.false` içerdiğini kod okuyarak
 doğrulamak.
 
 Gerçek uçtan uca test (kullanıcı): Bir cari/fatura/demirbaş/çek-senet/
-banka hesabı/bütçe kaydı sil → (1) o kaydın SAHİP olduğu yönetim ekranında
-"🗑️ Silindi" rozetiyle hâlâ göründüğünü, (2) diğer tüm ekranlarda
-(raporlar, seçim listeleri, ilişkili modüller) artık hiç görünmediğini,
+banka hesabı/bütçe kaydı sil → (1) mevcut davranışla birebir aynı şekilde
+TÜM ekranlardan (kendi yönetim ekranı dahil) kaybolduğunu, (2) Supabase'de
+satırın hâlâ durduğunu (sadece `silindi=true`) doğrulamak,
 (3) Supabase'de satırın hâlâ veritabanında durduğunu (sadece
 `silindi=true`) doğrulamak.
