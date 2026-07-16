@@ -172,7 +172,11 @@ async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,ot
     fis_id:fisUuid,hesap_kodu:k.hesapKod,masraf_merkezi:k.masrafMerkezi||null,
     aciklama:k.aciklama||null,borc:k.borc||0,alacak:k.alacak||0
   }));
-  await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+  const rSK=await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+  if(!rSK.ok){
+    console.error('sene-sonu yevmiye_kalemleri reinsert hatası:',await rSK.text());
+    alert('⚠️ DİKKAT: Sene sonu kapanış fişinin başlığı oluştu ama satır kalemleri yazılamadı — kapanış EKSİK/DENGESİZ olabilir. Muhasebe kayıtlarını kontrol edin, gerekirse kapanışı tekrarlayın.');
+  }
   await auditLogYaz('create','yevmiye',fisUuid,`Kapanış fişi: ${no} — ${aciklama} (${fmt(topBorc)} ₺)`);
   return{id:fisUuid,no};
 }
