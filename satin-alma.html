@@ -920,10 +920,10 @@ function renderTalepler(){
   const c=document.getElementById('talepler-liste');if(!c)return;
   let liste=Object.values(DB.talepler||{}).filter(Boolean);
   if(talepFilter!=='tumu')liste=liste.filter(t=>t.durum===talepFilter);
-  // Bekleyen talepler sadece CU'nun o anki asamada yetkili olduğu satırları gösterir
-  // (asama zaten doğru katmana yönlendirdiği için ek tutar filtresine gerek yok).
+  // Bekleyen talepler CU'nun o anki asamada yetkili olduğu satırları VEYA kendi
+  // oluşturduğu talebi gösterir (yoksa talebi açan kişi kendi talebini bile göremez).
   // Karara bağlanmış talepler (onaylandı/reddedildi/siparis) herkese açık geçmiş kaydı.
-  liste=liste.filter(t=>t.durum!=='bekleyen'||_yetkiliAsamalar.has(t.asama));
+  liste=liste.filter(t=>t.durum!=='bekleyen'||_yetkiliAsamalar.has(t.asama)||t.personel===CU.ad);
   liste.sort((a,b)=>{
     const ao=a.aciliyet==='acil'?0:a.aciliyet==='normal'?1:2;
     const bo=b.aciliyet==='acil'?0:b.aciliyet==='normal'?1:2;
