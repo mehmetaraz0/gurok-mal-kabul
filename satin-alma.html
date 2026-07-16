@@ -1521,6 +1521,93 @@ async function teklifExcelUygula(rows){
   toast(mesaj,4000);
 }
 
+// ============================================================
+// TEKLİF KARŞILAŞTIRMA + SİPARİŞE DÖNÜŞTÜRME
+// ============================================================
+function renderTeklifKarsilastirma(teklifTalepId){
+  const tk=DB.teklifler[teklifTalepId];if(!tk)return;
+  if(!tk.tedarikciler.length){toast('⚠️ Karşılaştırmak için önce tedarikçi ekleyin');return;}
+
+  const fiyatGetir=(f,kalemId)=>{const fy=(f.fiyatlar||[]).find(x=>x.kalemId===kalemId);return fy?fy.birimFiyat:null;};
+
+  const satirlarHtml=tk.kalemler.map(k=>{
+    const fiyatlar=tk.tedarikciler.map(f=>({f,fiyat:fiyatGetir(f,k.id)})).filter(x=>x.fiyat!=null);
+    const minFiyat=fiyatlar.length?Math.min(...fiyatlar.map(x=>x.fiyat)):null;
+    const hucreler=tk.tedarikciler.map(f=>{
+      const fiyat=fiyatGetir(f,k.id);
+      if(fiyat==null)return`<td style="padding:6px;text-align:center;color:var(--gray-400)">—</td>`;
+      const enDusuk=fiyat===minFiyat;
+      return`<td style="padding:6px;text-align:center;${enDusuk?'background:#f0fdf4':''}">
+        <label style="display:flex;align-items:center;justify-content:center;gap:4px;cursor:pointer">
+          <input type="radio" name="secim-${k.id}" value="${f.id}|${fiyat}" ${enDusuk?'checked':''}>
+          <span style="font-weight:${enDusuk?800:600};color:${enDusuk?'var(--success)':'inherit'}">${fmt(fiyat)}</span>
+        </label>
+      </td>`;
+    }).join('');
+    return`<tr style="border-bottom:1px solid var(--gray-200)">
+      <td style="padding:6px;font-weight:600;font-size:12px">${escapeHtml(k.ad)}<div style="font-size:10px;color:var(--gray-500)">${k.miktar} ${escapeHtml(k.birim||'')}</div></td>
+      ${hucreler}
+    </tr>`;
+  }).join('');
+
+  const basliklar=tk.tedarikciler.map(f=>`<th style="padding:6px;text-align:center;font-size:11px">${escapeHtml(f.firmaAd)}</th>`).join('');
+
+  document.getElementById('mTeklifKarsilastirmaIc').innerHTML=`
+    <div style="overflow-x:auto;margin-bottom:14px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="background:var(--gray-100)"><th style="padding:6px;text-align:left;font-size:11px">Ürün</th>${basliklar}</tr>
+        ${satirlarHtml}
+      </table>
+    </div>
+    ${tk.durum==='acik'?`<button class="btn btn-success btn-block" onclick="teklifSecilenleriSiparisDonustur('${teklifTalepId}')">📦 Seçilenleri Siparişe Dönüştür</button>`:''}
+    <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTeklifKarsilastirma')">Kapat</button>`;
+  aModal('mTeklifKarsilastirma');
+}
+
+async function teklifSecilenleriSiparisDonustur(teklifTalepId){
+  const tk=DB.teklifler[teklifTalepId];if(!tk)return;
+  const secimler=[]; // {kalem, tedarikciTeklifId, fiyat}
+  tk.kalemler.forEach(k=>{
+    const secili=document.querySelector(`input[name="secim-${k.id}"]:checked`);
+    if(!secili)return;
+    const[tedarikciTeklifId,fiyatStr]=secili.value.split('|');
+    secimler.push({kalem:k,tedarikciTeklifId,fiyat:parseFloat(fiyatStr)});
+  });
+  if(!secimler.length){toast('⚠️ En az bir ürün için teklif seçilmeli (fiyatı olmayan ürünler seçilemez)');return;}
+
+  // firma_ad'a göre grupla — spGrupla()'daki aynı desen.
+  const gruplar={};
+  secimler.forEach(s=>{
+    const f=tk.tedarikciler.find(x=>x.id===s.tedarikciTeklifId);
+    const firmaAd=f?f.firmaAd:'';
+    if(!gruplar[firmaAd])gruplar[firmaAd]={firmaAd,kalemler:[]};
+    gruplar[firmaAd].kalemler.push(s);
+  });
+
+  sLD();
+  const otelId=tk.otelId||'810';
+  const sipPrefix=otelId==='811'?'R':'C';
+  const grupListesi=Object.values(gruplar);
+  try{
+    for(const g of grupListesi){
+      const siparisNo=await yeniSiparisNoUret(sipPrefix);
+      await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+        siparis_no:siparisNo,firma_ad:g.firmaAd,otel_id:otelId,tarih:new Date().toISOString().split('T')[0],
+        durum:'bekleyen',olusturan_ad:CU.ad
+      })});
+      const kalemSatirlar=g.kalemler.map(s=>({
+        siparis_no:siparisNo,urun_kodu:s.kalem.kod||null,urun_adi:s.kalem.ad,birim:s.kalem.birim,
+        miktar:s.kalem.miktar,gelen_miktar:0,kalan_miktar:s.kalem.miktar,tahmini_fiyat:s.fiyat
+      }));
+      await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    }
+    await fetch(SB_URL+'/rest/v1/teklif_talepleri?id=eq.'+teklifTalepId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'kapandi'})});
+    hLD();kModal('mTeklifKarsilastirma');kModal('mTeklifDetay');
+    toast(`✅ ${grupListesi.length} sipariş oluşturuldu, teklif talebi kapandı`);
+    await loadTeklifler();renderTeklifler();
+  }catch(e){console.warn(e);hLD();toast('❌ Siparişe dönüştürme başarısız');}
+}
+
 // ====== LN SİPARİŞLER ======
 function filterLN(f,el){
   lnFilter=f;
