@@ -773,10 +773,14 @@ function hesaplaAbcSiniflari(){
   });
 }
 
+// Dönüş: başarısız olan hareket nesnelerinin listesi (boş = hepsi başarılı).
+// Çağıranlar bunu hem kullanıcıya görünür bir uyarı göstermek hem de başarısız
+// hareketler için saveHareket() ile sahte bir "işlem oldu" kaydı YAZMAMAK için kullanmalı.
 async function saveStok(harekets){
   // harekets: giris/cikis/transfer hareket nesneleri.
   // giris/cikis → rpc/stok_ekle (delta), transfer → rpc/stok_transfer (iki bacak tek transaction).
   // rpc/stok_ekle yeni gerçek miktarı döndürür → db.stok o değere set edilir (bayat kalmaz).
+  const basarisizlar=[];
   for(const h of (harekets||[])){
     try{
       if(h.tip==='transfer'){
@@ -784,7 +788,7 @@ async function saveStok(harekets){
           method:'POST',headers:SB_HEADERS,
           body:JSON.stringify({p_urun_kodu:h.lnKod,p_kaynak_depo:h.kaynakDepoId,p_hedef_depo:h.hedefDepoId,p_hedef_otel:otelFromDepoId(h.hedefDepoId),p_miktar:h.miktar})
         });
-        if(!r.ok)console.warn('stok_transfer RPC hatası',await r.text());
+        if(!r.ok){console.error('stok_transfer RPC hatası',await r.text());basarisizlar.push(h);}
         // transfer() önbelleği (db.stok) zaten güncelledi; RPC void döner.
       }else{
         const delta=h.tip==='giris'?h.miktar:-h.miktar;
@@ -795,10 +799,14 @@ async function saveStok(harekets){
         if(r.ok){
           const yeni=parseFloat(await r.json())||0;
           if(db.stok[h.depoId]&&db.stok[h.depoId][h.lnKod])db.stok[h.depoId][h.lnKod].miktar=yeni;
-        }else console.warn('stok_ekle RPC hatası',await r.text());
+        }else{console.error('stok_ekle RPC hatası',await r.text());basarisizlar.push(h);}
       }
-    }catch(e){console.warn('saveStok RPC hatası',e);}
+    }catch(e){console.error('saveStok RPC hatası',e);basarisizlar.push(h);}
   }
+  if(basarisizlar.length){
+    showToast(`⚠️ ${basarisizlar.length} üründe stok güncellenemedi — tekrar dene (ayrıntı için konsola bak)`,4000);
+  }
+  return basarisizlar;
 }
 async function saveHareket(h){
   try{
@@ -871,9 +879,9 @@ async function malKabulOnayGiris(form){
     const h=giris(depoId,u.kod,u.ad,u.miktar,u.birim,'malkabul',form.id);
     hareketler.push(h);
   }
-  await saveStok(hareketler);
-  for(const h of hareketler)await saveHareket(h);
-  return hareketler.length;
+  const basarisizlar=await saveStok(hareketler);
+  for(const h of hareketler){if(!basarisizlar.includes(h))await saveHareket(h);}
+  return hareketler.length-basarisizlar.length;
 }
 
 // ============================================================
@@ -1367,7 +1375,9 @@ async function saveCikis(){
   if(miktar>mevcutMiktar){showToast(`⚠️ Stok yetersiz (mevcut: ${mevcutMiktar} ${birim})`);return;}
   showLoading();
   const h=cikis(depoId,kod,ad,miktar,birim,neden,not);
-  await saveStok([h]);await saveHareket(h);
+  const basarisizlar=await saveStok([h]);
+  if(basarisizlar.length){hideLoading();return;} // saveStok zaten uyarı gösterdi — formu kapatma, sahte hareket kaydı yazma
+  await saveHareket(h);
   // QR ile okutulmuş koli varsa 'cikti' olarak işaretle (aynı etiket ikinci kez kullanılamaz)
   if(_okunanKoli&&_okunanKoli.urun_kodu===kod){
     try{
@@ -1408,7 +1418,9 @@ async function saveTransfer(){
   }
   showLoading();
   const h=transfer(kaynakDepoId,hedefDepoId,kod,ad,miktar,birim,not);
-  await saveStok([h]);await saveHareket(h);
+  const basarisizlar=await saveStok([h]);
+  if(basarisizlar.length){hideLoading();return;} // saveStok zaten uyarı gösterdi
+  await saveHareket(h);
   hideLoading();
   closeModal('modal-transfer');
   document.getElementById('tr-urun-inp').value='';
@@ -1473,12 +1485,14 @@ async function applyLNRapor(){
     const h=cikis(_lnDepoId,kod,ad||kod,miktar,birim,'ln_tuketim','');
     harlar.push(h);islem++;
   });
-  await saveStok(harlar);for(const h of harlar)await saveHareket(h);
+  const basarisizlar=await saveStok(harlar);
+  for(const h of harlar){if(!basarisizlar.includes(h))await saveHareket(h);}
   hideLoading();
   const depoAd=depoAdi(_lnDepoId);
+  const basariliSayisi=islem-basarisizlar.length;
   document.getElementById('ln-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
     <div class="card-title">✅ LN Raporu İşlendi</div>
-    <div style="font-size:13px;">${islem} tüketim hareketi <strong>${depoAd}</strong>'dan düşüldü.</div>
+    <div style="font-size:13px;">${basariliSayisi} tüketim hareketi <strong>${depoAd}</strong>'dan düşüldü.${basarisizlar.length?` <span style="color:var(--danger)">(${basarisizlar.length} üründe stok güncellenemedi, tekrar deneyin)</span>`:''}</div>
     <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">${new Date().toLocaleString('tr-TR')}</div>
   </div>
   ${eksikler.length?`<div class="card" style="border-left:4px solid var(--danger);">
@@ -1648,8 +1662,8 @@ async function iadeSiparisiOlustur(){
     const h=cikis(depoId,k.kod,k.ad,parseFloat(k.miktar),k.birim,'iade',`İade Siparişi: ${siparisNo} — ${firmaAd}`);
     hareketler.push(h);
   }
-  await saveStok(hareketler);
-  for(const h of hareketler)await saveHareket(h);
+  const basarisizlar=await saveStok(hareketler);
+  for(const h of hareketler){if(!basarisizlar.includes(h))await saveHareket(h);}
   hideLoading();
 
   const depoAd=depoAdi(depoId);
@@ -1659,7 +1673,7 @@ async function iadeSiparisiOlustur(){
       <span class="chip" style="background:#ede9fe;color:#5b21b6;font-family:monospace;font-weight:700">📋 ${siparisNo}</span>
       &nbsp;${firmaAd}
     </div>
-    <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length} kalem, ${depoAd}'dan stoktan düşüldü.</div>
+    <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length-basarisizlar.length} kalem, ${depoAd}'dan stoktan düşüldü.${basarisizlar.length?` <span style="color:var(--danger)">(${basarisizlar.length} kalemde stok güncellenemedi)</span>`:''}</div>
     <button class="btn btn-sm btn-gray" style="margin-top:8px;" onclick="iadeBelgeYazdir('${siparisNo}')">🖨️ İade Belgesini Yazdır</button>
   </div>`;
   window._sonIadeSiparis={
