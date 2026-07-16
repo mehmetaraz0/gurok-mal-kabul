@@ -334,7 +334,7 @@ async function loadDB(){
   sLD();
   try{
     const [cR,hR,fR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/cariler?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cari_hareketler?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/faturalar?select=id,no,cari_id,durum,genel_toplam,odeme_tutari',{headers:SB_HEADERS}),
     ]);
@@ -609,14 +609,10 @@ async function cariKaydet(){
 async function cariSil(){
   const id=document.getElementById('c-id').value;
   const c=cariler[id];if(!c)return;
-  if(!confirm(`"${c.ad}" silinsin mi? Hareketler de silinecek!`))return;
+  if(!confirm(`"${c.ad}" silinsin mi?`))return;
   sLD();
-  // Foreign key kısıtı (RESTRICT) nedeniyle önce hareketler, sonra cari silinmeli
-  try{await fetch(SB_URL+'/rest/v1/cari_hareketler?cari_id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
-  for(const hk of Object.keys(hareketler)){
-    if(hareketler[hk]?.cariId===id)delete hareketler[hk];
-  }
-  try{await fetch(SB_URL+'/rest/v1/cariler?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
+  // Soft-delete: hareketler artık silinmiyor, denetim izi olarak kalıyor.
+  try{await fetch(SB_URL+'/rest/v1/cariler?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});}catch(e){console.warn(e);}
   delete cariler[id];
   await auditLogYaz('delete','cari',id,`Cari silindi: ${c.kod} — ${c.ad}`);
   hLD();

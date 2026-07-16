@@ -429,7 +429,7 @@ async function loadDB(){
   try{
     const [fR,cR,mkR,spR,geR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/faturalar?select=*,fatura_kalemleri(*)',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/cariler?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/mal_kabuller?select=*,mal_kabul_urunleri(*)',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/siparisler?select=*,siparis_kalemleri(*)',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/gelen_efaturalar?select=*&order=olusturma_tarihi.desc',{headers:SB_HEADERS}),

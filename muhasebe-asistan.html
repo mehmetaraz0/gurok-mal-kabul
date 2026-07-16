@@ -134,7 +134,7 @@ async function loadAll(){
   sLD();
   try{
     const [cR,chR,fR,yR,bkR,bkhR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/cariler?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cari_hareketler?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/faturalar?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=*',{headers:SB_HEADERS}),

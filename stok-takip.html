@@ -684,7 +684,7 @@ async function loadDB(){
       fetch(SB_URL+'/rest/v1/stok_hareketleri?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/stok_minimumlar?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/urunler?select=kod,ad,birim',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)&silindi=eq.false',{headers:SB_HEADERS}),
       loadKullanicilarFromSupabase(),
     ]);
     // Ürün kataloğunu önce yükle — stok satırlarına ad/birim eklemek için lazım

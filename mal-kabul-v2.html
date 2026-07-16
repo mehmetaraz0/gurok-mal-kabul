@@ -399,7 +399,7 @@ async function loadDB(){
       fetch(SB_URL+'/rest/v1/mal_kabuller?select=*,mal_kabul_urunleri(*)&order=tarih.desc',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/siparisler?durum=neq.iptal&select=*,siparis_kalemleri(*)',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/urunler?select=kod,ad,birim,sicaklik_kriter',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/uygunsuzluklar?durum=eq.acik&select=mk_id,urun_kodu,aciklama',{headers:SB_HEADERS}),
     ]);
     malKabuller={};siparisler={};uygunsuzluklarAcik={};

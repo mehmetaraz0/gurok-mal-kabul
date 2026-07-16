@@ -222,7 +222,7 @@ async function loadDB(){
   try{
     const [kR,cR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/cek_senetler?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&silindi=eq.false',{headers:SB_HEADERS}),
     ]);
     kayitlar={};cariler={};
     if(kR.ok){(await kR.json()).forEach(r=>{kayitlar[r.id]=kayitSbdenCamele(r);});}

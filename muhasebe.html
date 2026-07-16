@@ -134,7 +134,7 @@ function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFraction
 (async function(){
   try{
     const [cR,hR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/cariler?select=id',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cariler?select=id&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cari_hareketler?select=cari_id,tip,tutar',{headers:SB_HEADERS}),
     ]);
     const cariler=cR.ok?(await cR.json()):[];
