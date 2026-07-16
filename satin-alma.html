@@ -4,11 +4,13 @@
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
 <script src="onay-motoru.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Satın Alma</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--primary:#1a2744;--primary-light:#2d4080;--accent:#e8a020;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+:root{--accent:#e8a020}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -960,11 +962,7 @@ async function talepleriExcelAktar(){
     });
   });
   if(!satirlar.length){toast('⚠️ Aktarılacak talep yok');return;}
-  if(typeof XLSX==='undefined'){
-    sLD();
-    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
-    hLD();
-  }
+  await loadXlsxLib();
   const ws=XLSX.utils.json_to_sheet(satirlar);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'IcTalepler');
@@ -974,11 +972,7 @@ async function talepleriExcelAktar(){
 
 async function talepExcelYukle(event){
   const file=event.target.files[0];if(!file)return;event.target.value='';
-  if(typeof XLSX==='undefined'){
-    sLD();
-    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
-    hLD();
-  }
+  await loadXlsxLib();
   sLD();
   const reader=new FileReader();
   reader.onload=async e=>{
@@ -1415,11 +1409,7 @@ async function teklifleriExcelAktar(teklifTalepId){
     });
   });
   if(!satirlar.length){toast('⚠️ Aktarılacak kalem yok');return;}
-  if(typeof XLSX==='undefined'){
-    sLD();
-    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
-    hLD();
-  }
+  await loadXlsxLib();
   const ws=XLSX.utils.json_to_sheet(satirlar);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Teklifler');
@@ -1429,11 +1419,7 @@ async function teklifleriExcelAktar(teklifTalepId){
 
 async function teklifExcelYukle(event){
   const file=event.target.files[0];if(!file)return;event.target.value='';
-  if(typeof XLSX==='undefined'){
-    sLD();
-    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
-    hLD();
-  }
+  await loadXlsxLib();
   sLD();
   const reader=new FileReader();
   reader.onload=async e=>{
@@ -1675,11 +1661,7 @@ function lnEksikleriAktar(siparisNo){
 // LN Excel Import
 async function parseLNExcel(event){
   const file=event.target.files[0];if(!file)return;event.target.value='';
-  if(typeof XLSX==='undefined'){
-    sLD();
-    await new Promise(r=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';s.onload=r;document.head.appendChild(s);});
-    hLD();
-  }
+  await loadXlsxLib();
   sLD();
   const reader=new FileReader();
   reader.onload=async e=>{
@@ -2278,7 +2260,6 @@ async function muhasebeGonder(){
     toast('⚠️ Hata: '+e.message);
   }
 }
-function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
 
 // ============================================================
 // GR/IR TAHAKKUK — "mal alındı, fatura beklemede" ara kaydı
@@ -3226,14 +3207,9 @@ async function renderSkorKart(){
 }
 
 // ====== YARDIMCI ======
-function aModal(id){document.getElementById(id).classList.add('open');}
-function kModal(id){document.getElementById(id).classList.remove('open');}
+// sLD/hLD/toast/escapeHtml/round2/kModal/aModal -> ortak.js
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
-function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
-function sLD(){document.getElementById('ld').classList.add('show');}
-function hLD(){document.getElementById('ld').classList.remove('show');}
 
 // ====== INIT ======
 (async function(){
