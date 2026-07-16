@@ -221,7 +221,7 @@ async function loadDB(){
   sLD();
   try{
     const [kR,cR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/cek_senetler?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cek_senetler?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&silindi=eq.false',{headers:SB_HEADERS}),
     ]);
     kayitlar={};cariler={};
@@ -485,7 +485,7 @@ async function kayitSil(){
   if(!confirm(`${k.cariAd} — ${fmt(k.tutar)} ₺ kaydı silinsin mi?`))return;
   sLD();
   delete kayitlar[id];
-  try{await fetch(SB_URL+'/rest/v1/cek_senetler?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
+  try{await fetch(SB_URL+'/rest/v1/cek_senetler?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});}catch(e){console.warn(e);}
   await auditLogYaz('delete','cekSenet',id,`Silindi: ${k.cariAd} — ${fmt(k.tutar)} ₺`);
   hLD();
   kModal('mKayit');

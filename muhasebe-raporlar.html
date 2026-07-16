@@ -182,7 +182,7 @@ async function loadDB(){
       fetch(SB_URL+'/rest/v1/cari_hareketler?select=id,cari_id,tip,tutar',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/faturalar?select=id,olusturma_tarihi,genel_toplam&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/demirbaslar?select=id,durum,alim_tutari,birikmis_amortisman&silindi=eq.false',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/cek_senetler?select=id,durum,yon,tutar',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/cek_senetler?select=id,durum,yon,tutar&silindi=eq.false',{headers:SB_HEADERS}),
     ]);
     hesaplar={};yevmiyeler={};cariler={};cariHareketler={};faturalar={};demirbaslar={};cekSenet={};
     if(hR.ok){(await hR.json()).forEach(r=>{hesaplar[r.kod]=r;});}
