@@ -373,7 +373,11 @@ async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs,otelI
       fis_id:fisUuid,hesap_kodu:k.hesapKod,masraf_merkezi:k.masrafMerkezi||null,
       aciklama:k.aciklama||null,borc:k.borc||0,alacak:k.alacak||0
     }));
-    await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    const rYK=await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    if(!rYK.ok){
+      console.error('otomatik yevmiye_kalemleri reinsert hatası:',await rYK.text());
+      alert('⚠️ DİKKAT: Faturanın otomatik muhasebe fişi başlığı oluştu ama satır kalemleri yazılamadı — bu fiş EKSİK/DENGESİZ olabilir. Muhasebe kayıtlarını kontrol edin.');
+    }
     await auditLogYaz('create','yevmiye',fisUuid,`Otomatik yevmiye fişi: ${no} — ${aciklama} (${fmt(topBorc)} ₺)`);
   }catch(e){console.warn('Yevmiye fişi oluşturulamadı:',e);}
 }
@@ -484,9 +488,15 @@ async function saveFatura(f){
         birim:k.birim,birim_fiyat:k.birimFiyat,iskonto_yuzde:k.iskonto||0,
         kdv_orani:k.kdvOran,toplam:k.toplam
       }));
-      await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+      const rK=await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+      if(!rK.ok){
+        console.error('fatura_kalemleri reinsert hatası:',await rK.text());
+        alert('⚠️ DİKKAT: Fatura başlığı güncellendi ama satır kalemleri yazılamadı — bu fatura şu an EKSİK olabilir. Lütfen faturayı tekrar açıp yeniden kaydedin veya bir yetkiliyle iletişime geçin.');
+        return false;
+      }
     }
-  }catch(e){console.warn(e);}
+    return true;
+  }catch(e){console.warn(e);return false;}
 }
 
 // ============================================================
