@@ -773,25 +773,32 @@ function hesaplaAbcSiniflari(){
   });
 }
 
-async function saveStok(hedefler){
-  // db.stok[depoId][urunKodu]={miktar,_id} — her satırı ayrı ayrı upsert et.
-  // hedefler=[{depoId,kod},...] verilirse SADECE o satırlar yazılır — bu, bu işlemin
-  // dokunmadığı depo/ürünlerde başka bir sekme/kullanıcının aynı anda yaptığı değişikliği
-  // eski önbellekle üzerine yazma riskini (tam tablo clobber) ortadan kaldırır.
-  // hedefler verilmezse (eski, artık kullanılmaması gereken davranış) tüm db.stok yazılır.
-  try{
-    const hedefListesi=(hedefler&&hedefler.length)
-      ?hedefler
-      :Object.keys(db.stok).flatMap(depoId=>Object.keys(db.stok[depoId]).map(kod=>({depoId,kod})));
-    for(const {depoId,kod} of hedefListesi){
-      const s=(db.stok[depoId]||{})[kod];
-      if(!s)continue;
-      await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
-        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:otelFromDepoId(depoId),miktar:s.miktar})
-      });
-    }
-  }catch(e){console.warn(e);}
+async function saveStok(harekets){
+  // harekets: giris/cikis/transfer hareket nesneleri.
+  // giris/cikis → rpc/stok_ekle (delta), transfer → rpc/stok_transfer (iki bacak tek transaction).
+  // rpc/stok_ekle yeni gerçek miktarı döndürür → db.stok o değere set edilir (bayat kalmaz).
+  for(const h of (harekets||[])){
+    try{
+      if(h.tip==='transfer'){
+        const r=await fetch(SB_URL+'/rest/v1/rpc/stok_transfer',{
+          method:'POST',headers:SB_HEADERS,
+          body:JSON.stringify({p_urun_kodu:h.lnKod,p_kaynak_depo:h.kaynakDepoId,p_hedef_depo:h.hedefDepoId,p_hedef_otel:otelFromDepoId(h.hedefDepoId),p_miktar:h.miktar})
+        });
+        if(!r.ok)console.warn('stok_transfer RPC hatası',await r.text());
+        // transfer() önbelleği (db.stok) zaten güncelledi; RPC void döner.
+      }else{
+        const delta=h.tip==='giris'?h.miktar:-h.miktar;
+        const r=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
+          method:'POST',headers:SB_HEADERS,
+          body:JSON.stringify({p_urun_kodu:h.lnKod,p_depo_kodu:h.depoId,p_otel_id:otelFromDepoId(h.depoId),p_delta:delta})
+        });
+        if(r.ok){
+          const yeni=parseFloat(await r.json())||0;
+          if(db.stok[h.depoId]&&db.stok[h.depoId][h.lnKod])db.stok[h.depoId][h.lnKod].miktar=yeni;
+        }else console.warn('stok_ekle RPC hatası',await r.text());
+      }
+    }catch(e){console.warn('saveStok RPC hatası',e);}
+  }
 }
 async function saveHareket(h){
   try{
@@ -864,7 +871,7 @@ async function malKabulOnayGiris(form){
     const h=giris(depoId,u.kod,u.ad,u.miktar,u.birim,'malkabul',form.id);
     hareketler.push(h);
   }
-  await saveStok(hareketler.map(h=>({depoId:h.depoId,kod:h.lnKod})));
+  await saveStok(hareketler);
   for(const h of hareketler)await saveHareket(h);
   return hareketler.length;
 }
@@ -1360,7 +1367,7 @@ async function saveCikis(){
   if(miktar>mevcutMiktar){showToast(`⚠️ Stok yetersiz (mevcut: ${mevcutMiktar} ${birim})`);return;}
   showLoading();
   const h=cikis(depoId,kod,ad,miktar,birim,neden,not);
-  await saveStok([{depoId,kod}]);await saveHareket(h);
+  await saveStok([h]);await saveHareket(h);
   // QR ile okutulmuş koli varsa 'cikti' olarak işaretle (aynı etiket ikinci kez kullanılamaz)
   if(_okunanKoli&&_okunanKoli.urun_kodu===kod){
     try{
@@ -1401,7 +1408,7 @@ async function saveTransfer(){
   }
   showLoading();
   const h=transfer(kaynakDepoId,hedefDepoId,kod,ad,miktar,birim,not);
-  await saveStok([{depoId:kaynakDepoId,kod},{depoId:hedefDepoId,kod}]);await saveHareket(h);
+  await saveStok([h]);await saveHareket(h);
   hideLoading();
   closeModal('modal-transfer');
   document.getElementById('tr-urun-inp').value='';
@@ -1466,7 +1473,7 @@ async function applyLNRapor(){
     const h=cikis(_lnDepoId,kod,ad||kod,miktar,birim,'ln_tuketim','');
     harlar.push(h);islem++;
   });
-  await saveStok(harlar.map(h=>({depoId:h.depoId,kod:h.lnKod})));for(const h of harlar)await saveHareket(h);
+  await saveStok(harlar);for(const h of harlar)await saveHareket(h);
   hideLoading();
   const depoAd=depoAdi(_lnDepoId);
   document.getElementById('ln-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
@@ -1641,7 +1648,7 @@ async function iadeSiparisiOlustur(){
     const h=cikis(depoId,k.kod,k.ad,parseFloat(k.miktar),k.birim,'iade',`İade Siparişi: ${siparisNo} — ${firmaAd}`);
     hareketler.push(h);
   }
-  await saveStok(hareketler.map(h=>({depoId:h.depoId,kod:h.lnKod})));
+  await saveStok(hareketler);
   for(const h of hareketler)await saveHareket(h);
   hideLoading();
 
@@ -1947,7 +1954,7 @@ async function sayimOnayla(oturumId){
       yazilanlar.push({depoId:oturum.depo_kodu,kod:d.urun_kodu,urunAd:d.urun_adi,beklenen:parseFloat(d.sayilan_miktar)});
     }
     if(hareketler.length){
-      await saveStok(hareketler.map(h=>({depoId:h.depoId,kod:h.lnKod})));
+      await saveStok(hareketler);
       for(const h of hareketler)await saveHareket(h);
     }
     if(yazilanlar.length){
@@ -2135,14 +2142,10 @@ async function malKabulOnayKontrolEt(){
         if(!u.urun_kodu||!u.miktar)continue;
         const miktar=parseFloat(u.miktar)||0;
         if(miktar<=0)continue;
-        let mevcut=0;
-        try{
-          const rr=await fetch(SB_URL+`/rest/v1/stok?urun_kodu=eq.${encodeURIComponent(u.urun_kodu)}&depo_kodu=eq.${encodeURIComponent(depoKompozit)}&select=miktar`,{headers:SB_HEADERS});
-          if(rr.ok){const rows2=await rr.json();if(rows2[0])mevcut=parseFloat(rows2[0].miktar)||0;}
-        }catch(e){}
-        await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
-          method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({urun_kodu:u.urun_kodu,depo_kodu:depoKompozit,otel_id:otelId,miktar:mevcut+miktar})
+        // Atomik stok girişi (rpc/stok_ekle)
+        await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
+          method:'POST',headers:SB_HEADERS,
+          body:JSON.stringify({p_urun_kodu:u.urun_kodu,p_depo_kodu:depoKompozit,p_otel_id:otelId,p_delta:miktar})
         });
         await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
           urun_kodu:u.urun_kodu,depo_kodu:depoKompozit,otel_id:otelId,tip:'giris',miktar,
