@@ -1312,6 +1312,85 @@ function filterTeklifFirma(teklifTalepId,val){
   dd.style.display='block';
 }
 
+// tedarikciTeklifId sadece kendi id'siyle geliyor (hangi RFQ'ya ait olduğu belli değil) —
+// DB.teklifler'i tarayıp hem RFQ (tk) hem tedarikçi (f) nesnesini birlikte bulur.
+function teklifBulByTedarikciId(tedarikciTeklifId){
+  for(const tk of Object.values(DB.teklifler||{})){
+    const f=(tk.tedarikciler||[]).find(x=>String(x.id)===String(tedarikciTeklifId));
+    if(f)return{tk,f};
+  }
+  return null;
+}
+
+// ============================================================
+// TEDARİKÇİ TEKLİF FİYAT GİRİŞ MODALI
+// ============================================================
+function tedarikciTeklifGirModalAc(tedarikciTeklifId){
+  const bulunan=teklifBulByTedarikciId(tedarikciTeklifId);if(!bulunan)return;
+  const{tk,f}=bulunan;
+  const fiyatMap={};
+  (f.fiyatlar||[]).forEach(fy=>{fiyatMap[fy.kalemId]=fy.birimFiyat;});
+  document.getElementById('mTedarikciTeklifIc').innerHTML=`
+    <div style="margin-bottom:10px"><div style="font-size:14px;font-weight:700">${escapeHtml(f.firmaAd)}</div></div>
+    <div id="tt-urun-listesi">
+      ${tk.kalemler.map((k,i)=>{
+        const fiyat=fiyatMap[k.id];
+        return`<div class="field" style="margin-bottom:10px">
+          <label>${escapeHtml(k.ad)} — ${k.miktar} ${escapeHtml(k.birim||'')}</label>
+          <input type="number" id="tt-fiyat-${i}" data-kalem-id="${k.id}" min="0" step="0.01" placeholder="Birim fiyat (₺)" value="${fiyat!=null?fiyat:''}" oninput="ttFiyatToplamGuncelle('${tk.id}')">
+        </div>`;
+      }).join('')}
+    </div>
+    <div id="tt-genel-toplam" style="font-size:14px;font-weight:800;margin-bottom:12px">— ₺</div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mTedarikciTeklif')">İptal</button>
+      <button class="btn btn-success" onclick="tedarikciTeklifKaydet('${tedarikciTeklifId}')">💾 Kaydet</button>
+    </div>`;
+  ttFiyatToplamGuncelle(tk.id);
+  aModal('mTedarikciTeklif');
+}
+
+function ttFiyatToplamGuncelle(teklifTalepId){
+  const tk=DB.teklifler[teklifTalepId];if(!tk)return;
+  let toplam=0;
+  tk.kalemler.forEach((k,i)=>{
+    const el=document.getElementById('tt-fiyat-'+i);
+    const fiyat=parseFloat(el?.value)||0;
+    toplam+=fiyat*(parseFloat(k.miktar)||0);
+  });
+  const el=document.getElementById('tt-genel-toplam');
+  if(el)el.textContent=(toplam>0?fmt(toplam)+' ₺ (KDV hariç)':'— ₺');
+}
+
+async function tedarikciTeklifKaydet(tedarikciTeklifId){
+  const bulunan=teklifBulByTedarikciId(tedarikciTeklifId);if(!bulunan)return;
+  const{tk,f}=bulunan;
+  sLD();
+  try{
+    const fiyatMap={};
+    (f.fiyatlar||[]).forEach(fy=>{fiyatMap[fy.kalemId]={id:fy.id,birimFiyat:fy.birimFiyat};});
+    for(let i=0;i<tk.kalemler.length;i++){
+      const k=tk.kalemler[i];
+      const inp=document.getElementById('tt-fiyat-'+i);
+      const deger=inp?.value;
+      if(deger===''||deger==null)continue;
+      const fiyat=parseFloat(deger);
+      if(isNaN(fiyat))continue;
+      const mevcut=fiyatMap[k.id];
+      if(mevcut){
+        await fetch(SB_URL+'/rest/v1/tedarikci_teklif_kalemleri?id=eq.'+mevcut.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyat})});
+      }else{
+        await fetch(SB_URL+'/rest/v1/tedarikci_teklif_kalemleri',{method:'POST',headers:SB_HEADERS,
+          body:JSON.stringify({tedarikci_teklif_id:tedarikciTeklifId,teklif_talep_kalem_id:k.id,birim_fiyat:fiyat})});
+      }
+    }
+    await fetch(SB_URL+'/rest/v1/tedarikci_teklifler?id=eq.'+tedarikciTeklifId,{method:'PATCH',headers:SB_HEADERS,
+      body:JSON.stringify({durum:'geldi',teklif_tarihi:new Date().toISOString()})});
+    hLD();kModal('mTedarikciTeklif');toast('✅ Teklif kaydedildi');
+    await loadTeklifler();openTeklifDetay(tk.id);
+  }catch(e){console.warn(e);hLD();toast('❌ Kaydetme başarısız');}
+}
+
 // ====== LN SİPARİŞLER ======
 function filterLN(f,el){
   lnFilter=f;
