@@ -433,7 +433,7 @@ async function saveSipYeni(s){
 }
 async function saveSipDurum(s){
   try{
-    const rH=await fetch(SB_URL+'/rest/v1/ic_talepler?id=eq.'+s.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+    await fetch(SB_URL+'/rest/v1/ic_talepler?id=eq.'+s.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
       durum:s.durum,onaylayan_ad:s.onaylayanAd||null,
       onay_tarihi:s.onayTarih?new Date(s.onayTarih).toISOString():null,red_notu:s.redNot||null
     })});
@@ -442,34 +442,19 @@ async function saveSipDurum(s){
         await fetch(SB_URL+'/rest/v1/ic_talep_kalemleri?id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({onaylanan_miktar:u.onaylananMiktar})});
       }
     }
-    return rH.ok;
-  }catch(e){console.warn(e);return false;}
+  }catch(e){console.warn(e);}
 }
 async function saveHar(h){
   try{
     if(h.tip==='transfer'){
-      const rHar=await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:h.lnKod,depo_kodu:h.hedefDepoId,otel_id:otelFromDepoId(h.hedefDepoId),
         tip:'transfer',miktar:h.miktar,belge_no:h.siparisId||null,
         aciklama:`İç Talep: ${h.kaynakDepoAd} → ${h.hedefDepoAd}${h.not?' — '+h.not:''}`
       })});
-      return rHar.ok;
-    }
-    return true;
-  }catch(e){console.warn(e);return false;}
-}
-async function saveStok(depoId,stokObj){
-  try{
-    for(const kod of Object.keys(stokObj)){
-      const s=stokObj[kod];
-      await fetch(SB_URL+'/rest/v1/stok?on_conflict=urun_kodu,depo_kodu',{
-        method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({urun_kodu:kod,depo_kodu:depoId,otel_id:otelFromDepoId(depoId),miktar:s.miktar})
-      });
     }
   }catch(e){console.warn(e);}
 }
-
 // ====== STOK İŞLEMLERİ (stok-takip.html ile aynı desen) ======
 function ensureDepoStok(depoId){if(!DB.stok[depoId])DB.stok[depoId]={};}
 function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
@@ -949,22 +934,33 @@ async function onayla(id){
     harlar.push(h);
   });
 
-  s.durum='onaylandi';s.onaylayanAd=CU.ad;s.onayTarih=Date.now();
-
   // Atomik transfer (rpc/stok_transfer) — her ürün için düş+ekle tek transaction'da.
   // Eski whole-depot saveStok'u tam-tablo clobber riski taşıyordu; kaldırıldı.
-  let yazmaBasarili=true;
+  const hatalar=[];
   for(const h of harlar){
     try{
       const rT=await fetch(SB_URL+'/rest/v1/rpc/stok_transfer',{
         method:'POST',headers:SB_HEADERS,
         body:JSON.stringify({p_urun_kodu:h.lnKod,p_kaynak_depo:h.kaynakDepoId,p_hedef_depo:h.hedefDepoId,p_hedef_otel:otelFromDepoId(h.hedefDepoId),p_miktar:h.miktar})
       });
-      if(!rT.ok){yazmaBasarili=false;console.warn('stok_transfer RPC hatası',await rT.text());}
-    }catch(e){yazmaBasarili=false;console.warn('stok_transfer RPC hatası',e);}
+      if(!rT.ok){
+        const hataMetni=await rT.text();
+        console.error('stok_transfer RPC hatası',hataMetni);
+        hatalar.push(`${h.urunAd||h.lnKod}: ${hataMetni}`);
+        continue; // transfer olmadıysa hareket kaydı da atma, tutarsız olur
+      }
+      await saveHar(h);
+    }catch(e){console.error('stok_transfer RPC hatası',e);hatalar.push(`${h.urunAd||h.lnKod}: ${e.message||e}`);}
   }
-  for(const h of harlar){if(!(await saveHar(h)))yazmaBasarili=false;}
-  if(!(await saveSipDurum(s)))yazmaBasarili=false;
+
+  // Onay kararı zaten verildi (kalite/miktar kontrolleri yukarıda geçti) — RPC hatası olsa
+  // bile talebi 'bekleyen'de bırakmak, kısmen transfer olmuş ürünleri limbo'da bırakır.
+  // mal-kabul-v2.html stokaIsle() ile aynı yaklaşım: onayı tamamla, hatayı görünür şekilde bildir.
+  s.durum='onaylandi';s.onaylayanAd=CU.ad;s.onayTarih=Date.now();
+  await saveSipDurum(s);
+  if(hatalar.length){
+    alert('⚠️ Onay tamamlandı ama bazı ürünlerde stok transferi başarısız oldu:\n\n'+hatalar.join('\n\n')+'\n\nBu ürünlerin stoğunu Supabase\'de elle kontrol et.');
+  }
 
   // Okutulan kolileri hedef depoya devret — koli fiziken taşındı,
   // etiketi hedef noktada (tüketim çıkışında) tekrar okutulabilir.
@@ -981,10 +977,7 @@ async function onayla(id){
     _onayKolileri=[];
   }
   depoQrDurdur();
-  hLD();
-  if(yazmaBasarili){toast('✅ Onaylandı, stok transferi yapıldı');}
-  else{toast('⚠️ Onay kısmen başarısız oldu — stok/durum tam güncellenemedi. Sayfayı yenileyip talebin durumunu kontrol edin, gerekirse tekrar deneyin.',5000);}
-  rGelen();rBugun();
+  hLD();toast('✅ Onaylandı, stok transferi yapıldı');rGelen();rBugun();
 }
 
 async function iptalEt(id){

@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
+<script src="onay-motoru.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Satın Alma</title>
 <meta name="theme-color" content="#1a2744">
@@ -453,6 +454,16 @@ let DB={talepler:{},lnSiparisler:{},siparisler:{},kullanicilar:[...TUSERS],firma
 let lnRows=[];
 let talepFilter='tumu', lnFilter='bekleyen';
 
+// CU'nun onay yetkisi olduğu asama'lar — kullaniciAsamaYetkiliMi() async olduğu için
+// renderTalepler() senkron kalabilsin diye loadDB() sonrası bir kez önceden hesaplanır.
+let _yetkiliAsamalar=new Set();
+async function hesaplaYetkiliAsamalar(){
+  _yetkiliAsamalar=new Set();
+  for(const asama of Object.keys(ONAY_KATMANLARI)){
+    if(await kullaniciAsamaYetkiliMi(CU,asama))_yetkiliAsamalar.add(asama);
+  }
+}
+
 // ====== SUPABASE ======
 const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
@@ -496,7 +507,7 @@ async function loadDB(){
           id:r.id,tarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).toISOString().split('T')[0]:'',
           olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
           departman:r.departman,personel:r.talep_eden||'',aciliyet:r.aciliyet,not:r.not_alani||'',
-          durum:r.durum,
+          durum:r.durum,asama:r.asama||'depo',tutar:r.tutar,onaylayanAd:r.onaylayan_ad||'',onayTarih:r.onay_tarihi||null,
           satirlar:(r.satin_alma_talep_kalemleri||[]).map(k=>({id:k.id,ad:k.urun_adi,kod:k.urun_kodu||'',miktar:k.miktar,birim:k.birim}))
         };
       });
@@ -871,6 +882,10 @@ function renderTalepler(){
   const c=document.getElementById('talepler-liste');if(!c)return;
   let liste=Object.values(DB.talepler||{}).filter(Boolean);
   if(talepFilter!=='tumu')liste=liste.filter(t=>t.durum===talepFilter);
+  // Bekleyen talepler sadece CU'nun o anki asamada yetkili olduğu satırları gösterir
+  // (asama zaten doğru katmana yönlendirdiği için ek tutar filtresine gerek yok).
+  // Karara bağlanmış talepler (onaylandı/reddedildi/siparis) herkese açık geçmiş kaydı.
+  liste=liste.filter(t=>t.durum!=='bekleyen'||_yetkiliAsamalar.has(t.asama));
   liste.sort((a,b)=>{
     const ao=a.aciliyet==='acil'?0:a.aciliyet==='normal'?1:2;
     const bo=b.aciliyet==='acil'?0:b.aciliyet==='normal'?1:2;
@@ -967,6 +982,9 @@ async function talepExcelUygula(rows){
     if(canliDurum!=='bekleyen'){atlananlar.push({talepId,sebep:'zaten karara bağlanmış ('+canliDurum+')'});continue;}
 
     // Karar çelişkisi kontrolü — aynı talebin satırlarında farklı Karar varsa atla.
+    // NOT: Karar uygulama artık talepAsamaIlerlet() üzerinden yapılır (aşağıda) —
+    // asama/rol doğrulaması ve talep_onay_gecmisi kaydı olmadan doğrudan durum
+    // PATCH'lemek, çok aşamalı onay akışını tamamen atlatırdı.
     const kararlar=[...new Set(satirlar.map(s=>String(s['Karar']||'').trim()).filter(Boolean))];
     if(kararlar.length>1){atlananlar.push({talepId,sebep:'çelişkili karar: '+kararlar.join(', ')});continue;}
     const karar=kararlar[0]||'';
@@ -986,16 +1004,22 @@ async function talepExcelUygula(rows){
       }
     }
 
-    // Karar uygula — talepOnayla()/talepReddet() ile AYNI PATCH.
+    // Karar uygula — talepAsamaIlerlet() ile: asama/rol doğrulaması, canlı
+    // stale-state kontrolü ve talep_onay_gecmisi kaydı buradan da geçer.
     if(karar==='Onayla'){
-      try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});onaylanan++;}catch(e){}
+      const sonuc=await talepAsamaIlerlet(talepId,CU,'onay',{});
+      if(sonuc.ok)onaylanan++;
+      else atlananlar.push({talepId,sebep:sonuc.hata==='tutar_gerekli'?'Cost aşamasında tutar gerekli — Excel ile onaylanamaz':('onay başarısız: '+sonuc.hata)});
     }else if(karar==='Reddet'){
-      try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'reddedildi'})});reddedilen++;}catch(e){}
+      const sonuc=await talepAsamaIlerlet(talepId,CU,'red',{});
+      if(sonuc.ok)reddedilen++;
+      else atlananlar.push({talepId,sebep:'red başarısız: '+sonuc.hata});
     }
   }
 
   hLD();
   await loadDB();
+  await hesaplaYetkiliAsamalar();
   renderTalepler();
   let mesaj=`✅ ${onaylanan} onaylandı, ${reddedilen} reddedildi, ${miktarGuncellenen} kalem miktarı güncellendi.`;
   if(atlananlar.length){
@@ -1005,14 +1029,27 @@ async function talepExcelUygula(rows){
   toast(mesaj,4000);
 }
 
-function openTalepDetay(id){
+const ASAMA_ETIKET={depo:'📦 Depo',cost:'📐 Cost Control',mdr:'🛒 Satınalma Müdürü',direktor:'🛒 Grup Satınalma Direktörü',gm:'👔 GM',ust_yonetim:'👔 Grup Direktörü'};
+
+async function talepGecmisiGetir(id){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/talep_onay_gecmisi?talep_id=eq.'+id+'&order=created_at.asc',{headers:SB_HEADERS});
+    if(r.ok)return await r.json();
+  }catch(e){console.warn(e);}
+  return [];
+}
+
+async function openTalepDetay(id){
   const t=DB.talepler[id];if(!t)return;
   const chipMap={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">✅ Onaylandı</span>',siparis:'<span class="chip chip-info">📦 Siparişe Dönüştü</span>',reddedildi:'<span class="chip chip-err">❌ Reddedildi</span>'};
+  const yetkili=t.durum==='bekleyen'&&_yetkiliAsamalar.has(t.asama);
+  const gecmis=await talepGecmisiGetir(id);
   document.getElementById('mTalepDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">
       <div><div style="font-size:15px;font-weight:700">${t.departman} ${t.aciliyet==='acil'?'🔴':''}</div><div style="font-size:12px;color:var(--gray-500)">${t.tarih} • ${t.personel}</div></div>
       ${chipMap[t.durum]||''}
     </div>
+    ${t.durum==='bekleyen'?`<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:10px">Aşama: ${ASAMA_ETIKET[t.asama]||t.asama}</div>`:''}
     <div style="background:var(--gray-100);border-radius:8px;padding:10px;margin-bottom:12px">
       ${t.satirlar&&t.satirlar.length?
         `<table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -1031,27 +1068,48 @@ function openTalepDetay(id){
       }
     </div>
     ${t.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${escapeHtml(t.not)}</div>`:''}
-    ${t.durum==='bekleyen'?`
+    ${t.tutar?`<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:12px">Tutar: ${t.tutar} ₺</div>`:''}
+    ${gecmis.length?`
+    <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;margin-bottom:6px">Aşama Geçmişi</div>
+    <div style="margin-bottom:12px">
+      ${gecmis.map(g=>`<div style="font-size:11px;color:var(--gray-600);padding:4px 0;border-bottom:1px solid var(--gray-200)">
+        ${ASAMA_ETIKET[g.asama]||g.asama} — ${g.karar==='onay'?'✅ Onay':'❌ Red'} — ${escapeHtml(g.kullanici_ad||'—')}
+        ${g.not_metni?` (${escapeHtml(g.not_metni)})`:''}
+      </div>`).join('')}
+    </div>`:''}
+    ${t.asama==='cost'&&yetkili?`
+    <div class="field"><label>Tutar (₺)</label><input type="number" id="talep-cost-tutar" placeholder="Toplam tutarı gir" min="0" step="0.01"></div>`:''}
+    ${yetkili?`
       <div class="brow">
-        <button class="btn btn-danger btn-sm" onclick="talepReddet('${id}')">❌ Reddet</button>
-        <button class="btn btn-success btn-sm" onclick="talepOnayla('${id}')">✅ Onayla</button>
-        <button class="btn btn-info btn-sm" onclick="talepSipariseDonustur('${id}')">📦 Siparişe Dönüştür</button>
-      </div>`:`<button class="btn btn-gray btn-block" onclick="kModal('mTalepDetay')">Kapat</button>`}`;
+        <button class="btn btn-danger btn-sm" onclick="talepKararVer('${id}','red')">❌ Reddet</button>
+        <button class="btn btn-success btn-sm" onclick="talepKararVer('${id}','onay')">✅ Onayla</button>
+      </div>`:''}
+    ${t.durum==='onaylandi'?`
+      <div class="brow" style="margin-top:8px">
+        <button class="btn btn-info btn-block btn-sm" onclick="talepSipariseDonustur('${id}')">📦 Siparişe Dönüştür</button>
+      </div>`:''}
+    <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTalepDetay')">Kapat</button>`;
   aModal('mTalepDetay');
 }
 
-async function talepOnayla(id){
+async function talepKararVer(id,karar){
   const t=DB.talepler[id];if(!t)return;
-  t.durum='onaylandi';t.onaylayanAd=CU.ad;t.onayTarih=Date.now();
-  try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'onaylandi'})});}catch(e){console.warn(e);}
-  kModal('mTalepDetay');toast('✅ Talep onaylandı');renderTalepler();
-}
-
-async function talepReddet(id){
-  const t=DB.talepler[id];if(!t)return;
-  t.durum='reddedildi';t.reddeden=CU.ad;
-  try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'reddedildi'})});}catch(e){console.warn(e);}
-  kModal('mTalepDetay');toast('❌ Talep reddedildi');renderTalepler();
+  let tutar;
+  if(karar==='onay'&&t.asama==='cost'){
+    tutar=document.getElementById('talep-cost-tutar')?.value;
+    if(!tutar||isNaN(parseFloat(tutar))){toast('⚠️ Tutar girilmeli');return;}
+  }
+  const sonuc=await talepAsamaIlerlet(id,CU,karar,{tutar});
+  if(!sonuc.ok){
+    const mesajlar={zaten_karar_verilmis:'⚠️ Bu talep az önce başka biri tarafından ilerletildi',yetkisiz:'❌ Bu işlem için yetkiniz yok',tutar_gerekli:'⚠️ Tutar girilmeli'};
+    toast(mesajlar[sonuc.hata]||'❌ İşlem başarısız, tekrar deneyin');
+    return;
+  }
+  kModal('mTalepDetay');
+  toast(karar==='red'?'❌ Talep reddedildi':'✅ Talep ilerletildi');
+  await loadDB();
+  await hesaplaYetkiliAsamalar();
+  renderTalepler();
 }
 
 async function talepSipariseDonustur(id){
@@ -2699,8 +2757,9 @@ function hLD(){document.getElementById('ld').classList.remove('show');}
 (async function(){
   CU = requireLogin();
   if(!CU) return;
-  if(!requireRole(CU, ['yonetici','satinalma','depo'])) return;
+  if(!requireRole(CU, ['yonetici','satinalma','depo','cost_control'])) return;
   await loadDB();
+  await hesaplaYetkiliAsamalar();
   basla();
   stokMinimumKontrolEt();
 })();

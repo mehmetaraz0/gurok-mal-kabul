@@ -1176,7 +1176,8 @@ async function duzeltmeModuAc(id){
     // (f.stok_islendi bayrağına güvenmiyoruz — kolon her ortamda garanti değil; düzeltmeModuAc
     // yalnızca durum==='onaylandi' kayıtlar için açılıyor, ve o duruma sadece stokaIsle() üzerinden
     // geçiliyor, yani buraya düşen her kayıt zaten stoğa işlenmiştir.)
-    await stoktanGeriAl(f);
+    const geriAlindi=await stoktanGeriAl(f);
+    if(!geriAlindi){hLD();return;} // stoktanGeriAl zaten alert gösterdi — durum PATCH'lenmeden dur, aksi halde stok iki kez düşer/eklenir
     await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'bekleyen',notlar:yeniNotlar,stok_islendi:false})});
     await auditLogYaz('duzelt','mal_kabul',id,`Onaylı kayıt düzeltme moduna alındı: ${f.mkNo}`);
   }catch(e){console.warn(e);toast('⚠️ İşlem başarısız');hLD();return;}
@@ -1194,22 +1195,38 @@ async function stoktanGeriAl(f){
   const otelId=f.otelId||'810';
   const bareDepoKodu=otelId==='811'?'300':'100';
   const depoKompozit=otelId+'_'+bareDepoKodu;
+  const hatalar=[];
   for(const u of (f.urunler||[])){
     if(!u.kod||!u.miktar)continue;
     const miktar=parseFloat(u.miktar)||0;
     if(miktar<=0)continue;
     try{
       // Atomik stok düşümü (rpc/stok_ekle, negatif delta)
-      await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
+      const rStok=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
         method:'POST',headers:SB_HEADERS,
         body:JSON.stringify({p_urun_kodu:u.kod,p_depo_kodu:depoKompozit,p_otel_id:otelId,p_delta:-miktar})
       });
-      await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      if(!rStok.ok){
+        const hataMetni=await rStok.text();
+        console.error('stoktanGeriAl — stok_ekle RPC hatası:',hataMetni);
+        hatalar.push(`${u.ad||u.kod}: ${hataMetni}`);
+        continue; // stok geri alınmadıysa hareket kaydı da atma, tutarsız olur
+      }
+      const rHar=await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:u.kod,depo_kodu:depoKompozit,otel_id:otelId,tip:'duzeltme-iptal',miktar,
         belge_no:f.mkNo,aciklama:`Düzeltme için onay iptali: ${f.mkNo} — ${f.firma}`
       })});
-    }catch(e){console.warn('stoktanGeriAl hatası:',e);}
+      if(!rHar.ok){
+        const hataMetni=await rHar.text();
+        console.error('stoktanGeriAl — stok_hareketleri POST hatası:',hataMetni);
+        hatalar.push(`${u.ad||u.kod} (hareket kaydı): ${hataMetni}`);
+      }
+    }catch(e){console.error('stoktanGeriAl hatası:',e);hatalar.push(`${u.ad||u.kod}: ${e.message||e}`);}
   }
+  if(hatalar.length){
+    alert('⚠️ Stok geri alınırken bazı ürünlerde hata oluştu:\n\n'+hatalar.join('\n\n')+'\n\nDüzeltme moduna GEÇİLMEDİ — Supabase\'de stoğu elle kontrol edip tekrar dene.');
+  }
+  return hatalar.length===0;
 }
 
 // ============================================================
