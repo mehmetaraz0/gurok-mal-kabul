@@ -2134,28 +2134,48 @@ async function malKabulOnayKontrolEt(){
     if(!r.ok)return;
     const rows=await r.json();
     if(!rows.length)return;
+    let basariliSayisi=0;
+    const hatalar=[];
     for(const row of rows){
       const otelId=row.otel_id||'810';
       const bareDepoKodu=otelId==='811'?'300':'100';
       const depoKompozit=otelId+'_'+bareDepoKodu;
+      let rowBasarili=true;
       for(const u of (row.mal_kabul_urunleri||[])){
         if(!u.urun_kodu||!u.miktar)continue;
         const miktar=parseFloat(u.miktar)||0;
         if(miktar<=0)continue;
         // Atomik stok girişi (rpc/stok_ekle)
-        await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
+        const rStok=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
           method:'POST',headers:SB_HEADERS,
           body:JSON.stringify({p_urun_kodu:u.urun_kodu,p_depo_kodu:depoKompozit,p_otel_id:otelId,p_delta:miktar})
         });
-        await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+        if(!rStok.ok){
+          const hataMetni=await rStok.text();
+          console.error('malKabulOnayKontrolEt — stok_ekle RPC hatası:',hataMetni);
+          hatalar.push(`${row.mk_no} — ${u.urun_kodu}: ${hataMetni}`);
+          rowBasarili=false;
+          continue; // stok yazılmadıysa hareket kaydı da atma, tutarsız olur
+        }
+        const rHar=await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
           urun_kodu:u.urun_kodu,depo_kodu:depoKompozit,otel_id:otelId,tip:'giris',miktar,
           belge_no:row.mk_no,aciklama:`Mal kabul (gecikmeli işlendi): ${row.mk_no} — ${row.firma_ad||''}`
         })});
+        if(!rHar.ok){
+          console.error('malKabulOnayKontrolEt — stok_hareketleri POST hatası:',await rHar.text());
+          rowBasarili=false;
+        }
       }
-      await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+row.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({stok_islendi:true})});
+      // stok_islendi SADECE bu kaydın tüm satırları gerçekten yazıldıysa true olur —
+      // aksi halde bu güvenlik ağı bir daha hiç denemez ve stok kalıcı olarak eksik kalır.
+      if(rowBasarili){
+        await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+row.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({stok_islendi:true})});
+        basariliSayisi++;
+      }
     }
     await loadDB();renderStok();
-    showToast(`📦 ${rows.length} bekleyen mal kabul stoka işlendi (güvenlik ağı)`);
+    if(basariliSayisi)showToast(`📦 ${basariliSayisi} bekleyen mal kabul stoka işlendi (güvenlik ağı)`);
+    if(hatalar.length)showToast(`⚠️ ${hatalar.length} üründe stok işlenemedi, tekrar denenecek — ayrıntı için konsola bak`,4000);
   }catch(e){console.warn('malKabulOnayKontrolEt hatası:',e);}
 }
 </script>
