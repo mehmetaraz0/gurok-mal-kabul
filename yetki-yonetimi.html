@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gürok — Yetki Yönetimi</title>
 <style>
@@ -53,9 +54,7 @@ tr:nth-child(even) td.rol-ad, tr:nth-child(even) td.rol-seviye{background:#e9ece
 <div id="toast"></div>
 
 <script>
-const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
-const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+// SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 const SIRALAMA=['yok','goruntule','kayit','tam'];
 const KAT_ADLARI={depo:'DEPO OPERASYONLARI',satinalma:'SATIN ALMA',muhasebe:'MUHASEBE',sistem:'SİSTEM'};
 
