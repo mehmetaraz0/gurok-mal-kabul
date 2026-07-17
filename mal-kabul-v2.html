@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Mal Kabul</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--primary:#1a2744;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -2196,15 +2197,8 @@ async function mkFormuIndir(){
     if(ugR.ok)(await ugR.json()).forEach(r=>{uygunsuzMap[r.mk_id+'|'+(r.urun_kodu||'')]=r.aciklama;});
   }catch(e){console.warn(e);}
 
-  function build(){buildMkFormuXlsx(liste,sktMap,uygunsuzMap,bas,bit);}
-  if(typeof XLSX==='undefined'){
-    const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
-    s.onload=build;
-    document.head.appendChild(s);
-  }else{
-    build();
-  }
+  await loadXlsxLib();
+  buildMkFormuXlsx(liste,sktMap,uygunsuzMap,bas,bit);
 }
 
 function buildMkFormuXlsx(liste,sktMap,uygunsuzMap,bas,bit){
@@ -2357,13 +2351,8 @@ function gTab(tab,el){
   if(tab==='siparis')renderSiparisTakip();
   if(tab==='esleme')izlemeSwitchTab('analiz');
 }
-function aModal(id){document.getElementById(id).classList.add('open');}
-function kModal(id){document.getElementById(id).classList.remove('open');}
+// sLD/hLD/toast/escapeHtml/kModal/aModal -> ortak.js
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
-function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function sLD(){document.getElementById('ld').classList.add('show');}
-function hLD(){document.getElementById('ld').classList.remove('show');}
 
 // ============================================================
 // INIT
