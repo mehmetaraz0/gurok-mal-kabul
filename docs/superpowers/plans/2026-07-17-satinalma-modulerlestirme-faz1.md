@@ -29,13 +29,13 @@ fonksiyonları + modalleri + `gTab()` dispatch satırı silinir.
 
 ---
 
-### Task 1: satin-alma-siparisler.html (LN Siparişler)
+### Task 1: satin-alma-siparisler.html (LN Siparişler) ✅
 
 **Files:**
 - Create: `satin-alma-siparisler.html`
 - Modify: `satin-alma.html`
 
-- [ ] **Step 1: Yeni dosyayı oluştur** — muhasebe-cariler.html iskeleti +
+- [x] **Step 1: Yeni dosyayı oluştur** — muhasebe-cariler.html iskeleti +
   satin-alma.html'in tam `<style>` kopyası. Taşınan içerik: `#tab-siparisler`
   markup (satır 120-134), `#mLNDetay`/`#mLNKolon` modalleri (satır 442-465),
   `filterLN`/`renderLN`/`openLNDetay`/`lnEksikleriAktar`/`parseLNExcel`/
@@ -43,22 +43,21 @@ fonksiyonları + modalleri + `gTab()` dispatch satırı silinir.
   `let lnFilter='bekleyen'`/`let DB={lnSiparisler:{}}`. Init: `loadDB()`
   (sadece `ln_siparisler` fetch) → `renderLN()`. Header: geri butonu
   `satin-alma.html`'e döner.
-- [ ] **Step 2: satin-alma.html'i güncelle** — LN Siparişler tabbtn'i
+- [x] **Step 2: satin-alma.html'i güncelle** — LN Siparişler tabbtn'i
   `location.href='satin-alma-siparisler.html'`e çevir; `#tab-siparisler`
   div'i, `#mLNDetay`/`#mLNKolon` modalleri, taşınan fonksiyonlar/state
   sil; `gTab()`'den `if(tab==='siparisler')renderLN();` sil;
   `loadDB()`'den `ln_siparisler` fetch'i + `DB.lnSiparisler={}` init'i +
   `lnSiparisler:{}` (DB objesi) sil (grep ile doğrulandı — başka hiçbir
   yerde okunmuyor).
-- [ ] **Step 3: Tarayıcıda test** — yeni sayfayı aç, bir LN siparişi
-  detayını görüntüle; satin-alma.html'de LN Siparişler butonunun yeni
-  sayfaya yönlendirdiğini, kalan sekmelerin bozulmadığını doğrula.
-- [ ] **Step 4: Commit**
-
-```bash
-git -c user.name="mehmetaraz0" -c user.email="mehmetaraz868@gmail.com" add satin-alma-siparisler.html satin-alma.html
-git -c user.name="mehmetaraz0" -c user.email="mehmetaraz868@gmail.com" commit -m "refactor: LN Siparişler'i satin-alma-siparisler.html'e taşı"
-```
+- [x] **Step 3: Tarayıcıda test** — yeni sayfayı aç, filtre sekmelerini
+  dene (boş liste doğru render edildi); satin-alma.html'de LN Siparişler
+  butonunun yeni sayfaya yönlendirdiğini, İç Talepler + Sipariş Oluştur
+  sekmelerinin (DB.firmalar dahil) bozulmadığını doğrula. Not: file://
+  önizlemesi statik snapshot veriyor, gerçek test için `.claude/launch.json`
+  "static" (python http.server) kullanıldı + geçici sessionStorage
+  test-oturumu enjekte edildi (DB'ye hiç yazılmadı).
+- [x] **Step 4: Commit** (5bd0c0d)
 
 ---
 

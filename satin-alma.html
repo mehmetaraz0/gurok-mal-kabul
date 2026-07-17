@@ -89,7 +89,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn active" onclick="gTab('talepler',this)">📋 İç Talepler</button>
     <button class="tabbtn" onclick="location.href='satin-alma-siparisler.html'">📦 LN Siparişler</button>
     <button class="tabbtn" onclick="gTab('yeniSiparis',this)">✉️ Sipariş Oluştur</button>
-    <button class="tabbtn" onclick="gTab('firmalar',this)">🏢 Firmalar</button>
+    <button class="tabbtn" onclick="location.href='satin-alma-firmalar.html'">🏢 Firmalar</button>
     <button class="tabbtn" onclick="gTab('siparisTakip',this)">📊 Sipariş Takip</button>
     <button class="tabbtn" onclick="gTab('fiyatKontrol',this)" id="tab-btn-fiyatKontrol">💰 Fiyat Kontrolü <span id="fk-badge" style="display:none;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
     <button class="tabbtn" onclick="gTab('iade',this)">↩️ İade</button>
@@ -163,14 +163,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <!-- FİRMALAR -->
-  <div class="sc" id="tab-firmalar">
-    <div class="card">
-      <div class="card-title">🔍 Firma Ara</div>
-      <input type="text" id="firma-ara" placeholder="Firma adı..." oninput="renderFirmalar(this.value)" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none">
-    </div>
-    <div id="firmalar-liste"></div>
-  </div>
-
   <!-- SİPARİŞ TAKİP -->
   <div class="sc" id="tab-siparisTakip">
     <div class="card">
@@ -530,7 +522,6 @@ function gTab(tab,el){
   if(el2)el2.style.display='block';
   if(el)el.classList.add('active');
   if(tab==='talepler')renderTalepler();
-  if(tab==='firmalar')renderFirmalar('');
   if(tab==='siparisTakip')loadSiparisTakip();
   if(tab==='fiyatKontrol')loadFiyatKontrol();
   if(tab==='yeniSiparis'){
@@ -2892,22 +2883,6 @@ document.addEventListener('pointerdown',e=>{
   const inp=document.getElementById('sp-firma-inp');
   if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
 });
-
-function renderFirmalar(val){
-  const c=document.getElementById('firmalar-liste');if(!c)return;
-  const firmalar=DB.firmalar||[];
-  const liste=val?firmalar.filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,50):firmalar.slice(0,50);
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🏢</div><div class="et">Firma bulunamadı</div></div>';return;}
-  c.innerHTML=liste.map(f=>`
-    <div class="skart bekleyen" style="cursor:default">
-      <div style="font-size:13px;font-weight:700">${f.ad}</div>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
-        ${f.mail?`✉️ ${f.mail}`:''}
-        ${f.tel?`📞 ${f.tel}`:''}
-        ${f.urunler?`• ${f.urunler.length} ürün`:''}
-      </div>
-    </div>`).join('');
-}
 
 // ============================================================
 // TEDARİKÇİ SKOR KARTI — Mal Kabul + Uygunsuzluk + Sipariş verilerinden
