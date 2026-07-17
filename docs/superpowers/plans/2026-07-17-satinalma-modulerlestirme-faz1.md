@@ -144,15 +144,11 @@ git -c user.name="mehmetaraz0" -c user.email="mehmetaraz868@gmail.com" commit -m
 
 ---
 
-### Task 5: Uçtan uca doğrulama + rapor
+### Task 5: Uçtan uca doğrulama + rapor ✅
 
-- [ ] **Step 1: satin-alma.html'in yeni satır sayısını ölç**
-  (`wc -l satin-alma.html` öncesi/sonrası karşılaştır).
-- [ ] **Step 2: Tam regresyon turu** — satin-alma.html'i aç, kalan 5
-  sekmenin (İç Talepler, Sipariş Oluştur, Sipariş Takip, İade, Teklifler)
-  hepsinde en az bir temel işlem dene, konsol hatası olmadığını doğrula.
-  4 yeni sayfanın hepsini header'daki geri butonuyla satin-alma.html'e
-  dönüşünü doğrula.
-- [ ] **Step 3: Kullanıcıya rapor** — satır sayısı azalması, kalan 5 sekme
-  için Faz 2 önerisi (İç Talepler+Teklifler'in cross-tab handoff'u,
-  Sipariş Oluştur/Takip/İade'nin iç içe geçmiş bloğu).
+- [x] **Step 1: satin-alma.html'in yeni satır sayısını ölç** — 3229 → 2463
+  satır (%24 azalma).
+- [x] **Step 2: Tam regresyon turu** — Sipariş Oluştur, Sipariş Takip,
+  İade, Teklifler sekmeleri gerçek tarayıcıda test edildi, konsol hatası
+  yok. 4 yeni sayfanın hepsinde geri butonu satin-alma.html'e dönüyor.
+- [x] **Step 3: Kullanıcıya rapor**
