@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
 <script src="efatura-adapter.js"></script>
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -12,7 +14,6 @@ if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma']);
 <title>Gürok — Faturalar</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -321,8 +322,6 @@ async function auditLogYaz(action,entityType,entityId,detail){
 // stok/gider/gelir hesabına eşleştirme henüz yapılmadı. Mali müşavir onayına
 // kadar bu fişler "otomatik:true" olarak işaretlenir ki ayırt edilebilsin.
 // ============================================================
-function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
-
 async function yeniFisNo(){
   const yil=new Date().getFullYear();
   try{
@@ -1310,13 +1309,8 @@ async function gelenEfaturaTaslakOlustur(g){
   await fetch(SB_URL+'/rest/v1/gelen_efaturalar',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(satir)});
 }
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function aModal(id){document.getElementById(id).classList.add('open');}
-function kModal(id){document.getElementById(id).classList.remove('open');}
+// sLD/hLD/toast/escapeHtml/round2/kModal/aModal -> ortak.js
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
-function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
-function sLD(){document.getElementById('ld').classList.add('show');}
-function hLD(){document.getElementById('ld').classList.remove('show');}
 
 // ============================================================
 // INIT
