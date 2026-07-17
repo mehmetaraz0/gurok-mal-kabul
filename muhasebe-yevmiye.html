@@ -545,6 +545,7 @@ document.addEventListener('pointerdown',e=>{
 // ============================================================
 // KAYDET
 // ============================================================
+function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
 let _yevmiyeKaydediliyor=false;
 async function yevmiyeKaydet(onayla){
   if(_yevmiyeKaydediliyor){toast('⏳ İşleniyor, bekleyin...');return;}
@@ -552,8 +553,8 @@ async function yevmiyeKaydet(onayla){
   if(!tarihStr){toast('⚠️ Tarih girin');return;}
   const doluKalemler=yevKalemler.filter(k=>k.hesapKod&&(k.borc>0||k.alacak>0));
   if(doluKalemler.length<2){toast('⚠️ En az 2 kalem gerekli');return;}
-  const topBorc=doluKalemler.reduce((t,k)=>t+(k.borc||0),0);
-  const topAlacak=doluKalemler.reduce((t,k)=>t+(k.alacak||0),0);
+  const topBorc=round2(doluKalemler.reduce((t,k)=>t+(k.borc||0),0));
+  const topAlacak=round2(doluKalemler.reduce((t,k)=>t+(k.alacak||0),0));
   if(onayla&&Math.abs(topBorc-topAlacak)>0.01){toast('⚠️ Borç-Alacak dengesi sağlanamadan onaylanamaz');return;}
 
   // Dönem kontrolü — kapalı döneme onaylı kayıt girilemez
