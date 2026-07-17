@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
 <script src="ortak.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script src="efatura-adapter.js"></script>
@@ -266,9 +267,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
 <script>
-const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
-const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+// SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 let faturalar={},cariler={},malKabulFormlar={},satinAlmaSiparisler={},gelenEfaturalar={};
 let kalemler=[];
 let alisFilter='tumu',satisFilter='tumu';
