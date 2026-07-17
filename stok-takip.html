@@ -703,7 +703,8 @@ async function loadDB(){
     if(harR.ok){
       (await harR.json()).forEach(r=>{
         db.hareketler[r.id]={id:r.id,lnKod:r.urun_kodu,depoId:r.depo_kodu,tip:r.tip,miktar:parseFloat(r.miktar)||0,
-          belge:r.belge_no||'',tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),aciklama:r.aciklama||''};
+          belge:r.belge_no||'',tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),aciklama:r.aciklama||'',
+          kaynakDepoId:r.kaynak_depo_kodu||undefined,hedefDepoId:r.tip==='transfer'?r.depo_kodu:undefined};
       });
     }
     db.minimumlar={};
@@ -808,7 +809,8 @@ async function saveHareket(h){
   try{
     await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
       urun_kodu:h.lnKod,depo_kodu:h.depoId,otel_id:otelFromDepoId(h.depoId),
-      tip:h.tip,miktar:h.miktar,belge_no:h.belge||null,aciklama:h.aciklama||null
+      tip:h.tip,miktar:h.miktar,belge_no:h.belge||null,aciklama:h.aciklama||null,
+      kaynak_depo_kodu:h.kaynakDepoId||null
     })});
   }catch(e){console.warn(e);}
 }

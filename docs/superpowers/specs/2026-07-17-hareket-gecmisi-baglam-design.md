@@ -34,9 +34,6 @@ kayıt/kolon gerekmez.
 
 ## Kapsam dışı
 
-- `stok_hareketleri` tablosuna yeni kolon eklenmesi (Approach B,
-  reddedildi — mevcut kod tabanı zaten `aciklama` metin desenini
-  kullanıyor, yapılandırılmış kolonlar aşırı mühendislik olur).
 - `mal-kabul-v2.html`, `gunluk-tuketim.html`, `depo-siparis.html`'deki
   hareket kayıtları — bunlar zaten `aciklama`'ya anlamlı metin yazıyor,
   dokunulmuyor.
@@ -97,3 +94,23 @@ ve transfer yapıp Hareketler sekmesinde ürün adı + anlamlı detay (kaynak/
 neden/kaynak→hedef) göründüğünü doğrulamak; ardından **sayfayı
 yenileyip** aynı detayın hâlâ göründüğünü doğrulamak — bu, bug'ın asıl
 kanıtı olduğu için kalıcılık testi zorunlu.
+
+## 2026-07-17 ek düzeltme: transfer kaydı kaynak depoda görünmüyordu
+
+Kullanıcı uçtan uca testte, transfer kaydının yalnızca HEDEF depo
+geçmişinde göründüğünü, kaynak depo tarafında (sayfa yenilendikten
+sonra) hiç görünmediğini bildirdi — DB'de doğrulandı: transfer satırı
+tek bir `depo_kodu` (hedef) kolonuyla saklandığı için kaynak tarafında
+eşleşme yoktu. Bu, orijinal "kapsam dışı" kararının (Approach B / yeni
+kolon reddi) tam öngöremediği bir sonuçtu; kullanıcı onayıyla kapsam
+genişletildi.
+
+Uygulanan düzeltme: `stok_hareketleri` tablosuna nullable
+`kaynak_depo_kodu text` kolonu eklendi (sadece `tip='transfer'`
+satırlarında dolu). `saveHareket()` artık `h.kaynakDepoId`'yi bu kolona
+yazıyor; `loadDB()` bunu geri okurken `kaynakDepoId`/`hedefDepoId`
+alanlarına map ediyor. `renderHareketler()`'in filtre mantığı
+(`h.depoId||h.kaynakDepoId||h.hedefDepoId`'den biri `aktifDepoId`'ye
+eşitse göster) zaten genel yazılmıştı — kod değişikliği gerektirmedi,
+sadece altındaki veri artık doğru geliyor. curl ile doğrulandı: yeni
+kolon yazılıp okunabiliyor.
