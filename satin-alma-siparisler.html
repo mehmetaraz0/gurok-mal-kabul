@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let CU = requireLogin();
+if (CU) requireRole(CU, ['yonetici','satinalma','depo']);
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — LN Siparişler</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--accent:#e8a020}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-info{background:var(--info);color:white}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-warn{background:#fff3cd;color:#856404}.chip-ok{background:#d4edda;color:#155724}.chip-err{background:#fde8e8;color:#9b1c1c}.chip-info{background:#d1ecf1;color:#0c5460}.chip-gray{background:var(--gray-200);color:var(--gray-700)}
+.ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.ftab.active{background:var(--primary);border-color:var(--primary);color:white}
+.skart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-300);cursor:pointer}
+.skart.bekleyen{border-left-color:var(--warning)}.skart.onaylandi{border-left-color:var(--success)}.skart.siparis{border-left-color:var(--info)}.skart.tamamlandi{border-left-color:var(--success)}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.mo.open{display:flex}
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:90vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+.prog-bar{height:5px;background:var(--gray-200);border-radius:3px;margin-top:6px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px}.prog-fill.ok{background:var(--success)}.prog-fill.warn{background:var(--warning)}.prog-fill.err{background:var(--danger)}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='satin-alma.html'">←</button>
+    <div style="flex:1"><h1>LN Siparişler</h1><span class="sub" id="hsub"></span></div>
+  </div>
+
+  <div class="sc" id="tab-siparisler">
+    <div class="card">
+      <div class="card-title">📂 LN Infor Sipariş Import
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="document.getElementById('ln-input').click()">⬆️ Excel Yükle</button>
+        <input type="file" id="ln-input" accept=".xlsx,.xls" style="display:none" onchange="parseLNExcel(event)">
+      </div>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterLN('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="ftab" onclick="filterLN('kismi',this)">🔶 Kısmen Geldi</button>
+      <button class="ftab" onclick="filterLN('tamamlandi',this)">✅ Tamamlandı</button>
+      <button class="ftab" onclick="filterLN('tumu',this)">Tümü</button>
+    </div>
+    <div id="ln-liste"></div>
+  </div>
+</div>
+
+<!-- MODAL: LN Sipariş Detay -->
+<div class="mo" id="mLNDetay">
+  <div class="mbox">
+    <div class="mtitle">📦 Sipariş Detayı <button class="mclose" onclick="kModal('mLNDetay')">✕</button></div>
+    <div id="mLNDetayIc"></div>
+  </div>
+</div>
+
+<!-- MODAL: LN Kolon Eşleştir -->
+<div class="mo" id="mLNKolon">
+  <div class="mbox">
+    <div class="mtitle">📂 Kolon Eşleştir <button class="mclose" onclick="kModal('mLNKolon')">✕</button></div>
+    <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px" id="lnk-bilgi"></p>
+    <div class="field"><label>LN Ürün Kodu</label><select id="lnk-kod"></select></div>
+    <div class="field"><label>Ürün Adı</label><select id="lnk-ad"></select></div>
+    <div class="field"><label>Miktar</label><select id="lnk-miktar"></select></div>
+    <div class="field"><label>Birim</label><select id="lnk-birim"></select></div>
+    <div class="field"><label>Firma</label><select id="lnk-firma"></select></div>
+    <div class="field"><label>Sipariş No</label><select id="lnk-sipno"></select></div>
+    <div class="field"><label>Tarih</label><select id="lnk-tarih"></select></div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mLNKolon')">İptal</button>
+      <button class="btn btn-primary" onclick="applyLNKolon()">✅ Uygula</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+// SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
+// sLD/hLD/toast/escapeHtml/round2/kModal/aModal/loadXlsxLib -> ortak.js
+
+let DB={lnSiparisler:{}};
+let lnRows=[];
+let lnFilter='bekleyen';
+
+async function loadDB(){
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/ln_siparisler?select=*',{headers:SB_HEADERS});
+    DB.lnSiparisler={};
+    if(r.ok){
+      (await r.json()).forEach(row=>{
+        DB.lnSiparisler[row.siparis_no]={
+          siparisNo:row.siparis_no,firma:row.firma||'',tarih:row.tarih||'',
+          kalemler:row.kalemler||[],durum:row.durum||'bekleyen',
+          yuklenmeTarih:row.yuklenme_tarihi?new Date(row.yuklenme_tarihi).getTime():Date.now()
+        };
+      });
+    }
+  }catch(e){console.warn(e);}
+  hLD();
+}
+
+// LN siparişlerini Supabase'e toplu upsert (Excel içe aktarma sonrası)
+async function saveLnSiparisler(sipObjList){
+  const satirlar=sipObjList.map(s=>({
+    siparis_no:s.siparisNo,firma:s.firma||null,tarih:s.tarih||null,
+    kalemler:s.kalemler||[],durum:s.durum||'bekleyen'
+  }));
+  try{
+    await fetch(SB_URL+'/rest/v1/ln_siparisler?on_conflict=siparis_no',{
+      method:'POST',
+      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify(satirlar)
+    });
+  }catch(e){console.warn(e);}
+}
+
+// ====== LN SİPARİŞLER ======
+function filterLN(f,el){
+  lnFilter=f;
+  document.querySelectorAll('#tab-siparisler .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderLN();
+}
+
+function renderLN(){
+  const c=document.getElementById('ln-liste');if(!c)return;
+  let liste=Object.values(DB.lnSiparisler||{}).filter(Boolean);
+  if(lnFilter!=='tumu')liste=liste.filter(s=>s.durum===lnFilter||(!s.durum&&lnFilter==='bekleyen'));
+  liste.sort((a,b)=>(b.yuklenmeTarih||0)-(a.yuklenmeTarih||0));
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">'+(lnFilter==='bekleyen'?'Bekleyen sipariş yok':'Kayıt yok')+'</div></div>';return;}
+  c.innerHTML=liste.map(s=>{
+    const kalemler=s.kalemler||[];
+    const geldi=kalemler.filter(k=>k.geldi).length;
+    const pct=kalemler.length>0?Math.round(geldi/kalemler.length*100):0;
+    return`<div class="skart ${s.durum||'bekleyen'}" onclick="openLNDetay('${s.siparisNo||s.id}')">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <div><div style="font-size:13px;font-weight:700">${s.firma||'—'}</div><div style="font-size:11px;color:var(--gray-500)">${s.siparisNo} • ${s.tarih?new Date(s.tarih).toLocaleDateString('tr-TR'):''}</div></div>
+        <span class="chip ${s.durum==='tamamlandi'?'chip-ok':s.durum==='kismi'?'chip-warn':'chip-gray'}">${s.durum==='tamamlandi'?'✅':s.durum==='kismi'?'🔶':'⏳'} ${kalemler.length} kalem</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill ${pct===100?'ok':pct>0?'warn':'err'}" style="width:${pct}%"></div></div>
+      <div style="font-size:11px;color:var(--gray-500);margin-top:4px">${geldi}/${kalemler.length} kalem geldi</div>
+    </div>`;
+  }).join('');
+}
+
+function openLNDetay(siparisNo){
+  const s=Object.values(DB.lnSiparisler).find(x=>(x.siparisNo||x.id)===siparisNo);
+  if(!s)return;
+  const kalemler=s.kalemler||[];
+  const eksikler=kalemler.filter(k=>!k.geldi);
+  const gelenler=kalemler.filter(k=>k.geldi);
+  document.getElementById('mLNDetayIc').innerHTML=`
+    <div style="margin-bottom:12px">
+      <div style="font-size:15px;font-weight:700">${s.firma||'—'}</div>
+      <div style="font-size:12px;color:var(--gray-500)">${s.siparisNo} • ${s.tarih?new Date(s.tarih).toLocaleDateString('tr-TR'):''}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="text-align:center;background:var(--gray-100);border-radius:8px;padding:10px"><div style="font-size:22px;font-weight:800">${kalemler.length}</div><div style="font-size:10px;color:var(--gray-500)">Toplam</div></div>
+      <div style="text-align:center;background:#d4edda;border-radius:8px;padding:10px"><div style="font-size:22px;font-weight:800;color:var(--success)">${gelenler.length}</div><div style="font-size:10px;color:var(--success)">Geldi</div></div>
+      <div style="text-align:center;background:#fde8e8;border-radius:8px;padding:10px"><div style="font-size:22px;font-weight:800;color:var(--danger)">${eksikler.length}</div><div style="font-size:10px;color:var(--danger)">Eksik</div></div>
+    </div>
+    ${eksikler.length?`<div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px">⚠️ Gelmeyen Kalemler</div>
+    ${eksikler.map(k=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100)"><div><div style="font-size:13px;font-weight:600">${k.urunAd}</div><div style="font-size:11px;color:var(--gray-400)">${k.lnKod}</div></div><span style="font-size:13px;font-weight:700;color:var(--danger)">${k.miktar} ${k.birim}</span></div>`).join('')}`:''}
+    ${gelenler.length?`<div style="font-size:12px;font-weight:700;color:var(--success);margin:10px 0 6px">✅ Gelen Kalemler</div>
+    ${gelenler.map(k=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100)"><div style="font-size:13px">${k.urunAd}</div><span style="font-size:13px;color:var(--success)">${k.miktar} ${k.birim}</span></div>`).join('')}`:''}
+    <div class="brow" style="margin-top:12px">
+      <button class="btn btn-gray" onclick="kModal('mLNDetay')">Kapat</button>
+      ${eksikler.length?`<button class="btn btn-primary" onclick="kModal('mLNDetay');lnEksikleriAktar('${siparisNo}')">📋 Mal Kabule Aktar</button>`:''}
+    </div>`;
+  aModal('mLNDetay');
+}
+
+function lnEksikleriAktar(siparisNo){
+  // Mal kabul modülüne yönlendir (mal-kabul-v2.html — initApp() bu anahtarı okuyup siparişi otomatik yükler)
+  sessionStorage.setItem('gurok_malkabul_siparisNo',siparisNo);
+  location.href='mal-kabul-v2.html';
+}
+
+// LN Excel Import
+async function parseLNExcel(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  await loadXlsxLib();
+  sLD();
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',raw:false});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});
+      hLD();
+      const headers=rows[0]||[];const ornek=rows[1]||[];
+      const opts=headers.map((h,i)=>`<option value="${i}">${h||'Kolon '+(i+1)} — ${String(ornek[i]||'').slice(0,20)}</option>`).join('');
+      document.getElementById('lnk-kod').innerHTML=opts;
+      document.getElementById('lnk-ad').innerHTML=opts;
+      document.getElementById('lnk-miktar').innerHTML=opts;
+      document.getElementById('lnk-birim').innerHTML=`<option value="-1">— Sabit KG —</option>`+opts;
+      document.getElementById('lnk-firma').innerHTML=`<option value="-1">— Yok —</option>`+opts;
+      document.getElementById('lnk-sipno').innerHTML=opts;
+      document.getElementById('lnk-tarih').innerHTML=`<option value="-1">— Yok —</option>`+opts;
+      document.getElementById('lnk-bilgi').textContent=`${rows.length-1} satır okundu`;
+      lnRows=rows;
+      aModal('mLNKolon');
+    }catch(err){hLD();toast('❌ Dosya okunamadı: '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function applyLNKolon(){
+  const kodIdx=parseInt(document.getElementById('lnk-kod').value);
+  const adIdx=parseInt(document.getElementById('lnk-ad').value);
+  const miktarIdx=parseInt(document.getElementById('lnk-miktar').value);
+  const birimIdx=parseInt(document.getElementById('lnk-birim').value);
+  const firmaIdx=parseInt(document.getElementById('lnk-firma').value);
+  const sipNoIdx=parseInt(document.getElementById('lnk-sipno').value);
+  const tarihIdx=parseInt(document.getElementById('lnk-tarih').value);
+  kModal('mLNKolon');sLD();
+  const sipMap={};
+  lnRows.slice(1).forEach(row=>{
+    const kod=(row[kodIdx]||'').trim();const ad=(row[adIdx]||'').trim();
+    const miktar=parseFloat((row[miktarIdx]||'0').toString().replace(',','.'));
+    const birim=birimIdx>=0?(row[birimIdx]||'KG').trim():'KG';
+    const firma=firmaIdx>=0?(row[firmaIdx]||'').trim():'';
+    const sipNo=(row[sipNoIdx]||'').trim();
+    const tarih=tarihIdx>=0?(row[tarihIdx]||'').trim():'';
+    if(!sipNo||!kod)return;
+    if(!sipMap[sipNo])sipMap[sipNo]={siparisNo:sipNo,firma,tarih,kalemler:[],durum:'bekleyen',yuklenmeTarih:Date.now()};
+    sipMap[sipNo].kalemler.push({lnKod:kod,urunAd:ad,miktar,birim,geldi:false});
+  });
+  const yeni=Object.values(sipMap);
+  yeni.forEach(s=>{DB.lnSiparisler[s.siparisNo]=s;});
+  await saveLnSiparisler(yeni);
+  hLD();toast(`✅ ${yeni.length} sipariş, ${yeni.reduce((t,s)=>t+s.kalemler.length,0)} kalem yüklendi`);
+  renderLN();
+}
+
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ====== INIT ======
+(async function(){
+  if(!CU) return;
+  document.getElementById('hsub').textContent=CU.ad;
+  await loadDB();
+  renderLN();
+})();
+</script>
+</body>
+</html>

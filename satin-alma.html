@@ -87,13 +87,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- Tab Bar -->
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('talepler',this)">📋 İç Talepler</button>
-    <button class="tabbtn" onclick="gTab('siparisler',this)">📦 LN Siparişler</button>
+    <button class="tabbtn" onclick="location.href='satin-alma-siparisler.html'">📦 LN Siparişler</button>
     <button class="tabbtn" onclick="gTab('yeniSiparis',this)">✉️ Sipariş Oluştur</button>
-    <button class="tabbtn" onclick="gTab('firmalar',this)">🏢 Firmalar</button>
+    <button class="tabbtn" onclick="location.href='satin-alma-firmalar.html'">🏢 Firmalar</button>
     <button class="tabbtn" onclick="gTab('siparisTakip',this)">📊 Sipariş Takip</button>
-    <button class="tabbtn" onclick="gTab('fiyatKontrol',this)" id="tab-btn-fiyatKontrol">💰 Fiyat Kontrolü <span id="fk-badge" style="display:none;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px"></span></button>
+    <button class="tabbtn" onclick="location.href='satin-alma-fiyatkontrol.html'">💰 Fiyat Kontrolü</button>
     <button class="tabbtn" onclick="gTab('iade',this)">↩️ İade</button>
-    <button class="tabbtn" onclick="gTab('skorKart',this)">⭐ Tedarikçi Skor Kartı</button>
+    <button class="tabbtn" onclick="location.href='satin-alma-skorkart.html'">⭐ Tedarikçi Skor Kartı</button>
     <button class="tabbtn" onclick="gTab('teklifler',this)">📨 Teklifler</button>
   </div>
 
@@ -117,22 +117,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <!-- LN SİPARİŞLER -->
-  <div class="sc" id="tab-siparisler">
-    <div class="card">
-      <div class="card-title">📂 LN Infor Sipariş Import
-        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="document.getElementById('ln-input').click()">⬆️ Excel Yükle</button>
-        <input type="file" id="ln-input" accept=".xlsx,.xls" style="display:none" onchange="parseLNExcel(event)">
-      </div>
-    </div>
-    <div class="ftabs">
-      <button class="ftab active" onclick="filterLN('bekleyen',this)">⏳ Bekleyen</button>
-      <button class="ftab" onclick="filterLN('kismi',this)">🔶 Kısmen Geldi</button>
-      <button class="ftab" onclick="filterLN('tamamlandi',this)">✅ Tamamlandı</button>
-      <button class="ftab" onclick="filterLN('tumu',this)">Tümü</button>
-    </div>
-    <div id="ln-liste"></div>
-  </div>
-
   <!-- SİPARİŞ SEPETİ -->
   <div class="sc" id="tab-yeniSiparis">
     <!-- Adım 1: Kalem Girişi -->
@@ -179,14 +163,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <!-- FİRMALAR -->
-  <div class="sc" id="tab-firmalar">
-    <div class="card">
-      <div class="card-title">🔍 Firma Ara</div>
-      <input type="text" id="firma-ara" placeholder="Firma adı..." oninput="renderFirmalar(this.value)" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none">
-    </div>
-    <div id="firmalar-liste"></div>
-  </div>
-
   <!-- SİPARİŞ TAKİP -->
   <div class="sc" id="tab-siparisTakip">
     <div class="card">
@@ -205,25 +181,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <!-- FİYAT KONTROLÜ PANELİ -->
-  <div class="sc" id="tab-fiyatKontrol">
-    <div class="card">
-      <div class="card-title">💰 Fiyat Kontrolü
-        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadFiyatKontrol()">🔄 Yenile</button>
-      </div>
-      <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">
-        Deponun fatura eşleştirdiği kabul kayıtları — fiyatları kontrol edip Muhasebe'ye gönderin
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px" id="fk-stats"></div>
-    </div>
-    <div class="ftabs">
-      <button class="ftab active" id="fk-tab-bekleyen" onclick="filterFiyatKontrol('bekleyen',this)">⏳ Kontrol Bekliyor</button>
-      <button class="ftab" id="fk-tab-kontrol" onclick="filterFiyatKontrol('kontrol',this)">✅ Kontrol Edildi</button>
-      <button class="ftab" id="fk-tab-muhasebe" onclick="filterFiyatKontrol('muhasebe',this)">📤 Muhasebe'ye Gönderildi</button>
-      <button class="ftab" id="fk-tab-tumu" onclick="filterFiyatKontrol('tumu',this)">Tümü</button>
-    </div>
-    <div id="fiyat-kontrol-liste"></div>
-  </div>
-
   <!-- İADE -->
   <div class="sc" id="tab-iade">
     <div class="card">
@@ -282,39 +239,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="iade-takip-liste"></div>
   </div>
 
-  <!-- TEDARİKÇİ SKOR KARTI -->
-  <div class="sc" id="tab-skorKart">
-    <div class="card">
-      <div class="card-title" style="justify-content:space-between">
-        <span>⭐ Tedarikçi Skor Kartı</span>
-        <button class="hbtn" style="width:auto;height:auto;padding:6px 10px;border-radius:8px;background:var(--gray-200);color:var(--primary);font-size:11px" onclick="_skorKartVeri=null;renderSkorKart()">🔄 Yenile</button>
-      </div>
-      <p style="font-size:12px;color:var(--gray-500)">Mal Kabul, Uygunsuzluk ve Sipariş verilerinden otomatik hesaplanır. <b>Skor:</b> Kalite %40 + Teslimat Hızı %40 + Fatura Eşleşme %20 → 0-100 puan.</p>
-      <div class="rfields">
-        <div class="field"><label>Otel</label>
-          <select id="sk-otel-filtre" onchange="renderSkorKart()">
-            <option value="">Tümü</option>
-            <option value="810">🏨 Club</option>
-            <option value="811">🏨 Resort</option>
-          </select>
-        </div>
-        <div class="field"><label>Sırala</label>
-          <select id="sk-sirala" onchange="renderSkorKart()">
-            <option value="skor_desc">⭐ Skor (yüksek→düşük)</option>
-            <option value="skor_asc">⭐ Skor (düşük→yüksek)</option>
-            <option value="uygunsuz_desc">Uygunsuzluk oranı (yüksek→düşük)</option>
-            <option value="teslimat_desc">Teslimat sayısı (çok→az)</option>
-            <option value="sure_desc">Ort. teslimat süresi (uzun→kısa)</option>
-            <option value="fatura_asc">Fatura eşleşme oranı (düşük→yüksek)</option>
-          </select>
-        </div>
-      </div>
-      <input type="text" id="sk-ara" placeholder="Firma ara..." oninput="renderSkorKart()" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none;margin-top:4px">
-    </div>
-    <div id="skorKart-stats" class="rfields"></div>
-    <div id="skorKart-liste"></div>
-  </div>
-
   <!-- TEKLİFLER (RFQ) -->
   <div class="sc" id="tab-teklifler">
     <div class="ftabs" id="teklif-ftabs">
@@ -327,17 +251,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 </div>
 
 <!-- MODAL: Fiyat Kontrol Detay -->
-<div class="mo" id="mFiyatKontrol">
-  <div class="mbox" style="max-height:95vh">
-    <div class="mtitle">💰 Fiyat Kontrolü <button class="mclose" onclick="kModal('mFiyatKontrol')">✕</button></div>
-    <div id="fk-modal-content"></div>
-    <div style="margin-top:14px;display:flex;gap:8px">
-      <button class="btn btn-gray" onclick="kModal('mFiyatKontrol')">Kapat</button>
-      <button class="btn btn-success" style="flex:1" id="fk-muhasebe-btn" onclick="muhasebeGonder()">📤 Muhasebe'ye Gönder</button>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL: İade Detay / Fiyat Belirle -->
 <div class="mo" id="mIadeDetay">
   <div class="mbox" style="max-height:95vh">
@@ -438,33 +351,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 </div>
 
-<!-- MODAL: LN Sipariş Detay -->
-<div class="mo" id="mLNDetay">
-  <div class="mbox">
-    <div class="mtitle">📦 Sipariş Detayı <button class="mclose" onclick="kModal('mLNDetay')">✕</button></div>
-    <div id="mLNDetayIc"></div>
-  </div>
-</div>
-
-<!-- MODAL: LN Kolon Eşleştir -->
-<div class="mo" id="mLNKolon">
-  <div class="mbox">
-    <div class="mtitle">📂 Kolon Eşleştir <button class="mclose" onclick="kModal('mLNKolon')">✕</button></div>
-    <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px" id="lnk-bilgi"></p>
-    <div class="field"><label>LN Ürün Kodu</label><select id="lnk-kod"></select></div>
-    <div class="field"><label>Ürün Adı</label><select id="lnk-ad"></select></div>
-    <div class="field"><label>Miktar</label><select id="lnk-miktar"></select></div>
-    <div class="field"><label>Birim</label><select id="lnk-birim"></select></div>
-    <div class="field"><label>Firma</label><select id="lnk-firma"></select></div>
-    <div class="field"><label>Sipariş No</label><select id="lnk-sipno"></select></div>
-    <div class="field"><label>Tarih</label><select id="lnk-tarih"></select></div>
-    <div class="brow">
-      <button class="btn btn-gray" onclick="kModal('mLNKolon')">İptal</button>
-      <button class="btn btn-primary" onclick="applyLNKolon()">✅ Uygula</button>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
@@ -487,10 +373,9 @@ const TUSERS = [
 const RIKSON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍',mutfak:'🍳',bar:'🍹'};
 
 let CU=null;
-let DB={talepler:{},lnSiparisler:{},siparisler:{},kullanicilar:[...TUSERS],firmalar:[],teklifler:{}};
+let DB={talepler:{},siparisler:{},kullanicilar:[...TUSERS],firmalar:[],teklifler:{}};
 // SP_SATIRLAR aşağıda tanımlandı
-let lnRows=[];
-let talepFilter='tumu', lnFilter='bekleyen', teklifFilter='tumu';
+let talepFilter='tumu', teklifFilter='tumu';
 
 // CU'nun onay yetkisi olduğu asama'lar — kullaniciAsamaYetkiliMi() async olduğu için
 // renderTalepler() senkron kalabilsin diye loadDB() sonrası bir kez önceden hesaplanır.
@@ -531,9 +416,8 @@ async function loadKullanicilarFromSupabase(){
 async function loadDB(){
   sLD();
   try{
-    const [tR,lnR,kulR]=await Promise.all([
+    const [tR,kulR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/satin_alma_talepleri?select=*,satin_alma_talep_kalemleri(*)',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/ln_siparisler?select=*',{headers:SB_HEADERS}),
       loadKullanicilarFromSupabase(),
     ]);
     DB.talepler={};
@@ -545,16 +429,6 @@ async function loadDB(){
           departman:r.departman,personel:r.talep_eden||'',aciliyet:r.aciliyet,not:r.not_alani||'',otelId:r.otel_id||'810',
           durum:r.durum,asama:r.asama||'depo',tutar:r.tutar,onaylayanAd:r.onaylayan_ad||'',onayTarih:r.onay_tarihi||null,
           satirlar:(r.satin_alma_talep_kalemleri||[]).map(k=>({id:k.id,ad:k.urun_adi,kod:k.urun_kodu||'',miktar:k.miktar,birim:k.birim}))
-        };
-      });
-    }
-    DB.lnSiparisler={};
-    if(lnR.ok){
-      (await lnR.json()).forEach(r=>{
-        DB.lnSiparisler[r.siparis_no]={
-          siparisNo:r.siparis_no,firma:r.firma||'',tarih:r.tarih||'',
-          kalemler:r.kalemler||[],durum:r.durum||'bekleyen',
-          yuklenmeTarih:r.yuklenme_tarihi?new Date(r.yuklenme_tarihi).getTime():Date.now()
         };
       });
     }
@@ -571,21 +445,6 @@ function loadFirmalar(){
   DB.urunler  = typeof URUN_DB  !== 'undefined' ? URUN_DB  : [];
 }
 
-// LN siparişlerini Supabase'e toplu upsert (Excel içe aktarma sonrası)
-async function saveLnSiparisler(sipObjList){
-  const satirlar=sipObjList.map(s=>({
-    siparis_no:s.siparisNo,firma:s.firma||null,tarih:s.tarih||null,
-    kalemler:s.kalemler||[],durum:s.durum||'bekleyen'
-  }));
-  try{
-    await fetch(SB_URL+'/rest/v1/ln_siparisler?on_conflict=siparis_no',{
-      method:'POST',
-      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify(satirlar)
-    });
-  }catch(e){console.warn(e);}
-}
-
 // ====== BAŞLA ======
 function basla(){
   document.getElementById('hsub').textContent=(RIKSON[CU.rol]||'👤')+' '+CU.ad;
@@ -600,10 +459,7 @@ function gTab(tab,el){
   if(el2)el2.style.display='block';
   if(el)el.classList.add('active');
   if(tab==='talepler')renderTalepler();
-  if(tab==='siparisler')renderLN();
-  if(tab==='firmalar')renderFirmalar('');
   if(tab==='siparisTakip')loadSiparisTakip();
-  if(tab==='fiyatKontrol')loadFiyatKontrol();
   if(tab==='yeniSiparis'){
     document.getElementById('sp-tarih').value=new Date().toISOString().split('T')[0];
     document.getElementById('sp-termin').value='';
@@ -613,7 +469,6 @@ function gTab(tab,el){
     if(IADE_SATIRLAR.length===0)addIadeSatir();
     loadIadeTakip();
   }
-  if(tab==='skorKart')renderSkorKart();
   if(tab==='teklifler')loadTeklifler();
 }
 
@@ -1599,125 +1454,6 @@ async function teklifSecilenleriSiparisDonustur(teklifTalepId){
   }catch(e){console.warn(e);hLD();toast('❌ Siparişe dönüştürme başarısız');}
 }
 
-// ====== LN SİPARİŞLER ======
-function filterLN(f,el){
-  lnFilter=f;
-  document.querySelectorAll('#tab-siparisler .ftab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  renderLN();
-}
-
-function renderLN(){
-  const c=document.getElementById('ln-liste');if(!c)return;
-  let liste=Object.values(DB.lnSiparisler||{}).filter(Boolean);
-  if(lnFilter!=='tumu')liste=liste.filter(s=>s.durum===lnFilter||(!s.durum&&lnFilter==='bekleyen'));
-  liste.sort((a,b)=>(b.yuklenmeTarih||0)-(a.yuklenmeTarih||0));
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">'+(lnFilter==='bekleyen'?'Bekleyen sipariş yok':'Kayıt yok')+'</div></div>';return;}
-  c.innerHTML=liste.map(s=>{
-    const kalemler=s.kalemler||[];
-    const geldi=kalemler.filter(k=>k.geldi).length;
-    const pct=kalemler.length>0?Math.round(geldi/kalemler.length*100):0;
-    return`<div class="skart ${s.durum||'bekleyen'}" onclick="openLNDetay('${s.siparisNo||s.id}')">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-        <div><div style="font-size:13px;font-weight:700">${s.firma||'—'}</div><div style="font-size:11px;color:var(--gray-500)">${s.siparisNo} • ${s.tarih?new Date(s.tarih).toLocaleDateString('tr-TR'):''}</div></div>
-        <span class="chip ${s.durum==='tamamlandi'?'chip-ok':s.durum==='kismi'?'chip-warn':'chip-gray'}">${s.durum==='tamamlandi'?'✅':s.durum==='kismi'?'🔶':'⏳'} ${kalemler.length} kalem</span>
-      </div>
-      <div class="prog-bar"><div class="prog-fill ${pct===100?'ok':pct>0?'warn':'err'}" style="width:${pct}%"></div></div>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:4px">${geldi}/${kalemler.length} kalem geldi</div>
-    </div>`;
-  }).join('');
-}
-
-function openLNDetay(siparisNo){
-  const s=Object.values(DB.lnSiparisler).find(x=>(x.siparisNo||x.id)===siparisNo);
-  if(!s)return;
-  const kalemler=s.kalemler||[];
-  const eksikler=kalemler.filter(k=>!k.geldi);
-  const gelenler=kalemler.filter(k=>k.geldi);
-  document.getElementById('mLNDetayIc').innerHTML=`
-    <div style="margin-bottom:12px">
-      <div style="font-size:15px;font-weight:700">${s.firma||'—'}</div>
-      <div style="font-size:12px;color:var(--gray-500)">${s.siparisNo} • ${s.tarih?new Date(s.tarih).toLocaleDateString('tr-TR'):''}</div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-      <div style="text-align:center;background:var(--gray-100);border-radius:8px;padding:10px"><div style="font-size:22px;font-weight:800">${kalemler.length}</div><div style="font-size:10px;color:var(--gray-500)">Toplam</div></div>
-      <div style="text-align:center;background:#d4edda;border-radius:8px;padding:10px"><div style="font-size:22px;font-weight:800;color:var(--success)">${gelenler.length}</div><div style="font-size:10px;color:var(--success)">Geldi</div></div>
-      <div style="text-align:center;background:#fde8e8;border-radius:8px;padding:10px"><div style="font-size:22px;font-weight:800;color:var(--danger)">${eksikler.length}</div><div style="font-size:10px;color:var(--danger)">Eksik</div></div>
-    </div>
-    ${eksikler.length?`<div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px">⚠️ Gelmeyen Kalemler</div>
-    ${eksikler.map(k=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100)"><div><div style="font-size:13px;font-weight:600">${k.urunAd}</div><div style="font-size:11px;color:var(--gray-400)">${k.lnKod}</div></div><span style="font-size:13px;font-weight:700;color:var(--danger)">${k.miktar} ${k.birim}</span></div>`).join('')}`:''}
-    ${gelenler.length?`<div style="font-size:12px;font-weight:700;color:var(--success);margin:10px 0 6px">✅ Gelen Kalemler</div>
-    ${gelenler.map(k=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100)"><div style="font-size:13px">${k.urunAd}</div><span style="font-size:13px;color:var(--success)">${k.miktar} ${k.birim}</span></div>`).join('')}`:''}
-    <div class="brow" style="margin-top:12px">
-      <button class="btn btn-gray" onclick="kModal('mLNDetay')">Kapat</button>
-      ${eksikler.length?`<button class="btn btn-primary" onclick="kModal('mLNDetay');lnEksikleriAktar('${siparisNo}')">📋 Mal Kabule Aktar</button>`:''}
-    </div>`;
-  aModal('mLNDetay');
-}
-
-function lnEksikleriAktar(siparisNo){
-  // Mal kabul modülüne yönlendir (mal-kabul-v2.html — initApp() bu anahtarı okuyup siparişi otomatik yükler)
-  sessionStorage.setItem('gurok_malkabul_siparisNo',siparisNo);
-  location.href='mal-kabul-v2.html';
-}
-
-// LN Excel Import
-async function parseLNExcel(event){
-  const file=event.target.files[0];if(!file)return;event.target.value='';
-  await loadXlsxLib();
-  sLD();
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    try{
-      const wb=XLSX.read(e.target.result,{type:'array',raw:false});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});
-      hLD();
-      const headers=rows[0]||[];const ornek=rows[1]||[];
-      const opts=headers.map((h,i)=>`<option value="${i}">${h||'Kolon '+(i+1)} — ${String(ornek[i]||'').slice(0,20)}</option>`).join('');
-      document.getElementById('lnk-kod').innerHTML=opts;
-      document.getElementById('lnk-ad').innerHTML=opts;
-      document.getElementById('lnk-miktar').innerHTML=opts;
-      document.getElementById('lnk-birim').innerHTML=`<option value="-1">— Sabit KG —</option>`+opts;
-      document.getElementById('lnk-firma').innerHTML=`<option value="-1">— Yok —</option>`+opts;
-      document.getElementById('lnk-sipno').innerHTML=opts;
-      document.getElementById('lnk-tarih').innerHTML=`<option value="-1">— Yok —</option>`+opts;
-      document.getElementById('lnk-bilgi').textContent=`${rows.length-1} satır okundu`;
-      lnRows=rows;
-      aModal('mLNKolon');
-    }catch(err){hLD();toast('❌ Dosya okunamadı: '+err.message);}
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-async function applyLNKolon(){
-  const kodIdx=parseInt(document.getElementById('lnk-kod').value);
-  const adIdx=parseInt(document.getElementById('lnk-ad').value);
-  const miktarIdx=parseInt(document.getElementById('lnk-miktar').value);
-  const birimIdx=parseInt(document.getElementById('lnk-birim').value);
-  const firmaIdx=parseInt(document.getElementById('lnk-firma').value);
-  const sipNoIdx=parseInt(document.getElementById('lnk-sipno').value);
-  const tarihIdx=parseInt(document.getElementById('lnk-tarih').value);
-  kModal('mLNKolon');sLD();
-  const sipMap={};
-  lnRows.slice(1).forEach(row=>{
-    const kod=(row[kodIdx]||'').trim();const ad=(row[adIdx]||'').trim();
-    const miktar=parseFloat((row[miktarIdx]||'0').toString().replace(',','.'));
-    const birim=birimIdx>=0?(row[birimIdx]||'KG').trim():'KG';
-    const firma=firmaIdx>=0?(row[firmaIdx]||'').trim():'';
-    const sipNo=(row[sipNoIdx]||'').trim();
-    const tarih=tarihIdx>=0?(row[tarihIdx]||'').trim():'';
-    if(!sipNo||!kod)return;
-    if(!sipMap[sipNo])sipMap[sipNo]={siparisNo:sipNo,firma,tarih,kalemler:[],durum:'bekleyen',yuklenmeTarih:Date.now()};
-    sipMap[sipNo].kalemler.push({lnKod:kod,urunAd:ad,miktar,birim,geldi:false});
-  });
-  const yeni=Object.values(sipMap);
-  yeni.forEach(s=>{DB.lnSiparisler[s.siparisNo]=s;});
-  await saveLnSiparisler(yeni);
-  hLD();toast(`✅ ${yeni.length} sipariş, ${yeni.reduce((t,s)=>t+s.kalemler.length,0)} kalem yüklendi`);
-  renderLN();
-}
-
 // ====== YENİ SİPARİŞ OLUŞTUR ======
 // ====== SİPARİŞ SEPETİ ======
 let SP_SATIRLAR = [];
@@ -1926,382 +1662,6 @@ function spMail(gi){
 }
 
 function spMailGonder(){spMail(0);}// eski referans için
-
-// ============================================================
-// FİYAT KONTROLÜ — Deponun fatura eşleştirdiği kayıtları al
-// ============================================================
-let _fkFilter='bekleyen';
-let _fkFormlar=[];
-let _fkAktifId=null;
-
-async function loadFiyatKontrol(){
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/mal_kabuller?durum=eq.onaylandi&fatura_no=not.is.null&select=*,mal_kabul_urunleri(*)',{headers:SB_HEADERS});
-    if(r.ok){
-      const rows=await r.json();
-      _fkFormlar=rows.map(fkSbdenCamele);
-    }
-  }catch(e){console.warn(e);}
-  renderFiyatKontrol();
-}
-
-function fkSbdenCamele(r){
-  const urunler=(r.mal_kabul_urunleri||[]).map(u=>({
-    id:u.id,kod:u.urun_kodu||'',ad:u.urun_adi,miktar:u.miktar,birim:u.birim,
-    birimFiyat:u.birim_fiyat?parseFloat(u.birim_fiyat):0
-  }));
-  return{
-    id:r.id,durum:r.durum,faturaNo:r.fatura_no,mkNo:r.mk_no,firma:r.firma_ad,
-    formTarih:r.form_tarihi,irsaliyeNo:r.irsaliye_no,lnSiparisNo:r.ln_siparis_no,
-    otelId:r.otel_id||null,
-    urunler,
-    fiyatlar:urunler.map(u=>u.birimFiyat||0),
-    fiyatKontrolDurum:r.fiyat_kontrol_durum||null,
-    fiyatKontrolNotu:r.fiyat_kontrol_notu||'',
-    fiyatKontrolTarih:r.fiyat_kontrol_tarihi?new Date(r.fiyat_kontrol_tarihi).getTime():null,
-    muhasebeFaturaId:r.muhasebe_fatura_id||null,
-    tarih:r.form_tarihi?new Date(r.form_tarihi).getTime():0
-  };
-}
-
-function filterFiyatKontrol(f,el){
-  _fkFilter=f;
-  document.querySelectorAll('#tab-fiyatKontrol .ftab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  renderFiyatKontrol();
-}
-
-function renderFiyatKontrol(){
-  // Sadece onaylı ve fatura no girilmiş formlar
-  const onaylilar=_fkFormlar.filter(f=>f&&f.durum==='onaylandi'&&f.faturaNo);
-
-  // fiyatKontrolDurum: undefined=bekleyen, 'kontrol'=edildi, 'muhasebe'=gönderildi
-  const bekleyen=onaylilar.filter(f=>!f.fiyatKontrolDurum);
-  const kontrol=onaylilar.filter(f=>f.fiyatKontrolDurum==='kontrol');
-  const muhasebe=onaylilar.filter(f=>f.fiyatKontrolDurum==='muhasebe');
-
-  // Badge güncelle
-  const badge=document.getElementById('fk-badge');
-  if(badge){
-    if(bekleyen.length){badge.textContent=bekleyen.length;badge.style.display='inline';}
-    else badge.style.display='none';
-  }
-
-  // Stats
-  document.getElementById('fk-stats').innerHTML=`
-    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-      <div style="font-size:18px;font-weight:800;color:var(--warning)">${bekleyen.length}</div>
-      <div style="font-size:10px;color:var(--gray-500)">KONTROL BEKLİYOR</div>
-    </div>
-    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-      <div style="font-size:18px;font-weight:800;color:var(--info)">${kontrol.length}</div>
-      <div style="font-size:10px;color:var(--gray-500)">KONTROL EDİLDİ</div>
-    </div>
-    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-      <div style="font-size:18px;font-weight:800;color:var(--success)">${muhasebe.length}</div>
-      <div style="font-size:10px;color:var(--gray-500)">MUHASEBE'DE</div>
-    </div>`;
-
-  let liste=onaylilar;
-  if(_fkFilter==='bekleyen')liste=bekleyen;
-  else if(_fkFilter==='kontrol')liste=kontrol;
-  else if(_fkFilter==='muhasebe')liste=muhasebe;
-  liste=liste.sort((a,b)=>(b.tarih||0)-(a.tarih||0));
-
-  const c=document.getElementById('fiyat-kontrol-liste');
-  if(!liste.length){
-    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:var(--gray-400)">
-      <div style="font-size:40px;margin-bottom:12px">💰</div>
-      <div style="font-size:13px">${_fkFilter==='bekleyen'?'Fiyat kontrolü bekleyen kayıt yok':'Kayıt bulunamadı'}</div>
-      <div style="font-size:11px;margin-top:6px;color:var(--gray-300)">Depo fatura numarası girdikten sonra burada görünür</div>
-    </div>`;
-    return;
-  }
-
-  c.innerHTML=liste.map(f=>{
-    const durumRenk={bekleyen:'var(--warning)',kontrol:'var(--info)',muhasebe:'var(--success)'}[f.fiyatKontrolDurum||'bekleyen'];
-    const durumYazi={bekleyen:'⏳ Kontrol Bekliyor',kontrol:'✅ Kontrol Edildi',muhasebe:'📤 Muhasebe\'de'}[f.fiyatKontrolDurum||'bekleyen'];
-    const kalemSayisi=(f.urunler||[]).length;
-    const fiyatGirildi=(f.fiyatlar||[]).filter(p=>p>0).length;
-
-    return`<div class="card" style="margin-bottom:8px;cursor:pointer;border-left:4px solid ${durumRenk}" onclick="fkDetayAc('${f.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
-            <span style="font-family:monospace;font-weight:800;color:var(--primary);font-size:12px">${f.mkNo||'—'}</span>
-            <span style="font-size:11px;font-weight:600;color:${durumRenk}">${durumYazi}</span>
-          </div>
-          <div style="font-size:13px;font-weight:700">🏢 ${f.firma||'—'}</div>
-          <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
-            ${f.formTarih||'—'}
-            ${f.irsaliyeNo?' • İrs: <b>'+f.irsaliyeNo+'</b>':''}
-            ${f.faturaNo?' • Fat: <b>'+f.faturaNo+'</b>':''}
-          </div>
-          ${f.lnSiparisNo?`<div style="font-size:11px;color:#5b21b6;font-family:monospace;margin-top:2px">${f.lnSiparisNo.split(',')[0]}${f.lnSiparisNo.includes(',')?'...':''}</div>`:''}
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:16px;font-weight:800;color:var(--primary)">${kalemSayisi}</div>
-          <div style="font-size:10px;color:var(--gray-500)">KALEM</div>
-          ${fiyatGirildi>0?`<div style="font-size:10px;color:var(--success);margin-top:2px">${fiyatGirildi}/${kalemSayisi} fiyat</div>`:''}
-        </div>
-      </div>
-      <!-- Progress bar fiyat girişi -->
-      <div style="height:4px;background:var(--gray-200);border-radius:2px;overflow:hidden">
-        <div style="height:100%;background:${durumRenk};width:${kalemSayisi>0?Math.round(fiyatGirildi/kalemSayisi*100):0}%;transition:width .3s"></div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// ============================================================
-// FİYAT KONTROL DETAY MODAL
-// ============================================================
-function fkDetayAc(formId){
-  const f=_fkFormlar.find(x=>String(x.id)===String(formId));
-  if(!f)return;
-  _fkAktifId=String(formId);
-
-  const fiyatlar=f.fiyatlar||new Array((f.urunler||[]).length).fill(0);
-
-  document.getElementById('fk-modal-content').innerHTML=`
-    <!-- Başlık bilgileri -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;font-size:12px">
-      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
-        <div style="color:var(--gray-500);font-size:10px">KABUL NO</div>
-        <div style="font-family:monospace;font-weight:800;color:var(--primary)">${f.mkNo||'—'}</div>
-      </div>
-      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
-        <div style="color:var(--gray-500);font-size:10px">TEDARİKÇİ</div>
-        <div style="font-weight:700">${f.firma}</div>
-      </div>
-      <div style="padding:7px 10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:6px">
-        <div style="color:var(--gray-500);font-size:10px">FATURA NO</div>
-        <div style="font-weight:700">${f.faturaNo||'—'}</div>
-      </div>
-      <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
-        <div style="color:var(--gray-500);font-size:10px">İRSALİYE</div>
-        <div style="font-weight:700">${f.irsaliyeNo||'—'}</div>
-      </div>
-    </div>
-
-    <!-- Ürün Fiyat Giriş Tablosu -->
-    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">
-      📦 Ürünler — Birim Fiyat Girişi
-    </div>
-    <div id="fk-urun-listesi">
-      ${(f.urunler||[]).map((u,i)=>{
-        const fiyat=fiyatlar[i]||0;
-        const toplam=fiyat*(parseFloat(u.miktar)||0);
-        return`<div style="padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-bottom:8px;${fiyat>0?'border-color:var(--success);background:#f0fdf4':''}">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div>
-              <div style="font-size:13px;font-weight:700">${u.ad}</div>
-              <div style="font-size:11px;color:var(--gray-400)">${u.miktar} ${u.birim}${u.skt?' • SKT: '+u.skt:''}</div>
-            </div>
-            ${fiyat>0?`<div style="text-align:right">
-              <div style="font-size:13px;font-weight:800;color:var(--success)">${fmt(toplam)} ₺</div>
-              <div style="font-size:10px;color:var(--gray-400)">KDV hariç</div>
-            </div>`:''}
-          </div>
-          <div>
-            <label style="font-size:10px;font-weight:600;color:var(--gray-500)">BİRİM FİYAT (₺, KDV hariç)</label>
-            <input type="number" id="fk-fiyat-${i}" value="${fiyat||''}" placeholder="0.00" min="0" step="0.01"
-              oninput="fkFiyatHesapla(${i})"
-              style="width:100%;margin-top:4px;padding:10px;border:1.5px solid ${fiyat>0?'var(--success)':'var(--gray-300)'};border-radius:6px;font-size:14px;font-weight:600;outline:none">
-          </div>
-          <div id="fk-satir-toplam-${i}" style="margin-top:6px;font-size:11px;color:var(--gray-500)">
-            ${fiyat>0?`${fmt(fiyat)} ₺ × ${u.miktar} ${u.birim} = <b>${fmt(toplam)} ₺</b> (KDV hariç)`:''}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-
-    <!-- Genel Toplam -->
-    <div style="background:var(--primary);color:white;border-radius:8px;padding:12px;margin-top:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:13px;font-weight:700">TOPLAM (KDV HARİÇ)</div>
-          <div style="font-size:11px;opacity:.7;margin-top:2px">KDV muhasebe tarafından işlenecek</div>
-        </div>
-        <div id="fk-genel-toplam" style="font-size:18px;font-weight:800">— ₺</div>
-      </div>
-      <div style="margin-top:10px">
-        <label style="font-size:11px;opacity:.8">Kontrol Notu (opsiyonel)</label>
-        <input type="text" id="fk-not" value="${escapeHtml(f.fiyatKontrolNotu||'')}" placeholder="Fiyat farkı, indirim notu vb."
-          style="width:100%;margin-top:4px;padding:8px;border:1px solid rgba(255,255,255,.3);border-radius:6px;background:rgba(255,255,255,.1);color:white;font-size:13px;outline:none">
-      </div>
-    </div>
-  `;
-
-  // Mevcut toplam hesapla
-  fkGenelToplamHesapla(f);
-
-  // Buton durumu
-  const muhasebeGonderildi=f.fiyatKontrolDurum==='muhasebe';
-  document.getElementById('fk-muhasebe-btn').disabled=muhasebeGonderildi;
-  document.getElementById('fk-muhasebe-btn').textContent=muhasebeGonderildi?'✅ Muhasebe\'ye Gönderildi':'📤 Muhasebe\'ye Gönder';
-
-  aModal('mFiyatKontrol');
-}
-
-function fkFiyatHesapla(i){
-  const f=_fkFormlar.find(x=>String(x.id)===_fkAktifId);
-  if(!f)return;
-  const u=(f.urunler||[])[i];if(!u)return;
-  const fiyat=parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0;
-  const miktar=parseFloat(u.miktar)||0;
-  const toplam=fiyat*miktar;
-  const satirToplamEl=document.getElementById('fk-satir-toplam-'+i);
-  if(satirToplamEl){
-    satirToplamEl.innerHTML=fiyat>0?`${fmt(fiyat)} ₺ × ${miktar} ${u.birim} = <b>${fmt(toplam)} ₺</b> (KDV hariç)`:'';
-  }
-  const inp=document.getElementById('fk-fiyat-'+i);
-  if(inp)inp.style.borderColor=fiyat>0?'var(--success)':'var(--gray-300)';
-  fkGenelToplamHesapla(f);
-}
-
-function fkGenelToplamHesapla(f){
-  const urunler=f.urunler||[];
-  let genel=0;
-  urunler.forEach((u,i)=>{
-    const fiyat=parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0;
-    const miktar=parseFloat(u.miktar)||0;
-    genel+=fiyat*miktar;
-  });
-  const el=document.getElementById('fk-genel-toplam');
-  if(el)el.textContent=genel>0?fmt(genel)+' ₺':'— ₺';
-}
-
-let _muhasebeGonderiliyor=false;
-async function muhasebeGonder(){
-  if(_muhasebeGonderiliyor){toast('⏳ Zaten gönderiliyor, bekleyin...');return;}
-  const f=_fkFormlar.find(x=>String(x.id)===_fkAktifId);
-  if(!f)return;
-  const urunler=f.urunler||[];
-
-  // Fiyatları topla — KDV muhasebe tarafından işlenecek
-  const fiyatlar=urunler.map((_,i)=>parseFloat(document.getElementById('fk-fiyat-'+i)?.value)||0);
-  const herFiyatGirildi=fiyatlar.every(p=>p>0);
-
-  if(!herFiyatGirildi){
-    if(!confirm('Bazı ürünlerin fiyatı girilmemiş. Yine de Muhasebe\'ye göndermek istiyor musunuz?'))return;
-  }
-
-  // Ara toplam (KDV hariç) — KDV muhasebe işler
-  let araToplam=0;
-  urunler.forEach((u,i)=>{
-    araToplam+=fiyatlar[i]*(parseFloat(u.miktar)||0);
-  });
-
-  const faturaSatir={
-    no:f.faturaNo,tur:'alis',cari_ad:f.firma,
-    tarih:new Date().toISOString().split('T')[0],
-    siparis_no:f.lnSiparisNo?f.lnSiparisNo.trim():null,
-    otel_id:f.otelId||'810',
-    ara_toplam:Math.round(araToplam*100)/100,kdv_toplam:0,
-    genel_toplam:Math.round(araToplam*100)/100,
-    durum:'bekliyor',not_alani:document.getElementById('fk-not')?.value||null
-  };
-
-  // Mal kabul formunu güncelle
-  f.fiyatlar=fiyatlar;
-  f.fiyatKontrolDurum='muhasebe';
-  f.fiyatKontrolTarih=Date.now();
-  f.fiyatKontrolNotu=document.getElementById('fk-not')?.value||'';
-
-  toast('📤 Muhasebe\'ye gönderiliyor...');
-  _muhasebeGonderiliyor=true;
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/faturalar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(faturaSatir)});
-    if(!r.ok){
-      const hataMetni=await r.text();
-      console.error('Fatura oluşturma hatası:',hataMetni);
-      toast('❌ Fatura oluşturulamadı');
-      alert('❌ Fatura oluşturulamadı:\n\n'+hataMetni);
-      return;
-    }
-    const d=await r.json();
-    const faturaId=d[0].id;
-    const kalemSatirlar=urunler.map((u,i)=>({
-      fatura_id:faturaId,urun_kodu:u.kod||null,urun_adi:u.ad,miktar:parseFloat(u.miktar)||0,
-      birim:u.birim,birim_fiyat:fiyatlar[i],iskonto_yuzde:0,kdv_orani:0,
-      toplam:round2(fiyatlar[i]*(parseFloat(u.miktar)||0))
-    }));
-    await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
-    f.muhasebeFaturaId=faturaId;
-
-    // Her mal kabul kaleminin birim fiyatını Supabase'e yaz
-    for(let i=0;i<urunler.length;i++){
-      const u=urunler[i];
-      if(u.id){
-        await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri?id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i]})});
-        // Bu kaleme ait koliler varsa (Koli Bazlı Giriş kullanılmışsa) onların da gerçek fiyatını yaz —
-        // Günlük Tüketim'deki reçete maliyeti buradan FIFO (en eski/depodaki koli fiyatı) çekiyor.
-        if(fiyatlar[i]>0){
-          await fetch(SB_URL+'/rest/v1/koli_etiketleri?mk_urun_id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i],fiyat_kaynagi:'fatura'})});
-        }
-      }
-    }
-
-    // Mal kabul kaydını güncelle (fiyat kontrolü durumu + muhasebe fatura bağlantısı)
-    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+f.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
-      fiyat_kontrol_durum:'muhasebe',
-      fiyat_kontrol_notu:f.fiyatKontrolNotu||null,
-      fiyat_kontrol_tarihi:new Date().toISOString(),
-      muhasebe_fatura_id:faturaId
-    })});
-
-    // GR/IR TAHAKKUK FİŞİ — mal depoda, fatura henüz muhasebede işlenmedi.
-    // Borç: 770 (gider, geçici) / Alacak: 320.90 (Faturası Beklenen Alımlar — GR/IR ara hesabı)
-    // Muhasebe faturayı işlediğinde 320.90 borçlanarak bu tahakkuk otomatik kapanır.
-    await grIrTahakkukFisiKes(f,araToplam);
-
-    kModal('mFiyatKontrol');
-    toast(`✅ ${f.faturaNo} — Muhasebe'ye gönderildi (${fmt(araToplam)} ₺ KDV hariç)`);
-    renderFiyatKontrol();
-  }catch(e){
-    toast('⚠️ Hata: '+e.message);
-  }
-}
-
-// ============================================================
-// GR/IR TAHAKKUK — "mal alındı, fatura beklemede" ara kaydı
-// SAP'taki GR/IR clearing mantığının Türk THP'ye uyarlanmış hali.
-// ============================================================
-async function grIrTahakkukFisiKes(f,araToplam){
-  try{
-    // 320.90 hesabı hesap planında yoksa oluştur
-    await fetch(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
-      method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({kod:'320.90',ad:'Faturası Beklenen Alımlar (GR/IR)',tip:'Bilanço',ust_kod:'320'})
-    });
-    // Fiş numarası üret (yevmiye modülüyle aynı YEV-YYYY-NNNNN kalıbı)
-    const yil=new Date().getFullYear();
-    let sira=1;
-    const nR=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?no=like.YEV-${yil}-*&select=no&order=no.desc&limit=1`,{headers:SB_HEADERS});
-    if(nR.ok){const rows=await nR.json();if(rows[0]){const m=rows[0].no.match(/(\d+)$/);if(m)sira=parseInt(m[1])+1;}}
-    const fisNo=`YEV-${yil}-${String(sira).padStart(5,'0')}`;
-    const tutar=round2(araToplam);
-    const fisR=await fetch(SB_URL+'/rest/v1/yevmiye_fisler',{
-      method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
-      body:JSON.stringify({
-        no:fisNo,tarih:new Date().toISOString().split('T')[0],tip:'tahakkuk',
-        belge_no:f.mkNo,otel_id:f.otelId||'810',
-        aciklama:`Mal kabul tahakkuku (GR/IR): ${f.mkNo} — ${f.firma} (fatura bekleniyor)`,
-        toplam_borc:tutar,toplam_alacak:tutar,onaylandi:true,otomatik:true
-      })
-    });
-    if(!fisR.ok){console.warn('Tahakkuk fişi oluşturulamadı:',await fisR.text());return;}
-    const fis=(await fisR.json())[0];
-    await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{
-      method:'POST',headers:SB_HEADERS,
-      body:JSON.stringify([
-        {fis_id:fis.id,hesap_kodu:'770',aciklama:`Mal kabul: ${f.mkNo} — ${f.firma}`,borc:tutar,alacak:0},
-        {fis_id:fis.id,hesap_kodu:'320.90',aciklama:`Fatura bekleniyor: ${f.mkNo} — ${f.faturaNo||'—'}`,borc:0,alacak:tutar}
-      ])
-    });
-  }catch(e){console.warn('GR/IR tahakkuk hatası:',e);}
-}
 
 // ============================================================
 // SİPARİŞ TAKİP — siparisHavuzu'ndan okur
@@ -3082,132 +2442,6 @@ document.addEventListener('pointerdown',e=>{
   const inp=document.getElementById('sp-firma-inp');
   if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
 });
-
-function renderFirmalar(val){
-  const c=document.getElementById('firmalar-liste');if(!c)return;
-  const firmalar=DB.firmalar||[];
-  const liste=val?firmalar.filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,50):firmalar.slice(0,50);
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🏢</div><div class="et">Firma bulunamadı</div></div>';return;}
-  c.innerHTML=liste.map(f=>`
-    <div class="skart bekleyen" style="cursor:default">
-      <div style="font-size:13px;font-weight:700">${f.ad}</div>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
-        ${f.mail?`✉️ ${f.mail}`:''}
-        ${f.tel?`📞 ${f.tel}`:''}
-        ${f.urunler?`• ${f.urunler.length} ürün`:''}
-      </div>
-    </div>`).join('');
-}
-
-// ============================================================
-// TEDARİKÇİ SKOR KARTI — Mal Kabul + Uygunsuzluk + Sipariş verilerinden
-// ============================================================
-let _skorKartVeri=null;
-async function renderSkorKart(){
-  const c=document.getElementById('skorKart-liste');
-  const otelFiltre=document.getElementById('sk-otel-filtre')?.value||'';
-  const sirala=document.getElementById('sk-sirala')?.value||'uygunsuz_desc';
-  const ara=(document.getElementById('sk-ara')?.value||'').toLowerCase().trim();
-
-  if(!_skorKartVeri){
-    c.innerHTML='<div class="es"><div class="et">Yükleniyor...</div></div>';
-    try{
-      const [mkR,ugR,spR]=await Promise.all([
-        fetch(SB_URL+'/rest/v1/mal_kabuller?select=id,firma_ad,tarih,otel_id,durum,ln_siparis_no,fatura_no&durum=neq.iptal',{headers:SB_HEADERS}),
-        fetch(SB_URL+'/rest/v1/uygunsuzluklar?select=mk_id',{headers:SB_HEADERS}),
-        fetch(SB_URL+'/rest/v1/siparisler?select=siparis_no,tarih',{headers:SB_HEADERS}),
-      ]);
-      const mkRows=mkR.ok?await mkR.json():[];
-      const ugRows=ugR.ok?await ugR.json():[];
-      const spRows=spR.ok?await spR.json():[];
-      const uygunsuzMkIdSet=new Set(ugRows.map(u=>String(u.mk_id)));
-      const siparisTarihMap={};
-      spRows.forEach(s=>{siparisTarihMap[s.siparis_no]=s.tarih;});
-      _skorKartVeri={mkRows,uygunsuzMkIdSet,siparisTarihMap};
-    }catch(e){console.warn(e);c.innerHTML='<div class="es"><div class="et">Veri çekilemedi</div></div>';return;}
-  }
-
-  const {mkRows,uygunsuzMkIdSet,siparisTarihMap}=_skorKartVeri;
-  const liste=otelFiltre?mkRows.filter(r=>r.otel_id===otelFiltre):mkRows;
-
-  const firmaMap={};
-  liste.forEach(r=>{
-    const firma=r.firma_ad||'—';
-    if(!firmaMap[firma])firmaMap[firma]={firma,teslimat:0,uygunsuz:0,faturali:0,sureToplam:0,sureSayisi:0};
-    const f=firmaMap[firma];
-    f.teslimat++;
-    if(uygunsuzMkIdSet.has(String(r.id)))f.uygunsuz++;
-    if(r.fatura_no)f.faturali++;
-    if(r.ln_siparis_no){
-      const ilkSiparis=r.ln_siparis_no.split(',')[0].trim();
-      const spTarih=siparisTarihMap[ilkSiparis];
-      if(spTarih&&r.tarih){
-        const gun=(new Date(r.tarih)-new Date(spTarih))/86400000;
-        if(gun>=0){f.sureToplam+=gun;f.sureSayisi++;}
-      }
-    }
-  });
-
-  let firmalar=Object.values(firmaMap).map(f=>{
-    const uygunsuzOran=f.teslimat?f.uygunsuz/f.teslimat:0;
-    const faturaOran=f.teslimat?f.faturali/f.teslimat:0;
-    const ortSure=f.sureSayisi?f.sureToplam/f.sureSayisi:null;
-    // ---- BİLEŞİK SKOR (0-100) ----
-    // Kalite: %40 — uygunsuzluk oranı 0 → tam puan, %25+ → 0 puan (lineer)
-    const kaliteP=Math.max(0,1-uygunsuzOran/0.25)*40;
-    // Teslimat hızı: %40 — sipariş→kabul 2 gün ve altı tam puan, 10+ gün 0 (lineer). Veri yoksa nötr (%70'i verilir)
-    const hizP=ortSure===null?28:Math.max(0,Math.min(1,(10-ortSure)/8))*40;
-    // Fatura eşleşme: %20
-    const faturaP=faturaOran*20;
-    const skor=Math.round(kaliteP+hizP+faturaP);
-    const notHarf=skor>=85?'A':skor>=70?'B':skor>=50?'C':'D';
-    return{...f,uygunsuzOran,faturaOran,ortSure,skor,notHarf};
-  });
-
-  if(ara)firmalar=firmalar.filter(f=>f.firma.toLowerCase().includes(ara));
-
-  const sorters={
-    skor_desc:(a,b)=>b.skor-a.skor,
-    skor_asc:(a,b)=>a.skor-b.skor,
-    uygunsuz_desc:(a,b)=>b.uygunsuzOran-a.uygunsuzOran,
-    teslimat_desc:(a,b)=>b.teslimat-a.teslimat,
-    sure_desc:(a,b)=>(b.ortSure??-1)-(a.ortSure??-1),
-    fatura_asc:(a,b)=>a.faturaOran-b.faturaOran,
-  };
-  firmalar.sort(sorters[sirala]||sorters.skor_desc);
-
-  const toplamTeslimat=firmalar.reduce((t,f)=>t+f.teslimat,0);
-  const ortSkor=firmalar.length?Math.round(firmalar.reduce((t,f)=>t+f.skor,0)/firmalar.length):0;
-  document.getElementById('skorKart-stats').innerHTML=`
-    <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${firmalar.length}</div><div style="font-size:11px;color:var(--gray-500)">Tedarikçi</div></div>
-    <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:var(--primary)">${toplamTeslimat}</div><div style="font-size:11px;color:var(--gray-500)">Toplam Teslimat</div></div>
-    <div class="card" style="text-align:center;flex:1"><div style="font-size:20px;font-weight:800;color:${ortSkor>=70?'var(--success)':ortSkor>=50?'var(--warning)':'var(--danger)'}">${ortSkor}</div><div style="font-size:11px;color:var(--gray-500)">Ort. Skor</div></div>`;
-
-  if(!firmalar.length){c.innerHTML='<div class="es"><div class="et">Kayıt bulunamadı</div></div>';return;}
-
-  const notRenk={A:'var(--success)',B:'#0284c7',C:'var(--warning)',D:'var(--danger)'};
-  c.innerHTML=firmalar.map(f=>{
-    const oran=f.uygunsuzOran*100;
-    const renk=notRenk[f.notHarf];
-    return`<div class="skart" style="border-left-color:${renk};cursor:default">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:13px;font-weight:700;flex:1">${f.firma}</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="text-align:right">
-            <div style="font-size:16px;font-weight:800;color:${renk}">${f.skor}<span style="font-size:10px;color:var(--gray-400)">/100</span></div>
-          </div>
-          <div style="width:34px;height:34px;border-radius:8px;background:${renk};color:white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800">${f.notHarf}</div>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap">
-        <span>📦 ${f.teslimat} teslimat</span>
-        <span style="${oran>0?'color:var(--danger);font-weight:600':''}">⚠️ %${oran.toFixed(1)} uygunsuz</span>
-        <span>🧾 %${(f.faturaOran*100).toFixed(0)} fatura eşleşti</span>
-        ${f.ortSure!==null?`<span>⏱️ ort. ${f.ortSure.toFixed(1)} gün</span>`:'<span style="color:var(--gray-400)">⏱️ süre verisi yok</span>'}
-      </div>
-    </div>`;
-  }).join('');
-}
 
 // ====== YARDIMCI ======
 // sLD/hLD/toast/escapeHtml/round2/kModal/aModal -> ortak.js
