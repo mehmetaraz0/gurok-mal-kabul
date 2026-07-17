@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok Turizm — Depo Yönetim Sistemi</title>
 <meta name="theme-color" content="#1a2744">
@@ -335,9 +336,7 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 // ============================================================
 // CONFIG
 // ============================================================
-const SB_URL='https://xwytofysmgqtqjzkplfi.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
-const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+// SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 // SESSION_KEY artık auth-guard.js'de tanımlı (paylaşılan) — burada tekrar tanımlanmıyor.
 
 // Modül tanımları
