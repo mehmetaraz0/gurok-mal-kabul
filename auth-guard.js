@@ -17,8 +17,8 @@ function oturumGetir() {
   } catch (e) { return null; }
 }
 
-function oturumKaydet(user) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user, expiry: Date.now() + SESSION_SURESI_MS }));
+function oturumKaydet(user, accessToken) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user, accessToken: accessToken || null, expiry: Date.now() + SESSION_SURESI_MS }));
 }
 
 // index.html DIŞINDAKİ sayfalar bunu çağırır. Oturum geçerliyse kullanıcıyı döner.
