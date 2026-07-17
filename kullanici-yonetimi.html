@@ -237,7 +237,7 @@ async function kullaniciSil(){
   if(!confirm(`"${u.ad}" tamamen silinsin mi?\n\n(Silmek yerine "Aktif kullanıcı" kutusunu kapatıp kaydetmen önerilir — geçmiş işlemlerdeki adı/izleri bozmaz, sadece girişini engeller.)`))return;
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});
+    await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({aktif:false})});
     await auditLogYaz('delete','kullanici',id,`Kullanıcı silindi: ${u.ad}`);
   }catch(e){console.warn(e);}
   hLD();

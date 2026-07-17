@@ -176,7 +176,7 @@ async function loadDB(){
   sLD();
   try{
     const [bR,hR,yR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/butce_kayitlari?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/butce_kayitlari?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad,yon,tip',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=id,tarih,otel_id,yevmiye_kalemleri(hesap_kodu,borc,alacak)',{headers:SB_HEADERS}),
     ]);
@@ -360,7 +360,7 @@ async function butceSil(){
   if(!confirm('Bu bütçe kaydı silinsin mi?'))return;
   sLD();
   delete butceler[id];
-  try{await fetch(SB_URL+'/rest/v1/butce_kayitlari?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
+  try{await fetch(SB_URL+'/rest/v1/butce_kayitlari?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});}catch(e){console.warn(e);}
   hLD();
   kModal();
   renderButceListesi();
