@@ -546,7 +546,7 @@ document.addEventListener('pointerdown',e=>{
 // ============================================================
 // KAYDET
 // ============================================================
-function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
+// round2 -> ortak.js
 let _yevmiyeKaydediliyor=false;
 async function yevmiyeKaydet(onayla){
   if(_yevmiyeKaydediliyor){toast('⏳ İşleniyor, bekleyin...');return;}
