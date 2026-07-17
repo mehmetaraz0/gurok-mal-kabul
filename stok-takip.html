@@ -825,7 +825,7 @@ function giris(depoId,lnKod,urunAd,miktar,birim,kaynak,kaynakId){
   s[lnKod].miktar=(parseFloat(s[lnKod].miktar)||0)+parseFloat(miktar);
   s[lnKod].sonGuncelleme=Date.now();
   s[lnKod].urunAd=urunAd;
-  return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'giris',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),kaynak,kaynakId,personel:currentUser?.ad||'—'};
+  return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'giris',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),kaynak,kaynakId,aciklama:kaynak||'',personel:currentUser?.ad||'—'};
 }
 
 function cikis(depoId,lnKod,urunAd,miktar,birim,neden,not){
@@ -834,7 +834,7 @@ function cikis(depoId,lnKod,urunAd,miktar,birim,neden,not){
   if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
   s[lnKod].miktar=Math.max(0,(parseFloat(s[lnKod].miktar)||0)-parseFloat(miktar));
   s[lnKod].sonGuncelleme=Date.now();
-  return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'cikis',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),neden,not:not||'',personel:currentUser?.ad||'—'};
+  return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'cikis',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),neden,not:not||'',aciklama:(neden||'')+(not?(' — '+not):''),personel:currentUser?.ad||'—'};
 }
 
 function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
@@ -854,10 +854,11 @@ function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
   const kaynakDepoAd=depoAdi(kaynakDepoId);
   const hedefDepoAd=depoAdi(hedefDepoId);
   return {
-    id:baseId,tip:'transfer',
+    id:baseId,tip:'transfer',depoId:hedefDepoId,
     kaynakDepoId,kaynakDepoAd,hedefDepoId,hedefDepoAd,
     lnKod,urunAd,miktar:parseFloat(miktar),birim,
-    tarih:Date.now(),not:not||'',personel:currentUser?.ad||'—'
+    tarih:Date.now(),not:not||'',aciklama:kaynakDepoAd+' → '+hedefDepoAd+(not?(' — '+not):''),
+    personel:currentUser?.ad||'—'
   };
 }
 
