@@ -1136,7 +1136,11 @@ async function talepKararVer(id,karar){
     return;
   }
   kModal('mTalepDetay');
-  toast(karar==='red'?'❌ Talep reddedildi':'✅ Talep ilerletildi');
+  if(sonuc.gecmisYazildi===false){
+    toast('⚠️ İşlem uygulandı ama aşama geçmişi kaydedilemedi (yetki/RLS sorunu olabilir)',4000);
+  }else{
+    toast(karar==='red'?'❌ Talep reddedildi':'✅ Talep ilerletildi');
+  }
   await loadDB();
   await hesaplaYetkiliAsamalar();
   renderTalepler();
