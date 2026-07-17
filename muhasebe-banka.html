@@ -269,7 +269,7 @@ async function loadDB(){
   sLD();
   try{
     const [hR,hrR,vR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/banka_kasa_hareketleri?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/virmanlar?select=*',{headers:SB_HEADERS}),
     ]);
@@ -435,13 +435,10 @@ async function hesapKaydet(){
 async function hesapSil(){
   const id=document.getElementById('h-id').value;
   const h=hesaplar[id];if(!h)return;
-  if(!confirm(`"${h.ad}" silinsin mi? Hareketler de silinecek!`))return;
+  if(!confirm(`"${h.ad}" silinsin mi?`))return;
   sLD();delete hesaplar[id];
-  try{await fetch(SB_URL+'/rest/v1/banka_kasa_hareketleri?hesap_id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
-  for(const hk of Object.keys(hareketler)){
-    if(hareketler[hk]?.hesapId===id)delete hareketler[hk];
-  }
-  try{await fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?id=eq.'+id,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
+  // Soft-delete: hareketler artık silinmiyor, denetim izi olarak kalıyor.
+  try{await fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});}catch(e){console.warn(e);}
   hLD();kModal('mHesap');renderHesaplar();toast('🗑️ Hesap silindi');
 }
 

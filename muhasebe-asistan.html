@@ -138,7 +138,7 @@ async function loadAll(){
       fetch(SB_URL+'/rest/v1/cari_hareketler?select=*',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/faturalar?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?select=*&silindi=eq.false',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/banka_kasa_hareketleri?select=*',{headers:SB_HEADERS}),
     ]);
     cariler={};cariHareketler={};faturalar={};yevmiyeler={};bankaKasaHesaplari={};bankaKasaHareketleri={};
