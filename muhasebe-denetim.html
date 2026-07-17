@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
 if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma']);
@@ -11,7 +13,6 @@ if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma']);
 <title>Gürok — Denetim İzi</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--info:#0284c7;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-400:#ced4da;--gray-500:#adb5bd;--gray-600:#6c757d;--radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -300,9 +301,7 @@ function gTab(tab,el){
   if(tab==='log')renderLog();
   if(tab==='donem')renderDonemler();
 }
-function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
-function sLD(){document.getElementById('ld').classList.add('show');}
-function hLD(){document.getElementById('ld').classList.remove('show');}
+// sLD/hLD/toast -> ortak.js
 
 // ============================================================
 // INIT
