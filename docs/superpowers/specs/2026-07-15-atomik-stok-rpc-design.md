@@ -56,7 +56,7 @@ declare
   v_yeni numeric;
 begin
   insert into stok (urun_kodu, depo_kodu, otel_id, miktar)
-  values (p_urun_kodu, p_depo_kodu, p_otel_id, greatest(0, p_delta))
+  values (p_urun_kodu, p_depo_kodu, p_otel_id::otel_id, greatest(0, p_delta))
   on conflict (urun_kodu, depo_kodu)
   do update set miktar = greatest(0, stok.miktar + p_delta)
   returning miktar into v_yeni;
@@ -64,6 +64,17 @@ begin
 end;
 $$;
 ```
+
+> **2026-07-17 düzeltme:** `stok.otel_id` kolonu `text` değil, özel bir enum tipi
+> (`otel_id`) — plpgsql içinde text parametreyi cast'siz atamak Postgres
+> hatası `42804` verir ("column is of type otel_id but expression is of
+> type text"). Bu, fonksiyon deploy edildiği günden beri HER `stok_ekle`/
+> `stok_transfer` çağrısının sessizce (veya Hata Yönetimi işinden sonra
+> görünür şekilde) başarısız olmasına sebep oldu — atomik olduğu için hiç
+> veri kaybı olmadı (her çağrı tamamen geri alındı), ama giriş/çıkış/
+> transfer hiçbiri gerçekte kaydolmadı. Yukarıdaki ve aşağıdaki SQL bloğu
+> `::otel_id` cast'ini İÇERİYOR (düzeltilmiş hal) — canlıda çalışan güncel
+> hali budur.
 
 - `p_delta` pozitif = giriş, negatif = çıkış.
 - `on conflict (urun_kodu, depo_kodu)` — mevcut upsert anahtarıyla aynı.
@@ -85,7 +96,7 @@ begin
   update stok set miktar = greatest(0, miktar - p_miktar)
     where urun_kodu = p_urun_kodu and depo_kodu = p_kaynak_depo;
   insert into stok (urun_kodu, depo_kodu, otel_id, miktar)
-    values (p_urun_kodu, p_hedef_depo, p_hedef_otel, p_miktar)
+    values (p_urun_kodu, p_hedef_depo, p_hedef_otel::otel_id, p_miktar)
     on conflict (urun_kodu, depo_kodu)
     do update set miktar = greatest(0, stok.miktar + p_miktar);
 end;

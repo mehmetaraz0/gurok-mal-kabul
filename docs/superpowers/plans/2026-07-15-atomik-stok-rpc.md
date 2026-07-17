@@ -40,7 +40,7 @@ declare
   v_yeni numeric;
 begin
   insert into stok (urun_kodu, depo_kodu, otel_id, miktar)
-  values (p_urun_kodu, p_depo_kodu, p_otel_id, greatest(0, p_delta))
+  values (p_urun_kodu, p_depo_kodu, p_otel_id::otel_id, greatest(0, p_delta))
   on conflict (urun_kodu, depo_kodu)
   do update set miktar = greatest(0, stok.miktar + p_delta)
   returning miktar into v_yeni;
@@ -61,12 +61,21 @@ begin
   update stok set miktar = greatest(0, miktar - p_miktar)
     where urun_kodu = p_urun_kodu and depo_kodu = p_kaynak_depo;
   insert into stok (urun_kodu, depo_kodu, otel_id, miktar)
-    values (p_urun_kodu, p_hedef_depo, p_hedef_otel, p_miktar)
+    values (p_urun_kodu, p_hedef_depo, p_hedef_otel::otel_id, p_miktar)
     on conflict (urun_kodu, depo_kodu)
     do update set miktar = greatest(0, stok.miktar + p_miktar);
 end;
 $$;
 ```
+
+> **2026-07-17 hotfix:** Yukarıdaki SQL, `::otel_id` cast'lerini İÇERİYOR
+> (canlıya uygulanan düzeltilmiş hal). Orijinal (cast'siz) versiyon, `stok.otel_id`
+> kolonunun `text` değil özel bir enum tipi olması nedeniyle HER çağrıda
+> `42804` hatasıyla başarısız oluyordu — deploy edildiği günden bu hotfix'e
+> kadar hiçbir giriş/çıkış/transfer gerçekte kaydolmadı (atomik olduğu için
+> veri kaybı olmadı, sadece işlemler sessizce/görünür şekilde reddedildi).
+> curl ile doğrulandı: `stok_ekle` ve `stok_transfer` artık 200/204 dönüyor,
+> gerçek bir test transferi (1 birim, ileri-geri) DB'de doğru şekilde işlendi.
 
 - [ ] **Step 2: Kullanıcıdan onay al**
 
