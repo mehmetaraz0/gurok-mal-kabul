@@ -1151,6 +1151,10 @@ function renderHareketler(){
     return;
   }
 
+  // Ürün adı eşlemesi — db.hareketler DB'den geldiğinde urunAd taşımaz, koddan çözülür
+  const urunMap={};
+  db.urunler.forEach(u=>{urunMap[u.kod]=u.ad;});
+
   // Gün bazlı grupla
   const gruplar={};
   harlar.forEach(h=>{const g=new Date(h.tarih).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(h);});
@@ -1164,21 +1168,21 @@ function renderHareketler(){
         if(h.tip==='transfer'){
           const giden=h.kaynakDepoId===aktifDepoId;
           ikon='🔄';renk=giden?'var(--danger)':'var(--success)';
-          etiket=giden?`${depoAd} → ${h.hedefDepoAd||h.hedefDepoId}`:`${h.kaynakDepoAd||h.kaynakDepoId} → ${depoAd}`;
+          etiket=h.aciklama||(giden?`${depoAd} → ${h.hedefDepoAd||h.hedefDepoId}`:`${h.kaynakDepoAd||h.kaynakDepoId} → ${depoAd}`);
           miktar_str=(giden?'-':'+')+h.miktar+' '+(h.birim||'');
         }else if(h.tip==='giris'){
           ikon='⬆️';renk='var(--success)';
-          etiket=`Giriş — ${h.kaynak||'—'}`;
+          etiket=`Giriş — ${h.aciklama||h.kaynak||'—'}`;
           miktar_str='+'+h.miktar+' '+(h.birim||'');
         }else{
           ikon='⬇️';renk='var(--danger)';
-          etiket=`Çıkış — ${h.neden||'—'}`;
+          etiket=`Çıkış — ${h.aciklama||h.neden||'—'}`;
           miktar_str='-'+h.miktar+' '+(h.birim||'');
         }
         return`<div class="har-item">
           <div class="har-icon ${h.tip}">${ikon}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${h.urunAd||h.lnKod||'—'}</div>
+            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${h.urunAd||urunMap[h.lnKod]||h.lnKod||'—'}</div>
             <div style="font-size:11px;color:var(--gray-500);">${etiket}</div>
             <div style="font-size:10px;color:var(--gray-400);">${new Date(h.tarih).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} • ${h.personel||'—'}</div>
           </div>
