@@ -81,11 +81,12 @@ async function talepAsamaIlerlet(talepId, kullanici, karar, opts){
     if (!(await kullaniciAsamaYetkiliMi(kullanici, asama))) return {ok:false, hata:'yetkisiz'};
 
     if (karar === 'red'){
-      await fetch(SB_URL+'/rest/v1/talep_onay_gecmisi', {method:'POST', headers: SB_HEADERS,
+      const gecmisR = await fetch(SB_URL+'/rest/v1/talep_onay_gecmisi', {method:'POST', headers: SB_HEADERS,
         body: JSON.stringify({talep_id: talepId, asama, rol_kodu: kullanici.rol, kullanici_ad: kullanici.ad, karar: 'red', not_metni: not || null})});
+      if (!gecmisR.ok) console.error('talep_onay_gecmisi yazılamadı (red) — denetim izi eksik kalabilir:', await gecmisR.text());
       await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId, {method:'PATCH', headers: SB_HEADERS,
         body: JSON.stringify({durum:'reddedildi', onaylayan_ad: kullanici.ad, onay_tarihi: new Date().toISOString()})});
-      return {ok:true, sonuc:'reddedildi'};
+      return {ok:true, sonuc:'reddedildi', gecmisYazildi: gecmisR.ok};
     }
 
     // Cost aşamasında tutar zorunlu — sonraki katman bu değere göre belirlenir.
@@ -93,8 +94,9 @@ async function talepAsamaIlerlet(talepId, kullanici, karar, opts){
       return {ok:false, hata:'tutar_gerekli'};
     }
 
-    await fetch(SB_URL+'/rest/v1/talep_onay_gecmisi', {method:'POST', headers: SB_HEADERS,
+    const gecmisR = await fetch(SB_URL+'/rest/v1/talep_onay_gecmisi', {method:'POST', headers: SB_HEADERS,
       body: JSON.stringify({talep_id: talepId, asama, rol_kodu: kullanici.rol, kullanici_ad: kullanici.ad, karar: 'onay', not_metni: not || null})});
+    if (!gecmisR.ok) console.error('talep_onay_gecmisi yazılamadı (onay, asama='+asama+') — denetim izi eksik kalabilir:', await gecmisR.text());
 
     const sonrakiAsama = sonrakiAsamaBelirle(asama, tutar);
     const patchBody = {};
@@ -108,7 +110,7 @@ async function talepAsamaIlerlet(talepId, kullanici, karar, opts){
       patchBody.onay_tarihi = new Date().toISOString();
     }
     await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId, {method:'PATCH', headers: SB_HEADERS, body: JSON.stringify(patchBody)});
-    return {ok:true, sonuc: sonrakiAsama || 'onaylandi'};
+    return {ok:true, sonuc: sonrakiAsama || 'onaylandi', gecmisYazildi: gecmisR.ok};
   } catch(e) {
     console.warn(e);
     return {ok:false, hata:'istisna'};
