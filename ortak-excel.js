@@ -172,3 +172,159 @@ function excelSatirlariSiniflandir(spec, satirlar, mevcutKayitlar, opts){
 
   return sonuc;
 }
+
+// ============================================================
+// 3) ÖNİZLEME / DİFF MODALI
+// ============================================================
+// Repodaki her modal statik HTML (sayfaya gömülü) — bu, bilinçli bir
+// sapmayla, ilk kez runtime'da JS'den DOM'a enjekte edilen bir modal.
+// Kendi <style>'ını da beraberinde getirir (sayfanın .mo/.mbox gibi
+// kendi sınıflarına bağımlı DEĞİL) — böylece herhangi bir sayfaya (sadece
+// theme.css yüklüyse, ki paylaşılan dosya kuralı gereği hepsi yüklüyor)
+// sorunsuz taşınabilir. Bkz. design doc "bilinçli mimari sapma".
+
+const OE_SINIF_META = {
+  yeni:            { renk: '#27ae60', etiket: 'Yeni' },
+  guncelleme:      { renk: '#0284c7', etiket: 'Güncelleme' },
+  degisiklik_yok:  { renk: '#adb5bd', etiket: 'Değişiklik Yok' },
+  hata:            { renk: '#e74c3c', etiket: 'Hata' },
+  bulunamadi:      { renk: '#e74c3c', etiket: 'Bulunamadı' },
+  mukerrer:        { renk: '#f39c12', etiket: 'Yinelenen' }
+};
+
+const OE_MODLAR = [
+  { id: 'sadece_guncelle',   etiket: 'Sadece Güncelleme',                    dahil: ['guncelleme'] },
+  { id: 'sadece_yeni',       etiket: 'Sadece Yeni Kayıt',                    dahil: ['yeni'] },
+  { id: 'guncelle_ve_yeni',  etiket: 'Güncelleme + Yeni Kayıt',              dahil: ['guncelleme', 'yeni'] },
+  { id: 'hatali_atla',       etiket: 'Hatalıları Atla, Kalanını Uygula',     dahil: ['guncelleme', 'yeni'], onaySor: true },
+  { id: 'hata_varsa_iptal',  etiket: 'Herhangi Bir Hatada Tümünü İptal Et',  dahil: ['guncelleme', 'yeni'], hataVarsaEngelle: true }
+];
+
+let _oeSiniflandirma = null;
+let _oeSpec = null;
+let _oeOnUygula = null;
+let _oeDosyaAdiOnek = 'hata-raporu';
+
+function ensureExcelOnizlemeModal(){
+  if (document.getElementById('mExcelOnizleme')) return;
+
+  const style = document.createElement('style');
+  style.id = 'oeStil';
+  style.textContent = `
+    #mExcelOnizleme{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:5000;align-items:center;justify-content:center;padding:16px}
+    #mExcelOnizleme.oe-open{display:flex}
+    .oe-box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.25);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+    .oe-title{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+    .oe-close{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-600)}
+    .oe-stats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    .oe-chip{padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600}
+    .oe-field{margin-bottom:12px}
+    .oe-field label{display:block;font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px;text-transform:uppercase}
+    .oe-field select{width:100%;padding:9px 10px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px}
+    .oe-table-wrap{max-height:38vh;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;margin-bottom:14px}
+    .oe-table{width:100%;border-collapse:collapse;font-size:12px}
+    .oe-actions{display:flex;gap:8px}
+    .oe-btn{padding:10px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+    .oe-btn:disabled{opacity:.5;cursor:not-allowed}
+  `;
+  document.head.appendChild(style);
+
+  const div = document.createElement('div');
+  div.id = 'mExcelOnizleme';
+  div.innerHTML = `
+    <div class="oe-box">
+      <div class="oe-title">📊 Excel Önizleme <button class="oe-close" onclick="_oeKapat()">✕</button></div>
+      <div class="oe-stats" id="oe-stats"></div>
+      <div class="oe-field">
+        <label>Aktarım Modu</label>
+        <select id="oe-mod" onchange="_oeModDegisti()"></select>
+      </div>
+      <div class="oe-table-wrap"><table class="oe-table" id="oe-tablo"></table></div>
+      <div class="oe-actions">
+        <button class="oe-btn" style="background:var(--gray-200);color:var(--gray-700)" onclick="_oeKapat()">İptal</button>
+        <button class="oe-btn" style="background:var(--warning);color:#fff" onclick="_oeHataRaporuIndir()">📥 Hata Raporu İndir</button>
+        <button class="oe-btn" id="oe-uygula-btn" style="flex:1;background:var(--primary);color:#fff" onclick="_oeUygulaTikla()">✅ Uygula</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+  div.addEventListener('click', e => { if (e.target === div) _oeKapat(); });
+}
+
+function _oeKapat(){
+  const el = document.getElementById('mExcelOnizleme');
+  if (el) el.classList.remove('oe-open');
+}
+
+// siniflandirma: excelSatirlariSiniflandir'ın döndürdüğü dizi.
+// opts: {spec, onUygula(modId, yazilacakSatirlar), dosyaAdiOnek}
+function excelOnizlemeGoster(siniflandirma, opts){
+  ensureExcelOnizlemeModal();
+  opts = opts || {};
+  _oeSiniflandirma = siniflandirma;
+  _oeSpec = opts.spec;
+  _oeOnUygula = opts.onUygula;
+  _oeDosyaAdiOnek = opts.dosyaAdiOnek || 'hata-raporu';
+
+  const sayilar = {};
+  Object.keys(OE_SINIF_META).forEach(k => sayilar[k] = 0);
+  siniflandirma.forEach(s => sayilar[s.sinif]++);
+
+  document.getElementById('oe-stats').innerHTML = Object.keys(OE_SINIF_META).map(k =>
+    `<span class="oe-chip" style="background:${OE_SINIF_META[k].renk}22;color:${OE_SINIF_META[k].renk}">${OE_SINIF_META[k].etiket}: ${sayilar[k]}</span>`
+  ).join('');
+
+  document.getElementById('oe-mod').innerHTML = OE_MODLAR.map(m => `<option value="${m.id}">${m.etiket}</option>`).join('');
+
+  document.getElementById('oe-tablo').innerHTML = siniflandirma.map(s => _oeSatirHtml(s, opts.spec)).join('')
+    || '<tr><td style="padding:12px;text-align:center;color:var(--gray-500)">Dosyada satır bulunamadı</td></tr>';
+
+  _oeModDegisti();
+  document.getElementById('mExcelOnizleme').classList.add('oe-open');
+}
+
+function _oeSatirHtml(s, spec){
+  const meta = OE_SINIF_META[s.sinif];
+  const gorunur = _excelGorunurAlanlar(spec).filter(x => !x.kilitli);
+  let detay;
+  if (s.sinif === 'guncelleme') {
+    const farkli = gorunur.filter(x => String(s.eskiDeger?.[x.alan] ?? '') !== String(s.yeniDeger?.[x.alan] ?? ''));
+    detay = farkli.length
+      ? farkli.map(x => `<div><b>${escapeHtml(x.baslik)}:</b> <span style="color:var(--gray-500);text-decoration:line-through">${escapeHtml(String(s.eskiDeger?.[x.alan] ?? ''))}</span> → <span style="color:${meta.renk};font-weight:700">${escapeHtml(String(s.yeniDeger?.[x.alan] ?? ''))}</span></div>`).join('')
+      : '<div style="color:var(--gray-500)">(fark bulunamadı)</div>';
+  } else if (s.sinif === 'degisiklik_yok') {
+    detay = '<div style="color:var(--gray-500)">Değişiklik yok</div>';
+  } else if (s.sinif === 'yeni') {
+    detay = gorunur.map(x => `<div><b>${escapeHtml(x.baslik)}:</b> ${escapeHtml(String(s.yeniDeger?.[x.alan] ?? ''))}</div>`).join('');
+  } else {
+    detay = s.hatalar.map(h => `<div style="color:var(--danger)">⚠️ ${escapeHtml(h)}</div>`).join('');
+  }
+  return `<tr style="border-bottom:1px solid var(--gray-200)">
+    <td style="padding:6px;font-size:11px;color:var(--gray-500);vertical-align:top">${s.satirNo}</td>
+    <td style="padding:6px;vertical-align:top"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${meta.renk}22;color:${meta.renk}">${meta.etiket}</span></td>
+    <td style="padding:6px">${detay}</td>
+  </tr>`;
+}
+
+function _oeModDegisti(){
+  const modId = document.getElementById('oe-mod').value;
+  const mod = OE_MODLAR.find(m => m.id === modId);
+  const hataSayisi = (_oeSiniflandirma || []).filter(s => s.sinif === 'hata').length;
+  document.getElementById('oe-uygula-btn').disabled = !!(mod.hataVarsaEngelle && hataSayisi > 0);
+}
+
+function _oeUygulaTikla(){
+  const modId = document.getElementById('oe-mod').value;
+  const mod = OE_MODLAR.find(m => m.id === modId);
+  const hataSayisi = (_oeSiniflandirma || []).filter(s => s.sinif === 'hata').length;
+  if (mod.hataVarsaEngelle && hataSayisi > 0) { toast('❌ Dosyada hata var, bu modda hiçbir satır yazılamaz'); return; }
+  if (mod.onaySor && hataSayisi > 0 && !confirm(hataSayisi + " satır hata nedeniyle atlanacak, devam edilsin mi?")) return;
+  const yazilacaklar = (_oeSiniflandirma || []).filter(s => mod.dahil.includes(s.sinif));
+  _oeKapat();
+  if (_oeOnUygula) _oeOnUygula(modId, yazilacaklar);
+}
+
+function _oeHataRaporuIndir(){
+  const hatalilar = (_oeSiniflandirma || []).filter(s => ['hata', 'bulunamadi', 'mukerrer'].includes(s.sinif));
+  if (!hatalilar.length) { toast('✅ Hatalı satır yok'); return; }
+  excelHataRaporuIndir(_oeSpec, hatalilar, _oeDosyaAdiOnek + '-hatalar-' + new Date().toISOString().split('T')[0] + '.xlsx');
+}
