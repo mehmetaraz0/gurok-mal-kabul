@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -84,6 +85,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- LİSTE -->
   <div class="sc" id="tab-liste" style="display:block">
     <div class="stats-grid" id="db-stats"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="demirbasExcelAktar()">📊 Toplu Düzenle — Aktar</button>
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="document.getElementById('demirbas-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+    </div>
+    <input type="file" id="demirbas-excel-input" accept=".xlsx,.xls" style="display:none" onchange="demirbasExcelYukle(event)">
     <div class="search-bar">
       <input type="text" id="db-ara" placeholder="Demirbaş adı, kod veya zimmet ara..." oninput="renderDemirbaslar()">
       <span class="search-icon">🔍</span>
@@ -259,6 +265,66 @@ async function saveDemirbas(d){
       if(data&&data[0])d.id=data[0].id;
     }
   }catch(e){console.warn(e);}
+}
+
+// ============================================================
+// EXCEL TOPLU DÜZENLEME
+// ============================================================
+const demirbasExcelSpec=[
+  {alan:'kod', baslik:'Kod', tip:'text', zorunlu:true, genislik:14},
+  {alan:'ad', baslik:'Ad', tip:'text', zorunlu:true, genislik:26},
+  {alan:'kategori', baslik:'Kategori', tip:'text', zorunlu:true, genislik:16, izinliDegerler:Object.keys(KATEGORILER)},
+  {alan:'seriNo', baslik:'Seri No', tip:'text', genislik:14},
+  {alan:'alimTarihi', baslik:'Alım Tarihi', tip:'text', zorunlu:true, genislik:12},
+  {alan:'alimTutari', baslik:'Alım Tutarı', tip:'number', zorunlu:true, pozitifOlmali:true, genislik:12},
+  {alan:'otelId', baslik:'Otel', tip:'text', genislik:8, izinliDegerler:['810','811']},
+  {alan:'zimmet', baslik:'Zimmet', tip:'text', genislik:16},
+  {alan:'durum', baslik:'Durum', tip:'text', genislik:12, izinliDegerler:['aktif','elden_cikarildi']},
+  {alan:'not', baslik:'Not', tip:'text', genislik:20}
+];
+async function demirbasExcelAktar(){
+  const veriler=Object.values(demirbaslar).filter(Boolean);
+  await excelSablonIndir(demirbasExcelSpec, veriler, 'demirbaslar-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+async function demirbasExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  sLD();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    hLD();
+    const mevcutKayitlar=Object.values(demirbaslar).filter(Boolean);
+    const siniflandirma=excelSatirlariSiniflandir(demirbasExcelSpec, satirlar, mevcutKayitlar, {dogalAnahtarlar:['kod']});
+    excelOnizlemeGoster(siniflandirma,{ spec:demirbasExcelSpec, dosyaAdiOnek:'demirbaslar', onUygula:(mod,satirlarYaz)=>demirbasExcelUygula(mod,satirlarYaz) });
+  }catch(err){ hLD(); toast('❌ Dosya okunamadı: '+err.message); }
+}
+async function demirbasExcelUygula(mod,yazilacaklar){
+  if(!yazilacaklar.length){toast('ℹ️ Yazılacak satır yok');return;}
+  const satirlar=yazilacaklar.map(s=>{
+    const kat=KATEGORILER[s.alanlar.kategori]||{};
+    const eski=s.eskiDeger;
+    return {
+      kod:s.alanlar.kod, ad:s.alanlar.ad, kategori:s.alanlar.kategori,
+      hesap_kodu:kat.hesapKod, amortisman_hesap_kodu:kat.amortismanHesapKod, oran_yillik:kat.oran,
+      seri_no:s.alanlar.seriNo||null, alim_tarihi:s.alanlar.alimTarihi, alim_tutari:s.alanlar.alimTutari,
+      otel_id:s.alanlar.otelId||'810', zimmet:s.alanlar.zimmet||null,
+      durum:s.alanlar.durum||eski?.durum||'aktif',
+      birikmis_amortisman:eski?.birikmisAmortisman||0,
+      elden_cikarma_tarihi:eski?.eldenCikarmaTarihi?new Date(eski.eldenCikarmaTarihi).toISOString():null,
+      satis_bedeli:eski?.satisBedeli||null, not_alani:s.alanlar.not||null
+    };
+  });
+  sLD();
+  const sonuc=await excelTopluYaz('demirbaslar', satirlar, {onConflict:'kod'});
+  await loadDB();
+  await excelImportGecmisiYaz({ tabloAdi:'demirbaslar', ilgiliId:null, dosyaAdi:'demirbaslar.xlsx',
+    kullaniciAd:OTURUM_KULLANICI?.ad||'', mod, toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0, atlananSayisi:0
+  }, yazilacaklar);
+  hLD();
+  toast(sonuc.hataliGrup?'⚠️ Bazı satırlar yazılamadı':'✅ Demirbaşlar güncellendi ('+sonuc.toplamYazilan+' satır)');
+  renderDemirbaslar();
 }
 
 // ============================================================
