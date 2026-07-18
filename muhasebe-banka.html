@@ -194,7 +194,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHesap')">İptal</button>
       <button class="btn btn-danger btn-sm" id="h-sil-btn" onclick="hesapSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" onclick="hesapKaydet()">💾 Kaydet</button>
+      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hesapKaydet()" disabled>💾 Kaydet</button>
     </div>
   </div>
 </div>
@@ -229,7 +229,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field"><label>Açıklama</label><input type="text" id="hr-aciklama" placeholder="İşlem açıklaması"></div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHareket')">İptal</button>
-      <button class="btn btn-primary" onclick="hareketKaydet()">💾 Kaydet</button>
+      <button class="btn btn-primary" id="hr-kaydet-btn" onclick="hareketKaydet()" disabled>💾 Kaydet</button>
     </div>
   </div>
 </div>
@@ -240,6 +240,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <script>
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 let hesaplar={},hareketler={},virmanlar={};
+let YETKI_HARITASI = {};
 
 // ============================================================
 // DÖNÜŞTÜRME YARDIMCILARI
@@ -405,7 +406,7 @@ function openDuzenleHesap(id){
   document.getElementById('h-iban').value=h.iban||'';
   document.getElementById('h-acilis').value=h.acilisBakiye||0;
   document.getElementById('h-otel').value=h.otelId||'810';
-  document.getElementById('h-sil-btn').style.display='flex';
+  document.getElementById('h-sil-btn').style.display=['kayit','tam'].includes(YETKI_HARITASI['banka_kasa'])?'flex':'none';
   hTurDegisti();
   aModal('mHesap');
 }
@@ -656,6 +657,10 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   document.getElementById('har-bit').value=today;
   document.getElementById('vir-tarih').value=today;
   renderHesaplar();
+  YETKI_HARITASI = await kullaniciYetkileriGetir();
+  const bankaYaziYetkisi = ['kayit','tam'].includes(YETKI_HARITASI['banka_kasa']);
+  document.getElementById('h-kaydet-btn').disabled = !bankaYaziYetkisi;
+  document.getElementById('hr-kaydet-btn').disabled = !bankaYaziYetkisi;
 })();
 </script>
 </body>
