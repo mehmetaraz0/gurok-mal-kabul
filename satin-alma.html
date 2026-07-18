@@ -6,6 +6,7 @@
 <script src="supabase-config.js"></script>
 <script src="onay-motoru.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Satın Alma</title>
@@ -351,6 +352,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 </div>
 
+<input type="file" id="kalem-excel-input" accept=".xlsx,.xls" style="display:none" onchange="kalemExcelYukle(event,_kalemExcelAktifTalepId)">
+
 <div id="toast"></div>
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
@@ -605,7 +608,7 @@ async function talepKaydet(departman,aciliyet,notAlani,satirlar,otelId){
     const kalemSatirlar=doluSatirlar.map(u=>({talep_id:talepId,urun_adi:u.ad,urun_kodu:u.kod||null,miktar:u.miktar,birim:u.birim}));
     const kr=await fetch(SB_URL+'/rest/v1/satin_alma_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
     if(!kr.ok){console.warn('talepKaydet: kalem insert failed, orphaned satin_alma_talepleri header id='+talepId);return null;}
-    DB.talepler[talepId]={id:talepId,tarih:new Date().toISOString().split('T')[0],olusturmaTarih:Date.now(),departman,personel:CU.ad,satirlar:doluSatirlar,aciliyet,not:notAlani||'',durum:'bekleyen'};
+    DB.talepler[talepId]={id:talepId,tarih:new Date().toISOString().split('T')[0],olusturmaTarih:Date.now(),departman,personel:CU.ad,satirlar:doluSatirlar,aciliyet,not:notAlani||'',durum:'bekleyen',asama:'depo'};
     return talepId;
   }catch(e){console.warn(e);return null;}
 }
@@ -973,6 +976,11 @@ async function openTalepDetay(id){
         <button class="btn btn-gray btn-sm" onclick="teklifIste('${id}')">📨 Teklif İste</button>
         <button class="btn btn-info btn-sm" onclick="talepSipariseDonustur('${id}')">📦 Siparişe Dönüştür</button>
       </div>`:''}
+    ${t.durum==='bekleyen'&&t.asama==='depo'?`
+      <div class="brow" style="margin-top:8px">
+        <button class="btn btn-gray btn-sm" onclick="kalemExcelAktar('${id}')">📊 Excel'e Aktar</button>
+        <button class="btn btn-gray btn-sm" onclick="_kalemExcelAktifTalepId='${id}';document.getElementById('kalem-excel-input').click()">📥 Excel'den Yükle</button>
+      </div>`:''}
     <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTalepDetay')">Kapat</button>`;
   aModal('mTalepDetay');
 }
@@ -1015,6 +1023,98 @@ async function talepSipariseDonustur(id){
   try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'siparis'})});}catch(e){console.warn(e);}
   gTab('yeniSiparis',document.querySelectorAll('.tabbtn')[2]);
   toast('📦 Ürünler sipariş formuna aktarıldı');
+}
+
+// ====== İÇ TALEPLER — KALEM EXCEL TOPLU DÜZENLEME (ortak-excel.js pilotu) ======
+// Sadece talep henüz onay zincirinde hiç ilerlememişken (bekleyen+depo) izinli —
+// cost aşaması tutarı orijinal kalemlere göre belirlediği için sonrasında kalem
+// değiştirmek onay denetim izini bozar. talepleriExcelAktar/talepExcelUygula
+// (yukarıda) ile KARIŞTIRILMASIN — o onay KARARI için, bu kalem SATIRLARI için.
+let _kalemExcelAktifTalepId = null;
+const kalemExcelSablonSpec = [
+  {alan:'id', baslik:'Sistem ID', tip:'text', kilitli:true},
+  {alan:'kod', baslik:'Ürün Kodu', tip:'text', genislik:16},
+  {alan:'ad', baslik:'Ürün Adı', tip:'text', zorunlu:true, genislik:30},
+  {alan:'miktar', baslik:'Miktar', tip:'number', zorunlu:true, genislik:10},
+  {alan:'birim', baslik:'Birim', tip:'text', zorunlu:true, genislik:20, izinliDegerler:['KG','LT','AD','KOLI']}
+];
+
+async function kalemExcelAktar(talepId){
+  const t=DB.talepler[talepId];if(!t)return;
+  await excelSablonIndir(kalemExcelSablonSpec, t.satirlar||[], 'talep-kalemleri-'+talepId.slice(0,8)+'-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+async function kalemExcelYukle(event,talepId){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  const t=DB.talepler[talepId];if(!t)return;
+  sLD();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    const fkSet=new Set();
+    try{
+      const r=await fetch(SB_URL+'/rest/v1/urunler?select=kod',{headers:SB_HEADERS});
+      if(r.ok)(await r.json()).forEach(u=>{if(u.kod)fkSet.add(String(u.kod).trim());});
+    }catch(e){console.warn(e);}
+    hLD();
+    const siniflandirma=excelSatirlariSiniflandir(kalemExcelSablonSpec, satirlar, t.satirlar||[], {dogalAnahtarlar:['kod','ad'],fkAlan:'kod',fkSet});
+    excelOnizlemeGoster(siniflandirma,{
+      spec:kalemExcelSablonSpec,
+      dosyaAdiOnek:'talep-kalemleri-'+talepId.slice(0,8),
+      onUygula:(mod,yazilacaklar)=>kalemExcelUygula(talepId,mod,yazilacaklar)
+    });
+  }catch(err){
+    hLD();
+    toast('❌ Dosya okunamadı: '+err.message);
+  }
+}
+
+async function kalemExcelUygula(talepId,mod,yazilacaklar){
+  // Operasyon-seviyesi canlı-durum kilidi — satır bazlı değil, işlem bazlı:
+  // kısmi kalem güncellemesi onay denetim izini bozar.
+  let guncelDurum='',guncelAsama='';
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId+'&select=durum,asama',{headers:SB_HEADERS});
+    if(r.ok){const d=await r.json();if(d[0]){guncelDurum=d[0].durum;guncelAsama=d[0].asama;}}
+  }catch(e){}
+  if(guncelDurum!=='bekleyen'||guncelAsama!=='depo'){
+    toast('⚠️ Talep artık düzenlenebilir durumda değil, aktarım iptal edildi');
+    return;
+  }
+  if(!yazilacaklar.length){toast('ℹ️ Yazılacak satır yok');return;}
+
+  const guncellenecekler=yazilacaklar.filter(s=>s.kayitId).map(s=>({
+    id:s.kayitId,talep_id:talepId,urun_kodu:s.alanlar.kod||null,urun_adi:s.alanlar.ad,miktar:s.alanlar.miktar,birim:s.alanlar.birim
+  }));
+  const yeniler=yazilacaklar.filter(s=>!s.kayitId).map(s=>({
+    talep_id:talepId,urun_kodu:s.alanlar.kod||null,urun_adi:s.alanlar.ad,miktar:s.alanlar.miktar,birim:s.alanlar.birim
+  }));
+
+  sLD();
+  let hataOldu=false;
+  if(guncellenecekler.length){
+    const sonucG=await excelTopluYaz('satin_alma_talep_kalemleri',guncellenecekler,{onConflict:'id'});
+    if(sonucG.hataliGrup)hataOldu=true;
+  }
+  if(yeniler.length){
+    const sonucY=await excelTopluYaz('satin_alma_talep_kalemleri',yeniler,{});
+    if(sonucY.hataliGrup)hataOldu=true;
+  }
+
+  await excelImportGecmisiYaz({
+    tabloAdi:'satin_alma_talep_kalemleri',ilgiliId:talepId,dosyaAdi:'talep-kalemleri-'+talepId.slice(0,8)+'.xlsx',
+    kullaniciAd:CU.ad,mod,toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0,atlananSayisi:0
+  },yazilacaklar);
+
+  hLD();
+  kModal('mTalepDetay');
+  toast(hataOldu?'⚠️ Bazı satırlar yazılamadı, ayrıntı için konsolu kontrol et':'✅ Kalemler güncellendi');
+  await loadDB();
+  await hesaplaYetkiliAsamalar();
+  renderTalepler();
+  await openTalepDetay(talepId);
 }
 
 // ====== TEKLİFLER (RFQ) ======
