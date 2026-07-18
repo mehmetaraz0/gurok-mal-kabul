@@ -328,3 +328,89 @@ function _oeHataRaporuIndir(){
   if (!hatalilar.length) { toast('✅ Hatalı satır yok'); return; }
   excelHataRaporuIndir(_oeSpec, hatalilar, _oeDosyaAdiOnek + '-hatalar-' + new Date().toISOString().split('T')[0] + '.xlsx');
 }
+
+// ============================================================
+// 4) TOPLU YAZMA + DENETİM KAYDI + HATA RAPORU
+// ============================================================
+
+// satirlar: Supabase'e POST edilecek şekilde HAZIRLANMIŞ (snake_case,
+// tablo sütunlarıyla birebir) nesneler dizisi — spec eşlemesi çağıranın
+// sorumluluğunda (bkz. satin-alma.html kalemExcelUygula). batchSize'lık
+// gruplar halinde tek dizi-body POST atılır (saveLnSiparisler deseni):
+// grup İÇİ atomik (Postgres tek bir çoklu-satır INSERT ifadesi olarak
+// çalıştırır), gruplar ARASI DEĞİL — bir grup başarısız olursa önceki
+// gruplar DB'de kalır, bu açıkça sonuç nesnesinde raporlanır.
+async function excelTopluYaz(tabloAdi, satirlar, opts){
+  opts = opts || {};
+  const batchSize = opts.batchSize || 500;
+  const sonuc = { toplamYazilan: 0, basariliGrup: 0, hataliGrup: 0, hatalar: [] };
+  if (!satirlar || !satirlar.length) return sonuc;
+
+  for (let i = 0; i < satirlar.length; i += batchSize) {
+    const grup = satirlar.slice(i, i + batchSize);
+    const url = SB_URL + '/rest/v1/' + tabloAdi + (opts.onConflict ? '?on_conflict=' + opts.onConflict : '');
+    const headers = opts.onConflict
+      ? { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=representation' }
+      : { ...SB_HEADERS, 'Prefer': 'return=representation' };
+    try {
+      const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(grup) });
+      if (!r.ok) {
+        const metin = await r.text();
+        sonuc.hataliGrup++;
+        sonuc.hatalar.push({ grupBaslangic: i, mesaj: metin });
+        console.error('excelTopluYaz grup hatası (' + i + '-' + (i + grup.length) + '):', metin);
+      } else {
+        sonuc.basariliGrup++;
+        sonuc.toplamYazilan += grup.length;
+      }
+    } catch (e) {
+      sonuc.hataliGrup++;
+      sonuc.hatalar.push({ grupBaslangic: i, mesaj: String(e) });
+      console.error('excelTopluYaz istisna:', e);
+    }
+  }
+  return sonuc;
+}
+
+// bilgi: {tabloAdi, ilgiliId, dosyaAdi, kullaniciAd, mod, toplamSatir,
+// yeniSayisi, guncellemeSayisi, hataSayisi, atlananSayisi}
+// satirlar: excelSatirlariSiniflandir çıktısı (denetim detayı için).
+async function excelImportGecmisiYaz(bilgi, satirlar){
+  let importId = null;
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/excel_import_gecmisi', {
+      method: 'POST', headers: { ...SB_HEADERS, 'Prefer': 'return=representation' },
+      body: JSON.stringify({
+        tablo_adi: bilgi.tabloAdi, ilgili_id: bilgi.ilgiliId || null, dosya_adi: bilgi.dosyaAdi || null,
+        kullanici_ad: bilgi.kullaniciAd || null, mod: bilgi.mod || null,
+        toplam_satir: bilgi.toplamSatir || 0, yeni_sayisi: bilgi.yeniSayisi || 0,
+        guncelleme_sayisi: bilgi.guncellemeSayisi || 0, hata_sayisi: bilgi.hataSayisi || 0,
+        atlanan_sayisi: bilgi.atlananSayisi || 0
+      })
+    });
+    if (!r.ok) { console.error('excel_import_gecmisi yazılamadı — denetim izi eksik kalabilir:', await r.text()); return null; }
+    importId = (await r.json())[0]?.id || null;
+  } catch (e) { console.error('excel_import_gecmisi yazılamadı:', e); return null; }
+
+  if (importId && satirlar && satirlar.length) {
+    const satirBody = satirlar.map(s => ({
+      import_id: importId, satir_no: s.satirNo, kayit_id: s.kayitId || null,
+      durum: s.sinif, eski_deger: s.eskiDeger || null, yeni_deger: s.yeniDeger || null,
+      hata_mesaji: (s.hatalar && s.hatalar.length) ? s.hatalar.join('; ') : null
+    }));
+    try {
+      const r2 = await fetch(SB_URL + '/rest/v1/excel_import_satirlari', { method: 'POST', headers: SB_HEADERS, body: JSON.stringify(satirBody) });
+      if (!r2.ok) console.error('excel_import_satirlari yazılamadı — satır detayları eksik kalabilir:', await r2.text());
+    } catch (e) { console.error('excel_import_satirlari yazılamadı:', e); }
+  }
+  return importId;
+}
+
+// hatalilar: excelSatirlariSiniflandir çıktısından hata/bulunamadi/mukerrer
+// satırları. spec'e "Hata Açıklaması" sütunu eklenmiş haliyle excelSablonIndir'i
+// yeniden kullanır.
+async function excelHataRaporuIndir(spec, hatalilar, dosyaAdi){
+  const hataSpec = [..._excelGorunurAlanlar(spec), { alan: '_hata', baslik: 'Hata Açıklaması', tip: 'text' }];
+  const veriler = (hatalilar || []).map(s => ({ ...s.alanlar, _hata: (s.hatalar || []).join('; ') }));
+  await excelSablonIndir(hataSpec, veriler, dosyaAdi || ('hata-raporu-' + new Date().toISOString().split('T')[0] + '.xlsx'));
+}
