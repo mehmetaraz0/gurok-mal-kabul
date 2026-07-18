@@ -1035,7 +1035,7 @@ const kalemExcelSablonSpec = [
   {alan:'id', baslik:'Sistem ID', tip:'text', kilitli:true},
   {alan:'kod', baslik:'Ürün Kodu', tip:'text', genislik:16},
   {alan:'ad', baslik:'Ürün Adı', tip:'text', zorunlu:true, genislik:30},
-  {alan:'miktar', baslik:'Miktar', tip:'number', zorunlu:true, genislik:10},
+  {alan:'miktar', baslik:'Miktar', tip:'number', zorunlu:true, pozitifOlmali:true, genislik:10},
   {alan:'birim', baslik:'Birim', tip:'text', zorunlu:true, genislik:20, izinliDegerler:['KG','LT','AD','KOLI']}
 ];
 

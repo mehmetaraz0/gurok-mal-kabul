@@ -94,26 +94,47 @@ async function excelDosyaOku(file){
   });
 }
 
+// Bir kayıt/satır nesnesinden doğal anahtar string'i üretir. İki mod:
+// - opts.dogalAnahtarKombinasyonu (alan adları dizisi) verilmişse: TÜM
+//   alanların değerleri BİRLEŞTİRİLİP tek bileşik anahtar olur (örn.
+//   tarih+para_birimi, yil+otel_id+hesap_kodu) — hiçbiri "öncelik sırası"
+//   değil, hepsi anahtarın parçası.
+// - Verilmemişse opts.dogalAnahtarlar (öncelik sıralı liste, ilk dolu
+//   alan kazanır — tek alanlı doğal anahtarlar için, pilotun kullandığı
+//   mod) kullanılır. İkisi de yoksa null döner (doğal anahtar yok demek).
+function _excelDogalAnahtarUret(nesne, opts){
+  if (opts.dogalAnahtarKombinasyonu){
+    const parcalar = opts.dogalAnahtarKombinasyonu.map(alan => String(nesne[alan] ?? '').trim().toLowerCase());
+    if (parcalar.every(p => p === '')) return null;
+    return opts.dogalAnahtarKombinasyonu.join('+') + ':' + parcalar.join('|');
+  }
+  const dogalAnahtarlar = opts.dogalAnahtarlar || ['urun_kodu', 'urun_adi'];
+  for (const alan of dogalAnahtarlar){
+    if (nesne[alan]) return alan + ':' + String(nesne[alan]).trim().toLowerCase();
+  }
+  return null;
+}
+
 // spec: excelSablonIndir ile aynı. satirlar: excelDosyaOku'nun döndürdüğü
 // ham diziler (satirlar[0]=başlık). mevcutKayitlar: sistemdeki güncel
 // kayıtlar (id + doğal anahtar alanlarını içeren nesneler dizisi).
-// opts: {dogalAnahtarlar:['urun_kodu','urun_adi'], fkAlan:'urun_kodu',
-// fkSet:Set<string>}.
+// opts: {dogalAnahtarlar:['urun_kodu','urun_adi']} TEK alan (öncelik
+// sıralı fallback) VEYA {dogalAnahtarKombinasyonu:['tarih','para_birimi']}
+// BİLEŞİK (tüm alanlar birlikte) — ikisi birbirini dışlar, kombinasyon
+// verilmişse o kullanılır. Ayrıca {fkAlan:'urun_kodu', fkSet:Set<string>}.
 // Döner: {satirNo, alanlar, sinif, hatalar[], eskiDeger, yeniDeger, kayitId}[]
 // sinif ∈ 'yeni'|'guncelleme'|'degisiklik_yok'|'hata'|'bulunamadi'|'mukerrer'
 function excelSatirlariSiniflandir(spec, satirlar, mevcutKayitlar, opts){
   opts = opts || {};
   const gorunur = _excelGorunurAlanlar(spec);
   const idSpec = spec.find(s => s.kilitli);
-  const dogalAnahtarlar = opts.dogalAnahtarlar || ['urun_kodu', 'urun_adi'];
 
   const mevcutById = {};
   const mevcutByDogal = {};
   (mevcutKayitlar || []).forEach(k => {
     if (k.id) mevcutById[String(k.id)] = k;
-    for (const alan of dogalAnahtarlar) {
-      if (k[alan]) { mevcutByDogal[alan + ':' + String(k[alan]).trim().toLowerCase()] = k; break; }
-    }
+    const dogalKey = _excelDogalAnahtarUret(k, opts);
+    if (dogalKey) mevcutByDogal[dogalKey] = k;
   });
 
   const gorulenDogalAnahtar = new Set();
@@ -135,7 +156,8 @@ function excelSatirlariSiniflandir(spec, satirlar, mevcutKayitlar, opts){
       if (s.tip === 'number' && alanlar[s.alan]) {
         const n = parseFloat(String(alanlar[s.alan]).replace(',', '.'));
         if (isNaN(n)) hatalar.push(s.baslik + ' sayısal olmalı');
-        else if (n <= 0) hatalar.push(s.baslik + " 0'dan büyük olmalı");
+        else if (s.pozitifOlmali && n <= 0) hatalar.push(s.baslik + " 0'dan büyük olmalı");
+        else if (!s.pozitifOlmali && n < 0) hatalar.push(s.baslik + ' negatif olamaz');
         else alanlar[s.alan] = n;
       }
     });
@@ -149,10 +171,7 @@ function excelSatirlariSiniflandir(spec, satirlar, mevcutKayitlar, opts){
       mevcut = mevcutById[idDeger];
       if (!mevcut) { sinif = 'bulunamadi'; hatalar.push('Sistem ID sistemde bulunamadı: ' + idDeger); }
     } else {
-      let dogalKey = null;
-      for (const alan of dogalAnahtarlar) {
-        if (alanlar[alan]) { dogalKey = alan + ':' + String(alanlar[alan]).trim().toLowerCase(); break; }
-      }
+      const dogalKey = _excelDogalAnahtarUret(alanlar, opts);
       if (dogalKey) {
         if (gorulenDogalAnahtar.has(dogalKey)) { sinif = 'mukerrer'; hatalar.push('Bu kayıt dosyada birden fazla kez var'); }
         else { gorulenDogalAnahtar.add(dogalKey); mevcut = mevcutByDogal[dogalKey]; }
