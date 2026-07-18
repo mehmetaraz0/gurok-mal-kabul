@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -102,6 +103,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <!-- BÜTÇE GİRİŞLERİ -->
   <div class="sc" id="tab-girisler">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="butceExcelAktar()">📊 Toplu Düzenle — Aktar</button>
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="document.getElementById('butce-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+    </div>
+    <input type="file" id="butce-excel-input" accept=".xlsx,.xls" style="display:none" onchange="butceExcelYukle(event)">
     <div id="butce-liste"></div>
   </div>
 </div>
@@ -200,6 +206,77 @@ async function saveButce(b){
     const d=await r.json();
     if(d&&d[0])b.id=d[0].id;
   }catch(e){console.warn(e);}
+}
+
+// ====== BÜTÇE — EXCEL TOPLU DÜZENLEME (ortak-excel.js) ======
+// Bileşik doğal anahtar (yil+otelId+hesapKodu). 12 aylık sütun AY_ALANLARI
+// ile birebir aynı alan adları — hem okuma hem yazma için ekstra eşleme
+// katmanı gerekmiyor. hesapAd spec'te YOK, yazma anında hesaplar[hesapKodu]
+// map'inden otomatik dolduruluyor (kullanıcı yanlış/eski ad yazıp
+// tutarsızlık yaratmasın). Ay sütunlarında pozitifOlmali YOK — 0 TL bütçe
+// (o ay hiç ayrılmamış) geçerli, sadece negatif reddedilir.
+const butceExcelSpec = [
+  {alan:'yil', baslik:'Yıl', tip:'number', zorunlu:true, pozitifOlmali:true, genislik:8},
+  {alan:'otelId', baslik:'Otel', tip:'text', zorunlu:true, genislik:8, izinliDegerler:['810','811']},
+  {alan:'hesapKodu', baslik:'Hesap Kodu', tip:'text', zorunlu:true, genislik:14},
+  ...AY_ALANLARI.map((alan,i)=>({alan, baslik:AY_ADLARI[i], tip:'number', genislik:10}))
+];
+
+function _butceMevcutKayitlar(){
+  return Object.values(butceler).map(b=>{
+    const obj={yil:b.yil, otelId:b.otelId, hesapKodu:b.hesapKodu};
+    AY_ALANLARI.forEach((alan,i)=>{obj[alan]=b.aylar?.[i]||0;});
+    return obj;
+  });
+}
+
+async function butceExcelAktar(){
+  const veriler=_butceMevcutKayitlar().sort((a,b)=>b.yil-a.yil||a.hesapKodu.localeCompare(b.hesapKodu));
+  await excelSablonIndir(butceExcelSpec, veriler, 'butce-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+async function butceExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  sLD();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    hLD();
+    const fkSet=new Set(Object.keys(hesaplar));
+    const siniflandirma=excelSatirlariSiniflandir(butceExcelSpec, satirlar, _butceMevcutKayitlar(), {dogalAnahtarKombinasyonu:['yil','otelId','hesapKodu'], fkAlan:'hesapKodu', fkSet});
+    excelOnizlemeGoster(siniflandirma,{
+      spec:butceExcelSpec,
+      dosyaAdiOnek:'butce',
+      onUygula:(mod,satirlarYaz)=>butceExcelUygula(mod,satirlarYaz)
+    });
+  }catch(err){
+    hLD();
+    toast('❌ Dosya okunamadı: '+err.message);
+  }
+}
+
+async function butceExcelUygula(mod,yazilacaklar){
+  if(!yazilacaklar.length){toast('ℹ️ Yazılacak satır yok');return;}
+  const satirlar=yazilacaklar.map(s=>{
+    const satir={
+      yil:s.alanlar.yil, otel_id:s.alanlar.otelId, hesap_kodu:s.alanlar.hesapKodu,
+      hesap_ad:hesaplar[s.alanlar.hesapKodu]?.ad||null
+    };
+    AY_ALANLARI.forEach(alan=>{satir[alan]=s.alanlar[alan]||0;});
+    return satir;
+  });
+  sLD();
+  const sonuc=await excelTopluYaz('butce_kayitlari', satirlar, {onConflict:'yil,otel_id,hesap_kodu'});
+  await loadDB();
+  await excelImportGecmisiYaz({
+    tabloAdi:'butce_kayitlari', ilgiliId:null, dosyaAdi:'butce.xlsx',
+    kullaniciAd:(typeof OTURUM_KULLANICI!=='undefined'&&OTURUM_KULLANICI?.ad)||'', mod, toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0, atlananSayisi:0
+  }, yazilacaklar);
+  hLD();
+  toast(sonuc.hataliGrup?'⚠️ Bazı satırlar yazılamadı':'✅ Bütçe güncellendi ('+sonuc.toplamYazilan+' satır)');
+  renderButceListesi();
 }
 
 // ============================================================

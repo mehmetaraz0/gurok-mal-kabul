@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -144,6 +145,10 @@ td:first-child{min-width:90px}
     <div class="toolbar-sep"></div>
     <button class="toolbar-btn" onclick="tumunuAc()">⊞ Tümünü Aç</button>
     <button class="toolbar-btn" onclick="tumunuKapat()">⊟ Tümünü Kapat</button>
+    <div class="toolbar-sep"></div>
+    <button class="toolbar-btn" onclick="hesapPlaniExcelAktar()">📊 Toplu Düzenle — Aktar</button>
+    <button class="toolbar-btn" onclick="document.getElementById('hesap-plani-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+    <input type="file" id="hesap-plani-excel-input" accept=".xlsx,.xls" style="display:none" onchange="hesapPlaniExcelYukle(event)">
     <div class="toolbar-sep"></div>
     <div class="filtre-grup">
       <span class="filtre-lbl">Hızlı Ara:</span>
@@ -719,6 +724,83 @@ async function saveHesap(h){
       body:JSON.stringify(satir)
     });
   }catch(e){console.warn(e);}
+}
+
+// ====== HESAP PLANI — EXCEL TOPLU DÜZENLEME (ortak-excel.js) ======
+// Mevcut "📤 Excel" (exportExcel, satır ~135) DOKUNULMADI — o gerçek XLSX
+// değil, salt-görüntüleme amaçlı TSV/.xls. Bu, tamamen ayrı bir toplu
+// içe/dışa aktarma özelliği. ust_kod Excel'de YOK — saveHesap()'teki gibi
+// getUstKod(kod) ile otomatik hesaplanır.
+const hesapPlaniExcelSpec = [
+  {alan:'kod', baslik:'Hesap Kodu', tip:'text', zorunlu:true, genislik:14},
+  {alan:'ad', baslik:'Hesap Adı', tip:'text', zorunlu:true, genislik:28},
+  {alan:'tip', baslik:'Tip', tip:'text', zorunlu:true, genislik:14, izinliDegerler:['Bilanço','Gelir Tablosu']},
+  {alan:'anaGrup', baslik:'Ana Grup', tip:'text', genislik:16},
+  {alan:'yon', baslik:'Çalışma Yönü', tip:'text', genislik:12, izinliDegerler:['Borç','Alacak']},
+  {alan:'altSeviye', baslik:'Alt Seviye', tip:'text', genislik:10},
+  {alan:'ozellik', baslik:'Özellik', tip:'text', genislik:14},
+  {alan:'doviz', baslik:'Döviz', tip:'text', genislik:10, izinliDegerler:['TRY','USD','EUR']},
+  {alan:'durum', baslik:'Durum', tip:'text', genislik:10, izinliDegerler:['aktif','pasif']},
+  {alan:'aciklama', baslik:'Açıklama', tip:'text', genislik:24}
+];
+
+async function hesapPlaniExcelAktar(){
+  const veriler=Object.values(hesaplar).filter(Boolean).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
+  await excelSablonIndir(hesapPlaniExcelSpec, veriler, 'hesap-plani-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+async function hesapPlaniExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  sLD();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    hLD();
+    const mevcutKayitlar=Object.values(hesaplar).filter(Boolean);
+    const siniflandirma=excelSatirlariSiniflandir(hesapPlaniExcelSpec, satirlar, mevcutKayitlar, {dogalAnahtarlar:['kod']});
+    // Kod formatı kontrolü (hesapKaydet()'teki aynı kural) — genel modülde yok, burada ek hata olarak enjekte edilir
+    const kodDeseni=/^[0-9]+(\.[0-9]+)*$/;
+    siniflandirma.forEach(s=>{
+      if(s.alanlar.kod && !kodDeseni.test(s.alanlar.kod)){
+        s.hatalar.push('Hesap kodu sadece rakam ve nokta içerebilir (örn. 100.01)');
+        s.sinif='hata';
+      }
+    });
+    excelOnizlemeGoster(siniflandirma,{
+      spec:hesapPlaniExcelSpec,
+      dosyaAdiOnek:'hesap-plani',
+      onUygula:(mod,satirlarYaz)=>hesapPlaniExcelUygula(mod,satirlarYaz)
+    });
+  }catch(err){
+    hLD();
+    toast('❌ Dosya okunamadı: '+err.message);
+  }
+}
+
+async function hesapPlaniExcelUygula(mod,yazilacaklar){
+  if(!yazilacaklar.length){toast('ℹ️ Yazılacak satır yok');return;}
+  const satirlar=yazilacaklar.map(s=>{
+    const kod=s.alanlar.kod;
+    return{
+      kod, ust_kod:getUstKod(kod), ad:s.alanlar.ad, tip:s.alanlar.tip,
+      ana_grup:s.alanlar.anaGrup||null, yon:s.alanlar.yon||'Borç',
+      alt_seviye:s.alanlar.altSeviye||null, ozellik:s.alanlar.ozellik||null,
+      doviz:s.alanlar.doviz||'TRY', durum:s.alanlar.durum||'aktif',
+      aciklama:s.alanlar.aciklama||null
+    };
+  });
+  sLD();
+  const sonuc=await excelTopluYaz('hesap_plani', satirlar, {onConflict:'kod'});
+  await loadDB();
+  await excelImportGecmisiYaz({
+    tabloAdi:'hesap_plani', ilgiliId:null, dosyaAdi:'hesap-plani.xlsx',
+    kullaniciAd:(typeof OTURUM_KULLANICI!=='undefined'&&OTURUM_KULLANICI?.ad)||'', mod, toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0, atlananSayisi:0
+  }, yazilacaklar);
+  hLD();
+  toast(sonuc.hataliGrup?'⚠️ Bazı satırlar yazılamadı':'✅ Hesap planı güncellendi ('+sonuc.toplamYazilan+' satır)');
+  renderTablo();
 }
 
 async function thpYukle(skipConfirm){

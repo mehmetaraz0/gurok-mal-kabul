@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -101,6 +102,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
     <div class="card">
       <div class="card-title">📜 Son 14 Gün</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn btn-gray btn-sm" style="flex:1" onclick="dovizKuruExcelAktar()">📊 Toplu Düzenle — Aktar</button>
+        <button class="btn btn-gray btn-sm" style="flex:1" onclick="document.getElementById('doviz-kur-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+      </div>
+      <input type="file" id="doviz-kur-excel-input" accept=".xlsx,.xls" style="display:none" onchange="dovizKuruExcelYukle(event)">
       <div id="gecmis-liste"></div>
     </div>
   </div>
@@ -309,6 +315,80 @@ async function manuelKurKaydet(){
   await loadDB();
   render();
   toast(`✅ ${kod} kuru kaydedildi — ${fmt(alis)} ₺`);
+}
+
+// ====== DÖVİZ KURLARI — EXCEL TOPLU DÜZENLEME (ortak-excel.js) ======
+// Bileşik doğal anahtar (tarih+paraBirimi) — otomatik TCMB güncellemeleri
+// GitHub Actions üzerinden geliyor, bu sadece manuel toplu giriş/düzeltme
+// için. efektifAlis/efektifSatis spec'te YOK — mevcut manuel giriş UI'ı
+// da bunları hiç yazmıyor, tutarlı kalıyor.
+const dovizKuruExcelSpec = [
+  {alan:'tarih', baslik:'Tarih (YYYY-AA-GG)', tip:'text', zorunlu:true, genislik:14},
+  {alan:'paraBirimi', baslik:'Para Birimi', tip:'text', zorunlu:true, genislik:12, izinliDegerler:['USD','EUR','GBP']},
+  {alan:'dovizAlis', baslik:'Döviz Alış', tip:'number', zorunlu:true, genislik:12},
+  {alan:'dovizSatis', baslik:'Döviz Satış', tip:'number', genislik:12}
+];
+
+function _dovizKuruMevcutKayitlar(){
+  const liste=[];
+  Object.values(gunlukKurlar).forEach(gun=>{
+    Object.entries(gun.kurlar||{}).forEach(([kod,k])=>{
+      liste.push({tarih:gun.tarih, paraBirimi:kod, dovizAlis:k.dovizAlis, dovizSatis:k.dovizSatis});
+    });
+  });
+  return liste;
+}
+
+async function dovizKuruExcelAktar(){
+  const veriler=_dovizKuruMevcutKayitlar().sort((a,b)=>a.tarih.localeCompare(b.tarih)||a.paraBirimi.localeCompare(b.paraBirimi));
+  await excelSablonIndir(dovizKuruExcelSpec, veriler, 'doviz-kurlari-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+async function dovizKuruExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  sLD();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    hLD();
+    const siniflandirma=excelSatirlariSiniflandir(dovizKuruExcelSpec, satirlar, _dovizKuruMevcutKayitlar(), {dogalAnahtarKombinasyonu:['tarih','paraBirimi'], fkAlan:'paraBirimi', fkSet:new Set(['USD','EUR','GBP'])});
+    const tarihDeseni=/^\d{4}-\d{2}-\d{2}$/;
+    siniflandirma.forEach(s=>{
+      if(s.alanlar.tarih && !tarihDeseni.test(s.alanlar.tarih)){
+        s.hatalar.push('Tarih YYYY-AA-GG biçiminde olmalı (örn. 2026-07-18)');
+        s.sinif='hata';
+      }
+    });
+    excelOnizlemeGoster(siniflandirma,{
+      spec:dovizKuruExcelSpec,
+      dosyaAdiOnek:'doviz-kurlari',
+      onUygula:(mod,satirlarYaz)=>dovizKuruExcelUygula(mod,satirlarYaz)
+    });
+  }catch(err){
+    hLD();
+    toast('❌ Dosya okunamadı: '+err.message);
+  }
+}
+
+async function dovizKuruExcelUygula(mod,yazilacaklar){
+  if(!yazilacaklar.length){toast('ℹ️ Yazılacak satır yok');return;}
+  const satirlar=yazilacaklar.map(s=>({
+    tarih:s.alanlar.tarih, para_birimi:s.alanlar.paraBirimi,
+    doviz_alis:s.alanlar.dovizAlis, doviz_satis:s.alanlar.dovizSatis||s.alanlar.dovizAlis,
+    kaynak:'Manuel'
+  }));
+  sLD();
+  const sonuc=await excelTopluYaz('doviz_kurlari', satirlar, {onConflict:'tarih,para_birimi'});
+  await loadDB();
+  await excelImportGecmisiYaz({
+    tabloAdi:'doviz_kurlari', ilgiliId:null, dosyaAdi:'doviz-kurlari.xlsx',
+    kullaniciAd:(typeof OTURUM_KULLANICI!=='undefined'&&OTURUM_KULLANICI?.ad)||'', mod, toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0, atlananSayisi:0
+  }, yazilacaklar);
+  hLD();
+  toast(sonuc.hataliGrup?'⚠️ Bazı satırlar yazılamadı':'✅ Döviz kurları güncellendi ('+sonuc.toplamYazilan+' satır)');
+  render();
 }
 
 // ============================================================
