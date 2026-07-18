@@ -33,6 +33,23 @@ function oturumAccessTokenGetir() {
   } catch (e) { return null; }
 }
 
+// Sayfa yüklenirken bir kez çağrılır. Giriş yapmış kullanıcının rol_id'sine
+// ait TÜM yetki_matrisi satırlarını tek sorguda çekip {modul_kod: yetki_seviye}
+// haritası döner. Hata/eksik veri durumunda boş nesne döner (en güvenli
+// varsayım — hiçbir modülde yetki yokmuş gibi davran).
+async function kullaniciYetkileriGetir() {
+  const user = oturumGetir();
+  if (!user || !user.rol_id) return {};
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/yetki_matrisi?select=yetki,moduller(kod)&rol_id=eq.' + user.rol_id, { headers: SB_HEADERS });
+    if (!r.ok) return {};
+    const rows = await r.json();
+    const harita = {};
+    rows.forEach(row => { if (row.moduller) harita[row.moduller.kod] = row.yetki; });
+    return harita;
+  } catch (e) { return {}; }
+}
+
 // index.html DIŞINDAKİ sayfalar bunu çağırır. Oturum geçerliyse kullanıcıyı döner.
 // Değilse index.html'e (geri dönüş adresiyle) yönlendirir ve null döner — çağıran
 // kod null aldığında HİÇBİR ŞEY YAPMADAN durmalı (yönlendirme zaten gerçekleşti).
