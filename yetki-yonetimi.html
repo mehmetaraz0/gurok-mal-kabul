@@ -63,7 +63,7 @@ let roller=[],moduller=[],matris={}; // matris[rolId+'_'+modulId] = {id,yetki}
 async function yukle(){
   try{
     const [rR,mR,yR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/roller?select=*&order=sira',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/roller?select=*&or=(gizli.is.null,gizli.eq.false)&order=sira',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/moduller?select=*&order=sira',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/yetki_matrisi?select=*',{headers:SB_HEADERS}),
     ]);

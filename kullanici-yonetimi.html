@@ -122,7 +122,7 @@ async function loadDB(){
   try{
     const [kR,rR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/kullanicilar?select=*,roller(id,ad,kod,seviye)&or=(gizli.is.null,gizli.eq.false)',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/roller?select=*&order=sira',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/roller?select=*&or=(gizli.is.null,gizli.eq.false)&order=sira',{headers:SB_HEADERS}),
     ]);
     kullanicilar={};roller=[];
     if(rR.ok)roller=await rR.json();
