@@ -21,6 +21,18 @@ function oturumKaydet(user, accessToken) {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user, accessToken: accessToken || null, expiry: Date.now() + SESSION_SURESI_MS }));
 }
 
+// supabase-config.js bunu çağırır (auth-guard.js ondan önce yüklenir).
+// Geçerli bir Supabase Auth token varsa döner, yoksa null (anon key'e düşülür).
+function oturumAccessTokenGetir() {
+  try {
+    const s = sessionStorage.getItem(SESSION_KEY);
+    if (!s) return null;
+    const { accessToken, expiry } = JSON.parse(s);
+    if (!accessToken || Date.now() >= expiry) return null;
+    return accessToken;
+  } catch (e) { return null; }
+}
+
 // index.html DIŞINDAKİ sayfalar bunu çağırır. Oturum geçerliyse kullanıcıyı döner.
 // Değilse index.html'e (geri dönüş adresiyle) yönlendirir ve null döner — çağıran
 // kod null aldığında HİÇBİR ŞEY YAPMADAN durmalı (yönlendirme zaten gerçekleşti).
