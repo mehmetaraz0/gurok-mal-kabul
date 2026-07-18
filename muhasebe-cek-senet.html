@@ -167,7 +167,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mKayit')">İptal</button>
       <button class="btn btn-danger btn-sm" id="k-sil-btn" onclick="kayitSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" onclick="kayitKaydet()">💾 Kaydet</button>
+      <button class="btn btn-primary" id="k-kaydet-btn" onclick="kayitKaydet()" disabled>💾 Kaydet</button>
     </div>
   </div>
 </div>
@@ -187,6 +187,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 let kayitlar={},cariler={};
 let alinanFilter='tumu',verilenFilter='tumu';
+let YETKI_HARITASI = {};
 
 const OTEL_ISIMLERI={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'};
 const OTEL_KISA={'810':'Club','811':'Resort'};
@@ -427,7 +428,7 @@ function openDuzenleKayit(id){
   document.getElementById('k-tutar').value=k.tutar||'';
   document.getElementById('k-otel').value=k.otelId||'810';
   document.getElementById('k-not').value=k.not||'';
-  document.getElementById('k-sil-btn').style.display='flex';
+  document.getElementById('k-sil-btn').style.display=['kayit','tam'].includes(YETKI_HARITASI['cek_senet_yonetimi'])?'flex':'none';
   yonDegisti();
   aModal('mKayit');
 }
@@ -619,6 +620,8 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
 (async function(){
   await loadDB();
   renderListe('alinan');
+  YETKI_HARITASI = await kullaniciYetkileriGetir();
+  document.getElementById('k-kaydet-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['cek_senet_yonetimi']);
 })();
 </script>
 </body>
