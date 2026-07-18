@@ -348,7 +348,7 @@ const MODULLER = [
     ikon: '📋',
     renk: 'icon-blue',
     url: 'mal-kabul-v2.html',
-    roller: ['yonetici','depo'],
+    moduller: ['mal_kabul_form','mal_kabul_kalite'],
     durum: 'aktif'
   },
   {
@@ -358,7 +358,7 @@ const MODULLER = [
     ikon: '📦',
     renk: 'icon-green',
     url: 'stok-takip.html',
-    roller: ['yonetici','depo'],
+    moduller: ['stok_takip'],
     durum: 'aktif'
   },
   {
@@ -368,7 +368,7 @@ const MODULLER = [
     ikon: '📤',
     renk: 'icon-orange',
     url: 'depo-siparis.html',
-    roller: ['yonetici','depo','mutfak','bar'],
+    moduller: ['depo_siparis'],
     durum: 'aktif'
   },
   {
@@ -378,7 +378,7 @@ const MODULLER = [
     ikon: '🛒',
     renk: 'icon-purple',
     url: 'satin-alma.html',
-    roller: ['yonetici','satinalma','depo','cost_control'],
+    moduller: ['ic_talep','siparis_olustur','siparis_takip','fiyat_kontrol','tedarikci_skorkart','firma_yonetimi'],
     durum: 'aktif'
   },
   {
@@ -388,7 +388,7 @@ const MODULLER = [
     ikon: '📊',
     renk: 'icon-yellow',
     url: 'mal-kabul-v2.html#izleme',
-    roller: ['yonetici','satinalma','kalite'],
+    moduller: ['mal_kabul_kalite'],
     durum: 'aktif'
   },
   {
@@ -398,7 +398,7 @@ const MODULLER = [
     ikon: '⚙️',
     renk: 'icon-gray',
     url: 'kullanici-yonetimi.html',
-    roller: ['yonetici'],
+    moduller: ['kullanici_yonetimi'],
     durum: 'aktif'
   },
   {
@@ -408,7 +408,7 @@ const MODULLER = [
     ikon: '💰',
     renk: 'icon-green',
     url: 'muhasebe.html',
-    roller: ['yonetici','satinalma','muhasebe_muduru','muhasebe_calisani','cost_control'],
+    moduller: ['hesap_plani','cari_hesaplar','fatura_giris','fatura_onay','odeme_yapma','uc_yollu_eslestirme','yevmiye_fis_giris','yevmiye_fis_onay','banka_kasa','doviz_manuel','mizan_raporlar','denetim_izi','donem_kilitleme','demirbas_yonetimi','cek_senet_yonetimi','butce_yonetimi','sene_sonu_kapama','e_fatura','e_defter','muhasebe_asistan'],
     durum: 'aktif'
   },
   {
@@ -418,7 +418,7 @@ const MODULLER = [
     ikon: '🍹',
     renk: 'icon-red',
     url: 'bar.html',
-    roller: ['yonetici'],
+    moduller: ['bar_qr_siparis'],
     durum: 'yapiyor'
   },
   {
@@ -428,7 +428,7 @@ const MODULLER = [
     ikon: '📉',
     renk: 'icon-orange',
     url: 'gunluk-tuketim.html',
-    roller: ['mutfak', 'bar', 'yonetici'],
+    moduller: ['gunluk_tuketim'],
     durum: 'aktif'
   },
   {
@@ -438,7 +438,7 @@ const MODULLER = [
     ikon: '📈',
     renk: 'icon-teal',
     url: 'trend-raporlama.html',
-    roller: ['yonetici', 'depo', 'cost_control'],
+    moduller: ['trend_raporlama'],
     durum: 'aktif'
   }
 ];
@@ -579,13 +579,13 @@ async function checkPin() {
     location.replace(returnTo);
     return;
   }
-  showPortal();
+  await showPortal();
 }
 
 // ============================================================
 // PORTAL
 // ============================================================
-function showPortal() {
+async function showPortal() {
   const u = currentUser;
   document.getElementById('screen-login').classList.add('hidden');
   document.getElementById('screen-portal').classList.add('active');
@@ -603,13 +603,15 @@ function showPortal() {
   document.getElementById('welcome-date').textContent =
     now.toLocaleDateString('tr-TR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 
-  // Modülleri render et
-  renderModuller(u.rol);
+  // Modülleri render et — artık gerçek yetki_matrisi'ne göre
+  const yetkiHaritasi = await kullaniciYetkileriGetir();
+  renderModuller(yetkiHaritasi);
 }
 
-function renderModuller(rol) {
+function renderModuller(yetkiHaritasi) {
   const grid = document.getElementById('modules-grid');
-  const gorunur = MODULLER.filter(m => m.roller.includes(rol));
+  const izinliSeviyeler = ['goruntule','kayit','tam'];
+  const gorunur = MODULLER.filter(m => m.moduller.some(kod => izinliSeviyeler.includes(yetkiHaritasi[kod])));
 
   grid.innerHTML = gorunur.map(m => {
     const aktif = m.durum === 'aktif';
@@ -662,7 +664,7 @@ function showToast(msg, dur=2500) {
   const user = oturumGetir();
   if (user) {
     currentUser = user;
-    showPortal();
+    await showPortal();
   }
 })();
 </script>
