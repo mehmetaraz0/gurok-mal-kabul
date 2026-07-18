@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Stok Takip</title>
@@ -157,6 +158,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="filter-tabs" id="kat-tabs"></div>
     <div class="filter-tabs" id="abc-tabs"></div>
     <button class="btn btn-gray btn-block" style="margin-bottom:8px" onclick="stokExcelAktar()">📤 Excel'e Aktar</button>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="stokMinimumExcelAktar()">📊 Minimum Stok — Excel'e Aktar</button>
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="document.getElementById('stok-minimum-excel-input').click()">📥 Minimum Stok — Excel'den Yükle</button>
+    </div>
+    <input type="file" id="stok-minimum-excel-input" accept=".xlsx,.xls" style="display:none" onchange="stokMinimumExcelYukle(event)">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
       <label style="font-size:12px;color:var(--gray-400);white-space:nowrap">Tampon gün:</label>
       <input id="tamponGunInput" type="number" min="1" value="7" style="width:60px">
@@ -1062,16 +1068,76 @@ async function minimumDuzenle(lnKod,urunAd){
   if(isNaN(yeni)||yeni<0){showToast('⚠️ Geçerli bir sayı girin');return;}
   showLoading();
   try{
-    await fetch(SB_URL+'/rest/v1/stok_minimumlar?on_conflict=urun_kodu',{
+    const r=await fetch(SB_URL+'/rest/v1/stok_minimumlar?on_conflict=urun_kodu',{
       method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({urun_kodu:lnKod,min_miktar:yeni})
+      body:JSON.stringify({urun_kodu:lnKod,min_miktar:yeni,depo_kodu:aktifDepoId,otel_id:otelFromDepoId(aktifDepoId)})
     });
+    if(!r.ok){console.error('stok_minimumlar yazılamadı:',await r.text());showToast('⚠️ Kaydetme hatası');hideLoading();return;}
     db.minimumlar[lnKod]=yeni;
   }catch(e){console.warn(e);showToast('⚠️ Kaydetme hatası');hideLoading();return;}
   hideLoading();
   closeModal('modal-detay');
   renderStok();
   showToast(`✅ Minimum güncellendi: ${yeni}`);
+}
+
+// ====== MİNİMUM STOK — EXCEL TOPLU DÜZENLEME (ortak-excel.js) ======
+// Sadece halihazırda minimumu tanımlı ürünler dışa aktarılır (1264 ürünlük
+// tüm kataloğu değil) — yeni bir ürüne minimum eklemek isteyen kullanıcı
+// Excel'e elle yeni bir satır (kod+ad+miktar) ekler, bu 'yeni' olarak
+// sınıflandırılır. db.minimumlar zaten düz bir map (urun_kodu->deger),
+// satır dizisi değil — dışa aktarma/sınıflandırma öncesi diziye çevrilir.
+const stokMinimumExcelSpec = [
+  {alan:'urun_kodu', baslik:'Ürün Kodu', tip:'text', zorunlu:true, genislik:16},
+  {alan:'urun_adi', baslik:'Ürün Adı', tip:'text', genislik:30},
+  {alan:'min_miktar', baslik:'Minimum Miktar', tip:'number', zorunlu:true, genislik:14}
+];
+
+async function stokMinimumExcelAktar(){
+  const katalogMap={};
+  (db.urunler||[]).forEach(u=>{katalogMap[u.kod]=u.ad;});
+  const veriler=Object.entries(db.minimumlar||{}).map(([kod,miktar])=>({
+    urun_kodu:kod, urun_adi:katalogMap[kod]||'', min_miktar:miktar
+  }));
+  await excelSablonIndir(stokMinimumExcelSpec, veriler, 'minimum-stok-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+async function stokMinimumExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  showLoading();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    hideLoading();
+    const kodSet=new Set((db.urunler||[]).map(u=>u.kod));
+    const mevcutKayitlar=Object.entries(db.minimumlar||{}).map(([kod,miktar])=>({urun_kodu:kod,min_miktar:miktar}));
+    const siniflandirma=excelSatirlariSiniflandir(stokMinimumExcelSpec, satirlar, mevcutKayitlar, {dogalAnahtarlar:['urun_kodu'],fkAlan:'urun_kodu',fkSet:kodSet});
+    excelOnizlemeGoster(siniflandirma,{
+      spec:stokMinimumExcelSpec,
+      dosyaAdiOnek:'minimum-stok',
+      onUygula:(mod,satirlarYaz)=>stokMinimumExcelUygula(mod,satirlarYaz)
+    });
+  }catch(err){
+    hideLoading();
+    showToast('❌ Dosya okunamadı: '+err.message);
+  }
+}
+
+async function stokMinimumExcelUygula(mod,yazilacaklar){
+  if(!yazilacaklar.length){showToast('ℹ️ Yazılacak satır yok');return;}
+  const satirlar=yazilacaklar.map(s=>({urun_kodu:s.alanlar.urun_kodu, min_miktar:s.alanlar.min_miktar, depo_kodu:aktifDepoId, otel_id:otelFromDepoId(aktifDepoId)}));
+  showLoading();
+  const sonuc=await excelTopluYaz('stok_minimumlar', satirlar, {onConflict:'urun_kodu'});
+  yazilacaklar.forEach(s=>{ if(s.alanlar.urun_kodu) db.minimumlar[s.alanlar.urun_kodu]=s.alanlar.min_miktar; });
+  await excelImportGecmisiYaz({
+    tabloAdi:'stok_minimumlar', ilgiliId:null, dosyaAdi:'minimum-stok.xlsx',
+    kullaniciAd:currentUser?.ad||'', mod, toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0, atlananSayisi:0
+  }, yazilacaklar);
+  hideLoading();
+  showToast(sonuc.hataliGrup?'⚠️ Bazı satırlar yazılamadı':'✅ Minimum stoklar güncellendi ('+sonuc.toplamYazilan+' satır)');
+  renderStok();
 }
 
 async function guvenlikStoguHesapla(tamponGun){
