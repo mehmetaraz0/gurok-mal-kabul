@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
-if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma']);
+if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma','muhasebe_muduru','muhasebe_calisani','cost_control']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Cari Hesaplar</title>
@@ -225,7 +225,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mCari')">İptal</button>
       <button class="btn btn-danger btn-sm" id="c-sil-btn" onclick="cariSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" id="c-kaydet-btn" onclick="cariKaydet()">💾 Kaydet</button>
+      <button class="btn btn-primary" id="c-kaydet-btn" onclick="cariKaydet()" disabled>💾 Kaydet</button>
     </div>
   </div>
 </div>
@@ -273,7 +273,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHareket')">İptal</button>
-      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hareketKaydet()">💾 Kaydet</button>
+      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hareketKaydet()" disabled>💾 Kaydet</button>
     </div>
   </div>
 </div>
