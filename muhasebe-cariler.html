@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -93,6 +94,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- CARİLER -->
   <div class="sc" id="tab-cariler" style="display:block">
     <div class="stats-grid" id="cari-stats"></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn btn-gray btn-sm" id="ce-aktar-btn" style="flex:1" onclick="cariExcelAktar()">📊 Toplu Düzenle — Aktar</button>
+      <button class="btn btn-gray btn-sm" id="ce-yukle-btn" style="flex:1" disabled onclick="document.getElementById('cari-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+    </div>
+    <input type="file" id="cari-excel-input" accept=".xlsx,.xls" style="display:none" onchange="cariExcelYukle(event)">
     <div class="search-bar">
       <input type="text" id="cari-ara" placeholder="Cari adı, VKN veya kod ara..." oninput="renderCariler()">
       <span class="search-icon">🔍</span>
@@ -365,6 +371,81 @@ async function saveCari(c){
       if(d&&d[0])c.id=d[0].id;
     }
   }catch(e){console.warn(e);}
+}
+
+// ====== CARİLER — EXCEL TOPLU DÜZENLEME (ortak-excel.js) ======
+// "Yükle" butonu Faz B3 yetki sistemine bağlı (ce-yukle-btn, INIT'te
+// disabled=!yaziYetkisiVar) — "Aktar" salt-okunur olduğu için serbest.
+// Bilinen sınırlama: mevcutKayitlar sadece aktif (silindi=false) carileri
+// içerir — Excel'deki bir kod daha önce SİLİNMİŞ bir cariye aitse tespit
+// edilemez, 'yeni' sınıflanır ve on_conflict=kod o gizli satırı sessizce
+// günceller (silindi alanı payload'da olmadığı için değişmez, kayıt
+// görünmez kalmaya devam eder).
+const cariExcelSpec = [
+  {alan:'kod', baslik:'Kod', tip:'text', zorunlu:true, genislik:14},
+  {alan:'ad', baslik:'Ad', tip:'text', zorunlu:true, genislik:26},
+  {alan:'tip', baslik:'Tip', tip:'text', zorunlu:true, genislik:12, izinliDegerler:['musteri','tedarikci','her_ikisi']},
+  {alan:'vkn', baslik:'VKN', tip:'text', genislik:12},
+  {alan:'vd', baslik:'Vergi Dairesi', tip:'text', genislik:16},
+  {alan:'tel', baslik:'Telefon', tip:'text', genislik:14},
+  {alan:'mail', baslik:'E-posta', tip:'text', genislik:20},
+  {alan:'adres', baslik:'Adres', tip:'text', genislik:24},
+  {alan:'hesap', baslik:'Hesap Kodu', tip:'text', genislik:12},
+  {alan:'efatura', baslik:'e-Fatura Mükellefi', tip:'text', genislik:14, izinliDegerler:['evet','hayir']},
+  {alan:'vade', baslik:'Vade (gün)', tip:'number', genislik:10},
+  {alan:'limit', baslik:'Risk Limiti', tip:'number', genislik:12},
+  {alan:'acente', baslik:'Acente', tip:'text', genislik:10, izinliDegerler:['evet','hayir']},
+  {alan:'komisyonOrani', baslik:'Komisyon Oranı', tip:'number', genislik:12},
+  {alan:'not', baslik:'Not', tip:'text', genislik:20}
+];
+
+async function cariExcelAktar(){
+  const veriler=Object.values(cariler).filter(Boolean).map(c=>({...c,efatura:c.efatura,acente:c.acente?'evet':'hayir'}));
+  await excelSablonIndir(cariExcelSpec, veriler, 'cariler-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+async function cariExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  sLD();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    hLD();
+    const mevcutKayitlar=Object.values(cariler).filter(Boolean);
+    const siniflandirma=excelSatirlariSiniflandir(cariExcelSpec, satirlar, mevcutKayitlar, {dogalAnahtarlar:['kod']});
+    excelOnizlemeGoster(siniflandirma,{
+      spec:cariExcelSpec,
+      dosyaAdiOnek:'cariler',
+      onUygula:(mod,satirlarYaz)=>cariExcelUygula(mod,satirlarYaz)
+    });
+  }catch(err){
+    hLD();
+    toast('❌ Dosya okunamadı: '+err.message);
+  }
+}
+
+async function cariExcelUygula(mod,yazilacaklar){
+  if(!yazilacaklar.length){toast('ℹ️ Yazılacak satır yok');return;}
+  const satirlar=yazilacaklar.map(s=>({
+    kod:s.alanlar.kod, ad:s.alanlar.ad, tip:s.alanlar.tip,
+    vkn:s.alanlar.vkn||null, vergi_dairesi:s.alanlar.vd||null,
+    telefon:s.alanlar.tel||null, eposta:s.alanlar.mail||null, adres:s.alanlar.adres||null,
+    hesap_kodu:s.alanlar.hesap||null, vade_gun:s.alanlar.vade||30, risk_limiti:s.alanlar.limit||0,
+    efatura_mukellefi:s.alanlar.efatura==='evet', acente:s.alanlar.acente==='evet',
+    komisyon_orani:s.alanlar.komisyonOrani||0, not_alani:s.alanlar.not||null
+  }));
+  sLD();
+  const sonuc=await excelTopluYaz('cariler', satirlar, {onConflict:'kod'});
+  await loadDB();
+  await excelImportGecmisiYaz({
+    tabloAdi:'cariler', ilgiliId:null, dosyaAdi:'cariler.xlsx',
+    kullaniciAd:(typeof OTURUM_KULLANICI!=='undefined'&&OTURUM_KULLANICI?.ad)||'', mod, toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0, atlananSayisi:0
+  }, yazilacaklar);
+  hLD();
+  toast(sonuc.hataliGrup?'⚠️ Bazı satırlar yazılamadı':'✅ Cariler güncellendi ('+sonuc.toplamYazilan+' satır)');
+  renderCariler();
 }
 
 async function saveHareket(h){
@@ -967,6 +1048,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   const yaziYetkisiVar = ['kayit','tam'].includes(YETKI_HARITASI['cari_hesaplar']);
   document.getElementById('c-kaydet-btn').disabled = !yaziYetkisiVar;
   document.getElementById('h-kaydet-btn').disabled = !yaziYetkisiVar;
+  document.getElementById('ce-yukle-btn').disabled = !yaziYetkisiVar;
 })();
 </script>
 </body>
