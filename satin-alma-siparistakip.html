@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let CU = requireLogin();
+if (CU) requireRole(CU, ['yonetici','satinalma','depo','cost_control']);
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Sipariş Takip</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.ftab.active{background:var(--primary);border-color:var(--primary);color:white}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='satin-alma.html'">←</button>
+    <div style="flex:1"><h1>Sipariş Takip</h1><span class="sub" id="hsub"></span></div>
+  </div>
+
+  <div class="sc" id="tab-siparisTakip">
+    <div class="card">
+      <div class="card-title">📊 Sipariş Takip
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadSiparisTakip()">🔄 Yenile</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px" id="st-stats"></div>
+    </div>
+    <div class="ftabs">
+      <button class="ftab active" id="st-tab-bekleyen" onclick="filterSiparisTakip('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="ftab" id="st-tab-kismi" onclick="filterSiparisTakip('kismi',this)">🔶 Kısmen Geldi</button>
+      <button class="ftab" id="st-tab-tamamlandi" onclick="filterSiparisTakip('tamamlandi',this)">✅ Tamamlandı</button>
+      <button class="ftab" id="st-tab-tumu" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
+    </div>
+    <div id="siparis-takip-liste"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+// SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
+// sLD/hLD/toast/escapeHtml/round2/kModal/aModal/loadXlsxLib -> ortak.js
+
+let _stFilter='bekleyen';
+let _siparisHavuzuData={};
+
+function siparisSbdenCamele(r){
+  return{
+    siparisNo:r.siparis_no,firma:r.firma_ad,firmaId:'',otelId:r.otel_id,
+    tarih:r.tarih,termin:r.termin_tarihi||'',durum:r.durum,tip:r.tip,
+    iadeNedeni:r.iade_nedeni||'',donusSekli:r.iade_nedeni||'',orijinalFaturaNo:r.orijinal_fatura_no||'',
+    not:r.not_alani||'',kaynak:r.kaynak||'satinalma',olusturanAd:r.olusturan_ad||'',
+    olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
+    fiyatlandirildi:!!r.fiyatlandirildi,fiyatlandiranAd:r.fiyatlandiran_ad||'',
+    fiyatlandirmaTarihi:r.fiyatlandirma_tarihi?new Date(r.fiyatlandirma_tarihi).getTime():null,
+    gonderildiMuhasebe:!!r.gonderildi_muhasebe,gonderilmeTarihi:r.gonderilme_tarihi?new Date(r.gonderilme_tarihi).getTime():null,
+    muhasebeFaturaId:r.muhasebe_fatura_id||'',bagliFaturalar:r.bagli_faturalar||[],
+    kalemler:(r.siparis_kalemleri||[]).map(k=>({
+      ad:k.urun_adi,kod:k.urun_kodu||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
+      gelenMiktar:parseFloat(k.gelen_miktar)||0,kalanMiktar:parseFloat(k.kalan_miktar)||0,
+      birimFiyat:k.birim_fiyat?parseFloat(k.birim_fiyat):null
+    }))
+  };
+}
+
+async function loadSiparisTakip(){
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/siparisler?select=*,siparis_kalemleri(*)',{headers:SB_HEADERS});
+    if(r.ok){
+      const rows=await r.json();
+      _siparisHavuzuData={};
+      rows.forEach(row=>{_siparisHavuzuData[row.siparis_no]=siparisSbdenCamele(row);});
+    }
+  }catch(e){}
+  hLD();
+  renderSiparisTakip();
+}
+
+function filterSiparisTakip(f,el){
+  _stFilter=f;
+  document.querySelectorAll('#tab-siparisTakip .ftab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderSiparisTakip();
+}
+
+function renderSiparisTakip(){
+  const tumSiparisler=Object.values(_siparisHavuzuData).filter(s=>s&&!s.rezerve);
+
+  // Stats
+  const bek=tumSiparisler.filter(s=>s.durum==='bekleyen').length;
+  const kis=tumSiparisler.filter(s=>s.durum==='kismi').length;
+  const tam=tumSiparisler.filter(s=>s.durum==='tamamlandi').length;
+  document.getElementById('st-stats').innerHTML=`
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--warning)">${bek}</div>
+      <div style="font-size:10px;color:var(--gray-500)">BEKLEYEN</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:#92400e">${kis}</div>
+      <div style="font-size:10px;color:var(--gray-500)">KISMİ</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--success)">${tam}</div>
+      <div style="font-size:10px;color:var(--gray-500)">TAMAM</div>
+    </div>`;
+
+  let liste=tumSiparisler;
+  if(_stFilter!=='tumu')liste=tumSiparisler.filter(s=>s.durum===_stFilter);
+  liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+
+  const c=document.getElementById('siparis-takip-liste');
+  if(!liste.length){
+    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:var(--gray-400)">
+      <div style="font-size:40px;margin-bottom:12px">📦</div>
+      <div style="font-size:13px">${_stFilter==='bekleyen'?'Bekleyen sipariş yok':'Kayıt bulunamadı'}</div>
+      <div style="font-size:11px;margin-top:6px;color:var(--gray-300)">Sipariş oluşturmak için "Sipariş Oluştur" sekmesini kullanın</div>
+    </div>`;
+    return;
+  }
+
+  const durumChip={
+    bekleyen:'<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ Bekliyor</span>',
+    kismi:'<span style="background:#fed7aa;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🔶 Kısmen Geldi</span>',
+    tamamlandi:'<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">✅ Tamamlandı</span>',
+    iptal:'<span style="background:#fde8e8;color:#9b1c1c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">❌ İptal</span>'
+  };
+
+  c.innerHTML=liste.map(s=>{
+    const kalemler=s.kalemler||[];
+    const toplamKalem=kalemler.length;
+    const gelenKalem=kalemler.filter(k=>k.kalanMiktar<=0.01).length;
+    const yuzde=toplamKalem>0?Math.round(gelenKalem/toplamKalem*100):0;
+    const eksikler=kalemler.filter(k=>k.kalanMiktar>0.01);
+
+    return`<div class="card" style="margin-bottom:8px;border-left:4px solid ${s.durum==='tamamlandi'?'var(--success)':s.durum==='kismi'?'var(--warning)':'var(--danger)'};cursor:pointer" onclick="stDetayAc('${s.siparisNo}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--primary)">${s.firma||'—'}</div>
+          <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
+            <span style="font-family:monospace;font-weight:700;color:#5b21b6">${s.siparisNo}</span>
+            ${s.tarih?' • '+s.tarih:''}
+            ${s.olusturanAd?' • '+s.olusturanAd:''}
+          </div>
+        </div>
+        ${durumChip[s.durum]||''}
+      </div>
+      <!-- Progress bar -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="flex:1;height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${yuzde}%;background:${s.durum==='tamamlandi'?'var(--success)':s.durum==='kismi'?'var(--warning)':'var(--danger)'};transition:width .3s"></div>
+        </div>
+        <span style="font-size:11px;color:var(--gray-500);flex-shrink:0">${gelenKalem}/${toplamKalem} kalem</span>
+      </div>
+      ${eksikler.length&&s.durum!=='tamamlandi'?`
+        <div style="font-size:11px;color:var(--danger);font-weight:600;margin-bottom:4px">⚠️ Bekleyen kalemler:</div>
+        ${eksikler.slice(0,3).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — Sipariş: ${k.miktar} ${k.birim}${k.gelenMiktar>0?' | Gelen: '+k.gelenMiktar+' | Kalan: '+k.kalanMiktar:''}</div>`).join('')}
+        ${eksikler.length>3?`<div style="font-size:11px;color:var(--gray-400)">+${eksikler.length-3} kalem daha...</div>`:''}
+      `:''}
+    </div>`;
+  }).join('');
+}
+
+function stDetayAc(siparisNo){
+  const s=_siparisHavuzuData[siparisNo];if(!s)return;
+  const kalemler=s.kalemler||[];
+
+  // Modal gibi kullanmak için basit popup
+  const popup=window.open('','siparis_detay','width=600,height=700');
+  if(!popup)return;
+  popup.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>${siparisNo}</title>
+  <style>body{font-family:-apple-system,sans-serif;padding:20px;background:#f1f3f5}
+  h2{color:#1a2744;margin-bottom:4px}
+  .sub{color:#6c757d;font-size:13px;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  th{background:#1a2744;color:white;padding:8px 12px;text-align:left;font-size:12px}
+  td{padding:8px 12px;border-bottom:1px solid #eee;font-size:12px}
+  .ok{color:#27ae60;font-weight:700} .warn{color:#e74c3c;font-weight:700}
+  .chip{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+  </style></head><body>
+  <h2>${s.firma}</h2>
+  <div class="sub">${siparisNo} • ${s.tarih||'—'} • ${s.olusturanAd||''}</div>
+  <table>
+    <thead><tr><th>#</th><th>Ürün</th><th>Sipariş</th><th>Gelen</th><th>Kalan</th><th>Durum</th></tr></thead>
+    <tbody>
+      ${kalemler.map((k,i)=>{
+        const tamam=(k.kalanMiktar||0)<=0.01;
+        return`<tr>
+          <td>${i+1}</td>
+          <td><b>${k.ad}</b><br><span style="font-family:monospace;font-size:10px;color:#6c757d">${k.kod||''}</span></td>
+          <td>${k.miktar} ${k.birim}</td>
+          <td class="${(k.gelenMiktar||0)>0?'ok':''}">${k.gelenMiktar||0} ${k.birim}</td>
+          <td class="${tamam?'ok':'warn'}">${k.kalanMiktar||k.miktar} ${k.birim}</td>
+          <td>${tamam?'<span class="chip" style="background:#d4edda;color:#155724">✅ Tamam</span>':'<span class="chip" style="background:#fde8e8;color:#9b1c1c">⏳ Bekliyor</span>'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+  </body></html>`);
+  popup.document.close();
+}
+
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ====== INIT ======
+(async function(){
+  if(!CU) return;
+  document.getElementById('hsub').textContent=CU.ad;
+  await loadSiparisTakip();
+})();
+</script>
+</body>
+</html>
