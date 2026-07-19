@@ -20,7 +20,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .hbtn:active{background:rgba(255,255,255,.3)}
 .bnav{background:white;display:flex;border-top:1px solid var(--gray-200);flex-shrink:0}
 .nbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border:none;background:none;cursor:pointer;gap:3px;position:relative;min-height:56px}
-.nbtn .ni{font-size:20px}.nbtn .nl{font-size:10px;color:var(--gray-500);font-weight:500}
+.nbtn .ni{width:20px;height:20px;display:flex}.nbtn .ni svg{width:20px;height:20px}.nbtn .nl{font-size:10px;color:var(--gray-500);font-weight:500}
 .nbtn.active .nl{color:var(--primary);font-weight:700}
 .nbtn.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:3px;background:var(--primary);border-radius:3px 3px 0 0}
 .sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:none}
@@ -120,11 +120,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <div class="bnav" id="bnav">
-    <button class="nbtn active" id="nb-giris" onclick="gTab('giris')"><span class="ni">📉</span><span class="nl">Tüketim</span></button>
-    <button class="nbtn" id="nb-tuket" onclick="gTab('tuket')"><span class="ni">🍽️</span><span class="nl">Reçete Tüket</span></button>
-    <button class="nbtn" id="nb-receteler" onclick="gTab('receteler')"><span class="ni">📖</span><span class="nl">Reçeteler</span></button>
-    <button class="nbtn" id="nb-foodcost" onclick="gTab('foodcost')"><span class="ni">📊</span><span class="nl">Food Cost</span></button>
-    <button class="nbtn" id="nb-gecmis" onclick="gTab('gecmis')"><span class="ni">📋</span><span class="nl">Geçmiş</span></button>
+    <button class="nbtn active" id="nb-giris" onclick="gTab('giris')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l5 5 4-4 8 9"/><path d="M15 17h5v-5"/></svg></span><span class="nl">Tüketim</span></button>
+    <button class="nbtn" id="nb-tuket" onclick="gTab('tuket')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m9 12 2 2 4-4"/></svg></span><span class="nl">Reçete Tüket</span></button>
+    <button class="nbtn" id="nb-receteler" onclick="gTab('receteler')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5"/><path d="M4 5.5v16A2.5 2.5 0 0 1 6.5 19H20"/></svg></span><span class="nl">Reçeteler</span></button>
+    <button class="nbtn" id="nb-foodcost" onclick="gTab('foodcost')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg></span><span class="nl">Food Cost</span></button>
+    <button class="nbtn" id="nb-gecmis" onclick="gTab('gecmis')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><rect x="4" y="6" width="16" height="15" rx="1"/><path d="M8 12h8M8 16h5"/></svg></span><span class="nl">Geçmiş</span></button>
   </div>
 </div>
 

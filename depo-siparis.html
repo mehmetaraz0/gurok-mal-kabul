@@ -20,7 +20,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .hbtn:active{background:rgba(255,255,255,.3)}
 .bnav{background:white;display:flex;border-top:1px solid var(--gray-200);flex-shrink:0}
 .nbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border:none;background:none;cursor:pointer;gap:3px;position:relative;min-height:56px}
-.nbtn .ni{font-size:20px}.nbtn .nl{font-size:10px;color:var(--gray-500);font-weight:500}
+.nbtn .ni{width:20px;height:20px;display:flex}.nbtn .ni svg{width:20px;height:20px}.nbtn .nl{font-size:10px;color:var(--gray-500);font-weight:500}
 .nbtn.active .nl{color:var(--primary);font-weight:700}
 .nbtn.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:3px;background:var(--primary);border-radius:3px 3px 0 0}
 .nbadge{position:absolute;top:6px;right:calc(50% - 18px);background:var(--danger);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;min-width:16px;text-align:center;display:none}
@@ -482,8 +482,8 @@ function basla(){
 
   if(rol==='mutfak'||rol==='bar'){
     bnav.innerHTML=`
-      <button class="nbtn active" id="nb-ver" onclick="gTab('ver')"><span class="ni">📤</span><span class="nl">Talep Ver</span></button>
-      <button class="nbtn" id="nb-tal" onclick="gTab('taleplerim')"><span class="ni">📋</span><span class="nl">Taleplerim</span><span class="nbadge" id="tbadge"></span></button>`;
+      <button class="nbtn active" id="nb-ver" onclick="gTab('ver')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="m4 7 8 6 8-6"/></svg></span><span class="nl">Talep Ver</span></button>
+      <button class="nbtn" id="nb-tal" onclick="gTab('taleplerim')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><rect x="4" y="6" width="16" height="15" rx="1"/><path d="M8 12h8M8 16h5"/></svg></span><span class="nl">Taleplerim</span><span class="nbadge" id="tbadge"></span></button>`;
     const dept=CU.departman||RADLAR[rol]||rol;
     if(!CU.depoId){
       // Hesaba depo atanmamış — talep açmasına İZİN VERME, net uyarı göster.
@@ -513,8 +513,8 @@ function basla(){
     document.getElementById('hbtnYeni').style.display='flex';
     document.getElementById('yTarih').value=new Date().toISOString().split('T')[0];
     bnav.innerHTML=`
-      <button class="nbtn active" id="nb-gel" onclick="gTab('gelen')"><span class="ni">📥</span><span class="nl">Gelen Talepler</span><span class="nbadge" id="gbadge"></span></button>
-      <button class="nbtn" id="nb-bug" onclick="gTab('bugun')"><span class="ni">📦</span><span class="nl">Bugün Teslim</span></button>`;
+      <button class="nbtn active" id="nb-gel" onclick="gTab('gelen')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></span><span class="nl">Gelen Talepler</span><span class="nbadge" id="gbadge"></span></button>
+      <button class="nbtn" id="nb-bug" onclick="gTab('bugun')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></span><span class="nl">Bugün Teslim</span></button>`;
     gTab('gelen');
   }
 }
