@@ -91,7 +91,7 @@ async function renderStokTrend(){
   if(!_stokTrendUrun&&urunler.length)_stokTrendUrun=urunler[0].kod;
   const secenekler=urunler.map(u=>`<option value="${u.kod}" ${u.kod===_stokTrendUrun?'selected':''}>${escapeHtml(u.ad)}</option>`).join('');
   el.innerHTML=`
-    <div class="card-title">📦 Stok Trendi (pencere içi kümülatif net hareket)</div>
+    <div class="card-title">Stok Trendi (pencere içi kümülatif net hareket)</div>
     <div class="field"><select id="stok-trend-urun" onchange="_stokTrendUrun=this.value;renderStokTrend()">${secenekler}</select></div>
     <div style="position:relative;height:220px"><canvas id="stok-trend-canvas"></canvas></div>`;
   if(!_stokTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Ürün bulunamadı</div></div>';return;}
@@ -136,7 +136,7 @@ async function renderTuketimTrend(){
   if(!_tuketimTrendUrun&&urunler.length)_tuketimTrendUrun=urunler[0].kod;
   const secenekler=urunler.map(u=>`<option value="${u.kod}" ${u.kod===_tuketimTrendUrun?'selected':''}>${escapeHtml(u.ad)}</option>`).join('');
   el.innerHTML=`
-    <div class="card-title">📉 Tüketim Trendi</div>
+    <div class="card-title">Tüketim Trendi</div>
     <div class="field"><select id="tuketim-trend-urun" onchange="_tuketimTrendUrun=this.value;renderTuketimTrend()">${secenekler}</select></div>
     <div style="position:relative;height:220px"><canvas id="tuketim-trend-canvas"></canvas></div>`;
   if(!_tuketimTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei">📉</div><div class="et">Ürün bulunamadı</div></div>';return;}
@@ -175,7 +175,7 @@ async function renderTuketimTrend(){
 async function renderFoodCostTrend(){
   const el=document.getElementById('tab-foodcost-trend');
   el.innerHTML=`
-    <div class="card-title">💰 Food-Cost Trendi (tüm oteller)</div>
+    <div class="card-title">Food-Cost Trendi (tüm oteller)</div>
     <div style="position:relative;height:220px"><canvas id="foodcost-trend-canvas"></canvas></div>`;
 
   const baslangicTarih=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString().slice(0,10);

@@ -497,7 +497,7 @@ function basla(){
     }
     document.getElementById('tVer').innerHTML=`
       <div class="card">
-        <div class="card-title">📤 Malzeme Talebi</div>
+        <div class="card-title">Malzeme Talebi</div>
         <div class="field"><label>Departman</label><input id="vDept" value="${dept}" readonly style="background:var(--gray-100)"></div>
         <div class="field"><label>Tarih</label><input type="date" id="vTarih" value="${new Date().toISOString().split('T')[0]}"></div>
         <div class="field"><label>Not</label><input type="text" id="vNot" placeholder="Opsiyonel..."></div>
@@ -506,7 +506,7 @@ function basla(){
         <div class="card-title">📦 Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
         <div id="usatirlar"></div>
       </div>
-      <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">📤 Talep Gönder</button>`;
+      <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">Talep Gönder</button>`;
     US=[];addUS();
     gTab('ver');
   } else {
@@ -726,13 +726,13 @@ function aOnay(id){
     }).join('')}
     ${s.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${s.not}</div>`:''}
     ${s.durum==='bekleyen'?`
-      <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:8px" onclick="depoQrBaslat('${id}')">📷 Koli Okut (miktarlar otomatik birikir)</button>
+      <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:8px" onclick="depoQrBaslat('${id}')">Koli Okut (miktarlar otomatik birikir)</button>
       <div id="depo-qr-okuyucu" style="display:none;margin-bottom:8px;border-radius:12px;overflow:hidden"></div>
       <div id="depo-qr-liste"></div>
       <div class="field"><label>Red Notu</label><input type="text" id="rednot" placeholder="Neden reddedildi?"></div>
       <div class="brow" style="margin-top:8px;">
         <button class="btn btn-gray btn-sm" onclick="kModal('mOnay')">Kapat</button>
-        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">🖨️ PDF Çıktı</button>
+        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">PDF Çıktı</button>
       </div>
       <div class="brow" style="margin-top:6px;">
         <button class="btn btn-danger btn-sm" onclick="kModal('mOnay');onayOzetGoster('${id}','red')">❌ Reddet</button>
@@ -740,7 +740,7 @@ function aOnay(id){
       </div>`:`
       <div class="brow">
         <button class="btn btn-gray btn-sm" onclick="kModal('mOnay')">Kapat</button>
-        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">🖨️ PDF Çıktı</button>
+        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">PDF Çıktı</button>
       </div>`}`;
   aModal('mOnay');
 }
@@ -1031,7 +1031,7 @@ function depoYeniSiparis(){
   if(!document.getElementById('tVer').innerHTML.includes('vTarih')){
     document.getElementById('tVer').innerHTML=`
       <div class="card">
-        <div class="card-title">📤 Malzeme Talebi</div>
+        <div class="card-title">Malzeme Talebi</div>
         <div class="field"><label>Departman</label><input id="vDept" value="${DEPOLAR_lookup(did)}" readonly style="background:var(--gray-100)"></div>
         <div class="field"><label>Tarih</label><input type="date" id="vTarih" value="${tarih}"></div>
         <div class="field"><label>Not</label><input type="text" id="vNot" placeholder="Opsiyonel..."></div>
@@ -1040,7 +1040,7 @@ function depoYeniSiparis(){
         <div class="card-title">📦 Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
         <div id="usatirlar"></div>
       </div>
-      <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">📤 Talep Gönder</button>`;
+      <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">Talep Gönder</button>`;
     US=[];addUS();
   } else {
     if(document.getElementById('vDept'))document.getElementById('vDept').value=DEPOLAR_lookup(did);

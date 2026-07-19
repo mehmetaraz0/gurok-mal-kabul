@@ -104,7 +104,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <!-- REÇETELER (yönetim) -->
   <div class="sc" id="tReceteler">
-    <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="receteYeniAc()">➕ Yeni Reçete</button>
+    <button class="btn btn-primary btn-block" style="margin-bottom:12px" onclick="receteYeniAc()">Yeni Reçete</button>
     <div class="search-bar">
       <input type="text" id="recete-ara" placeholder="Reçete ara..." oninput="renderReceteler()">
       <span class="search-icon">🔍</span>
@@ -405,7 +405,7 @@ function renderReceteler(){
   let liste=Object.values(DB.receteler||{}).filter(receteGorebilirMi);
   if(ara)liste=liste.filter(r=>r.ad.toLowerCase().includes(ara));
   liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📖</div><div class="et">Henüz reçete yok — ➕ Yeni Reçete ile başlayın</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📖</div><div class="et">Henüz reçete yok — Yeni Reçete ile başlayın</div></div>';return;}
   c.innerHTML=liste.map(r=>{
     const{toplam,eksik}=receteMaliyetHesapla(r.kalemler);
     const fc=r.satisFiyati?Math.round(toplam/r.satisFiyati*1000)/10:null;
@@ -455,7 +455,7 @@ function renderReceteForm(){
   document.getElementById('tReceteForm').innerHTML=`
     <button class="btn btn-gray btn-sm" style="margin-bottom:10px" onclick="receteFormKapat()">← Geri</button>
     <div class="card">
-      <div class="card-title">${r?'✏️ Reçeteyi Düzenle':'➕ Yeni Reçete'}</div>
+      <div class="card-title">${r?'Reçeteyi Düzenle':'Yeni Reçete'}</div>
       <div class="field"><label>Reçete Adı *</label><input type="text" id="rf-ad" value="${(r?.ad||'').replace(/"/g,'&quot;')}" placeholder="örn. Köfte Porsiyon"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>Kategori</label>
@@ -475,14 +475,14 @@ function renderReceteForm(){
     </div>
 
     <div class="card">
-      <div class="card-title">🥘 Malzemeler (1 porsiyon için)</div>
+      <div class="card-title">Malzemeler (1 porsiyon için)</div>
       <div id="rf-kalemler"></div>
-      <button class="btn btn-gray btn-sm btn-block" style="margin-top:6px" onclick="rkalemEkle()">➕ Malzeme Ekle</button>
+      <button class="btn btn-gray btn-sm btn-block" style="margin-top:6px" onclick="rkalemEkle()">Malzeme Ekle</button>
     </div>
     <div id="rf-maliyet-onizleme"></div>
 
     <div style="display:flex;gap:8px;margin:12px 0 20px">
-      ${r?`<button class="btn btn-danger btn-sm" onclick="receteSil('${r.id}')">🗑️ Sil</button>`:''}
+      ${r?`<button class="btn btn-danger btn-sm" onclick="receteSil('${r.id}')">Sil</button>`:''}
       <button class="btn btn-success" style="flex:1" onclick="receteKaydet()">✅ Kaydet</button>
     </div>`;
   renderRKalemler();
@@ -727,7 +727,7 @@ function renderFoodCost(){
   const ortFc=gecerli.length?Math.round(gecerli.reduce((t,r)=>t+r.fc,0)/gecerli.length*10)/10:0;
   const riskli=liste.filter(r=>r.fc!==null&&r.fc>40).length;
   document.getElementById('fc-stats').innerHTML=`
-    <div class="card-title">📊 Food Cost Özeti</div>
+    <div class="card-title">Food Cost Özeti</div>
     <div style="display:flex;gap:10px">
       <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--primary)">${liste.length}</div><div style="font-size:10px;color:var(--gray-500)">Reçete</div></div>
       <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:800;color:${ortFc<=30?'var(--success)':ortFc<=40?'var(--warning)':'var(--danger)'}">%${ortFc}</div><div style="font-size:10px;color:var(--gray-500)">Ort. Food Cost</div></div>

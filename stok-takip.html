@@ -157,16 +157,16 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="filter-tabs" id="kat-tabs"></div>
     <div class="filter-tabs" id="abc-tabs"></div>
-    <button class="btn btn-gray btn-block" style="margin-bottom:8px" onclick="stokExcelAktar()">📤 Excel'e Aktar</button>
+    <button class="btn btn-gray btn-block" style="margin-bottom:8px" onclick="stokExcelAktar()">Excel'e Aktar</button>
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="btn btn-gray btn-sm" style="flex:1" onclick="stokMinimumExcelAktar()">📊 Minimum Stok — Excel'e Aktar</button>
-      <button class="btn btn-gray btn-sm" id="stok-min-yukle-btn" style="flex:1" onclick="document.getElementById('stok-minimum-excel-input').click()" disabled>📥 Minimum Stok — Excel'den Yükle</button>
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="stokMinimumExcelAktar()">Minimum Stok — Excel'e Aktar</button>
+      <button class="btn btn-gray btn-sm" id="stok-min-yukle-btn" style="flex:1" onclick="document.getElementById('stok-minimum-excel-input').click()" disabled>Minimum Stok — Excel'den Yükle</button>
     </div>
     <input type="file" id="stok-minimum-excel-input" accept=".xlsx,.xls" style="display:none" onchange="stokMinimumExcelYukle(event)">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
       <label style="font-size:12px;color:var(--gray-400);white-space:nowrap">Tampon gün:</label>
       <input id="tamponGunInput" type="number" min="1" value="7" style="width:60px">
-      <button class="btn btn-sm" style="flex:1" onclick="guvenlikStoguHesapla(parseInt(document.getElementById('tamponGunInput').value)||7)">🔄 Güvenlik Stoğunu Yeniden Hesapla</button>
+      <button class="btn btn-sm" style="flex:1" onclick="guvenlikStoguHesapla(parseInt(document.getElementById('tamponGunInput').value)||7)">Güvenlik Stoğunu Yeniden Hesapla</button>
     </div>
     <div id="stok-liste"></div>
   </div>
@@ -182,7 +182,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <button class="filter-tab active" onclick="filterHar('tumu',this)">Tümü</button>
         <button class="filter-tab" onclick="filterHar('giris',this)">⬆️ Giriş</button>
         <button class="filter-tab" onclick="filterHar('cikis',this)">⬇️ Çıkış</button>
-        <button class="filter-tab" onclick="filterHar('transfer',this)">🔄 Transfer</button>
+        <button class="filter-tab" onclick="filterHar('transfer',this)">Transfer</button>
       </div>
     </div>
     <div id="hareketler-liste"></div>
@@ -191,7 +191,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- İADE BAŞLAT TAB -->
   <div class="scroll-content" id="tab-iade" style="display:none;flex-direction:column;">
     <div class="card">
-      <div class="card-title">↩️ İade Siparişi Başlat</div>
+      <div class="card-title">İade Siparişi Başlat</div>
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">Depo elinde bulunan malzemeyi tedarikçiye iade eder. Sipariş havuzuna otomatik <b>iade siparişi</b> açılır ve stok anında düşer.</p>
       <div class="row-fields">
         <div class="field">
@@ -230,25 +230,25 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
 
     <div class="card">
-      <div class="card-title">📦 İade Kalemleri</div>
+      <div class="card-title">İade Kalemleri</div>
       <div id="iade-kalemler-liste"></div>
-      <button class="btn btn-gray btn-block" style="margin-top:8px;" onclick="iadeKalemEkle()">➕ Kalem Ekle</button>
+      <button class="btn btn-gray btn-block" style="margin-top:8px;" onclick="iadeKalemEkle()">Kalem Ekle</button>
     </div>
 
-    <button class="btn btn-danger btn-block" id="iade-olustur-btn" style="margin:4px 0 20px;" onclick="iadeSiparisiOlustur()" disabled>↩️ İade Siparişi Oluştur</button>
+    <button class="btn btn-danger btn-block" id="iade-olustur-btn" style="margin:4px 0 20px;" onclick="iadeSiparisiOlustur()" disabled>İade Siparişi Oluştur</button>
     <div id="iade-sonuc"></div>
   </div>
 
   <!-- LN TAB -->
   <div class="scroll-content" id="tab-ln" style="display:none;flex-direction:column;">
     <div class="card">
-      <div class="card-title">📂 LN Infor Tüketim Raporu</div>
+      <div class="card-title">LN Infor Tüketim Raporu</div>
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;">LN Infor tüketim raporunu yükleyin. Seçili depodan otomatik stok çıkışı yapılır.</p>
       <div class="field">
         <label>Hangi Depodan</label>
         <select id="ln-depo-sec"><!-- JS doldurur --></select>
       </div>
-      <button class="btn btn-primary btn-block" onclick="document.getElementById('ln-input').click()">⬆️ Excel / CSV Yükle</button>
+      <button class="btn btn-primary btn-block" onclick="document.getElementById('ln-input').click()">Excel / CSV Yükle</button>
       <input type="file" id="ln-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importLNRapor(event)">
     </div>
     <div id="ln-sonuc"></div>
@@ -299,7 +299,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div class="modal-overlay" id="modal-cikis">
   <div class="modal-box">
     <div class="modal-title">➖ Manuel Çıkış <button class="modal-close" onclick="closeModal('modal-cikis')">✕</button></div>
-    <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:10px" onclick="qrOkutmaBaslat()">📷 Koli Barkodu Okut</button>
+    <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:10px" onclick="qrOkutmaBaslat()">Koli Barkodu Okut</button>
     <div id="qr-okuyucu" style="display:none;margin-bottom:10px;border-radius:12px;overflow:hidden"></div>
     <div id="qr-sonuc" style="display:none;background:#d4edda;color:#155724;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;margin-bottom:10px"></div>
     <div class="field">
@@ -338,7 +338,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Transfer -->
 <div class="modal-overlay" id="modal-transfer">
   <div class="modal-box">
-    <div class="modal-title">🔄 Depo Transfer <button class="modal-close" onclick="closeModal('modal-transfer')">✕</button></div>
+    <div class="modal-title">Depo Transfer <button class="modal-close" onclick="closeModal('modal-transfer')">✕</button></div>
     <div class="row-fields">
       <div class="field"><label>Kaynak Depo *</label><select id="tr-kaynak"><!-- JS --></select></div>
       <div class="field"><label>Hedef Depo *</label><select id="tr-hedef"><!-- JS --></select></div>
@@ -358,7 +358,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field"><label>Not</label><input type="text" id="tr-not" placeholder="Opsiyonel"></div>
     <div class="btn-row">
       <button class="btn btn-gray" onclick="closeModal('modal-transfer')">İptal</button>
-      <button class="btn btn-info" id="transfer-kaydet-btn" onclick="saveTransfer()" disabled>🔄 Transfer Et</button>
+      <button class="btn btn-info" id="transfer-kaydet-btn" onclick="saveTransfer()" disabled>Transfer Et</button>
     </div>
   </div>
 </div>
@@ -374,7 +374,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Sayım Detay/Onay -->
 <div class="modal-overlay" id="modal-sayim-detay">
   <div class="modal-box">
-    <div class="modal-title">📊 Sayım Detayı <button class="modal-close" onclick="closeModal('modal-sayim-detay')">✕</button></div>
+    <div class="modal-title">Sayım Detayı <button class="modal-close" onclick="closeModal('modal-sayim-detay')">✕</button></div>
     <div id="sayim-detay-icerik"></div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn btn-danger" id="sayim-reddet-btn" onclick="sayimReddet(_sayimAktifOturumId)" disabled>❌ Reddet</button>
@@ -1055,7 +1055,7 @@ function openDetay(depoId,lnKod){
       }).join('')}
     <div class="btn-row" style="margin-top:12px;">
       <button class="btn btn-gray btn-sm" onclick="closeModal('modal-detay')">Kapat</button>
-      <button class="btn btn-info btn-sm" onclick="closeModal('modal-detay');prefillTransfer('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">🔄 Transfer</button>
+      <button class="btn btn-info btn-sm" onclick="closeModal('modal-detay');prefillTransfer('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">Transfer</button>
       <button class="btn btn-danger btn-sm" onclick="closeModal('modal-detay');prefillCikis('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">➖ Çıkış</button>
     </div>`;
   openModal('modal-detay');
@@ -1736,7 +1736,7 @@ async function iadeSiparisiOlustur(){
       &nbsp;${firmaAd}
     </div>
     <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length-basarisizlar.length} kalem, ${depoAd}'dan stoktan düşüldü.${basarisizlar.length?` <span style="color:var(--danger)">(${basarisizlar.length} kalemde stok güncellenemedi)</span>`:''}</div>
-    <button class="btn btn-sm btn-gray" style="margin-top:8px;" onclick="iadeBelgeYazdir('${siparisNo}')">🖨️ İade Belgesini Yazdır</button>
+    <button class="btn btn-sm btn-gray" style="margin-top:8px;" onclick="iadeBelgeYazdir('${siparisNo}')">İade Belgesini Yazdır</button>
   </div>`;
   window._sonIadeSiparis={
     siparisNo,otelId,firma:firmaAd,donusSekli:neden,orijinalFaturaNo:faturaNo||'',
@@ -1762,7 +1762,7 @@ function iadeBelgeYazdir(siparisNo){
   <style>body{font-family:Arial,sans-serif;padding:24px;color:#1a2744}h1{font-size:18px}table{width:100%;border-collapse:collapse;margin-top:12px}
   th,td{border:1px solid #ccc;padding:6px 8px;font-size:13px;text-align:left}th{background:#f1f3f5}
   .meta{font-size:13px;margin:4px 0}</style></head><body>
-  <h1>↩️ İade Siparişi Belgesi</h1>
+  <h1>İade Siparişi Belgesi</h1>
   <div class="meta"><b>Sipariş No:</b> ${s.siparisNo}</div>
   <div class="meta"><b>Otel:</b> ${otelAd}</div>
   <div class="meta"><b>Firma:</b> ${s.firma}</div>
@@ -1960,7 +1960,7 @@ function renderSayimOnayListesi(){
     <div class="card">
       <div class="card-title">${escapeHtml(depoAdi(o.depo_kodu))} — ${new Date(o.olusturma_tarihi).toLocaleString('tr-TR')}</div>
       <div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">Oluşturan: ${escapeHtml(o.olusturan_ad)} • ${o.toplam_urun_sayisi} ürün sayıldı, ${o.farkli_urun_sayisi} üründe fark var</div>
-      <button class="btn btn-primary btn-sm btn-block" onclick="sayimDetayGoster('${o.id}')">🔍 İncele</button>
+      <button class="btn btn-primary btn-sm btn-block" onclick="sayimDetayGoster('${o.id}')">İncele</button>
     </div>
   `).join('');
 }
