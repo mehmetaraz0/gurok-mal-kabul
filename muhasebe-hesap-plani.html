@@ -147,7 +147,7 @@ td:first-child{min-width:90px}
     <button class="toolbar-btn" onclick="tumunuKapat()">⊟ Tümünü Kapat</button>
     <div class="toolbar-sep"></div>
     <button class="toolbar-btn" onclick="hesapPlaniExcelAktar()">📊 Toplu Düzenle — Aktar</button>
-    <button class="toolbar-btn" onclick="document.getElementById('hesap-plani-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+    <button class="toolbar-btn" id="hesap-plani-excel-yukle-btn" onclick="document.getElementById('hesap-plani-excel-input').click()" disabled>📥 Toplu Düzenle — Yükle</button>
     <input type="file" id="hesap-plani-excel-input" accept=".xlsx,.xls" style="display:none" onchange="hesapPlaniExcelYukle(event)">
     <div class="toolbar-sep"></div>
     <div class="filtre-grup">
@@ -1168,6 +1168,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   }
   YETKI_HARITASI = await kullaniciYetkileriGetir();
   document.getElementById('h-kaydet-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['hesap_plani']);
+  document.getElementById('hesap-plani-excel-yukle-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['hesap_plani']);
 })();
 </script>
 </body>

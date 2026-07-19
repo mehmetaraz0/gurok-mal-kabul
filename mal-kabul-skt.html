@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let currentUser = requireLogin();
+if (currentUser) requireRole(currentUser, ['yonetici','depo','satinalma','kalite']);
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — SKT Takip</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.sc::-webkit-scrollbar{display:none}
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-gray{background:var(--gray-200);color:var(--gray-600)}.btn-danger{background:var(--danger);color:white}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-gray{background:var(--gray-200);color:var(--gray-600)}
+.ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.ftab.active{background:var(--primary);border-color:var(--primary);color:white}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.stat-kart{background:white;border-radius:var(--radius-sm);padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:17px;font-weight:800}
+.stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
+.mk-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-300)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='mal-kabul-v2.html'">←</button>
+    <div style="flex:1"><h1>SKT Takip</h1><span style="font-size:11px;opacity:.7" id="hdrOtel"></span></div>
+  </div>
+
+  <div class="sc" id="tab-skt" style="display:block">
+    <div class="stats-grid" id="skt-stats" style="grid-template-columns:repeat(2,1fr)"></div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterSkt('tumu',this)">Tümü (Aktif)</button>
+      <button class="ftab" onclick="filterSkt('gecmis',this)">⛔ Geçmiş</button>
+      <button class="ftab" onclick="filterSkt('kritik',this)">🔴 Kritik</button>
+      <button class="ftab" onclick="filterSkt('uyari',this)">🟡 Uyarı</button>
+      <button class="ftab" onclick="filterSkt('tuketildi',this)">✅ Tüketildi</button>
+      <button class="ftab" onclick="filterSkt('imha_edildi',this)">🗑️ İmha Edildi</button>
+    </div>
+    <div id="skt-icerik"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+// SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
+// sLD/hLD/toast/escapeHtml/kModal/aModal -> ortak.js
+
+const OTEL_KISA={'810':'Club','811':'Resort'};
+let sktFilter='tumu';
+let urunler=[];
+
+async function auditLogYaz(action,entityType,entityId,detail){
+  const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:currentUser?.ad||'Bilinmeyen'};
+  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){}
+}
+
+async function renderSkt(){
+  sLD();
+  let rows=[];
+  try{
+    const [sr,ur]=await Promise.all([
+      fetch(SB_URL+`/rest/v1/skt_kayitlari?select=*&order=skt_tarihi.asc`,{headers:SB_HEADERS}),
+      fetch(SB_URL+`/rest/v1/urunler?select=kod,ad`,{headers:SB_HEADERS}),
+    ]);
+    if(sr.ok)rows=await sr.json();
+    if(ur.ok)urunler=await ur.json();
+  }catch(e){}
+  hLD();
+
+  const bugun=new Date();bugun.setHours(0,0,0,0);
+  rows.forEach(r=>{r._gun=Math.round((new Date(r.skt_tarihi)-bugun)/86400000);});
+
+  const aktif=rows.filter(r=>r.durum==='aktif');
+  const gecmis=aktif.filter(r=>r._gun<0);
+  const kritik=aktif.filter(r=>r._gun>=0&&r._gun<14);
+  const uyari=aktif.filter(r=>r._gun>=14&&r._gun<30);
+  const tuketildi=rows.filter(r=>r.durum==='tuketildi');
+  const imha=rows.filter(r=>r.durum==='imha_edildi');
+
+  document.getElementById('skt-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${gecmis.length}</div><div class="stat-lbl">⛔ Süresi Geçmiş</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:#dc2626">${kritik.length}</div><div class="stat-lbl">🔴 Kritik (&lt;14g)</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${uyari.length}</div><div class="stat-lbl">🟡 Uyarı (14-30g)</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${tuketildi.length}</div><div class="stat-lbl">✅ Tüketildi</div></div>`;
+
+  let list;
+  if(sktFilter==='gecmis')list=gecmis;
+  else if(sktFilter==='kritik')list=kritik;
+  else if(sktFilter==='uyari')list=uyari;
+  else if(sktFilter==='tuketildi')list=tuketildi;
+  else if(sktFilter==='imha_edildi')list=imha;
+  else list=aktif; // tumu = tüm aktifler
+
+  list=[...list].sort((a,b)=>a._gun-b._gun);
+
+  const c=document.getElementById('skt-icerik');
+  if(!list.length){c.innerHTML='<div class="es"><div class="ei">✅</div><div class="et">Kayıt yok</div></div>';return;}
+  c.innerHTML=list.map(r=>{
+    const gun=r._gun;
+    const isTuketildi=r.durum==='tuketildi', isImha=r.durum==='imha_edildi';
+    let renk,chip;
+    if(isTuketildi){renk='var(--success)';chip='<span class="chip chip-green">✅ Tüketildi</span>';}
+    else if(isImha){renk='var(--gray-500)';chip='<span class="chip chip-gray">🗑️ İmha Edildi</span>';}
+    else if(gun<0){renk='var(--danger)';chip='<span class="chip chip-red">⛔ Geçmiş</span>';}
+    else if(gun<14){renk='#dc2626';chip='<span class="chip chip-red">🔴 Kritik</span>';}
+    else if(gun<30){renk='var(--warning)';chip='<span class="chip chip-yellow">🟡 Uyarı</span>';}
+    else{renk='var(--gray-400)';chip='<span class="chip chip-gray">🟢 Normal</span>';}
+    const urun=urunler.find(u=>u.kod===r.urun_kodu);
+    const gunMetni=isTuketildi?'Tüketildi':isImha?'İmha edildi':(gun<0?Math.abs(gun)+' gün geçti':gun+' gün kaldı');
+    return`<div class="mk-kart" style="border-left-color:${renk}">
+      <div style="display:flex;justify-content:space-between;gap:6px">
+        <div><div style="font-size:13px;font-weight:700">${urun?.ad||r.urun_kodu||'—'}</div><div style="font-size:11px;color:var(--gray-500)">${r.miktar} adet/kg</div></div>
+        <div style="text-align:right">${chip}<div style="font-size:10px;color:var(--gray-400);margin-top:2px">${r.skt_tarihi}</div></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:${renk};margin-top:4px">${gunMetni}</div>
+      ${r.durum==='aktif'?`<div class="brow" style="margin-top:8px">
+        <button class="btn btn-gray btn-sm" onclick="sktDurumDegistir('${r.id}','tuketildi')">✅ Tüketildi</button>
+        <button class="btn btn-danger btn-sm" onclick="sktDurumDegistir('${r.id}','imha_edildi')">🗑️ İmha Et</button>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+async function sktDurumDegistir(id,durum){
+  sLD();
+  try{await fetch(SB_URL+'/rest/v1/skt_kayitlari?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum})});}catch(e){}
+  await auditLogYaz('update','skt',id,`SKT durumu değişti: ${durum}`);
+  hLD();renderSkt();
+  toast('✅ Güncellendi');
+}
+function filterSkt(f,el){sktFilter=f;document.querySelectorAll('#tab-skt .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderSkt();}
+
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ====== INIT ======
+(function(){
+  if(!currentUser) return;
+  document.getElementById('hdrOtel').textContent=currentUser.otelId?('🏨 '+OTEL_KISA[currentUser.otelId]):'';
+  renderSkt();
+})();
+</script>
+</body>
+</html>
