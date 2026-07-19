@@ -133,7 +133,7 @@ const PARA_META={
 async function loadDB(){
   sLD();
   try{
-    const r=await fetch(SB_URL+'/rest/v1/doviz_kurlari?select=*&order=tarih.asc',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/doviz_kurlari?select=*&order=tarih.asc&silindi=eq.false',{headers:SB_HEADERS});
     gunlukKurlar={};
     if(r.ok){
       const rows=await r.json();
@@ -242,7 +242,7 @@ async function bugunuSifirla(){
 
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/doviz_kurlari?tarih=eq.'+tarihKey,{method:'DELETE',headers:SB_HEADERS});
+    await fetch(SB_URL+'/rest/v1/doviz_kurlari?tarih=eq.'+tarihKey,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});
   }catch(e){console.warn(e);}
   hLD();
   await loadDB();
@@ -308,7 +308,7 @@ async function manuelKurKaydet(){
     await fetch(SB_URL+'/rest/v1/doviz_kurlari?on_conflict=tarih,para_birimi',{
       method:'POST',
       headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({tarih:tarihKey,para_birimi:kod,doviz_alis:alis,doviz_satis:satis,kaynak:'Manuel'})
+      body:JSON.stringify({tarih:tarihKey,para_birimi:kod,doviz_alis:alis,doviz_satis:satis,kaynak:'Manuel',silindi:false})
     });
   }catch(e){console.warn(e);}
   hLD();
