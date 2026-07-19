@@ -92,7 +92,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('kalite',this)">✅ Kalite Onayı <span class="badge" id="bkalite" style="display:none"></span></button>
     <button class="tabbtn" onclick="gTab('skt',this)">📅 SKT Takip <span class="badge" id="bskt" style="display:none"></span></button>
     <button class="tabbtn" onclick="gTab('uygun',this)">⚠️ Uygunsuzluk</button>
-    <button class="tabbtn" onclick="gTab('siparis',this)">📦 Sipariş Takip</button>
+    <button class="tabbtn" onclick="location.href='mal-kabul-siparistakip.html'">📦 Sipariş Takip</button>
     <button class="tabbtn" onclick="gTab('esleme',this)">📊 İzleme</button>
     <button class="tabbtn" onclick="gTab('export',this)">📊 LN Export</button>
   </div>
@@ -208,16 +208,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <!-- SİPARİŞ TAKİP -->
-  <div class="sc" id="tab-siparis">
-    <div class="stats-grid" id="siparis-stats" style="grid-template-columns:repeat(3,1fr)"></div>
-    <div class="ftabs">
-      <button class="ftab active" onclick="filterSiparisTakip('bekleyen',this)">⏳ Bekleyen</button>
-      <button class="ftab" onclick="filterSiparisTakip('kismi',this)">🔶 Kısmen Geldi</button>
-      <button class="ftab" onclick="filterSiparisTakip('tamamlandi',this)">✅ Tamamlandı</button>
-      <button class="ftab" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
-    </div>
-    <div id="siparis-icerik"></div>
-  </div>
 
   <!-- İZLEME (Analiz / Raporlar / Eşleşme) -->
   <div class="sc" id="tab-esleme">
@@ -360,7 +350,7 @@ const ROL_INDIRGEME={yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalit
 
 let currentUser=null;
 let malKabuller={}, siparisler={}, urunler=[], cariler=[], uygunsuzluklarAcik={};
-let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik', siparisFilter='bekleyen', eslemeFilter='tumu';
+let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik', eslemeFilter='tumu';
 let formKalemleri=[];
 let formOtelId='810', previewMkNo='';
 
@@ -1906,57 +1896,6 @@ async function uygunsuzlukYazdir(id){
 }
 
 // ============================================================
-// SİPARİŞ TAKİP
-// ============================================================
-function renderSiparisTakip(){
-  const tumSiparisler=Object.values(siparisler);
-  const bek=tumSiparisler.filter(s=>s.durum==='bekleyen').length;
-  const kis=tumSiparisler.filter(s=>s.durum==='kismi').length;
-  const tam=tumSiparisler.filter(s=>s.durum==='tamamlandi').length;
-  document.getElementById('siparis-stats').innerHTML=`
-    <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${bek}</div><div class="stat-lbl">⏳ Bekleyen</div></div>
-    <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${kis}</div><div class="stat-lbl">🔶 Kısmi</div></div>
-    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${tam}</div><div class="stat-lbl">✅ Tamam</div></div>`;
-
-  let liste=siparisFilter==='tumu'?tumSiparisler:tumSiparisler.filter(s=>s.durum===siparisFilter);
-  liste=liste.sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
-
-  const c=document.getElementById('siparis-icerik');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Kayıt yok</div></div>';return;}
-  const durumChip={bekleyen:'<span class="chip chip-red">⏳ Bekliyor</span>',kismi:'<span class="chip chip-yellow">🔶 Kısmen Geldi</span>',tamamlandi:'<span class="chip chip-green">✅ Tamamlandı</span>',iptal:'<span class="chip chip-gray">❌ İptal</span>'};
-  c.innerHTML=liste.map(s=>{
-    const kalemler=s.kalemler||[];
-    const toplam=kalemler.length;
-    const tamamlanan=kalemler.filter(k=>(k.kalanMiktar||0)<=0.01).length;
-    const eksik=toplam-tamamlanan;
-    const yuzde=toplam>0?Math.round(tamamlanan/toplam*100):0;
-    return`<div class="mk-kart">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div style="font-size:13px;font-weight:700">${s.siparisNo}</div><div style="font-size:11px;color:var(--gray-500)">${s.firma}</div></div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          ${durumChip[s.durum]||''}
-          <span class="chip ${s.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[s.otelId]}</span>
-        </div>
-      </div>
-      <div style="margin-top:8px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
-          <span>${toplam} kalem</span>
-          <span style="color:${eksik>0?'var(--danger)':'var(--success)'}">${eksik>0?eksik+' kalem eksik':'Tümü geldi'}</span>
-        </div>
-        <div style="background:var(--gray-200);border-radius:6px;height:6px;overflow:hidden">
-          <div style="background:${s.durum==='tamamlandi'?'var(--success)':'var(--warning)'};height:100%;width:${yuzde}%"></div>
-        </div>
-      </div>
-      ${eksik>0?`<div style="font-size:11px;color:var(--gray-600);margin-top:6px">
-        ${kalemler.filter(k=>(k.kalanMiktar||0)>0.01).slice(0,3).map(k=>`• ${k.ad} — Kalan: ${k.kalanMiktar} ${k.birim}`).join('<br>')}
-        ${eksik>3?`<div style="color:var(--gray-400)">+${eksik-3} daha...</div>`:''}
-      </div>`:''}
-    </div>`;
-  }).join('');
-}
-function filterSiparisTakip(f,el){siparisFilter=f;document.querySelectorAll('#tab-siparis .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderSiparisTakip();}
-
-// ============================================================
 // İZLEME — Analiz / Raporlar / Eşleşme (v1'deki İzleme sekmesiyle aynı yapı)
 // ============================================================
 function izlemeSwitchTab(tab){
@@ -2347,7 +2286,6 @@ function gTab(tab,el){
   if(tab==='kalite')renderKaliteOnay();
   if(tab==='skt')renderSkt();
   if(tab==='uygun')renderUygun();
-  if(tab==='siparis')renderSiparisTakip();
   if(tab==='esleme')izlemeSwitchTab('analiz');
 }
 // sLD/hLD/toast/escapeHtml/kModal/aModal -> ortak.js

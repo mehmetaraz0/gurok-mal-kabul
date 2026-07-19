@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let currentUser = requireLogin();
+if (currentUser) requireRole(currentUser, ['yonetici','depo','satinalma','kalite']);
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Sipariş Takip</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.sc::-webkit-scrollbar{display:none}
+.ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
+.ftab.active{background:var(--primary);border-color:var(--primary);color:white}
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-blue{background:#dbeafe;color:#1e40af}.chip-green{background:#d4edda;color:#155724}.chip-red{background:#fde8e8;color:#9b1c1c}.chip-yellow{background:#fff3cd;color:#856404}.chip-gray{background:var(--gray-200);color:var(--gray-600)}.chip-orange{background:#fed7aa;color:#92400e}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat-kart{background:white;border-radius:var(--radius-sm);padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat-num{font-size:17px;font-weight:800}
+.stat-lbl{font-size:10px;color:var(--gray-500);margin-top:2px}
+.mk-kart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-300);cursor:pointer}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='mal-kabul-v2.html'">←</button>
+    <div style="flex:1"><h1>Sipariş Takip</h1><span style="font-size:11px;opacity:.7" id="hdrOtel"></span></div>
+  </div>
+
+  <div class="sc" id="tab-siparis" style="display:block">
+    <div class="stats-grid" id="siparis-stats" style="grid-template-columns:repeat(3,1fr)"></div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterSiparisTakip('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="ftab" onclick="filterSiparisTakip('kismi',this)">🔶 Kısmen Geldi</button>
+      <button class="ftab" onclick="filterSiparisTakip('tamamlandi',this)">✅ Tamamlandı</button>
+      <button class="ftab" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
+    </div>
+    <div id="siparis-icerik"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+// SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
+// sLD/hLD/toast/escapeHtml/kModal/aModal -> ortak.js
+
+const OTEL_KISA={'810':'Club','811':'Resort'};
+let siparisler={};
+let siparisFilter='bekleyen';
+
+function siparisSbdenCamele(r){
+  return{
+    siparisNo:r.siparis_no,firma:r.firma_ad,otelId:r.otel_id,tarih:r.tarih,durum:r.durum,tip:r.tip,
+    kalemler:(r.siparis_kalemleri||[]).map(k=>({ad:k.urun_adi,kod:k.urun_kodu||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,gelenMiktar:parseFloat(k.gelen_miktar)||0,kalanMiktar:parseFloat(k.kalan_miktar)||0}))
+  };
+}
+
+async function loadSiparisler(){
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/siparisler?durum=neq.iptal&select=*,siparis_kalemleri(*)',{headers:SB_HEADERS});
+    siparisler={};
+    if(r.ok)(await r.json()).forEach(row=>{siparisler[row.siparis_no]=siparisSbdenCamele(row);});
+  }catch(e){console.warn(e);}
+  hLD();
+  renderSiparisTakip();
+}
+
+function renderSiparisTakip(){
+  const tumSiparisler=Object.values(siparisler);
+  const bek=tumSiparisler.filter(s=>s.durum==='bekleyen').length;
+  const kis=tumSiparisler.filter(s=>s.durum==='kismi').length;
+  const tam=tumSiparisler.filter(s=>s.durum==='tamamlandi').length;
+  document.getElementById('siparis-stats').innerHTML=`
+    <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${bek}</div><div class="stat-lbl">⏳ Bekleyen</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${kis}</div><div class="stat-lbl">🔶 Kısmi</div></div>
+    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${tam}</div><div class="stat-lbl">✅ Tamam</div></div>`;
+
+  let liste=siparisFilter==='tumu'?tumSiparisler:tumSiparisler.filter(s=>s.durum===siparisFilter);
+  liste=liste.sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
+
+  const c=document.getElementById('siparis-icerik');
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Kayıt yok</div></div>';return;}
+  const durumChip={bekleyen:'<span class="chip chip-red">⏳ Bekliyor</span>',kismi:'<span class="chip chip-yellow">🔶 Kısmen Geldi</span>',tamamlandi:'<span class="chip chip-green">✅ Tamamlandı</span>',iptal:'<span class="chip chip-gray">❌ İptal</span>'};
+  c.innerHTML=liste.map(s=>{
+    const kalemler=s.kalemler||[];
+    const toplam=kalemler.length;
+    const tamamlanan=kalemler.filter(k=>(k.kalanMiktar||0)<=0.01).length;
+    const eksik=toplam-tamamlanan;
+    const yuzde=toplam>0?Math.round(tamamlanan/toplam*100):0;
+    return`<div class="mk-kart">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-size:13px;font-weight:700">${s.siparisNo}</div><div style="font-size:11px;color:var(--gray-500)">${s.firma}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${durumChip[s.durum]||''}
+          <span class="chip ${s.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[s.otelId]}</span>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span>${toplam} kalem</span>
+          <span style="color:${eksik>0?'var(--danger)':'var(--success)'}">${eksik>0?eksik+' kalem eksik':'Tümü geldi'}</span>
+        </div>
+        <div style="background:var(--gray-200);border-radius:6px;height:6px;overflow:hidden">
+          <div style="background:${s.durum==='tamamlandi'?'var(--success)':'var(--warning)'};height:100%;width:${yuzde}%"></div>
+        </div>
+      </div>
+      ${eksik>0?`<div style="font-size:11px;color:var(--gray-600);margin-top:6px">
+        ${kalemler.filter(k=>(k.kalanMiktar||0)>0.01).slice(0,3).map(k=>`• ${k.ad} — Kalan: ${k.kalanMiktar} ${k.birim}`).join('<br>')}
+        ${eksik>3?`<div style="color:var(--gray-400)">+${eksik-3} daha...</div>`:''}
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+function filterSiparisTakip(f,el){siparisFilter=f;document.querySelectorAll('#tab-siparis .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderSiparisTakip();}
+
+document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ====== INIT ======
+(function(){
+  if(!currentUser) return;
+  document.getElementById('hdrOtel').textContent=currentUser.otelId?('🏨 '+OTEL_KISA[currentUser.otelId]):'';
+  loadSiparisler();
+})();
+</script>
+</body>
+</html>
