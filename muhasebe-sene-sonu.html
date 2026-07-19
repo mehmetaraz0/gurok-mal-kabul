@@ -110,9 +110,9 @@ async function loadDB(){
   sLD();
   try{
     const [hR,yR,kR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad,tip,yon',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=id,no,tarih,otel_id,yevmiye_kalemleri(hesap_kodu,borc,alacak)',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/sene_sonu_kapanislar?select=*',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad,tip,yon&silindi=eq.false',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=id,no,tarih,otel_id,yevmiye_kalemleri(hesap_kodu,borc,alacak)&silindi=eq.false',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/sene_sonu_kapanislar?select=*&silindi=eq.false',{headers:SB_HEADERS}),
     ]);
     hesaplar={};yevmiyeler={};kapanmisYillar={};
     if(hR.ok){(await hR.json()).forEach(r=>{hesaplar[r.kod]=r;});}
@@ -148,7 +148,7 @@ async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,ot
   const topAlacak=yevKalemler.reduce((t,k)=>t+(k.alacak||0),0);
   let mevcutId=null,no=null;
   try{
-    const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.${encodeURIComponent(tip)}&belge_no=eq.${encodeURIComponent(belge)}&select=id,no`,{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.${encodeURIComponent(tip)}&belge_no=eq.${encodeURIComponent(belge)}&select=id,no&silindi=eq.false`,{headers:SB_HEADERS});
     if(r.ok){const d=await r.json();if(d&&d.length){mevcutId=d[0].id;no=d[0].no;}}
   }catch(e){}
   if(!no)no=await yeniFisNo();
@@ -342,7 +342,7 @@ async function donemiKapat(){
     await fetch(SB_URL+'/rest/v1/sene_sonu_kapanislar?on_conflict=yil',{
       method:'POST',
       headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({yil:onizleme.yil,brut_kar_zarar:onizleme.brutKarZarar,vergi,net_sonuc:netSonuc,kullanan:kayit.kullanan})
+      body:JSON.stringify({yil:onizleme.yil,brut_kar_zarar:onizleme.brutKarZarar,vergi,net_sonuc:netSonuc,kullanan:kayit.kullanan,silindi:false})
     });
   }catch(e){console.warn(e);}
   await auditLogYaz('create','sene_sonu',String(onizleme.yil),`${onizleme.yil} dönemi kapatıldı — Net sonuç: ${fmt(netSonuc)} ₺`);
@@ -386,19 +386,19 @@ async function kapanmisYiliGeriAl(yil){
   const silinecekBelgeler=[String(yil)+'-KAPANIS',String(yil)+'-VERGI',String(yil)+'-NETSONUC'];
   for(const belge of silinecekBelgeler){
     try{
-      const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.donem_kapanis&belge_no=eq.${encodeURIComponent(belge)}&select=id`,{headers:SB_HEADERS});
+      const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.donem_kapanis&belge_no=eq.${encodeURIComponent(belge)}&select=id&silindi=eq.false`,{headers:SB_HEADERS});
       if(r.ok){
         const d=await r.json();
         // Bir yarış durumu aynı belge_no ile mükerrer fiş oluşturmuş olabilir —
         // sadece ilkini değil, eşleşen HEPSİNİ sil (yoksa geri alma kalıntı bırakır).
         for(const row of (d||[])){
-          await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+row.id,{method:'DELETE',headers:SB_HEADERS});
+          await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+row.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});
         }
       }
     }catch(e){console.warn(e);}
   }
   delete kapanmisYillar[yil];
-  try{await fetch(SB_URL+'/rest/v1/sene_sonu_kapanislar?yil=eq.'+yil,{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
+  try{await fetch(SB_URL+'/rest/v1/sene_sonu_kapanislar?yil=eq.'+yil,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});}catch(e){console.warn(e);}
   await auditLogYaz('delete','sene_sonu',String(yil),`${yil} dönem kapanışı GERİ ALINDI — kapanış fişleri silindi`);
   hLD();
   donemDurumGoster();
