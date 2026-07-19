@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -84,6 +85,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('verilen',this)">📤 Verilen</button>
     <button class="tabbtn" onclick="gTab('vade',this)">📅 Vade Takvimi</button>
   </div>
+  <div style="display:flex;gap:8px;padding:10px 12px 0">
+    <button class="btn btn-gray btn-sm" style="flex:1" onclick="cekSenetExcelAktar()">📊 Toplu Düzenle — Aktar</button>
+    <button class="btn btn-gray btn-sm" style="flex:1" onclick="document.getElementById('cek-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+  </div>
+  <input type="file" id="cek-excel-input" accept=".xlsx,.xls" style="display:none" onchange="cekSenetExcelYukle(event)">
 
   <!-- ALINAN -->
   <div class="sc" id="tab-alinan" style="display:block">
@@ -247,6 +253,79 @@ async function saveKayit(k){
       if(d&&d[0])k.id=d[0].id;
     }
   }catch(e){console.warn(e);}
+}
+
+// ============================================================
+// EXCEL TOPLU DÜZENLEME
+// ============================================================
+const cekSenetExcelSpec=[
+  {alan:'tur', baslik:'Tür', tip:'text', zorunlu:true, genislik:10, izinliDegerler:['cek','senet']},
+  {alan:'yon', baslik:'Yön', tip:'text', zorunlu:true, genislik:10, izinliDegerler:['alinan','verilen']},
+  {alan:'cariAd', baslik:'Cari Adı', tip:'text', zorunlu:true, genislik:24},
+  {alan:'no', baslik:'No', tip:'text', genislik:14},
+  {alan:'banka', baslik:'Banka', tip:'text', genislik:16},
+  {alan:'duzenleme', baslik:'Düzenleme Tarihi', tip:'text', genislik:14},
+  {alan:'vade', baslik:'Vade Tarihi', tip:'text', zorunlu:true, genislik:14},
+  {alan:'tutar', baslik:'Tutar', tip:'number', zorunlu:true, pozitifOlmali:true, genislik:12},
+  {alan:'otelId', baslik:'Otel', tip:'text', genislik:8, izinliDegerler:['810','811']},
+  {alan:'durum', baslik:'Durum', tip:'text', genislik:12, izinliDegerler:['portfoyde','tahsilde','tamamlandi','karsiliksiz']},
+  {alan:'not', baslik:'Not', tip:'text', genislik:20}
+];
+async function cekSenetExcelAktar(){
+  const veriler=Object.values(kayitlar).filter(Boolean);
+  await excelSablonIndir(cekSenetExcelSpec, veriler, 'cek-senetler-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+async function cekSenetExcelYukle(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  sLD();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    hLD();
+    const mevcutKayitlar=Object.values(kayitlar).filter(Boolean);
+    const siniflandirma=excelSatirlariSiniflandir(cekSenetExcelSpec, satirlar, mevcutKayitlar, {dogalAnahtarKombinasyonu:['no','banka','yon']});
+    excelOnizlemeGoster(siniflandirma,{ spec:cekSenetExcelSpec, dosyaAdiOnek:'cek-senetler', onUygula:(mod,satirlarYaz)=>cekSenetExcelUygula(mod,satirlarYaz) });
+  }catch(err){ hLD(); toast('❌ Dosya okunamadı: '+err.message); }
+}
+async function cekSenetExcelUygula(mod,yazilacaklar){
+  if(!yazilacaklar.length){toast('ℹ️ Yazılacak satır yok');return;}
+  sLD();
+  // cariAd -> cari_id çözümlemesi, kayitKaydet()'teki auto-create deseniyle aynı
+  const cariMap={};
+  Object.values(cariler).forEach(c=>{ if(c&&c.ad) cariMap[c.ad.trim().toLowerCase()]=c.id; });
+  const satirlar=[];
+  for(let i=0;i<yazilacaklar.length;i++){
+    const s=yazilacaklar[i];
+    const cariAd=s.alanlar.cariAd;
+    const anahtar=cariAd.trim().toLowerCase();
+    let cariId=cariMap[anahtar];
+    if(!cariId){
+      const yeniCariSatir={kod:'CARI_'+Date.now()+'_'+i, ad:cariAd, tip:s.alanlar.yon==='alinan'?'musteri':'tedarikci'};
+      try{
+        const r=await fetch(SB_URL+'/rest/v1/cariler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(yeniCariSatir)});
+        const d=await r.json();
+        if(d&&d[0]){ cariId=d[0].id; cariler[cariId]={id:cariId,kod:yeniCariSatir.kod,ad:cariAd,tip:yeniCariSatir.tip}; cariMap[anahtar]=cariId; }
+      }catch(e){console.warn('Cari otomatik oluşturulamadı:',e);}
+    }
+    const eski=s.eskiDeger;
+    satirlar.push({
+      tur:s.alanlar.tur, yon:s.alanlar.yon, cari_id:cariId||null, cari_ad:cariAd,
+      no:s.alanlar.no||null, banka:s.alanlar.banka||null,
+      duzenleme_tarihi:s.alanlar.duzenleme||null, vade_tarihi:s.alanlar.vade,
+      tutar:s.alanlar.tutar, otel_id:s.alanlar.otelId||'810',
+      durum:s.alanlar.durum||eski?.durum||'portfoyde', not_alani:s.alanlar.not||null
+    });
+  }
+  const sonuc=await excelTopluYaz('cek_senetler', satirlar, {onConflict:'no,banka,yon'});
+  await loadDB();
+  await excelImportGecmisiYaz({ tabloAdi:'cek_senetler', ilgiliId:null, dosyaAdi:'cek-senetler.xlsx',
+    kullaniciAd:OTURUM_KULLANICI?.ad||'', mod, toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0, atlananSayisi:0
+  }, yazilacaklar);
+  hLD();
+  toast(sonuc.hataliGrup?'⚠️ Bazı satırlar yazılamadı':'✅ Çek/Senet kayıtları güncellendi ('+sonuc.toplamYazilan+' satır)');
+  renderListe('alinan'); renderListe('verilen');
 }
 
 // ============================================================
