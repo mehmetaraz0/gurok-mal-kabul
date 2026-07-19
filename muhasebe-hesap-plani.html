@@ -265,7 +265,7 @@ td:first-child{min-width:90px}
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHesap')">İptal</button>
       <button class="btn btn-danger" id="h-sil-btn" onclick="hesapSilModal()" style="display:none">🗑️ Sil</button>
-      <button class="btn btn-primary" onclick="hesapKaydet()">💾 Kaydet</button>
+      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hesapKaydet()" disabled>💾 Kaydet</button>
     </div>
   </div>
 </div>
@@ -276,6 +276,7 @@ td:first-child{min-width:90px}
 <script>
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 let hesaplar={};
+let YETKI_HARITASI = {};
 let tipFilter='';
 let grupFilter='';
 let altSeviyeFilter='';
@@ -1062,7 +1063,7 @@ function openDuzenle(){
   document.getElementById('h-doviz').value=h.doviz||'TRY';
   document.getElementById('h-durum').value=h.durum||'aktif';
   document.getElementById('h-aciklama').value=h.aciklama||'';
-  document.getElementById('h-sil-btn').style.display='inline-flex';
+  document.getElementById('h-sil-btn').style.display=['kayit','tam'].includes(YETKI_HARITASI['hesap_plani'])?'inline-flex':'none';
   aModal('mHesap');
 }
 
@@ -1165,6 +1166,8 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   } else {
     renderTablo();
   }
+  YETKI_HARITASI = await kullaniciYetkileriGetir();
+  document.getElementById('h-kaydet-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['hesap_plani']);
 })();
 </script>
 </body>
