@@ -10,24 +10,26 @@ if (CU) requireRole(CU, ['yonetici','satinalma','depo','cost_control']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok — Satın Alma</title>
-<meta name="theme-color" content="#1a2744">
+<meta name="theme-color" content="#15213a">
 <style>
-:root{--primary:#1a2744;--primary-light:#2d4080;--success:#27ae60;--warning:#f39c12;--danger:#e74c3c;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-500:#adb5bd;--radius:12px;--shadow:0 2px 12px rgba(0,0,0,0.1)}
+:root{--primary:#15213a;--primary-light:#2d4080;--accent:#c9a24b;--success:#27ae60;--warning:#c8862c;--danger:#b5442a;--gray-100:#f1f3f5;--gray-200:#e4e7ec;--gray-300:#dee2e6;--gray-500:#8992a3;--radius:10px;--radius-sm:8px;--shadow:0 1px 2px rgba(21,33,58,.05),0 6px 18px rgba(21,33,58,.06)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 .header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;min-height:56px;box-shadow:var(--shadow)}
 .header h1{font-size:15px;font-weight:700;flex:1}
 .hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .hbtn:active{background:rgba(255,255,255,.3)}
-.content{padding:16px;max-width:700px;margin:0 auto}
+.content{padding:16px;max-width:760px;margin:0 auto}
 .modul-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 @media(min-width:500px){.modul-grid{grid-template-columns:repeat(3,1fr)}}
-.modul-kart{background:white;border-radius:var(--radius);padding:16px;cursor:pointer;box-shadow:var(--shadow);text-align:center;transition:all .2s;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:8px}
+.modul-kart{background:white;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px;cursor:pointer;box-shadow:var(--shadow);text-align:center;transition:border-color .15s,transform .15s;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:9px}
+.modul-kart:hover{border-color:var(--primary);transform:translateY(-1px)}
 .modul-kart:active{transform:scale(.97)}
-.modul-ikon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px}
+.modul-ikon{width:44px;height:44px;border-radius:8px;border:1px solid var(--primary);color:var(--primary);display:flex;align-items:center;justify-content:center}
+.modul-ikon svg{width:20px;height:20px}
 .modul-ad{font-size:13px;font-weight:700;color:var(--primary)}
 .modul-desc{font-size:11px;color:var(--gray-500)}
-.bolum-baslik{font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;margin-top:16px}
+.bolum-baslik{font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;margin-top:16px}
 </style>
 </head>
 <body>
@@ -39,47 +41,47 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="bolum-baslik">Modüller</div>
   <div class="modul-grid">
     <a class="modul-kart" href="satin-alma-talepler.html">
-      <div class="modul-ikon" style="background:#dbeafe">📋</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><rect x="4" y="6" width="16" height="15" rx="1"/><path d="M8 12h8M8 16h5"/></svg></div>
       <div class="modul-ad">İç Talepler</div>
       <div class="modul-desc">Talep oluştur, onay akışı</div>
     </a>
     <a class="modul-kart" href="satin-alma-siparisler.html">
-      <div class="modul-ikon" style="background:#ede9fe">📦</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></div>
       <div class="modul-ad">LN Siparişler</div>
       <div class="modul-desc">Infor LN import, eşleştirme</div>
     </a>
     <a class="modul-kart" href="satin-alma-siparisolustur.html">
-      <div class="modul-ikon" style="background:#fef3c7">✉️</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="m4 7 8 6 8-6"/></svg></div>
       <div class="modul-ad">Sipariş Oluştur</div>
       <div class="modul-desc">Firma bazlı sipariş formu</div>
     </a>
     <a class="modul-kart" href="satin-alma-firmalar.html">
-      <div class="modul-ikon" style="background:#fed7aa">🏢</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6.5L12 3l8 3.5V21"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M12 10h.01M15 10h.01M9 13.5h.01M15 13.5h.01"/></svg></div>
       <div class="modul-ad">Firmalar</div>
       <div class="modul-desc">Tedarikçi listesi, arama</div>
     </a>
     <a class="modul-kart" href="satin-alma-siparistakip.html">
-      <div class="modul-ikon" style="background:#d4edda">📊</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7" width="13" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><circle cx="17.5" cy="17.5" r="3"/><path d="m20 20 1.5 1.5"/></svg></div>
       <div class="modul-ad">Sipariş Takip</div>
       <div class="modul-desc">Bekleyen, kısmi, tamamlanan</div>
     </a>
     <a class="modul-kart" href="satin-alma-fiyatkontrol.html">
-      <div class="modul-ikon" style="background:#ccfbf1">💰</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 3H20v7.5L11 20l-8-8Z"/><circle cx="16" cy="7" r="1.3"/></svg></div>
       <div class="modul-ad">Fiyat Kontrolü</div>
       <div class="modul-desc">Mal kabul fiyat eşleştirme</div>
     </a>
     <a class="modul-kart" href="satin-alma-iade.html">
-      <div class="modul-ikon" style="background:#fde8e8">↩️</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4.5 9.5 9 5"/><path d="M4.5 9.5H14a5.5 5.5 0 0 1 5.5 5.5v.5"/></svg></div>
       <div class="modul-ad">İade</div>
       <div class="modul-desc">İade siparişi, fiyatlandırma</div>
     </a>
     <a class="modul-kart" href="satin-alma-skorkart.html">
-      <div class="modul-ikon" style="background:#fce7f3">⭐</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.4 5.1 5.6.6-4.2 3.8 1.2 5.5L12 15.3 6.9 18l1.3-5.5L4 8.7l5.6-.6Z"/></svg></div>
       <div class="modul-ad">Tedarikçi Skor Kartı</div>
       <div class="modul-desc">Performans değerlendirme</div>
     </a>
     <a class="modul-kart" href="satin-alma-teklifler.html">
-      <div class="modul-ikon" style="background:#e0f2fe">📨</div>
+      <div class="modul-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 7l-3 6a3 3 0 0 0 6 0Z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0Z"/><path d="M5 7h14"/></svg></div>
       <div class="modul-ad">Teklifler</div>
       <div class="modul-desc">RFQ, karşılaştırma</div>
     </a>
