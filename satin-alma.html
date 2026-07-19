@@ -89,7 +89,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('talepler',this)">📋 İç Talepler</button>
     <button class="tabbtn" onclick="location.href='satin-alma-siparisler.html'">📦 LN Siparişler</button>
-    <button class="tabbtn" onclick="gTab('yeniSiparis',this)">✉️ Sipariş Oluştur</button>
+    <button class="tabbtn" onclick="location.href='satin-alma-siparisolustur.html'">✉️ Sipariş Oluştur</button>
     <button class="tabbtn" onclick="location.href='satin-alma-firmalar.html'">🏢 Firmalar</button>
     <button class="tabbtn" onclick="location.href='satin-alma-siparistakip.html'">📊 Sipariş Takip</button>
     <button class="tabbtn" onclick="location.href='satin-alma-fiyatkontrol.html'">💰 Fiyat Kontrolü</button>
@@ -119,52 +119,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <!-- LN SİPARİŞLER -->
   <!-- SİPARİŞ SEPETİ -->
-  <div class="sc" id="tab-yeniSiparis">
-    <!-- Adım 1: Kalem Girişi -->
-    <div id="spAdim1">
-      <div class="card">
-        <div class="card-title">🛒 Sipariş Sepeti
-          <span id="sp-kalem-sayi" style="font-size:11px;color:var(--gray-500);font-weight:400;margin-left:4px"></span>
-          <button class="btn btn-sm" style="margin-left:auto;background:var(--accent);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addSPSatir()">+ Ekle</button>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 70px 65px 90px 24px;gap:4px;padding:0 2px;margin-bottom:4px">
-          <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase">Ürün</div>
-          <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase">Miktar</div>
-          <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase">Birim</div>
-          <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase">Firma</div>
-          <div></div>
-        </div>
-        <div id="sp-satirlar" style="max-height:55vh;overflow-y:auto"></div>
-        <div class="rfields" style="margin-top:10px">
-          <div class="field"><label>Sipariş Tarihi</label><input type="date" id="sp-tarih"></div>
-          <div class="field"><label>Termin Tarihi</label><input type="date" id="sp-termin"></div>
-        </div>
-        <div class="field" style="margin-top:8px"><label>Otel *</label>
-          <select id="sp-otel">
-            <option value="810">🏨 810 — Ali Bey Club Manavgat (C siparişi)</option>
-            <option value="811">🏨 811 — Ali Bey Resort Sorgun (R siparişi)</option>
-          </select>
-        </div>
-      </div>
-      <div class="brow" style="margin-bottom:16px">
-        <button class="btn btn-gray" onclick="spSifirla()">🗑️ Temizle</button>
-        <button class="btn btn-primary" id="sp-grupla-btn" onclick="spGrupla()" disabled>📦 Firma Bazlı Grupla →</button>
-      </div>
-    </div>
-    <!-- Adım 2: Firma Grupları -->
-    <div id="spAdim2" style="display:none">
-      <div class="card">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <button class="btn btn-sm btn-gray" onclick="spGeriDon()">← Geri</button>
-          <div class="card-title" style="margin:0">📦 Firma Siparişleri</div>
-        </div>
-      </div>
-      <div id="sp-gruplar"></div>
-    </div>
-  </div>
-
-  <!-- FİYAT KONTROLÜ PANELİ -->
-  <!-- İADE -->
   <!-- TEKLİFLER (RFQ) -->
   <div class="sc" id="tab-teklifler">
     <div class="ftabs" id="teklif-ftabs">
@@ -289,7 +243,6 @@ const RIKSON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍',mutfak:
 let CU=null;
 let DB={talepler:{},siparisler:{},kullanicilar:[...TUSERS],firmalar:[],teklifler:{}};
 let YETKI_HARITASI = {};
-// SP_SATIRLAR aşağıda tanımlandı
 let talepFilter='tumu', teklifFilter='tumu';
 
 // CU'nun onay yetkisi olduğu asama'lar — kullaniciAsamaYetkiliMi() async olduğu için
@@ -374,11 +327,6 @@ function gTab(tab,el){
   if(el2)el2.style.display='block';
   if(el)el.classList.add('active');
   if(tab==='talepler')renderTalepler();
-  if(tab==='yeniSiparis'){
-    document.getElementById('sp-tarih').value=new Date().toISOString().split('T')[0];
-    document.getElementById('sp-termin').value='';
-    if(SP_SATIRLAR.length===0)addSPSatir();
-  }
   if(tab==='teklifler')loadTeklifler();
 }
 
@@ -918,18 +866,15 @@ async function talepKararVer(id,karar){
 
 async function talepSipariseDonustur(id){
   const t=DB.talepler[id];if(!t)return;
-  // Sipariş Oluştur sekmesine geç, ürünleri oraya aktar (artık yapılandırılmış satırlardan — miktar/birim de gelir)
+  // Sipariş Oluştur artık ayrı sayfa (satin-alma-siparisolustur.html) — kalemler
+  // sessionStorage üzerinden taşınır, hedef sayfa init'te okuyup temizler.
   kModal('mTalepDetay');
-  SP_SATIRLAR=[];
-  (t.satirlar||[]).forEach(u=>{
-    SP_SATIRLAR.push({ad:u.ad,kod:u.kod||'',miktar:u.miktar||'',birim:u.birim||'KG',not:''});
-  });
-  renderSPSatirlar();
+  const satirlar=(t.satirlar||[]).map(u=>({ad:u.ad,kod:u.kod||'',miktar:u.miktar||'',birim:u.birim||'KG',not:''}));
+  sessionStorage.setItem('sp_devir_satirlar',JSON.stringify(satirlar));
   // Talebi siparişe dönüştü olarak işaretle
   t.durum='siparis';t.donusturmaTarih=Date.now();t.donusturanAd=CU.ad;
   try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'siparis'})});}catch(e){console.warn(e);}
-  gTab('yeniSiparis',document.querySelectorAll('.tabbtn')[2]);
-  toast('📦 Ürünler sipariş formuna aktarıldı');
+  location.href='satin-alma-siparisolustur.html';
 }
 
 // ====== İÇ TALEPLER — KALEM EXCEL TOPLU DÜZENLEME (ortak-excel.js pilotu) ======
@@ -1417,6 +1362,26 @@ function renderTeklifKarsilastirma(teklifTalepId){
   aModal('mTeklifKarsilastirma');
 }
 
+// Sipariş No üret — Club: C00091111, Resort: R00091111 formatı, kendi havuzumuzdan.
+// (satin-alma-siparisolustur.html ve satin-alma-iade.html'de de birer kopyası var.)
+async function yeniSiparisNoUret(prefix){
+  const p = prefix === 'R' ? 'R' : 'C';
+  try{
+    const r=await fetch(SB_URL+`/rest/v1/siparisler?siparis_no=like.${p}*&select=siparis_no&order=siparis_no.desc&limit=1`,{headers:SB_HEADERS});
+    let maxNo=91110;
+    if(r.ok){
+      const d=await r.json();
+      if(d&&d.length){
+        const m=d[0].siparis_no.match(new RegExp('^'+p+'(\\d+)$'));
+        if(m)maxNo=parseInt(m[1]);
+      }
+    }
+    return p+String(maxNo+1).padStart(8,'0');
+  }catch(e){
+    return p+String(91111+Math.floor(Math.random()*1000)).padStart(8,'0');
+  }
+}
+
 async function teklifSecilenleriSiparisDonustur(teklifTalepId){
   const tk=DB.teklifler[teklifTalepId];if(!tk)return;
   const secimler=[]; // {kalem, tedarikciTeklifId, fiyat}
@@ -1461,361 +1426,6 @@ async function teklifSecilenleriSiparisDonustur(teklifTalepId){
   }catch(e){console.warn(e);hLD();toast('❌ Siparişe dönüştürme başarısız');}
 }
 
-// ====== YENİ SİPARİŞ OLUŞTUR ======
-// ====== SİPARİŞ SEPETİ ======
-let SP_SATIRLAR = [];
-const BIRIMLER2 = ['KG','AD','KOL','LT','PKT','TRB','TNK','BOT','GR','ML'];
-
-// NOT: autoFirma ve filterSPFirma tanımları aşağıda (tek, güncel sürüm).
-
-function spKeyDown(e,i){
-  if(e.key==='Enter'){
-    e.preventDefault();
-    if(i===SP_SATIRLAR.length-1) addSPSatir();
-    else{const next=document.getElementById('spa'+(i+1));if(next)next.focus();}
-  }
-}
-
-
-// filterSPFirma'nın güncel (tek) tanımı aşağıda.
-
-// Dropdown dışarı tıklanınca kapat
-document.addEventListener('pointerdown',e=>{
-  SP_SATIRLAR.forEach((_,i)=>{
-    ['spdd'+i,'spfdd'+i].forEach(id=>{
-      const dd=document.getElementById(id);
-      if(dd&&!dd.contains(e.target))dd.style.display='none';
-    });
-  });
-  const fd=document.getElementById('sp-firma-dd');
-  const fi=document.getElementById('sp-firma-inp');
-  if(fd&&fi&&!fd.contains(e.target)&&e.target!==fi)fd.style.display='none';
-});
-
-
-function spGeriDon(){document.getElementById('spAdim1').style.display='block';document.getElementById('spAdim2').style.display='none';}
-
-// ============================================================
-// SİPARİŞ NO ÜRET — Club: C00091111, Resort: R00091111 formatı, kendi havuzumuzdan.
-// Her önekin kendi sayacı vardır; en yüksek mevcut no bulunup +1 verilir.
-// ============================================================
-async function yeniSiparisNoUret(prefix){
-  const p = prefix === 'R' ? 'R' : 'C';
-  try{
-    const r=await fetch(SB_URL+`/rest/v1/siparisler?siparis_no=like.${p}*&select=siparis_no&order=siparis_no.desc&limit=1`,{headers:SB_HEADERS});
-    let maxNo=91110;
-    if(r.ok){
-      const d=await r.json();
-      if(d&&d.length){
-        const m=d[0].siparis_no.match(new RegExp('^'+p+'(\\d+)$'));
-        if(m)maxNo=parseInt(m[1]);
-      }
-    }
-    return p+String(maxNo+1).padStart(8,'0');
-  }catch(e){
-    return p+String(91111+Math.floor(Math.random()*1000)).padStart(8,'0');
-  }
-}
-
-async function spGrupla(){
-  const dolu=SP_SATIRLAR.filter(u=>u.ad&&u.miktar);
-  if(!dolu.length){toast('⚠️ Kalem ekleyin');return;}
-
-  // Firma bazlı grupla
-  const gruplar={};
-  dolu.forEach(u=>{
-    const key=u.firmaAd||'_bos';
-    if(!gruplar[key])gruplar[key]={firmaAd:u.firmaAd||'',firmaId:u.firmaId||'',kalemler:[]};
-    gruplar[key].kalemler.push(u);
-  });
-
-  const tarih=document.getElementById('sp-tarih').value;
-  const termin=document.getElementById('sp-termin').value;
-  const otelId=document.getElementById('sp-otel')?.value||'810';
-  const sipPrefix=otelId==='811'?'R':'C';
-  const grupListesi=Object.values(gruplar).sort((a,b)=>a.firmaAd.localeCompare(b.firmaAd));
-
-  sLD();
-  // Her firma grubuna ayrı sipariş no ata — hemen bir yer tutucu satır yazıyoruz ki
-  // aynı döngüde bir sonraki grup farklı numara alsın (çakışma önleme)
-  for(const g of grupListesi){
-    g.siparisNo = await yeniSiparisNoUret(sipPrefix);
-    try{
-      await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
-        siparis_no:g.siparisNo,firma_ad:g.firmaAd||'',otel_id:otelId,tarih:tarih||new Date().toISOString().split('T')[0],durum:'bekleyen'
-      })});
-    }catch(e){console.warn(e);}
-  }
-  hLD();
-
-  document.getElementById('sp-gruplar').innerHTML=grupListesi.map((g,gi)=>`
-    <div class="card" style="margin-bottom:10px;border-left:4px solid var(--primary)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div>
-          <div style="font-size:14px;font-weight:700;color:var(--primary)">${g.firmaAd||'⚠️ Firma Atanmamış'}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${g.kalemler.length} kalem</div>
-          <div style="margin-top:4px"><span class="chip" style="background:#ede9fe;color:#5b21b6;font-family:monospace;font-weight:700">📋 ${g.siparisNo}</span></div>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-sm btn-gray" onclick="spPDF(${gi})">🖨️ PDF</button>
-          <button class="btn btn-sm btn-success" onclick="spMail(${gi})">✉️ Mail</button>
-        </div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <tr style="background:var(--gray-100)">
-          <th style="text-align:left;padding:5px 6px">#</th>
-          <th style="text-align:left;padding:5px 6px">Ürün</th>
-          <th style="text-align:right;padding:5px 6px">Miktar</th>
-          <th style="text-align:left;padding:5px 6px">Birim</th>
-        </tr>
-        ${g.kalemler.map((k,ki)=>`<tr style="border-bottom:1px solid var(--gray-100)">
-          <td style="padding:5px 6px;color:var(--gray-400)">${ki+1}</td>
-          <td style="padding:5px 6px;font-weight:600">${k.ad}</td>
-          <td style="padding:5px 6px;text-align:right;font-weight:700">${k.miktar}</td>
-          <td style="padding:5px 6px;color:var(--gray-500)">${k.birim}</td>
-        </tr>`).join('')}
-      </table>
-    </div>`).join('');
-
-  // Grupları state'e kaydet
-  window._spGruplar=grupListesi;
-  window._spTarih=tarih;
-  window._spTermin=termin;
-
-  // Siparişleri kalıcı olarak havuza yaz (mal kabul ve fatura eşleştirme için)
-  for(const g of grupListesi){
-    const kalemler=g.kalemler.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
-      gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0,tahminiFiyat:k.tahminiFiyat?parseFloat(k.tahminiFiyat):null}));
-    try{
-      await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+g.siparisNo,{
-        method:'PATCH',headers:SB_HEADERS,
-        body:JSON.stringify({firma_ad:g.firmaAd,termin_tarihi:termin||null,olusturan_ad:CU.ad})
-      });
-      const kalemSatirlar=kalemler.map(k=>({
-        siparis_no:g.siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
-        miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar,tahmini_fiyat:k.tahminiFiyat
-      }));
-      await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
-      DB.siparisler[g.siparisNo]={siparisNo:g.siparisNo,firma:g.firmaAd,firmaId:g.firmaId,tarih,termin,otelId,kalemler,durum:'bekleyen',olusturanAd:CU.ad,olusturmaTarih:Date.now()};
-    }catch(e){console.warn(e);}
-  }
-
-  document.getElementById('spAdim1').style.display='none';
-  document.getElementById('spAdim2').style.display='block';
-  toast(`✅ ${grupListesi.length} sipariş oluşturuldu`);
-}
-
-function spPDF(gi){
-  const g=window._spGruplar[gi];
-  const tarih=window._spTarih||new Date().toISOString().split('T')[0];
-  const termin=window._spTermin||'';
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sipariş Formu</title>
-  <style>
-    @page{size:A4;margin:15mm}
-    body{font-family:Arial,sans-serif;font-size:11px}
-    h2{text-align:center;font-size:15px;margin:0 0 4px}
-    .sub{text-align:center;font-size:11px;color:#555;margin-bottom:16px}
-    .info{border:1px solid #ccc;padding:10px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
-    .info label{font-size:10px;font-weight:bold;color:#555;display:block}
-    .info span{font-size:12px;font-weight:bold}
-    table{width:100%;border-collapse:collapse;margin-bottom:20px}
-    th{background:#1a2744;color:white;padding:7px;text-align:left;font-size:11px}
-    td{padding:7px;border-bottom:1px solid #eee;font-size:11px}
-    tr:nth-child(even) td{background:#f9f9f9}
-    .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:8px}
-    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-  </style></head><body>
-  <h2>Gürok Turizm Grubu</h2>
-  <div class="sub">Sipariş Formu</div>
-  <div class="info">
-    <div><label>Sipariş No</label><span>${g.siparisNo||'—'}</span></div>
-    <div><label>Tedarikçi Firma</label><span>${g.firmaAd}</span></div>
-    <div><label>Sipariş Tarihi</label><span>${tarih}</span></div>
-    <div><label>Hazırlayan</label><span>${CU.ad}</span></div>
-    ${termin?`<div><label>Termin Tarihi</label><span>${termin}</span></div>`:''}
-  </div>
-  <table>
-    <thead><tr><th>#</th><th>Ürün Adı</th><th>LN Kodu</th><th>Miktar</th><th>Birim</th><th>Teklif Fiyatı</th></tr></thead>
-    <tbody>${g.kalemler.map((k,i)=>`<tr>
-      <td>${i+1}</td><td><b>${k.ad}</b></td>
-      <td style="font-family:monospace;font-size:10px">${k.kod||'—'}</td>
-      <td style="text-align:center;font-weight:bold">${k.miktar}</td>
-      <td>${k.birim}</td>
-      <td style="color:#aaa">...............</td>
-    </tr>`).join('')}</tbody>
-  </table>
-  <div style="margin-top:30px;border-top:1px solid #ccc;padding-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:40px">
-    <div><div style="font-size:11px;font-weight:bold;margin-bottom:30px">Satın Alma Sorumlusu</div><div style="border-bottom:1px solid #000;margin-bottom:6px"></div><div style="font-size:10px">${CU.ad}</div></div>
-    <div><div style="font-size:11px;font-weight:bold;margin-bottom:30px">Tedarikçi Yetkilisi</div><div style="border-bottom:1px solid #000;margin-bottom:6px"></div><div style="font-size:10px">İmza / Tarih</div></div>
-  </div>
-  <div class="footer">Gürok Turizm Grubu — Satın Alma Sistemi • ${new Date().toLocaleString('tr-TR')}</div>
-  <script>window.onload=function(){window.print();}<\/script>
-  </body></html>`;
-  const w=window.open('','_blank','width=800,height=1100');
-  if(w){w.document.write(html);w.document.close();}
-  else toast('⚠️ Popup engellendi');
-}
-
-function spMail(gi){
-  const g=window._spGruplar[gi];
-  const tarih=window._spTarih||'';
-  const termin=window._spTermin||'';
-  const firma=DB.firmalar.find(f=>f.id==g.firmaId||f.ad===g.firmaAd);
-  const mail=firma?.mail||'';
-  const kalemler=g.kalemler.map((k,i)=>`${i+1}. ${k.ad} — ${k.miktar} ${k.birim}`).join('\n');
-  const body=`Sayın ${g.firmaAd},\n\nSipariş No: ${g.siparisNo||'—'}\n\nAşağıdaki ürünler için fiyat teklifinizi bekliyoruz:\n\n${kalemler}\n\nSipariş Tarihi: ${tarih}${termin?'\nTermin Tarihi: '+termin:''}\n\nSaygılarımızla,\n${CU.ad}\nGürok Turizm Grubu`;
-  const subject=encodeURIComponent(`Sipariş ${g.siparisNo||''} — ${g.firmaAd} — ${tarih}`);
-  window.open(`mailto:${mail}?subject=${subject}&body=${encodeURIComponent(body)}`);
-}
-
-function spMailGonder(){spMail(0);}// eski referans için
-
-
-
-
-function addSPSatir(data){
-  SP_SATIRLAR.push({ad:'',kod:'',miktar:'',birim:'KG',firmaId:'',firmaAd:'',tahminiFiyat:'',...(data||{})});
-  renderSPSatirlar();
-  setTimeout(()=>{const inp=document.getElementById('spa'+(SP_SATIRLAR.length-1));if(inp)inp.focus();},50);
-}
-
-function autoFirma(kod){
-  if(!DB.firmalar||!DB.firmalar.length) return null;
-  const firma = DB.firmalar.find(f => f.urunler && f.urunler.includes(kod));
-  return firma || null;
-}
-
-function renderSPSatirlar(){
-  const c=document.getElementById('sp-satirlar');if(!c)return;
-  if(!SP_SATIRLAR.length){c.innerHTML='<div style="text-align:center;color:var(--gray-400);padding:16px;font-size:13px">Kalem eklemek için + Ekle butonuna basın</div>';return;}
-  c.innerHTML=SP_SATIRLAR.map((u,i)=>`
-    <div class="usatir">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <div style="background:var(--primary);color:white;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">${i+1}</div>
-        <div style="font-size:13px;font-weight:600;flex:1">${u.ad||'Kalem '+(i+1)}</div>
-        <button onclick="SP_SATIRLAR.splice(${i},1);renderSPSatirlar()" style="background:none;border:none;color:var(--gray-400);font-size:16px;cursor:pointer">✕</button>
-      </div>
-      <div style="position:relative;margin-bottom:8px">
-        <input type="text" id="spa${i}" value="${u.ad}" placeholder="Ürün adı veya LN kodu..."
-          autocomplete="off" oninput="filterSPUrun(${i},this.value)"
-          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
-        <div id="spdd${i}" class="udd"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div><label style="font-size:11px;font-weight:600;color:var(--gray-600)">MİKTAR</label>
-          <input type="number" value="${u.miktar}" placeholder="0" oninput="SP_SATIRLAR[${i}].miktar=this.value"
-            style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none"></div>
-        <div><label style="font-size:11px;font-weight:600;color:var(--gray-600)">BİRİM</label>
-          <select id="spb${i}" onchange="SP_SATIRLAR[${i}].birim=this.value"
-            style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;-webkit-appearance:none;outline:none">
-            ${['KG','AD','KOL','LT','PKT','TRB','TNK','BOT'].map(b=>`<option${u.birim===b?' selected':''}>${b}</option>`).join('')}
-          </select></div>
-      </div>
-      <div style="margin-bottom:8px">
-        <label style="font-size:11px;font-weight:600;color:var(--gray-600)">TAHMİNİ/ANLAŞILAN FİYAT (₺, opsiyonel)</label>
-        <input type="number" value="${u.tahminiFiyat||''}" placeholder="Bilmiyorsan boş bırak" min="0" step="0.01" oninput="SP_SATIRLAR[${i}].tahminiFiyat=this.value"
-          style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
-        <div style="font-size:10px;color:var(--gray-500);margin-top:2px">Girilirse, mal kabulde koli bu fiyatla başlar — fatura gelince gerçek fiyatla otomatik güncellenir</div>
-      </div>
-      <div style="position:relative">
-        <label style="font-size:11px;font-weight:600;color:var(--gray-600)">FİRMA</label>
-        <input type="text" id="spf${i}" value="${(u.firmaAd||'').replace(/"/g,'&quot;')}" placeholder="Firma ara veya değiştir..."
-          autocomplete="off" oninput="filterSPFirma(${i},this.value)"
-          style="width:100%;padding:9px 12px;border:1.5px solid ${u.firmaAd?'var(--success)':'var(--gray-300)'};border-radius:8px;font-size:13px;outline:none;color:${u.firmaAd?'var(--success)':'inherit'};font-weight:${u.firmaAd?'600':'400'}">
-        <div id="spfdd${i}" class="udd"></div>
-      </div>
-    </div>`).join('');
-}
-
-function filterSPFirma(i,val){
-  SP_SATIRLAR[i].firmaAd=val;
-  SP_SATIRLAR[i].firmaId='';
-  const dd=document.getElementById('spfdd'+i);
-  if(!val||val.length<2){dd.style.display='none';return;}
-  const res=(DB.firmalar||[]).filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,12);
-  if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(f=>`<div class="uddi" data-i="${i}" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">${f.ad}</div>`).join('');
-  dd.querySelectorAll('[data-id]').forEach(el=>{
-    el.addEventListener('pointerdown',function(e){
-      e.preventDefault();
-      const idx=parseInt(this.dataset.i);
-      SP_SATIRLAR[idx].firmaId=this.dataset.id;
-      SP_SATIRLAR[idx].firmaAd=this.dataset.ad;
-      const finp=document.getElementById('spf'+idx);
-      if(finp){finp.value=this.dataset.ad;finp.style.borderColor='var(--success)';finp.style.color='var(--success)';finp.style.fontWeight='600';}
-      dd.style.display='none';
-    });
-  });
-  dd.style.display='block';
-}
-
-function filterSPUrun(i,val){
-  SP_SATIRLAR[i].ad=val;
-  const dd=document.getElementById('spdd'+i);
-  if(!val||val.length<2){dd.style.display='none';return;}
-  const urunDB=DB.urunler||(window.URUN_DB||[]);
-  const res=urunDB.filter(u=>u.ad?.toLowerCase().includes(val.toLowerCase())||u.kod?.toLowerCase().includes(val.toLowerCase())).slice(0,15);
-  if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(u=>`<div class="uddi" data-i="${i}" data-kod="${u.kod}" data-ad="${(u.ad||'').replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}">
-    ${u.ad} <span style="font-size:10px;color:var(--gray-400)">${u.kod}</span>
-  </div>`).join('');
-  dd.querySelectorAll('[data-kod]').forEach(el=>{
-    el.addEventListener('pointerdown',function(e){
-      e.preventDefault();
-      const idx=parseInt(this.dataset.i);
-      const firma=autoFirma(this.dataset.kod);
-      SP_SATIRLAR[idx]={...SP_SATIRLAR[idx],ad:this.dataset.ad,kod:this.dataset.kod,birim:this.dataset.birim,
-        firmaId:firma?.id||SP_SATIRLAR[idx].firmaId||'',firmaAd:firma?.ad||SP_SATIRLAR[idx].firmaAd||''};
-      dd.style.display='none';
-      const inp=document.getElementById('spa'+idx);if(inp)inp.value=this.dataset.ad;
-      const sel=document.getElementById('spb'+idx);if(sel)sel.value=this.dataset.birim||'KG';
-      const finp=document.getElementById('spf'+idx);
-      if(finp&&firma){finp.value=firma.ad;finp.style.borderColor='var(--success)';finp.style.color='var(--success)';finp.style.fontWeight='600';}
-    });
-  });
-  dd.style.display='block';
-}
-document.addEventListener('pointerdown',e=>{
-  SP_SATIRLAR.forEach((_,i)=>{
-    const dd=document.getElementById('spdd'+i);const inp=document.getElementById('spa'+i);
-    if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
-    const fdd=document.getElementById('spfdd'+i);const finp=document.getElementById('spf'+i);
-    if(fdd&&finp&&!fdd.contains(e.target)&&e.target!==finp)fdd.style.display='none';
-  });
-});
-
-function spSifirla(){SP_SATIRLAR=[];renderSPSatirlar();document.getElementById('sp-firma-inp').value='';document.getElementById('sp-firma-id').value='';document.getElementById('sp-not').value='';}
-
-// NOT: Eski spKaydet() ve spMailGonder() (Firebase'e yazan sürümler) kaldırıldı.
-// spMailGonder artık satır ~1199'daki alias üzerinden spMail(0)'a yönlenir;
-// sipariş kaydı gerçek akışta Supabase /rest/v1/siparisler'e yazılır.
-
-// ====== FİRMALAR ======
-function filterFirmaDD(val){
-  const dd=document.getElementById('sp-firma-dd');
-  if(!val||val.length<2){dd.style.display='none';return;}
-  const res=(DB.firmalar||[]).filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,20);
-  if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(f=>`<div class="uddi" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}" data-mail="${f.mail||''}">
-    ${f.ad}${f.mail?`<span style="font-size:10px;color:var(--gray-400);margin-left:6px">${f.mail}</span>`:''}
-  </div>`).join('');
-  dd.querySelectorAll('[data-id]').forEach(el=>{
-    el.addEventListener('pointerdown',function(e){
-      e.preventDefault();
-      document.getElementById('sp-firma-inp').value=this.dataset.ad;
-      document.getElementById('sp-firma-id').value=this.dataset.id;
-      document.getElementById('sp-firma-mail').value=this.dataset.mail;
-      dd.style.display='none';
-    });
-  });
-  dd.style.display='block';
-}
-document.addEventListener('pointerdown',e=>{
-  const dd=document.getElementById('sp-firma-dd');
-  const inp=document.getElementById('sp-firma-inp');
-  if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
-});
-
 // ====== YARDIMCI ======
 // sLD/hLD/toast/escapeHtml/round2/kModal/aModal -> ortak.js
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -1828,11 +1438,9 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   if(!requireRole(CU, ['yonetici','satinalma','depo','cost_control'])) return;
   YETKI_HARITASI = await kullaniciYetkileriGetir();
   const icTalepYaziYetkisi = ['kayit','tam'].includes(YETKI_HARITASI['ic_talep']);
-  const siparisOlusturYaziYetkisi = ['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur']);
   document.getElementById('talep-excel-yukle-btn').disabled = !icTalepYaziYetkisi;
   document.getElementById('yt-kaydet-btn').disabled = !icTalepYaziYetkisi;
   document.getElementById('yeniden-siparis-btn').disabled = !icTalepYaziYetkisi;
-  document.getElementById('sp-grupla-btn').disabled = !siparisOlusturYaziYetkisi;
   await loadDB();
   await hesaplaYetkiliAsamalar();
   basla();
