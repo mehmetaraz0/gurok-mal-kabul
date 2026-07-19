@@ -20,7 +20,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .hbtn:active{background:rgba(255,255,255,.3)}
 .bnav{background:white;display:flex;border-top:1px solid var(--gray-200);flex-shrink:0}
 .nbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;border:none;background:none;cursor:pointer;gap:3px;position:relative;min-height:56px}
-.nbtn .ni{font-size:20px}.nbtn .nl{font-size:10px;color:var(--gray-500);font-weight:500}
+.nbtn .ni{width:20px;height:20px;display:flex}.nbtn .ni svg{width:20px;height:20px}.nbtn .nl{font-size:10px;color:var(--gray-500);font-weight:500}
 .nbtn.active .nl{color:var(--primary);font-weight:700}
 .nbtn.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:3px;background:var(--primary);border-radius:3px 3px 0 0}
 .nbadge{position:absolute;top:6px;right:calc(50% - 18px);background:var(--danger);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;min-width:16px;text-align:center;display:none}
@@ -68,14 +68,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='index.html'">🏠</button>
+    <button class="hbtn" onclick="location.href='index.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1Z"/></svg></button>
     <div style="flex:1"><h1>Depo Siparişleri</h1><span class="sub" id="hsub"></span></div>
     <select id="otel-selector" onchange="onOtelChange(this.value)" style="background:rgba(255,255,255,.15);color:white;border:none;border-radius:8px;padding:6px 8px;font-size:12px;margin-right:6px">
-      <option value="810">🏨 Club</option>
-      <option value="811">🏨 Resort</option>
+      <option value="810">Club</option>
+      <option value="811">Resort</option>
     </select>
-    <button class="hbtn" id="hbtnYeni" onclick="aModal('mYeni')" style="display:none">➕</button>
-    <button class="hbtn" onclick="yenidenYukle()" title="Yenile">🔄</button>
+    <button class="hbtn" id="hbtnYeni" onclick="aModal('mYeni')" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="hbtn" onclick="yenidenYukle()" title="Yenile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg></button>
   </div>
   <div class="sc" id="tVer"><!-- Mutfak: Talep Ver --></div>
   <div class="sc" id="tTaleplerim"><!-- Mutfak: Taleplerim --></div>
@@ -90,10 +90,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 </div></div>
 
 <!-- Onay Modal -->
-<div class="mo" id="mOnay"><div class="mbox"><div class="mtitle">📋 Talep Detayı <button class="mclose" onclick="kModal('mOnay')">✕</button></div><div id="mOnayIc"></div></div></div>
+<div class="mo" id="mOnay"><div class="mbox"><div class="mtitle">Talep Detayı <button class="mclose" onclick="kModal('mOnay')">✕</button></div><div id="mOnayIc"></div></div></div>
 <!-- Yeni Modal (Depo) -->
 <div class="mo" id="mYeni"><div class="mbox">
-  <div class="mtitle">➕ Yeni Talep <button class="mclose" onclick="kModal('mYeni')">✕</button></div>
+  <div class="mtitle">Yeni Talep <button class="mclose" onclick="kModal('mYeni')">✕</button></div>
   <div class="field"><label>Departman</label><select id="yDept"></select></div>
   <div class="field"><label>Tarih</label><input type="date" id="yTarih"></div>
   <button class="btn btn-primary btn-block" onclick="depoYeniSiparis()">Devam →</button>
@@ -482,8 +482,8 @@ function basla(){
 
   if(rol==='mutfak'||rol==='bar'){
     bnav.innerHTML=`
-      <button class="nbtn active" id="nb-ver" onclick="gTab('ver')"><span class="ni">📤</span><span class="nl">Talep Ver</span></button>
-      <button class="nbtn" id="nb-tal" onclick="gTab('taleplerim')"><span class="ni">📋</span><span class="nl">Taleplerim</span><span class="nbadge" id="tbadge"></span></button>`;
+      <button class="nbtn active" id="nb-ver" onclick="gTab('ver')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="m4 7 8 6 8-6"/></svg></span><span class="nl">Talep Ver</span></button>
+      <button class="nbtn" id="nb-tal" onclick="gTab('taleplerim')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><rect x="4" y="6" width="16" height="15" rx="1"/><path d="M8 12h8M8 16h5"/></svg></span><span class="nl">Taleplerim</span><span class="nbadge" id="tbadge"></span></button>`;
     const dept=CU.departman||RADLAR[rol]||rol;
     if(!CU.depoId){
       // Hesaba depo atanmamış — talep açmasına İZİN VERME, net uyarı göster.
@@ -497,24 +497,24 @@ function basla(){
     }
     document.getElementById('tVer').innerHTML=`
       <div class="card">
-        <div class="card-title">📤 Malzeme Talebi</div>
+        <div class="card-title">Malzeme Talebi</div>
         <div class="field"><label>Departman</label><input id="vDept" value="${dept}" readonly style="background:var(--gray-100)"></div>
         <div class="field"><label>Tarih</label><input type="date" id="vTarih" value="${new Date().toISOString().split('T')[0]}"></div>
         <div class="field"><label>Not</label><input type="text" id="vNot" placeholder="Opsiyonel..."></div>
       </div>
       <div class="card">
-        <div class="card-title">📦 Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
+        <div class="card-title">Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
         <div id="usatirlar"></div>
       </div>
-      <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">📤 Talep Gönder</button>`;
+      <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">Talep Gönder</button>`;
     US=[];addUS();
     gTab('ver');
   } else {
     document.getElementById('hbtnYeni').style.display='flex';
     document.getElementById('yTarih').value=new Date().toISOString().split('T')[0];
     bnav.innerHTML=`
-      <button class="nbtn active" id="nb-gel" onclick="gTab('gelen')"><span class="ni">📥</span><span class="nl">Gelen Talepler</span><span class="nbadge" id="gbadge"></span></button>
-      <button class="nbtn" id="nb-bug" onclick="gTab('bugun')"><span class="ni">📦</span><span class="nl">Bugün Teslim</span></button>`;
+      <button class="nbtn active" id="nb-gel" onclick="gTab('gelen')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></span><span class="nl">Gelen Talepler</span><span class="nbadge" id="gbadge"></span></button>
+      <button class="nbtn" id="nb-bug" onclick="gTab('bugun')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></span><span class="nl">Bugün Teslim</span></button>`;
     gTab('gelen');
   }
 }
@@ -671,7 +671,7 @@ function rTaleplerim(){
     return`<div class="skart ${s.durum}">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">${cm[s.durum]||''}<div style="text-align:right;font-size:11px;color:var(--gray-500)">${s.tarih}</div></div>
       ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${u.ad||u.urunAd||""} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
-      ${s.durum==='bekleyen'?`<button class="btn btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="iptalEt('${s.id}')">✕ Talebi İptal Et</button>`:''}
+      ${s.durum==='bekleyen'?`<button class="btn btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="iptalEt('${s.id}')">Talebi İptal Et</button>`:''}
     ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px">Red: ${s.redNot}</div>`:''}
     </div>`;
   }).join(''));
@@ -726,13 +726,13 @@ function aOnay(id){
     }).join('')}
     ${s.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${s.not}</div>`:''}
     ${s.durum==='bekleyen'?`
-      <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:8px" onclick="depoQrBaslat('${id}')">📷 Koli Okut (miktarlar otomatik birikir)</button>
+      <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:8px" onclick="depoQrBaslat('${id}')">Koli Okut (miktarlar otomatik birikir)</button>
       <div id="depo-qr-okuyucu" style="display:none;margin-bottom:8px;border-radius:12px;overflow:hidden"></div>
       <div id="depo-qr-liste"></div>
       <div class="field"><label>Red Notu</label><input type="text" id="rednot" placeholder="Neden reddedildi?"></div>
       <div class="brow" style="margin-top:8px;">
         <button class="btn btn-gray btn-sm" onclick="kModal('mOnay')">Kapat</button>
-        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">🖨️ PDF Çıktı</button>
+        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">PDF Çıktı</button>
       </div>
       <div class="brow" style="margin-top:6px;">
         <button class="btn btn-danger btn-sm" onclick="kModal('mOnay');onayOzetGoster('${id}','red')">❌ Reddet</button>
@@ -740,7 +740,7 @@ function aOnay(id){
       </div>`:`
       <div class="brow">
         <button class="btn btn-gray btn-sm" onclick="kModal('mOnay')">Kapat</button>
-        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">🖨️ PDF Çıktı</button>
+        <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">PDF Çıktı</button>
       </div>`}`;
   aModal('mOnay');
 }
@@ -1031,16 +1031,16 @@ function depoYeniSiparis(){
   if(!document.getElementById('tVer').innerHTML.includes('vTarih')){
     document.getElementById('tVer').innerHTML=`
       <div class="card">
-        <div class="card-title">📤 Malzeme Talebi</div>
+        <div class="card-title">Malzeme Talebi</div>
         <div class="field"><label>Departman</label><input id="vDept" value="${DEPOLAR_lookup(did)}" readonly style="background:var(--gray-100)"></div>
         <div class="field"><label>Tarih</label><input type="date" id="vTarih" value="${tarih}"></div>
         <div class="field"><label>Not</label><input type="text" id="vNot" placeholder="Opsiyonel..."></div>
       </div>
       <div class="card">
-        <div class="card-title">📦 Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
+        <div class="card-title">Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
         <div id="usatirlar"></div>
       </div>
-      <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">📤 Talep Gönder</button>`;
+      <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">Talep Gönder</button>`;
     US=[];addUS();
   } else {
     if(document.getElementById('vDept'))document.getElementById('vDept').value=DEPOLAR_lookup(did);

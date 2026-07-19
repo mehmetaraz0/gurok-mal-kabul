@@ -60,7 +60,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- KURUM BİLGİLERİ -->
   <div class="sc" id="tab-kurum" style="display:block">
     <div class="card">
-      <div class="card-title">🏢 Firma Bilgileri</div>
+      <div class="card-title">Firma Bilgileri</div>
       <div class="field"><label>VKN (10 haneli)</label><input type="text" id="kb-vkn" maxlength="10"></div>
       <div class="field"><label>Unvan</label><input type="text" id="kb-unvan"></div>
       <div class="rfields">
@@ -86,7 +86,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <div class="field"><label>Muhasebeci Adı</label><input type="text" id="kb-muhad"></div>
         <div class="field"><label>Muhasebeci Unvanı</label><input type="text" id="kb-muhunvan" placeholder="Örn: Serbest Muhasebeci Mali Müşavir"></div>
       </div>
-      <button class="btn btn-primary btn-block" id="kb-kaydet-btn" onclick="kurumBilgileriFormKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-primary btn-block" id="kb-kaydet-btn" onclick="kurumBilgileriFormKaydet()" disabled>Kaydet</button>
     </div>
     <div id="sube-alani"></div>
   </div>
@@ -237,12 +237,12 @@ function renderSubeAlani(){
   const c=document.getElementById('sube-alani');
   c.innerHTML=Object.keys(OTEL_ISIMLERI).map(otelId=>`
     <div class="card">
-      <div class="card-title">🏨 ${OTEL_ISIMLERI[otelId]} — Şube Bilgisi</div>
+      <div class="card-title">${OTEL_ISIMLERI[otelId]} — Şube Bilgisi</div>
       <div class="rfields">
         <div class="field"><label>Şube No</label><input type="text" id="sube-no-${otelId}"></div>
         <div class="field"><label>Şube Adı</label><input type="text" id="sube-adi-${otelId}"></div>
       </div>
-      <button class="btn btn-gray btn-block" onclick="subeFormKaydet('${otelId}')" ${['kayit','tam'].includes(YETKI_HARITASI['e_defter'])?'':'disabled'}>💾 Kaydet</button>
+      <button class="btn btn-gray btn-block" onclick="subeFormKaydet('${otelId}')" ${['kayit','tam'].includes(YETKI_HARITASI['e_defter'])?'':'disabled'}>Kaydet</button>
     </div>
   `).join('');
   Object.keys(OTEL_ISIMLERI).forEach(async otelId=>{
@@ -463,10 +463,10 @@ function renderYevXmlAlani(){
   c.innerHTML=`
     <div class="uyari-serit">⚠️ İMZASIZ TASLAK — GİB'e yüklemeden önce mali mühür ile imzalanmalı</div>
     <div class="card">
-      <div class="card-title">📒 Yevmiye Defteri XML</div>
+      <div class="card-title">Yevmiye Defteri XML</div>
       <div class="field"><label>Ay</label><input type="month" id="yxml-ay"></div>
       <div class="field"><label>Otel</label><select id="yxml-otel">${Object.keys(OTEL_ISIMLERI).map(id=>`<option value="${id}">${OTEL_ISIMLERI[id]}</option>`).join('')}</select></div>
-      <button class="btn btn-primary btn-block" onclick="yevmiyeXmlOlustur()">📥 XML Oluştur ve İndir</button>
+      <button class="btn btn-primary btn-block" onclick="yevmiyeXmlOlustur()">XML Oluştur ve İndir</button>
     </div>`;
 }
 
@@ -541,10 +541,10 @@ function renderKebXmlAlani(){
   c.innerHTML=`
     <div class="uyari-serit">⚠️ İMZASIZ TASLAK — GİB'e yüklemeden önce mali mühür ile imzalanmalı</div>
     <div class="card">
-      <div class="card-title">📗 Defteri Kebir XML</div>
+      <div class="card-title">Defteri Kebir XML</div>
       <div class="field"><label>Ay</label><input type="month" id="kxml-ay"></div>
       <div class="field"><label>Otel</label><select id="kxml-otel">${Object.keys(OTEL_ISIMLERI).map(id=>`<option value="${id}">${OTEL_ISIMLERI[id]}</option>`).join('')}</select></div>
-      <button class="btn btn-primary btn-block" onclick="kebirXmlOlustur()">📥 XML Oluştur ve İndir</button>
+      <button class="btn btn-primary btn-block" onclick="kebirXmlOlustur()">XML Oluştur ve İndir</button>
     </div>`;
 }
 

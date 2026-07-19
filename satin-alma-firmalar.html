@@ -15,7 +15,7 @@ if (CU) requireRole(CU, ['yonetici','satinalma','depo']);
 <title>Gürok — Firmalar</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--accent:#e8a020}
+:root{--accent:#c9a24b}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -48,7 +48,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <div class="sc" id="tab-firmalar">
     <div class="card">
-      <div class="card-title">🔍 Firma Ara</div>
+      <div class="card-title">Firma Ara</div>
       <input type="text" id="firma-ara" placeholder="Firma adı..." oninput="renderFirmalar(this.value)" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none">
     </div>
     <div id="firmalar-liste"></div>

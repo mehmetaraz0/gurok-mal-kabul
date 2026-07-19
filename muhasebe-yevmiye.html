@@ -69,7 +69,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
     <div style="flex:1"><h1>Yevmiye Defteri</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Günlük muhasebe kayıtları</span></div>
-    <button class="hbtn" onclick="openYeniYevmiye()">➕</button>
+    <button class="hbtn" onclick="openYeniYevmiye()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('yevmiye',this)">📒 Yevmiye</button>
@@ -127,7 +127,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- MASRAF MERKEZİ -->
   <div class="sc" id="tab-masrafmerkezi">
     <div class="card">
-      <div class="card-title">🏢 Departman Bazlı Maliyet Raporu</div>
+      <div class="card-title">Departman Bazlı Maliyet Raporu</div>
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Yevmiye kalemlerine işaretlenen masraf merkezine göre gider dağılımı. Sadece "Masraf Merkezi" alanı doldurulmuş satırlar dahildir.</p>
       <div class="rfields">
         <div class="field"><label>Dönem Başı</label><input type="date" id="mm-bas" onchange="renderMasrafMerkezi()"></div>
@@ -136,8 +136,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div class="field" style="margin-top:8px"><label>Otel</label>
         <select id="mm-otel" onchange="renderMasrafMerkezi()">
           <option value="">Tümü</option>
-          <option value="810">🏨 810 — Ali Bey Club Manavgat</option>
-          <option value="811">🏨 811 — Ali Bey Resort Sorgun</option>
+          <option value="810">810 — Ali Bey Club Manavgat</option>
+          <option value="811">811 — Ali Bey Resort Sorgun</option>
         </select>
       </div>
     </div>
@@ -149,7 +149,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Yeni Yevmiye -->
 <div class="mo" id="mYevmiye">
   <div class="mbox">
-    <div class="mtitle" id="mYevmiyeTitle">➕ Yevmiye Kaydı <button class="mclose" onclick="kModal('mYevmiye')">✕</button></div>
+    <div class="mtitle" id="mYevmiyeTitle">Yevmiye Kaydı <button class="mclose" onclick="kModal('mYevmiye')">✕</button></div>
     <input type="hidden" id="y-id">
     <div class="rfields" style="margin-bottom:0">
       <div class="field"><label>Fiş No</label><input type="text" id="y-no" placeholder="Otomatik"></div>
@@ -173,8 +173,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field"><label>Açıklama</label><input type="text" id="y-aciklama" placeholder="İşlem açıklaması"></div>
     <div class="field"><label>Otel *</label>
       <select id="y-otel">
-        <option value="810">🏨 810 — Ali Bey Club Manavgat</option>
-        <option value="811">🏨 811 — Ali Bey Resort Sorgun</option>
+        <option value="810">810 — Ali Bey Club Manavgat</option>
+        <option value="811">811 — Ali Bey Resort Sorgun</option>
       </select>
     </div>
 
@@ -194,8 +194,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
     <div class="brow" style="margin-top:10px">
       <button class="btn btn-gray" onclick="kModal('mYevmiye')">İptal</button>
-      <button class="btn btn-danger btn-sm" id="y-sil-btn" onclick="yevmiyeSil()" style="display:none">🗑️</button>
-      <button class="btn btn-gray btn-sm" id="y-taslak-btn" onclick="yevmiyeKaydet(false)" disabled>📝 Taslak</button>
+      <button class="btn btn-danger btn-sm" id="y-sil-btn" onclick="yevmiyeSil()" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6M14 11v6"/></svg></button>
+      <button class="btn btn-gray btn-sm" id="y-taslak-btn" onclick="yevmiyeKaydet(false)" disabled>Taslak</button>
       <button class="btn btn-primary" id="y-onayla-btn" onclick="yevmiyeKaydet(true)" disabled>✅ Onayla</button>
     </div>
   </div>
@@ -399,7 +399,7 @@ function openYevmiyeDetay(id){
     </table>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mYevmiyeDetay')">Kapat</button>
-      ${!y.onaylandi?`<button class="btn btn-primary btn-sm" onclick="kModal('mYevmiyeDetay');openDuzenleYevmiye('${id}')">✏️ Düzenle</button>`:''}
+      ${!y.onaylandi?`<button class="btn btn-primary btn-sm" onclick="kModal('mYevmiyeDetay');openDuzenleYevmiye('${id}')">Düzenle</button>`:''}
     </div>`;
   aModal('mYevmiyeDetay');
 }

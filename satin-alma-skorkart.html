@@ -14,7 +14,7 @@ if (CU) requireRole(CU, ['yonetici','satinalma','depo']);
 <title>Gürok — Tedarikçi Skor Kartı</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--accent:#e8a020}
+:root{--accent:#c9a24b}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -61,14 +61,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <div class="field"><label>Otel</label>
           <select id="sk-otel-filtre" onchange="renderSkorKart()">
             <option value="">Tümü</option>
-            <option value="810">🏨 Club</option>
-            <option value="811">🏨 Resort</option>
+            <option value="810">Club</option>
+            <option value="811">Resort</option>
           </select>
         </div>
         <div class="field"><label>Sırala</label>
           <select id="sk-sirala" onchange="renderSkorKart()">
-            <option value="skor_desc">⭐ Skor (yüksek→düşük)</option>
-            <option value="skor_asc">⭐ Skor (düşük→yüksek)</option>
+            <option value="skor_desc">Skor (yüksek→düşük)</option>
+            <option value="skor_asc">Skor (düşük→yüksek)</option>
             <option value="uygunsuz_desc">Uygunsuzluk oranı (yüksek→düşük)</option>
             <option value="teslimat_desc">Teslimat sayısı (çok→az)</option>
             <option value="sure_desc">Ort. teslimat süresi (uzun→kısa)</option>

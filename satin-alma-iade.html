@@ -15,7 +15,7 @@ if (CU) requireRole(CU, ['yonetici','satinalma','depo','cost_control']);
 <title>Gürok — İade</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--accent:#e8a020}
+:root{--accent:#c9a24b}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -69,12 +69,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <div class="sc" id="tab-iade">
     <div class="card">
-      <div class="card-title">↩️ Yeni İade Siparişi</div>
+      <div class="card-title">Yeni İade Siparişi</div>
       <div class="rfields" style="margin-bottom:8px">
         <div class="field"><label>Otel *</label>
           <select id="iade-otel">
-            <option value="810">🏨 810 — Ali Bey Club Manavgat (C)</option>
-            <option value="811">🏨 811 — Ali Bey Resort Sorgun (R)</option>
+            <option value="810">810 — Ali Bey Club Manavgat (C)</option>
+            <option value="811">811 — Ali Bey Resort Sorgun (R)</option>
           </select>
         </div>
         <div class="field"><label>Dönüş Şekli *</label>
@@ -101,19 +101,19 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
 
     <div class="card">
-      <div class="card-title">📦 İade Kalemleri
+      <div class="card-title">İade Kalemleri
         <button class="btn btn-sm" style="margin-left:auto;background:var(--accent);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addIadeSatir()">+ Ekle</button>
       </div>
       <div id="iade-satirlar"></div>
     </div>
     <div class="brow" style="margin-bottom:16px">
-      <button class="btn btn-gray" onclick="iadeSifirla()">🗑️ Temizle</button>
-      <button class="btn btn-danger" id="iade-olustur-btn" onclick="iadeOlustur()" disabled>↩️ İade Siparişi Oluştur</button>
+      <button class="btn btn-gray" onclick="iadeSifirla()">Temizle</button>
+      <button class="btn btn-danger" id="iade-olustur-btn" onclick="iadeOlustur()" disabled>İade Siparişi Oluştur</button>
     </div>
 
     <div class="card">
-      <div class="card-title">📊 İade Takip
-        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadIadeTakip()">🔄 Yenile</button>
+      <div class="card-title">İade Takip
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadIadeTakip()">Yenile</button>
       </div>
     </div>
     <div class="ftabs">
@@ -128,12 +128,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: İade Detay / Fiyat Belirle -->
 <div class="mo" id="mIadeDetay">
   <div class="mbox" style="max-height:95vh">
-    <div class="mtitle">↩️ İade Siparişi <button class="mclose" onclick="kModal('mIadeDetay')">✕</button></div>
+    <div class="mtitle">İade Siparişi <button class="mclose" onclick="kModal('mIadeDetay')">✕</button></div>
     <div id="iade-modal-content"></div>
     <div style="margin-top:14px;display:flex;gap:8px">
       <button class="btn btn-gray" onclick="kModal('mIadeDetay')">Kapat</button>
-      <button class="btn btn-gray" onclick="iadeBelgeYazdir()">🖨️ Belge Yazdır</button>
-      <button class="btn btn-success" style="flex:1" id="iade-muhasebe-btn" onclick="iadeMuhasebeGonder()" disabled>📤 Muhasebe'ye Gönder</button>
+      <button class="btn btn-gray" onclick="iadeBelgeYazdir()">Belge Yazdır</button>
+      <button class="btn btn-success" style="flex:1" id="iade-muhasebe-btn" onclick="iadeMuhasebeGonder()" disabled>Muhasebe'ye Gönder</button>
     </div>
   </div>
 </div>
@@ -394,7 +394,7 @@ function renderIadeTakip(){
       <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${s.fiyatlandirildi?'<span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyatlandırıldı</span>':'<span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyat Bekliyor</span>'}
         ${s.gonderildiMuhasebe?'<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📤 Muhasebe\'de</span>':''}
-        <button class="btn btn-sm btn-primary" style="margin-left:auto;padding:5px 12px;min-height:26px" onclick="event.stopPropagation();iadeDetayAc('${s.siparisNo}')">📝 Detay / Fiyatlandır →</button>
+        <button class="btn btn-sm btn-primary" style="margin-left:auto;padding:5px 12px;min-height:26px" onclick="event.stopPropagation();iadeDetayAc('${s.siparisNo}')">Detay / Fiyatlandır →</button>
       </div>
     </div>`).join('');
 }

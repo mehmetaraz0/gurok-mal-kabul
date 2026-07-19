@@ -87,11 +87,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterLog('tumu',this)">Tümü</button>
-      <button class="ftab" onclick="filterLog('create',this)">➕ Oluşturma</button>
-      <button class="ftab" onclick="filterLog('update',this)">✏️ Güncelleme</button>
-      <button class="ftab" onclick="filterLog('delete',this)">🗑️ Silme</button>
+      <button class="ftab" onclick="filterLog('create',this)">Oluşturma</button>
+      <button class="ftab" onclick="filterLog('update',this)">Güncelleme</button>
+      <button class="ftab" onclick="filterLog('delete',this)">Silme</button>
       <button class="ftab" onclick="filterLog('approve',this)">✅ Onay</button>
-      <button class="ftab" onclick="filterLog('period',this)">🗓️ Dönem</button>
+      <button class="ftab" onclick="filterLog('period',this)">Dönem</button>
     </div>
     <div id="log-liste"></div>
   </div>
@@ -99,7 +99,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- MALİ DÖNEMLER -->
   <div class="sc" id="tab-donem">
     <div class="card">
-      <div class="card-title">➕ Yeni Mali Dönem</div>
+      <div class="card-title">Yeni Mali Dönem</div>
       <div class="rfields">
         <div class="field"><label>Dönem Adı</label><input type="text" id="d-ad" placeholder="2026 Haziran"></div>
         <div class="field"><label>Yıl</label><input type="number" id="d-yil" placeholder="2026"></div>
@@ -108,7 +108,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <div class="field"><label>Başlangıç</label><input type="date" id="d-bas"></div>
         <div class="field"><label>Bitiş</label><input type="date" id="d-bit"></div>
       </div>
-      <button class="btn btn-primary btn-block" id="donem-olustur-btn" style="margin-top:10px" onclick="donemOlustur()" disabled>💾 Dönem Oluştur</button>
+      <button class="btn btn-primary btn-block" id="donem-olustur-btn" style="margin-top:10px" onclick="donemOlustur()" disabled>Dönem Oluştur</button>
     </div>
     <div id="donemler-liste"></div>
   </div>

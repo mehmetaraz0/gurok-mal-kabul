@@ -39,7 +39,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <div id="app" style="display:none">
   <div class="header">
-    <button class="hbtn" onclick="location.href='index.html'">🏠</button>
+    <button class="hbtn" onclick="location.href='index.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1Z"/></svg></button>
     <div style="flex:1"><h1>Trend Raporlama</h1><span class="sub" id="hsub"></span></div>
   </div>
 
@@ -91,7 +91,7 @@ async function renderStokTrend(){
   if(!_stokTrendUrun&&urunler.length)_stokTrendUrun=urunler[0].kod;
   const secenekler=urunler.map(u=>`<option value="${u.kod}" ${u.kod===_stokTrendUrun?'selected':''}>${escapeHtml(u.ad)}</option>`).join('');
   el.innerHTML=`
-    <div class="card-title">📦 Stok Trendi (pencere içi kümülatif net hareket)</div>
+    <div class="card-title">Stok Trendi (pencere içi kümülatif net hareket)</div>
     <div class="field"><select id="stok-trend-urun" onchange="_stokTrendUrun=this.value;renderStokTrend()">${secenekler}</select></div>
     <div style="position:relative;height:220px"><canvas id="stok-trend-canvas"></canvas></div>`;
   if(!_stokTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Ürün bulunamadı</div></div>';return;}
@@ -136,7 +136,7 @@ async function renderTuketimTrend(){
   if(!_tuketimTrendUrun&&urunler.length)_tuketimTrendUrun=urunler[0].kod;
   const secenekler=urunler.map(u=>`<option value="${u.kod}" ${u.kod===_tuketimTrendUrun?'selected':''}>${escapeHtml(u.ad)}</option>`).join('');
   el.innerHTML=`
-    <div class="card-title">📉 Tüketim Trendi</div>
+    <div class="card-title">Tüketim Trendi</div>
     <div class="field"><select id="tuketim-trend-urun" onchange="_tuketimTrendUrun=this.value;renderTuketimTrend()">${secenekler}</select></div>
     <div style="position:relative;height:220px"><canvas id="tuketim-trend-canvas"></canvas></div>`;
   if(!_tuketimTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei">📉</div><div class="et">Ürün bulunamadı</div></div>';return;}
@@ -175,7 +175,7 @@ async function renderTuketimTrend(){
 async function renderFoodCostTrend(){
   const el=document.getElementById('tab-foodcost-trend');
   el.innerHTML=`
-    <div class="card-title">💰 Food-Cost Trendi (tüm oteller)</div>
+    <div class="card-title">Food-Cost Trendi (tüm oteller)</div>
     <div style="position:relative;height:220px"><canvas id="foodcost-trend-canvas"></canvas></div>`;
 
   const baslangicTarih=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString().slice(0,10);

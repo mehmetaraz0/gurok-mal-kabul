@@ -14,7 +14,7 @@ if (CU) requireRole(CU, ['yonetici','satinalma','depo']);
 <title>Gürok — Fiyat Kontrolü</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--accent:#e8a020}
+:root{--accent:#c9a24b}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -63,8 +63,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <div class="sc" id="tab-fiyatKontrol">
     <div class="card">
-      <div class="card-title">💰 Fiyat Kontrolü
-        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadFiyatKontrol()">🔄 Yenile</button>
+      <div class="card-title">Fiyat Kontrolü
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadFiyatKontrol()">Yenile</button>
       </div>
       <div style="font-size:12px;color:var(--gray-500);margin-bottom:10px">
         Deponun fatura eşleştirdiği kabul kayıtları — fiyatları kontrol edip Muhasebe'ye gönderin
@@ -74,7 +74,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="ftabs">
       <button class="ftab active" id="fk-tab-bekleyen" onclick="filterFiyatKontrol('bekleyen',this)">⏳ Kontrol Bekliyor</button>
       <button class="ftab" id="fk-tab-kontrol" onclick="filterFiyatKontrol('kontrol',this)">✅ Kontrol Edildi</button>
-      <button class="ftab" id="fk-tab-muhasebe" onclick="filterFiyatKontrol('muhasebe',this)">📤 Muhasebe'ye Gönderildi</button>
+      <button class="ftab" id="fk-tab-muhasebe" onclick="filterFiyatKontrol('muhasebe',this)">Muhasebe'ye Gönderildi</button>
       <button class="ftab" id="fk-tab-tumu" onclick="filterFiyatKontrol('tumu',this)">Tümü</button>
     </div>
     <div id="fiyat-kontrol-liste"></div>
@@ -84,11 +84,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Fiyat Kontrolü Detay -->
 <div class="mo" id="mFiyatKontrol">
   <div class="mbox" style="max-height:95vh">
-    <div class="mtitle">💰 Fiyat Kontrolü <button class="mclose" onclick="kModal('mFiyatKontrol')">✕</button></div>
+    <div class="mtitle">Fiyat Kontrolü <button class="mclose" onclick="kModal('mFiyatKontrol')">✕</button></div>
     <div id="fk-modal-content"></div>
     <div style="margin-top:14px;display:flex;gap:8px">
       <button class="btn btn-gray" onclick="kModal('mFiyatKontrol')">Kapat</button>
-      <button class="btn btn-success" style="flex:1" id="fk-muhasebe-btn" onclick="muhasebeGonder()" disabled>📤 Muhasebe'ye Gönder</button>
+      <button class="btn btn-success" style="flex:1" id="fk-muhasebe-btn" onclick="muhasebeGonder()" disabled>Muhasebe'ye Gönder</button>
     </div>
   </div>
 </div>

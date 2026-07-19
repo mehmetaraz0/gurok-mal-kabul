@@ -83,7 +83,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
     <div style="flex:1"><h1>Faturalar</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px" id="hsub">Alış / Satış Faturaları</span></div>
-    <button class="hbtn" onclick="openYeniFatura(aktifTab==='satis'?'satis':'alis')">➕</button>
+    <button class="hbtn" onclick="openYeniFatura(aktifTab==='satis'?'satis':'alis')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('alis',this)">📥 Alış</button>
@@ -102,10 +102,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterF('alis','tumu',this)">Tümü</button>
-      <button class="ftab" onclick="filterF('alis','taslak',this)">📝 Taslak</button>
+      <button class="ftab" onclick="filterF('alis','taslak',this)">Taslak</button>
       <button class="ftab" onclick="filterF('alis','bekliyor',this)">⏳ Bekliyor</button>
       <button class="ftab" onclick="filterF('alis','onaylandi',this)">✅ Onaylı</button>
-      <button class="ftab" onclick="filterF('alis','odendi',this)">💳 Ödendi</button>
+      <button class="ftab" onclick="filterF('alis','odendi',this)">Ödendi</button>
     </div>
     <div id="alis-liste"></div>
   </div>
@@ -119,9 +119,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterF('satis','tumu',this)">Tümü</button>
-      <button class="ftab" onclick="filterF('satis','taslak',this)">📝 Taslak</button>
+      <button class="ftab" onclick="filterF('satis','taslak',this)">Taslak</button>
       <button class="ftab" onclick="filterF('satis','onaylandi',this)">✅ Onaylı</button>
-      <button class="ftab" onclick="filterF('satis','odendi',this)">💳 Ödendi</button>
+      <button class="ftab" onclick="filterF('satis','odendi',this)">Ödendi</button>
     </div>
     <div id="satis-liste"></div>
   </div>
@@ -129,7 +129,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- 3-WAY MATCHING -->
   <div class="sc" id="tab-eslestir">
     <div class="card">
-      <div class="card-title">🔗 3-Way Matching</div>
+      <div class="card-title">3-Way Matching</div>
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Sipariş + Mal Kabul + Fatura eşleştirmesi yapın.</p>
       <div class="field">
         <label>Fatura Seç</label>
@@ -150,7 +150,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="sc" id="tab-gelenkutu">
     <script>document.currentScript.parentElement.insertAdjacentHTML('afterbegin', `${EFATURA_SIMULASYON?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:#92400e;font-weight:600">⚠️ SİMÜLASYON MODU — gerçek GİB'den fatura çekilmiyor</div>`:''}`);
 </script>
-    <button class="btn btn-primary btn-block" style="margin-bottom:10px" onclick="eFaturaKontrolEt()">🔄 Yeni e-Fatura Kontrol Et</button>
+    <button class="btn btn-primary btn-block" style="margin-bottom:10px" onclick="eFaturaKontrolEt()">Yeni e-Fatura Kontrol Et</button>
     <div id="gelenkutu-liste"></div>
   </div>
 </div>
@@ -158,7 +158,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Yeni/Düzenle Fatura -->
 <div class="mo" id="mFatura">
   <div class="mbox">
-    <div class="mtitle" id="mFaturaTitle">➕ Yeni Fatura <button class="mclose" onclick="kModal('mFatura')">✕</button></div>
+    <div class="mtitle" id="mFaturaTitle">Yeni Fatura <button class="mclose" onclick="kModal('mFatura')">✕</button></div>
     <input type="hidden" id="f-id">
     <input type="hidden" id="f-tur">
     <div class="rfields" style="margin-bottom:0">
@@ -180,8 +180,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field">
       <label>Otel *</label>
       <select id="f-otel">
-        <option value="810">🏨 810 — Ali Bey Club Manavgat</option>
-        <option value="811">🏨 811 — Ali Bey Resort Sorgun</option>
+        <option value="810">810 — Ali Bey Club Manavgat</option>
+        <option value="811">811 — Ali Bey Resort Sorgun</option>
       </select>
     </div>
     <div class="field" id="f-iade-alan">
@@ -222,8 +222,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field" style="margin-top:10px"><label>Not</label><input type="text" id="f-not" placeholder="Opsiyonel"></div>
     <div class="brow" style="margin-top:8px">
       <button class="btn btn-gray" onclick="kModal('mFatura')">İptal</button>
-      <button class="btn btn-danger btn-sm" id="f-sil-btn" onclick="faturaSil()" style="display:none">🗑️</button>
-      <button class="btn btn-gray btn-sm" id="f-taslak-btn" onclick="faturaKaydet('taslak')" disabled>📝 Taslak</button>
+      <button class="btn btn-danger btn-sm" id="f-sil-btn" onclick="faturaSil()" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6M14 11v6"/></svg></button>
+      <button class="btn btn-gray btn-sm" id="f-taslak-btn" onclick="faturaKaydet('taslak')" disabled>Taslak</button>
       <button class="btn btn-primary" id="f-kaydet-btn" onclick="faturaKaydet('bekliyor')" disabled>✅ Kaydet</button>
     </div>
   </div>
@@ -240,7 +240,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Ödeme Kaydet -->
 <div class="mo" id="mOdeme">
   <div class="mbox">
-    <div class="mtitle">💳 Ödeme Kaydet <button class="mclose" onclick="kModal('mOdeme')">✕</button></div>
+    <div class="mtitle">Ödeme Kaydet <button class="mclose" onclick="kModal('mOdeme')">✕</button></div>
     <input type="hidden" id="od-fatura-id">
     <div class="field"><label>Fatura</label><input type="text" id="od-fatura-no" readonly style="background:var(--gray-100)"></div>
     <div class="rfields">
@@ -258,7 +258,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field"><label>Açıklama</label><input type="text" id="od-aciklama" placeholder="Opsiyonel"></div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mOdeme')">İptal</button>
-      <button class="btn btn-success" id="od-kaydet-btn" onclick="odemeKaydet()" disabled>💳 Ödeme Kaydet</button>
+      <button class="btn btn-success" id="od-kaydet-btn" onclick="odemeKaydet()" disabled>Ödeme Kaydet</button>
     </div>
   </div>
 </div>
@@ -600,7 +600,7 @@ function openFaturaDetay(id){
     ${EFATURA_SIMULASYON?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:#92400e;font-weight:600">⚠️ SİMÜLASYON MODU — gerçek GİB gönderimi yapılmıyor</div>`:''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       ${efDurumChip[f.efaturaDurum]||'<span class="chip chip-gray">— Gönderilmedi</span>'}
-      ${!f.efaturaDurum||f.efaturaDurum==='reddedildi'||(f.efaturaDurum==='gonderiliyor'&&Date.now()-(f.efaturaGonderimTarihi||0)>120000)?`<button class="btn btn-sm ${f.efaturaDurum==='reddedildi'?'btn-danger':'btn-primary'}" onclick="eFaturaGonderTikla('${id}')">📤 ${cariler[f.cariId]?.efatura==='evet'?'e-Fatura Gönder':'e-Arşiv Gönder'}</button>`:''}
+      ${!f.efaturaDurum||f.efaturaDurum==='reddedildi'||(f.efaturaDurum==='gonderiliyor'&&Date.now()-(f.efaturaGonderimTarihi||0)>120000)?`<button class="btn btn-sm ${f.efaturaDurum==='reddedildi'?'btn-danger':'btn-primary'}" onclick="eFaturaGonderTikla('${id}')">${cariler[f.cariId]?.efatura==='evet'?'e-Fatura Gönder':'e-Arşiv Gönder'}</button>`:''}
       ${f.efaturaDurum==='gonderiliyor'&&Date.now()-(f.efaturaGonderimTarihi||0)<=120000?'<span style="font-size:11px;color:var(--gray-500)">Gönderiliyor, bekleyin...</span>':''}
     </div>
     ${f.ettn?`<div style="font-size:11px;color:var(--gray-600);margin-bottom:6px">ETTN: ${f.ettn}${f.gibFaturaNo?' • GİB No: '+f.gibFaturaNo:''}</div>`:''}
@@ -631,9 +631,9 @@ function openFaturaDetay(id){
     ${f.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Not: ${escapeHtml(f.not)}</div>`:''}
     <div class="brow">
       <button class="btn btn-gray btn-sm" onclick="kModal('mFaturaDetay')">Kapat</button>
-      ${f.durum==='taslak'||f.durum==='bekliyor'?`<button class="btn btn-primary btn-sm" onclick="kModal('mFaturaDetay');openDuzenleFatura('${id}')">✏️ Düzenle</button>`:''}
+      ${f.durum==='taslak'||f.durum==='bekliyor'?`<button class="btn btn-primary btn-sm" onclick="kModal('mFaturaDetay');openDuzenleFatura('${id}')">Düzenle</button>`:''}
       ${f.durum==='bekliyor'?`<button class="btn btn-success btn-sm" onclick="kModal('mFaturaDetay');onayla('${id}')">✅ Onayla</button>`:''}
-      ${f.durum==='onaylandi'||f.durum==='kismi_odendi'?`<button class="btn btn-info btn-sm" onclick="kModal('mFaturaDetay');openOdeme('${id}')">💳 Ödeme</button>`:''}
+      ${f.durum==='onaylandi'||f.durum==='kismi_odendi'?`<button class="btn btn-info btn-sm" onclick="kModal('mFaturaDetay');openOdeme('${id}')">Ödeme</button>`:''}
       ${f.durum!=='iptal'&&f.durum!=='odendi'?`<button class="btn btn-danger btn-sm" onclick="kModal('mFaturaDetay');iptalEt('${id}')">❌</button>`:''}
     </div>`;
   aModal('mFaturaDetay');
@@ -1198,7 +1198,7 @@ function renderOdemeBekleyen(){
             ${vadePassed?'⚠️ Vade geçti:':'Vade:'} ${f.vade}</div>`:''}
         </div>
       </div>
-      <button class="btn btn-success btn-sm" onclick="event.stopPropagation();openOdeme('${f.id}')">💳 Ödeme Yap</button>
+      <button class="btn btn-success btn-sm" onclick="event.stopPropagation();openOdeme('${f.id}')">Ödeme Yap</button>
     </div>`;
   }).join('');
 }

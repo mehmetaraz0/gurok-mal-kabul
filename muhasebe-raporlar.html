@@ -67,7 +67,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
     <div style="flex:1"><h1>Raporlar</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Özet, bilanço, KDV, ekstre</span></div>
-    <button class="hbtn" onclick="window.print()">🖨️</button>
+    <button class="hbtn" onclick="window.print()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="8" rx="1.5"/><rect x="6" y="14" width="12" height="7"/></svg></button>
   </div>
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('ozet',this)">📊 Özet</button>
@@ -80,7 +80,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- ÖZET -->
   <div class="sc" id="tab-ozet" style="display:block">
     <div class="card no-print">
-      <div class="card-title">📅 Genel Durum</div>
+      <div class="card-title">Genel Durum</div>
       <p style="font-size:11px;color:var(--gray-500)">Anlık durum — tüm modüllerden özet</p>
     </div>
     <div id="ozet-icerik"></div>
@@ -89,7 +89,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- BİLANÇO -->
   <div class="sc" id="tab-bilanco">
     <div class="card no-print">
-      <div class="card-title">⚖️ Bilanço</div>
+      <div class="card-title">Bilanço</div>
       <p style="font-size:11px;color:var(--gray-500);margin-bottom:8px">Hesapların kümülatif (tüm zamanlar) bakiyesi — belirli bir tarihe kadar.</p>
       <div class="field"><label>Tarih (bu tarihe kadar)</label><input type="date" id="bl-tarih" onchange="renderBilanco()"></div>
     </div>
@@ -99,7 +99,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- GELİR TABLOSU -->
   <div class="sc" id="tab-gelirtablosu">
     <div class="card no-print">
-      <div class="card-title">📈 Gelir Tablosu (Basitleştirilmiş)</div>
+      <div class="card-title">Gelir Tablosu (Basitleştirilmiş)</div>
       <p style="font-size:11px;color:var(--gray-500);margin-bottom:8px">Seçilen dönem için gelir/gider hesap grupları.</p>
       <div class="rfields">
         <div class="field"><label>Başlangıç</label><input type="date" id="gt-bas" onchange="renderGelirTablosu()"></div>
@@ -112,7 +112,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- KDV RAPORU -->
   <div class="sc" id="tab-kdv">
     <div class="card no-print">
-      <div class="card-title">🧾 KDV Özeti</div>
+      <div class="card-title">KDV Özeti</div>
       <p style="font-size:11px;color:var(--gray-500);margin-bottom:8px">191 İndirilecek KDV ile 391 Hesaplanan KDV karşılaştırması — resmi beyanname yerine geçmez, sadece iç takip.</p>
       <div class="rfields">
         <div class="field"><label>Başlangıç</label><input type="date" id="kdv-bas" onchange="renderKdv()"></div>
@@ -125,7 +125,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- CARİ EKSTRESİ -->
   <div class="sc" id="tab-ekstre">
     <div class="card no-print">
-      <div class="card-title">📄 Cari Hesap Ekstresi</div>
+      <div class="card-title">Cari Hesap Ekstresi</div>
       <div class="field">
         <label>Cari Seç</label>
         <div style="position:relative">
@@ -479,7 +479,7 @@ function renderEkstre(){
       <div style="font-size:11px;color:var(--gray-500)">DÖNEM SONU BAKİYE</div>
       <div style="font-size:22px;font-weight:800;color:${bakiye>0?'var(--danger)':bakiye<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(bakiye))} ₺ ${bakiye>0?'(Borçlu)':bakiye<0?'(Alacaklı)':''}</div>
     </div>`:'<div class="es"><div class="ei">📄</div><div class="et">Bu dönemde hareket yok</div></div>'}
-    <button class="btn btn-primary btn-block no-print" style="margin-top:8px" onclick="window.print()">🖨️ Yazdır</button>`;
+    <button class="btn btn-primary btn-block no-print" style="margin-top:8px" onclick="window.print()">Yazdır</button>`;
 }
 
 // ============================================================

@@ -81,8 +81,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
     <div style="flex:1"><h1>Cari Hesaplar</h1><span class="sub" id="hsub"></span></div>
-    <button class="hbtn" onclick="openYeniCari()">➕</button>
-    <button class="hbtn" onclick="firmaDBaktar()">📥</button>
+    <button class="hbtn" onclick="openYeniCari()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="hbtn" onclick="firmaDBaktar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></button>
   </div>
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('cariler',this)">👥 Cariler</button>
@@ -95,8 +95,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="sc" id="tab-cariler" style="display:block">
     <div class="stats-grid" id="cari-stats"></div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button class="btn btn-gray btn-sm" id="ce-aktar-btn" style="flex:1" onclick="cariExcelAktar()">📊 Toplu Düzenle — Aktar</button>
-      <button class="btn btn-gray btn-sm" id="ce-yukle-btn" style="flex:1" disabled onclick="document.getElementById('cari-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+      <button class="btn btn-gray btn-sm" id="ce-aktar-btn" style="flex:1" onclick="cariExcelAktar()">Toplu Düzenle — Aktar</button>
+      <button class="btn btn-gray btn-sm" id="ce-yukle-btn" style="flex:1" disabled onclick="document.getElementById('cari-excel-input').click()">Toplu Düzenle — Yükle</button>
     </div>
     <input type="file" id="cari-excel-input" accept=".xlsx,.xls" style="display:none" onchange="cariExcelYukle(event)">
     <div class="search-bar">
@@ -105,8 +105,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterCari('tumu',this)">Tümü</button>
-      <button class="ftab" onclick="filterCari('tedarikci',this)">🏭 Tedarikçi</button>
-      <button class="ftab" onclick="filterCari('musteri',this)">👤 Müşteri</button>
+      <button class="ftab" onclick="filterCari('tedarikci',this)">Tedarikçi</button>
+      <button class="ftab" onclick="filterCari('musteri',this)">Müşteri</button>
       <button class="ftab" onclick="filterCari('borc',this)">🔴 Borçlular</button>
       <button class="ftab" onclick="filterCari('alacak',this)">🟢 Alacaklılar</button>
     </div>
@@ -151,8 +151,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Vadesi geçmiş borç/alacakları gün bazında gruplar. Sadece ödenmemiş faturalara bağlı ya da açık (durumu belli olmayan) hareketler dahildir — ödenmiş/iptal faturaların hareketleri hariç tutulur.</p>
       <div class="ftabs">
         <button class="ftab active" onclick="filterYaslandirma('tumu',this)">Tümü</button>
-        <button class="ftab" onclick="filterYaslandirma('tedarikci',this)">🏭 Tedarikçi (Borç)</button>
-        <button class="ftab" onclick="filterYaslandirma('musteri',this)">👤 Müşteri (Alacak)</button>
+        <button class="ftab" onclick="filterYaslandirma('tedarikci',this)">Tedarikçi (Borç)</button>
+        <button class="ftab" onclick="filterYaslandirma('musteri',this)">Müşteri (Alacak)</button>
       </div>
     </div>
     <div class="stats-grid" id="yasl-stats" style="grid-template-columns:repeat(5,1fr)"></div>
@@ -171,15 +171,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Yeni/Düzenle Cari -->
 <div class="mo" id="mCari">
   <div class="mbox">
-    <div class="mtitle" id="mCariTitle">➕ Yeni Cari <button class="mclose" onclick="kModal('mCari')">✕</button></div>
+    <div class="mtitle" id="mCariTitle">Yeni Cari <button class="mclose" onclick="kModal('mCari')">✕</button></div>
     <input type="hidden" id="c-id">
     <div class="rfields" style="margin-bottom:0">
       <div class="field"><label>Cari Kodu *</label><input type="text" id="c-kod" placeholder="C001"></div>
       <div class="field"><label>Tip *</label>
         <select id="c-tip" onchange="tipDegisti()">
-          <option value="tedarikci">🏭 Tedarikçi</option>
-          <option value="musteri">👤 Müşteri</option>
-          <option value="her_ikisi">🔄 Her İkisi</option>
+          <option value="tedarikci">Tedarikçi</option>
+          <option value="musteri">Müşteri</option>
+          <option value="her_ikisi">Her İkisi</option>
         </select>
       </div>
     </div>
@@ -230,8 +230,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field"><label>Not</label><input type="text" id="c-not" placeholder="Opsiyonel"></div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mCari')">İptal</button>
-      <button class="btn btn-danger btn-sm" id="c-sil-btn" onclick="cariSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" id="c-kaydet-btn" onclick="cariKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-danger btn-sm" id="c-sil-btn" onclick="cariSil()" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6M14 11v6"/></svg></button>
+      <button class="btn btn-primary" id="c-kaydet-btn" onclick="cariKaydet()" disabled>Kaydet</button>
     </div>
   </div>
 </div>
@@ -247,7 +247,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Yeni Hareket -->
 <div class="mo" id="mHareket">
   <div class="mbox">
-    <div class="mtitle" id="mHareketTitle">➕ Hareket Ekle <button class="mclose" onclick="kModal('mHareket')">✕</button></div>
+    <div class="mtitle" id="mHareketTitle">Hareket Ekle <button class="mclose" onclick="kModal('mHareket')">✕</button></div>
     <input type="hidden" id="h-cari-id">
     <div class="field"><label>Cari</label><input type="text" id="h-cari-ad" readonly style="background:var(--gray-100)"></div>
     <div class="rfields">
@@ -273,13 +273,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field"><label>Açıklama</label><input type="text" id="h-aciklama" placeholder="Opsiyonel"></div>
     <div class="field"><label>Otel *</label>
       <select id="h-otel">
-        <option value="810">🏨 810 — Ali Bey Club Manavgat</option>
-        <option value="811">🏨 811 — Ali Bey Resort Sorgun</option>
+        <option value="810">810 — Ali Bey Club Manavgat</option>
+        <option value="811">811 — Ali Bey Resort Sorgun</option>
       </select>
     </div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHareket')">İptal</button>
-      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hareketKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hareketKaydet()" disabled>Kaydet</button>
     </div>
   </div>
 </div>
@@ -582,8 +582,8 @@ function openCariDetay(id){
       </div>`).join('')}
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray btn-sm" onclick="kModal('mCariDetay')">Kapat</button>
-      <button class="btn btn-primary btn-sm" onclick="kModal('mCariDetay');openDuzenleCari('${id}')">✏️ Düzenle</button>
-      <button class="btn btn-success btn-sm" onclick="kModal('mCariDetay');openHareket('${id}')">➕ Hareket</button>
+      <button class="btn btn-primary btn-sm" onclick="kModal('mCariDetay');openDuzenleCari('${id}')">Düzenle</button>
+      <button class="btn btn-success btn-sm" onclick="kModal('mCariDetay');openHareket('${id}')">Hareket</button>
     </div>`;
   aModal('mCariDetay');
 }

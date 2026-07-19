@@ -14,7 +14,7 @@ if (CU) requireRole(CU, ['yonetici','satinalma','depo']);
 <title>Gürok — LN Siparişler</title>
 <meta name="theme-color" content="#1a2744">
 <style>
-:root{--accent:#e8a020}
+:root{--accent:#c9a24b}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
 #app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
@@ -67,14 +67,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <div class="sc" id="tab-siparisler">
     <div class="card">
-      <div class="card-title">📂 LN Infor Sipariş Import
+      <div class="card-title">LN Infor Sipariş Import
         <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="document.getElementById('ln-input').click()">⬆️ Excel Yükle</button>
         <input type="file" id="ln-input" accept=".xlsx,.xls" style="display:none" onchange="parseLNExcel(event)">
       </div>
     </div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterLN('bekleyen',this)">⏳ Bekleyen</button>
-      <button class="ftab" onclick="filterLN('kismi',this)">🔶 Kısmen Geldi</button>
+      <button class="ftab" onclick="filterLN('kismi',this)">Kısmen Geldi</button>
       <button class="ftab" onclick="filterLN('tamamlandi',this)">✅ Tamamlandı</button>
       <button class="ftab" onclick="filterLN('tumu',this)">Tümü</button>
     </div>
@@ -85,7 +85,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: LN Sipariş Detay -->
 <div class="mo" id="mLNDetay">
   <div class="mbox">
-    <div class="mtitle">📦 Sipariş Detayı <button class="mclose" onclick="kModal('mLNDetay')">✕</button></div>
+    <div class="mtitle">Sipariş Detayı <button class="mclose" onclick="kModal('mLNDetay')">✕</button></div>
     <div id="mLNDetayIc"></div>
   </div>
 </div>
@@ -93,7 +93,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: LN Kolon Eşleştir -->
 <div class="mo" id="mLNKolon">
   <div class="mbox">
-    <div class="mtitle">📂 Kolon Eşleştir <button class="mclose" onclick="kModal('mLNKolon')">✕</button></div>
+    <div class="mtitle">Kolon Eşleştir <button class="mclose" onclick="kModal('mLNKolon')">✕</button></div>
     <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px" id="lnk-bilgi"></p>
     <div class="field"><label>LN Ürün Kodu</label><select id="lnk-kod"></select></div>
     <div class="field"><label>Ürün Adı</label><select id="lnk-ad"></select></div>
@@ -205,7 +205,7 @@ function openLNDetay(siparisNo){
     ${gelenler.map(k=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100)"><div style="font-size:13px">${k.urunAd}</div><span style="font-size:13px;color:var(--success)">${k.miktar} ${k.birim}</span></div>`).join('')}`:''}
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray" onclick="kModal('mLNDetay')">Kapat</button>
-      ${eksikler.length?`<button class="btn btn-primary" onclick="kModal('mLNDetay');lnEksikleriAktar('${siparisNo}')">📋 Mal Kabule Aktar</button>`:''}
+      ${eksikler.length?`<button class="btn btn-primary" onclick="kModal('mLNDetay');lnEksikleriAktar('${siparisNo}')">Mal Kabule Aktar</button>`:''}
     </div>`;
   aModal('mLNDetay');
 }
