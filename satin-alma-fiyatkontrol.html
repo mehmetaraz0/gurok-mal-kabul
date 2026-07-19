@@ -441,7 +441,7 @@ async function grIrTahakkukFisiKes(f,araToplam){
     // 320.90 hesabı hesap planında yoksa oluştur
     await fetch(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
       method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({kod:'320.90',ad:'Faturası Beklenen Alımlar (GR/IR)',tip:'Bilanço',ust_kod:'320'})
+      body:JSON.stringify({kod:'320.90',ad:'Faturası Beklenen Alımlar (GR/IR)',tip:'Bilanço',ust_kod:'320',silindi:false})
     });
     // Fiş numarası üret (yevmiye modülüyle aynı YEV-YYYY-NNNNN kalıbı)
     const yil=new Date().getFullYear();
