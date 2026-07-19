@@ -160,7 +160,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="btn btn-gray btn-block" style="margin-bottom:8px" onclick="stokExcelAktar()">📤 Excel'e Aktar</button>
     <div style="display:flex;gap:8px;margin-bottom:8px">
       <button class="btn btn-gray btn-sm" style="flex:1" onclick="stokMinimumExcelAktar()">📊 Minimum Stok — Excel'e Aktar</button>
-      <button class="btn btn-gray btn-sm" style="flex:1" onclick="document.getElementById('stok-minimum-excel-input').click()">📥 Minimum Stok — Excel'den Yükle</button>
+      <button class="btn btn-gray btn-sm" id="stok-min-yukle-btn" style="flex:1" onclick="document.getElementById('stok-minimum-excel-input').click()" disabled>📥 Minimum Stok — Excel'den Yükle</button>
     </div>
     <input type="file" id="stok-minimum-excel-input" accept=".xlsx,.xls" style="display:none" onchange="stokMinimumExcelYukle(event)">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
@@ -2202,6 +2202,7 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   document.getElementById('ln-uygula-btn').disabled = !stokYaziYetkisi;
   document.getElementById('sayim-onayla-btn').disabled = !stokTamYetki;
   document.getElementById('sayim-reddet-btn').disabled = !stokTamYetki;
+  document.getElementById('stok-min-yukle-btn').disabled = !stokYaziYetkisi;
 
   // Mal kabul onay kontrolü — Supabase'deki mal_kabuller tablosunu izler
   await malKabulOnayKontrolEt(); // sayfa açılır açılmaz bir kez, 30sn beklemeden

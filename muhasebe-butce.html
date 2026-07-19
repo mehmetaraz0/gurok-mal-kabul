@@ -105,7 +105,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="sc" id="tab-girisler">
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button class="btn btn-gray btn-sm" style="flex:1" onclick="butceExcelAktar()">📊 Toplu Düzenle — Aktar</button>
-      <button class="btn btn-gray btn-sm" style="flex:1" onclick="document.getElementById('butce-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+      <button class="btn btn-gray btn-sm" id="butce-excel-yukle-btn" style="flex:1" onclick="document.getElementById('butce-excel-input').click()" disabled>📥 Toplu Düzenle — Yükle</button>
     </div>
     <input type="file" id="butce-excel-input" accept=".xlsx,.xls" style="display:none" onchange="butceExcelYukle(event)">
     <div id="butce-liste"></div>
@@ -500,6 +500,7 @@ document.getElementById('mButce').addEventListener('click',e=>{if(e.target.id===
   renderRapor();
   YETKI_HARITASI = await kullaniciYetkileriGetir();
   document.getElementById('b-kaydet-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['butce_yonetimi']);
+  document.getElementById('butce-excel-yukle-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['butce_yonetimi']);
 })();
 </script>
 </body>
