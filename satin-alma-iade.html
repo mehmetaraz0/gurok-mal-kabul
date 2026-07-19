@@ -101,7 +101,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
 
     <div class="card">
-      <div class="card-title">📦 İade Kalemleri
+      <div class="card-title">İade Kalemleri
         <button class="btn btn-sm" style="margin-left:auto;background:var(--accent);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addIadeSatir()">+ Ekle</button>
       </div>
       <div id="iade-satirlar"></div>
@@ -112,8 +112,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
 
     <div class="card">
-      <div class="card-title">📊 İade Takip
-        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadIadeTakip()">🔄 Yenile</button>
+      <div class="card-title">İade Takip
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadIadeTakip()">Yenile</button>
       </div>
     </div>
     <div class="ftabs">
@@ -133,7 +133,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div style="margin-top:14px;display:flex;gap:8px">
       <button class="btn btn-gray" onclick="kModal('mIadeDetay')">Kapat</button>
       <button class="btn btn-gray" onclick="iadeBelgeYazdir()">🖨️ Belge Yazdır</button>
-      <button class="btn btn-success" style="flex:1" id="iade-muhasebe-btn" onclick="iadeMuhasebeGonder()" disabled>📤 Muhasebe'ye Gönder</button>
+      <button class="btn btn-success" style="flex:1" id="iade-muhasebe-btn" onclick="iadeMuhasebeGonder()" disabled>Muhasebe'ye Gönder</button>
     </div>
   </div>
 </div>
@@ -394,7 +394,7 @@ function renderIadeTakip(){
       <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${s.fiyatlandirildi?'<span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyatlandırıldı</span>':'<span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyat Bekliyor</span>'}
         ${s.gonderildiMuhasebe?'<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📤 Muhasebe\'de</span>':''}
-        <button class="btn btn-sm btn-primary" style="margin-left:auto;padding:5px 12px;min-height:26px" onclick="event.stopPropagation();iadeDetayAc('${s.siparisNo}')">📝 Detay / Fiyatlandır →</button>
+        <button class="btn btn-sm btn-primary" style="margin-left:auto;padding:5px 12px;min-height:26px" onclick="event.stopPropagation();iadeDetayAc('${s.siparisNo}')">Detay / Fiyatlandır →</button>
       </div>
     </div>`).join('');
 }

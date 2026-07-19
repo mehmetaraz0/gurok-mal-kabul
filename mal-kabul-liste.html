@@ -117,7 +117,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
               <input type="text" id="f-firma-inp" placeholder="2+ harf yazın..." autocomplete="off" oninput="filterFirmaDD(this.value)">
               <div id="f-firma-dd" class="udd"></div>
             </div>
-            <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openFirmaSecEkrani()">📋 Seç</button>
+            <button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="openFirmaSecEkrani()">Seç</button>
           </div>
         </div>
         <div class="rfields">
@@ -133,7 +133,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
                 <input type="text" id="f-siparis-inp" placeholder="C000... / R000..." autocomplete="off" oninput="filterSiparisDD(this.value)">
                 <div id="f-siparis-dd" class="udd"></div>
               </div>
-              <button class="btn btn-primary btn-sm" style="flex-shrink:0;padding:11px 10px" onclick="openSiparisSecEkrani()">📋 Seç</button>
+              <button class="btn btn-primary btn-sm" style="flex-shrink:0;padding:11px 10px" onclick="openSiparisSecEkrani()">Seç</button>
             </div>
             <input type="hidden" id="f-siparis-no">
           </div>
@@ -161,7 +161,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <div class="field" style="margin-bottom:0"><label>Notlar</label><textarea id="f-notlar" rows="2" placeholder="Teslimatla ilgili notlar..."></textarea></div>
       </div>
 
-      <button class="btn btn-success btn-block" style="margin-bottom:16px;min-height:52px;font-size:15px" onclick="formKaydet()">✓ Onaya Gönder</button>
+      <button class="btn btn-success btn-block" style="margin-bottom:16px;min-height:52px;font-size:15px" onclick="formKaydet()">Onaya Gönder</button>
     </div>
 
     <!-- Geçmiş Kayıtlar -->
@@ -1022,7 +1022,7 @@ function openDetay(id){
     </div>`).join('')}
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mDetay')">Kapat</button>
-      ${f.durum==='onaylandi'?`<button class="btn btn-primary btn-sm" style="flex:1" onclick="kModal('mDetay');kabulOzetAc('${f.id}')">📋 Kabul Sayfası</button>`:''}
+      ${f.durum==='onaylandi'?`<button class="btn btn-primary btn-sm" style="flex:1" onclick="kModal('mDetay');kabulOzetAc('${f.id}')">Kabul Sayfası</button>`:''}
       ${f.durum==='onaylandi'?`<button class="btn btn-warning btn-sm" style="flex:1" onclick="duzeltmeModuAc('${f.id}')">✏️ Düzelt</button>`:''}
     </div>`;
   aModal('mDetay');
@@ -1315,7 +1315,7 @@ function urunDuzeltAc(mkId,urunId){
   `;
   document.getElementById('mUrunDuzeltActions').innerHTML=`
     <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mUrunDuzelt')">İptal</button>
-    <button class="btn btn-primary btn-sm" style="flex:1" onclick="urunDuzeltKaydet('${mkId}','${urunId}')">💾 Kaydet</button>
+    <button class="btn btn-primary btn-sm" style="flex:1" onclick="urunDuzeltKaydet('${mkId}','${urunId}')">Kaydet</button>
   `;
   aModal('mUrunDuzelt');
 }

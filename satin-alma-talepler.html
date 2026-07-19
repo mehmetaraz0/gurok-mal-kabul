@@ -99,8 +99,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterTalep('siparis',this)">📦 Siparişe Dönüştü</button>
     </div>
     <div class="brow" style="margin-bottom:10px">
-      <button class="btn btn-sm btn-gray" onclick="talepleriExcelAktar()">📤 Excel'e Aktar</button>
-      <button class="btn btn-sm btn-gray" id="talep-excel-yukle-btn" onclick="document.getElementById('talep-excel-input').click()" disabled>📥 Excel'den Yükle</button>
+      <button class="btn btn-sm btn-gray" onclick="talepleriExcelAktar()">Excel'e Aktar</button>
+      <button class="btn btn-sm btn-gray" id="talep-excel-yukle-btn" onclick="document.getElementById('talep-excel-input').click()" disabled>Excel'den Yükle</button>
       <input type="file" id="talep-excel-input" accept=".xlsx,.xls" style="display:none" onchange="talepExcelYukle(event)">
     </div>
     <div id="talepler-liste"></div>
@@ -145,7 +145,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field" style="margin-top:10px"><label>Not</label><input type="text" id="yt-not" placeholder="Opsiyonel..."></div>
     <div class="brow" style="margin-top:8px">
       <button class="btn btn-gray" onclick="kModal('mYeniTalep')">İptal</button>
-      <button class="btn btn-primary" id="yt-kaydet-btn" onclick="ytKaydet()" disabled>📤 Talep Gönder</button>
+      <button class="btn btn-primary" id="yt-kaydet-btn" onclick="ytKaydet()" disabled>Talep Gönder</button>
     </div>
   </div>
 </div>
@@ -157,7 +157,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="yeniden-siparis-liste" style="max-height:65vh;overflow-y:auto"></div>
     <div class="brow" style="margin-top:10px">
       <button class="btn btn-gray" onclick="kModal('mYenidenSiparis')">Kapat</button>
-      <button class="btn btn-primary" id="yeniden-siparis-btn" onclick="yenidenSiparisOlustur()" disabled>📤 Seçilenlerden Talep Oluştur</button>
+      <button class="btn btn-primary" id="yeniden-siparis-btn" onclick="yenidenSiparisOlustur()" disabled>Seçilenlerden Talep Oluştur</button>
     </div>
   </div>
 </div>
@@ -766,13 +766,13 @@ async function openTalepDetay(id){
       </div>`:''}
     ${t.durum==='onaylandi'?`
       <div class="brow" style="margin-top:8px">
-        <button class="btn btn-gray btn-sm" onclick="teklifIste('${id}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>📨 Teklif İste</button>
-        <button class="btn btn-info btn-sm" onclick="talepSipariseDonustur('${id}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>📦 Siparişe Dönüştür</button>
+        <button class="btn btn-gray btn-sm" onclick="teklifIste('${id}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>Teklif İste</button>
+        <button class="btn btn-info btn-sm" onclick="talepSipariseDonustur('${id}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>Siparişe Dönüştür</button>
       </div>`:''}
     ${t.durum==='bekleyen'&&t.asama==='depo'?`
       <div class="brow" style="margin-top:8px">
-        <button class="btn btn-gray btn-sm" onclick="kalemExcelAktar('${id}')">📊 Excel'e Aktar</button>
-        <button class="btn btn-gray btn-sm" onclick="_kalemExcelAktifTalepId='${id}';document.getElementById('kalem-excel-input').click()" ${['kayit','tam'].includes(YETKI_HARITASI['ic_talep'])?'':'disabled'}>📥 Excel'den Yükle</button>
+        <button class="btn btn-gray btn-sm" onclick="kalemExcelAktar('${id}')">Excel'e Aktar</button>
+        <button class="btn btn-gray btn-sm" onclick="_kalemExcelAktifTalepId='${id}';document.getElementById('kalem-excel-input').click()" ${['kayit','tam'].includes(YETKI_HARITASI['ic_talep'])?'':'disabled'}>Excel'den Yükle</button>
       </div>`:''}
     <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTalepDetay')">Kapat</button>`;
   aModal('mTalepDetay');

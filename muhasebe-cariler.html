@@ -95,8 +95,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="sc" id="tab-cariler" style="display:block">
     <div class="stats-grid" id="cari-stats"></div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button class="btn btn-gray btn-sm" id="ce-aktar-btn" style="flex:1" onclick="cariExcelAktar()">📊 Toplu Düzenle — Aktar</button>
-      <button class="btn btn-gray btn-sm" id="ce-yukle-btn" style="flex:1" disabled onclick="document.getElementById('cari-excel-input').click()">📥 Toplu Düzenle — Yükle</button>
+      <button class="btn btn-gray btn-sm" id="ce-aktar-btn" style="flex:1" onclick="cariExcelAktar()">Toplu Düzenle — Aktar</button>
+      <button class="btn btn-gray btn-sm" id="ce-yukle-btn" style="flex:1" disabled onclick="document.getElementById('cari-excel-input').click()">Toplu Düzenle — Yükle</button>
     </div>
     <input type="file" id="cari-excel-input" accept=".xlsx,.xls" style="display:none" onchange="cariExcelYukle(event)">
     <div class="search-bar">
@@ -231,7 +231,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mCari')">İptal</button>
       <button class="btn btn-danger btn-sm" id="c-sil-btn" onclick="cariSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" id="c-kaydet-btn" onclick="cariKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-primary" id="c-kaydet-btn" onclick="cariKaydet()" disabled>Kaydet</button>
     </div>
   </div>
 </div>
@@ -279,7 +279,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHareket')">İptal</button>
-      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hareketKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hareketKaydet()" disabled>Kaydet</button>
     </div>
   </div>
 </div>

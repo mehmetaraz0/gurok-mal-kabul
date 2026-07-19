@@ -116,7 +116,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- VİRMAN -->
   <div class="sc" id="tab-virman">
     <div class="card">
-      <div class="card-title">🔄 Virman İşlemi</div>
+      <div class="card-title">Virman İşlemi</div>
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Hesaplar arası para transferi yapın.</p>
       <div class="field"><label>Kaynak Hesap *</label>
         <select id="vir-kaynak"><option value="">— Seçin —</option></select>
@@ -129,7 +129,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <div class="field"><label>Tarih *</label><input type="date" id="vir-tarih"></div>
       </div>
       <div class="field"><label>Açıklama</label><input type="text" id="vir-aciklama" placeholder="Opsiyonel"></div>
-      <button class="btn btn-primary btn-block" onclick="virmanYap()">🔄 Virman Yap</button>
+      <button class="btn btn-primary btn-block" onclick="virmanYap()">Virman Yap</button>
     </div>
     <div id="virman-gecmis"></div>
   </div>
@@ -137,7 +137,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- EKSTRE İÇE AKTAR -->
   <div class="sc" id="tab-ekstre">
     <div class="card">
-      <div class="card-title">📥 Banka Ekstresi İçe Aktar</div>
+      <div class="card-title">Banka Ekstresi İçe Aktar</div>
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px">QNB internet bankacılığından CSV/Excel ekstre indirip yükleyin.</p>
       <div class="field"><label>Hedef Hesap *</label>
         <select id="eks-hesap"><option value="">— Seçin —</option></select>
@@ -145,7 +145,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div class="field"><label>Ekstre Dosyası (CSV)</label>
         <input type="file" id="eks-dosya" accept=".csv,.txt">
       </div>
-      <button class="btn btn-primary btn-block" onclick="ekstreOnizle()">📋 Önizle</button>
+      <button class="btn btn-primary btn-block" onclick="ekstreOnizle()">Önizle</button>
       <div class="gelecek-tag">🔮 QNB API entegrasyonu hazır olduğunda bu adım otomatikleşecek</div>
     </div>
     <div id="ekstre-onizleme"></div>
@@ -194,7 +194,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHesap')">İptal</button>
       <button class="btn btn-danger btn-sm" id="h-sil-btn" onclick="hesapSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hesapKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-primary" id="h-kaydet-btn" onclick="hesapKaydet()" disabled>Kaydet</button>
     </div>
   </div>
 </div>
@@ -229,7 +229,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field"><label>Açıklama</label><input type="text" id="hr-aciklama" placeholder="İşlem açıklaması"></div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHareket')">İptal</button>
-      <button class="btn btn-primary" id="hr-kaydet-btn" onclick="hareketKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-primary" id="hr-kaydet-btn" onclick="hareketKaydet()" disabled>Kaydet</button>
     </div>
   </div>
 </div>
@@ -593,7 +593,7 @@ function renderVirmanGecmis(){
   const liste=Object.values(virmanlar).filter(Boolean).sort((a,b)=>b.tarih-a.tarih).slice(0,10);
   const c=document.getElementById('virman-gecmis');
   if(!liste.length){c.innerHTML='';return;}
-  c.innerHTML=`<div class="card"><div class="card-title">🔄 Son Virmanlar</div>`+
+  c.innerHTML=`<div class="card"><div class="card-title">Son Virmanlar</div>`+
     liste.map(v=>{
       const kaynak=hesaplar[v.kaynakId],hedef=hesaplar[v.hedefId];
       return`<div class="har-satir">
@@ -620,7 +620,7 @@ function ekstreOnizle(){
     const satirlar=text.split('\n').filter(s=>s.trim()).slice(0,20);
     document.getElementById('ekstre-onizleme').innerHTML=`
       <div class="card">
-        <div class="card-title">📋 Önizleme (ilk 20 satır)</div>
+        <div class="card-title">Önizleme (ilk 20 satır)</div>
         <div style="font-size:11px;color:var(--gray-600);margin-bottom:8px">
           Dosya: ${dosya.name} • ${satirlar.length} satır görüntüleniyor
         </div>

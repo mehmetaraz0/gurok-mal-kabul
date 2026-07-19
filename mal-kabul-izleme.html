@@ -68,7 +68,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <!-- ANALİZ -->
     <div id="izleme-analiz-panel">
       <div class="card">
-        <div class="card-title">📅 Filtreler</div>
+        <div class="card-title">Filtreler</div>
         <div class="rfields">
           <div class="field"><label>Başlangıç</label><input type="date" id="izl-filter-start" onchange="renderIzlemeAnaliz()"></div>
           <div class="field"><label>Bitiş</label><input type="date" id="izl-filter-end" onchange="renderIzlemeAnaliz()"></div>
@@ -81,12 +81,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <!-- RAPORLAR (Uygunsuzluk geçmişi) -->
     <div id="izleme-raporlar-panel" style="display:none">
       <div class="card">
-        <div class="card-title">📋 Uygunsuzluk Formları Geçmişi</div>
+        <div class="card-title">Uygunsuzluk Formları Geçmişi</div>
         <div class="rfields">
           <div class="field"><label>Başlangıç</label><input type="date" id="izl-rapor-start"></div>
           <div class="field"><label>Bitiş</label><input type="date" id="izl-rapor-end"></div>
         </div>
-        <button class="btn btn-primary btn-sm btn-block" onclick="renderIzlemeRaporlar()">🔍 Filtrele</button>
+        <button class="btn btn-primary btn-sm btn-block" onclick="renderIzlemeRaporlar()">Filtrele</button>
       </div>
       <div id="izleme-raporlar-icerik"></div>
     </div>
@@ -204,7 +204,7 @@ function renderIzlemeAnaliz(){
     </div>
 
     <div class="card">
-      <div class="card-title">🏢 Firma Analizi</div>
+      <div class="card-title">Firma Analizi</div>
       ${!topFirmalar.length?'<div class="es"><div class="et">Veri yok</div></div>':topFirmalar.map(([firma,s])=>{
         const oran=s.total>0?Math.round((s.uygunsuz/s.total)*100):0;
         const kritik=oran>=15;
@@ -224,7 +224,7 @@ function renderIzlemeAnaliz(){
     </div>
 
     <div class="card">
-      <div class="card-title">📋 Formlar (${liste.length})</div>
+      <div class="card-title">Formlar (${liste.length})</div>
       ${!liste.length?'<div class="es"><div class="et">Kayıt yok</div></div>':liste.slice(0,50).map(f=>{
         const uygunsuzlar=uygunsuzluklarAcik[f.id]||[];
         return`<div class="mk-kart" style="cursor:pointer" onclick="location.href='mal-kabul-liste.html?detay=${f.id}'">

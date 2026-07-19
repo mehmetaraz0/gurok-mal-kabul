@@ -108,7 +108,7 @@ async function renderUygun(){
     <div style="font-size:12px">${escapeHtml(r.aciklama)}</div>
     <div style="font-size:10px;color:var(--gray-400);margin-top:4px">👤 ${escapeHtml(r.bildiren_ad)||'—'} • ${new Date(r.olusturma_tarihi).toLocaleDateString('tr-TR')}</div>
     ${r.durum==='acik'
-      ?`<button class="btn btn-warning btn-sm btn-block" style="margin-top:8px" onclick="uygunsuzlukIncele('${r.id}')">🔍 Düzeltici Faaliyet</button>`
+      ?`<button class="btn btn-warning btn-sm btn-block" style="margin-top:8px" onclick="uygunsuzlukIncele('${r.id}')">Düzeltici Faaliyet</button>`
       :`<div style="margin-top:8px;padding:8px;background:var(--gray-100);border-radius:6px;font-size:11px">
           <div><b>Karar:</b> ${kararEtiket[r.karar]||'—'}</div>
           ${r.faaliyet_aciklama?`<div style="margin-top:2px"><b>Faaliyet:</b> ${escapeHtml(r.faaliyet_aciklama)}</div>`:''}

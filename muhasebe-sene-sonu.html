@@ -59,7 +59,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
 
     <div class="card">
-      <div class="card-title">📅 Kapatılacak Dönem</div>
+      <div class="card-title">Kapatılacak Dönem</div>
       <div class="field"><label>Yıl</label><input type="number" id="ss-yil" min="2020" max="2100" onchange="donemDurumGoster()"></div>
       <div id="donem-durum"></div>
     </div>
@@ -67,7 +67,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="onizleme-alani"></div>
 
     <div class="card">
-      <div class="card-title">📜 Geçmiş Kapanışlar</div>
+      <div class="card-title">Geçmiş Kapanışlar</div>
       <div id="gecmis-kapanislar"></div>
     </div>
   </div>
@@ -251,7 +251,7 @@ function onizlemeYap(){
 
   document.getElementById('onizleme-alani').innerHTML=`
     <div class="card">
-      <div class="card-title">🔍 Önizleme — ${yil}</div>
+      <div class="card-title">Önizleme — ${yil}</div>
       <div class="stats-grid">
         <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamGelir)}</div><div class="stat-lbl">Toplam Gelir</div></div>
         <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${fmt(toplamGider)}</div><div class="stat-lbl">Toplam Gider</div></div>
@@ -270,7 +270,7 @@ function onizlemeYap(){
         <div style="font-size:11px;color:var(--gray-600)">VERGİ SONRASI NET DÖNEM SONUCU</div>
         <div style="font-size:20px;font-weight:800;color:${brutKarZarar>=0?'var(--success)':'var(--danger)'}" id="net-kar-tutar">${fmt(Math.abs(brutKarZarar))} ₺</div>
       </div>
-      <button class="btn btn-danger btn-block" onclick="donemiKapat()" ${['kayit','tam'].includes(YETKI_HARITASI['sene_sonu_kapama'])?'':'disabled'}>🔒 Onayla ve Dönemi Kapat</button>
+      <button class="btn btn-danger btn-block" onclick="donemiKapat()" ${['kayit','tam'].includes(YETKI_HARITASI['sene_sonu_kapama'])?'':'disabled'}>Onayla ve Dönemi Kapat</button>
     </div>`;
 }
 
@@ -426,7 +426,7 @@ function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFraction
   donemDurumGoster();
   renderGecmisKapanislar();
   // Basit önizleme tetikleyici — yıl girildiğinde otomatik önizleme yapılmasın, kullanıcı bilinçli tetiklesin
-  document.getElementById('ss-yil').insertAdjacentHTML('afterend','<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="onizlemeYap()">🔍 Önizle</button>');
+  document.getElementById('ss-yil').insertAdjacentHTML('afterend','<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="onizlemeYap()">Önizle</button>');
 })();
 </script>
 </body>

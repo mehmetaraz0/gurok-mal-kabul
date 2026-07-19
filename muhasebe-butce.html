@@ -104,8 +104,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- BÜTÇE GİRİŞLERİ -->
   <div class="sc" id="tab-girisler">
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button class="btn btn-gray btn-sm" style="flex:1" onclick="butceExcelAktar()">📊 Toplu Düzenle — Aktar</button>
-      <button class="btn btn-gray btn-sm" id="butce-excel-yukle-btn" style="flex:1" onclick="document.getElementById('butce-excel-input').click()" disabled>📥 Toplu Düzenle — Yükle</button>
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="butceExcelAktar()">Toplu Düzenle — Aktar</button>
+      <button class="btn btn-gray btn-sm" id="butce-excel-yukle-btn" style="flex:1" onclick="document.getElementById('butce-excel-input').click()" disabled>Toplu Düzenle — Yükle</button>
     </div>
     <input type="file" id="butce-excel-input" accept=".xlsx,.xls" style="display:none" onchange="butceExcelYukle(event)">
     <div id="butce-liste"></div>
@@ -141,7 +141,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow" style="margin-top:16px">
       <button class="btn btn-gray" onclick="kModal()">İptal</button>
       <button class="btn btn-danger btn-sm" id="b-sil-btn" onclick="butceSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" id="b-kaydet-btn" onclick="butceKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-primary" id="b-kaydet-btn" onclick="butceKaydet()" disabled>Kaydet</button>
     </div>
   </div>
 </div>

@@ -67,7 +67,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <div class="sc" id="tab-siparisler">
     <div class="card">
-      <div class="card-title">📂 LN Infor Sipariş Import
+      <div class="card-title">LN Infor Sipariş Import
         <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="document.getElementById('ln-input').click()">⬆️ Excel Yükle</button>
         <input type="file" id="ln-input" accept=".xlsx,.xls" style="display:none" onchange="parseLNExcel(event)">
       </div>
@@ -205,7 +205,7 @@ function openLNDetay(siparisNo){
     ${gelenler.map(k=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100)"><div style="font-size:13px">${k.urunAd}</div><span style="font-size:13px;color:var(--success)">${k.miktar} ${k.birim}</span></div>`).join('')}`:''}
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray" onclick="kModal('mLNDetay')">Kapat</button>
-      ${eksikler.length?`<button class="btn btn-primary" onclick="kModal('mLNDetay');lnEksikleriAktar('${siparisNo}')">📋 Mal Kabule Aktar</button>`:''}
+      ${eksikler.length?`<button class="btn btn-primary" onclick="kModal('mLNDetay');lnEksikleriAktar('${siparisNo}')">Mal Kabule Aktar</button>`:''}
     </div>`;
   aModal('mLNDetay');
 }

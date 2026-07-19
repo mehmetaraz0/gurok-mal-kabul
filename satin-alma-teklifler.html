@@ -209,13 +209,13 @@ function openTeklifDetay(id){
       ${tk.tedarikciler.length?tk.tedarikciler.map(f=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid var(--gray-100)">
           <div><div style="font-size:13px;font-weight:600">${escapeHtml(f.firmaAd)}</div><div style="font-size:11px;color:var(--gray-500)">${f.durum==='geldi'?'✅ Teklif geldi':'⏳ Bekleniyor'}</div></div>
-          ${tk.durum==='acik'?`<button class="btn btn-sm btn-gray" onclick="tedarikciTeklifGirModalAc('${f.id}')">💰 Fiyat Gir</button>`:''}
+          ${tk.durum==='acik'?`<button class="btn btn-sm btn-gray" onclick="tedarikciTeklifGirModalAc('${f.id}')">Fiyat Gir</button>`:''}
         </div>`).join(''):'<div style="font-size:12px;color:var(--gray-500)">Henüz tedarikçi eklenmedi.</div>'}
     </div>
     ${tk.durum==='acik'&&tk.tedarikciler.length?`
     <div class="brow" style="margin-bottom:12px">
-      <button class="btn btn-sm btn-gray" onclick="teklifleriExcelAktar('${id}')">📤 Excel'e Aktar</button>
-      <button class="btn btn-sm btn-gray" onclick="document.getElementById('teklif-excel-input').click()" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>📥 Excel'den Yükle</button>
+      <button class="btn btn-sm btn-gray" onclick="teklifleriExcelAktar('${id}')">Excel'e Aktar</button>
+      <button class="btn btn-sm btn-gray" onclick="document.getElementById('teklif-excel-input').click()" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>Excel'den Yükle</button>
       <input type="file" id="teklif-excel-input" accept=".xlsx,.xls" style="display:none" onchange="teklifExcelYukle(event,'${id}')">
     </div>`:''}
     ${tk.durum==='acik'?`
@@ -280,7 +280,7 @@ function tedarikciTeklifGirModalAc(tedarikciTeklifId){
     <div id="tt-genel-toplam" style="font-size:14px;font-weight:800;margin-bottom:12px">— ₺</div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mTedarikciTeklif')">İptal</button>
-      <button class="btn btn-success" onclick="tedarikciTeklifKaydet('${tedarikciTeklifId}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>💾 Kaydet</button>
+      <button class="btn btn-success" onclick="tedarikciTeklifKaydet('${tedarikciTeklifId}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>Kaydet</button>
     </div>`;
   ttFiyatToplamGuncelle(tk.id);
   aModal('mTedarikciTeklif');
@@ -483,7 +483,7 @@ function renderTeklifKarsilastirma(teklifTalepId){
         ${satirlarHtml}
       </table>
     </div>
-    ${tk.durum==='acik'?`<button class="btn btn-success btn-block" onclick="teklifSecilenleriSiparisDonustur('${teklifTalepId}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>📦 Seçilenleri Siparişe Dönüştür</button>`:''}
+    ${tk.durum==='acik'?`<button class="btn btn-success btn-block" onclick="teklifSecilenleriSiparisDonustur('${teklifTalepId}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>Seçilenleri Siparişe Dönüştür</button>`:''}
     <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTeklifKarsilastirma')">Kapat</button>`;
   aModal('mTeklifKarsilastirma');
 }

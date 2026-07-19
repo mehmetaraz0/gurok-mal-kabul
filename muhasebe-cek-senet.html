@@ -86,8 +86,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="gTab('vade',this)">📅 Vade Takvimi</button>
   </div>
   <div style="display:flex;gap:8px;padding:10px 12px 0">
-    <button class="btn btn-gray btn-sm" style="flex:1" onclick="cekSenetExcelAktar()">📊 Toplu Düzenle — Aktar</button>
-    <button class="btn btn-gray btn-sm" id="cek-excel-yukle-btn" style="flex:1" onclick="document.getElementById('cek-excel-input').click()" disabled>📥 Toplu Düzenle — Yükle</button>
+    <button class="btn btn-gray btn-sm" style="flex:1" onclick="cekSenetExcelAktar()">Toplu Düzenle — Aktar</button>
+    <button class="btn btn-gray btn-sm" id="cek-excel-yukle-btn" style="flex:1" onclick="document.getElementById('cek-excel-input').click()" disabled>Toplu Düzenle — Yükle</button>
   </div>
   <input type="file" id="cek-excel-input" accept=".xlsx,.xls" style="display:none" onchange="cekSenetExcelYukle(event)">
 
@@ -120,7 +120,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- VADE TAKVİMİ -->
   <div class="sc" id="tab-vade">
     <div class="card">
-      <div class="card-title">📅 Yaklaşan Vadeler</div>
+      <div class="card-title">Yaklaşan Vadeler</div>
       <p style="font-size:12px;color:var(--gray-600)">Sadece açık (portföyde/tahsilde) kayıtlar, vade tarihine göre sıralı.</p>
     </div>
     <div id="vade-liste"></div>
@@ -173,7 +173,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mKayit')">İptal</button>
       <button class="btn btn-danger btn-sm" id="k-sil-btn" onclick="kayitSil()" style="display:none">🗑️</button>
-      <button class="btn btn-primary" id="k-kaydet-btn" onclick="kayitKaydet()" disabled>💾 Kaydet</button>
+      <button class="btn btn-primary" id="k-kaydet-btn" onclick="kayitKaydet()" disabled>Kaydet</button>
     </div>
   </div>
 </div>
