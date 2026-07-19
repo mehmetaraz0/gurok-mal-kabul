@@ -90,10 +90,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 </div></div>
 
 <!-- Onay Modal -->
-<div class="mo" id="mOnay"><div class="mbox"><div class="mtitle">📋 Talep Detayı <button class="mclose" onclick="kModal('mOnay')">✕</button></div><div id="mOnayIc"></div></div></div>
+<div class="mo" id="mOnay"><div class="mbox"><div class="mtitle">Talep Detayı <button class="mclose" onclick="kModal('mOnay')">✕</button></div><div id="mOnayIc"></div></div></div>
 <!-- Yeni Modal (Depo) -->
 <div class="mo" id="mYeni"><div class="mbox">
-  <div class="mtitle">➕ Yeni Talep <button class="mclose" onclick="kModal('mYeni')">✕</button></div>
+  <div class="mtitle">Yeni Talep <button class="mclose" onclick="kModal('mYeni')">✕</button></div>
   <div class="field"><label>Departman</label><select id="yDept"></select></div>
   <div class="field"><label>Tarih</label><input type="date" id="yTarih"></div>
   <button class="btn btn-primary btn-block" onclick="depoYeniSiparis()">Devam →</button>
@@ -503,7 +503,7 @@ function basla(){
         <div class="field"><label>Not</label><input type="text" id="vNot" placeholder="Opsiyonel..."></div>
       </div>
       <div class="card">
-        <div class="card-title">📦 Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
+        <div class="card-title">Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
         <div id="usatirlar"></div>
       </div>
       <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">Talep Gönder</button>`;
@@ -671,7 +671,7 @@ function rTaleplerim(){
     return`<div class="skart ${s.durum}">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">${cm[s.durum]||''}<div style="text-align:right;font-size:11px;color:var(--gray-500)">${s.tarih}</div></div>
       ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${u.ad||u.urunAd||""} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
-      ${s.durum==='bekleyen'?`<button class="btn btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="iptalEt('${s.id}')">✕ Talebi İptal Et</button>`:''}
+      ${s.durum==='bekleyen'?`<button class="btn btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="iptalEt('${s.id}')">Talebi İptal Et</button>`:''}
     ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px">Red: ${s.redNot}</div>`:''}
     </div>`;
   }).join(''));
@@ -1037,7 +1037,7 @@ function depoYeniSiparis(){
         <div class="field"><label>Not</label><input type="text" id="vNot" placeholder="Opsiyonel..."></div>
       </div>
       <div class="card">
-        <div class="card-title">📦 Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
+        <div class="card-title">Ürünler <button class="btn btn-sm" style="margin-left:auto;background:var(--warning);color:var(--primary);padding:4px 10px;min-height:28px" onclick="addUS()">+ Ekle</button></div>
         <div id="usatirlar"></div>
       </div>
       <button class="btn btn-primary btn-block" onclick="gondер()" style="margin-bottom:16px">Talep Gönder</button>`;

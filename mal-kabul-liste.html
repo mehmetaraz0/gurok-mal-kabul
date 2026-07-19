@@ -152,7 +152,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div class="card">
         <div class="card-title" style="justify-content:space-between">
           <span>🧺 Ürünler</span>
-          <button class="btn btn-warning btn-sm" onclick="kalemEkle()">➕ Ürün Ekle</button>
+          <button class="btn btn-warning btn-sm" onclick="kalemEkle()">Ürün Ekle</button>
         </div>
         <div id="f-kalemler"></div>
       </div>
@@ -195,7 +195,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Kabul Özeti (onay sonrası yazdırılabilir özet) -->
 <div class="mo" id="mKabulOzet">
   <div class="mbox">
-    <div class="mtitle">📋 Kabul Özeti <button class="mclose" onclick="kModal('mKabulOzet')">✕</button></div>
+    <div class="mtitle">Kabul Özeti <button class="mclose" onclick="kModal('mKabulOzet')">✕</button></div>
     <div id="mKabulOzetIc"></div>
     <div class="brow" id="mKabulOzetActions" style="margin-top:14px"></div>
   </div>
@@ -205,7 +205,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Koli Bazlı Giriş -->
 <div class="mo" id="mKoli">
   <div class="mbox">
-    <div class="mtitle">📦 Koli Bazlı Giriş <button class="mclose" onclick="kModal('mKoli')">✕</button></div>
+    <div class="mtitle">Koli Bazlı Giriş <button class="mclose" onclick="kModal('mKoli')">✕</button></div>
     <div id="mKoliIc"></div>
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mKoli')">İptal</button>
@@ -399,7 +399,7 @@ function renderKoliModal(){
           <button onclick="formKalemleri[${_koliAktifKalem}].koliler.splice(${j},1);renderKoliModal()" style="background:none;border:none;color:var(--danger);font-size:15px;cursor:pointer">✕</button>
         </div>`).join('')}
     </div>
-    <button class="btn btn-sm btn-gray" style="width:100%;margin-top:4px" onclick="formKalemleri[${_koliAktifKalem}].koliler.push('');renderKoliModal()">➕ Koli Ekle</button>
+    <button class="btn btn-sm btn-gray" style="width:100%;margin-top:4px" onclick="formKalemleri[${_koliAktifKalem}].koliler.push('');renderKoliModal()">Koli Ekle</button>
     <div style="background:var(--primary);color:white;border-radius:8px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:12px;font-weight:700">TOPLAM (Miktar alanına yazılır)</span>
       <span id="koli-toplam" style="font-size:16px;font-weight:800">${toplam.toFixed(2)} ${k.birim}</span>

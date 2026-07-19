@@ -76,7 +76,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Teklif (RFQ) Detay -->
 <div class="mo" id="mTeklifDetay">
   <div class="mbox">
-    <div class="mtitle">📨 Teklif Talebi <button class="mclose" onclick="kModal('mTeklifDetay')">✕</button></div>
+    <div class="mtitle">Teklif Talebi <button class="mclose" onclick="kModal('mTeklifDetay')">✕</button></div>
     <div id="mTeklifDetayIc"></div>
   </div>
 </div>
@@ -84,7 +84,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Tedarikçi Teklif Fiyat Girişi -->
 <div class="mo" id="mTedarikciTeklif">
   <div class="mbox">
-    <div class="mtitle">💰 Teklif Fiyatı Gir <button class="mclose" onclick="kModal('mTedarikciTeklif')">✕</button></div>
+    <div class="mtitle">Teklif Fiyatı Gir <button class="mclose" onclick="kModal('mTedarikciTeklif')">✕</button></div>
     <div id="mTedarikciTeklifIc"></div>
   </div>
 </div>
@@ -221,7 +221,7 @@ function openTeklifDetay(id){
     ${tk.durum==='acik'?`
     <div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;margin-bottom:6px">Tedarikçi Ekle</div>
-      ${oneriler.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${oneriler.map(f=>`<button class="btn btn-sm btn-gray" onclick="teklifTedarikciEkle('${id}','${escapeHtml(f.ad).replace(/'/g,"\\'")}','${f.kod||''}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>➕ ${escapeHtml(f.ad)}</button>`).join('')}</div>`:''}
+      ${oneriler.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${oneriler.map(f=>`<button class="btn btn-sm btn-gray" onclick="teklifTedarikciEkle('${id}','${escapeHtml(f.ad).replace(/'/g,"\\'")}','${f.kod||''}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>${escapeHtml(f.ad)}</button>`).join('')}</div>`:''}
       <div style="position:relative">
         <input type="text" id="teklif-firma-ara-${id}" placeholder="Firma ara..." oninput="filterTeklifFirma('${id}',this.value)" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none">
         <div id="teklif-firma-dd-${id}" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--gray-300);border-radius:8px;max-height:200px;overflow-y:auto;z-index:10;display:none"></div>

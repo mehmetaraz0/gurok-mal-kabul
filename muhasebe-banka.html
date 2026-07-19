@@ -155,7 +155,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Yeni/Düzenle Hesap -->
 <div class="mo" id="mHesap">
   <div class="mbox">
-    <div class="mtitle" id="mHesapTitle">➕ Yeni Hesap <button class="mclose" onclick="kModal('mHesap')">✕</button></div>
+    <div class="mtitle" id="mHesapTitle">Yeni Hesap <button class="mclose" onclick="kModal('mHesap')">✕</button></div>
     <input type="hidden" id="h-id">
     <div class="field"><label>Hesap Türü *</label>
       <select id="h-tur" onchange="hTurDegisti()">
@@ -210,7 +210,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: Yeni Hareket -->
 <div class="mo" id="mHareket">
   <div class="mbox">
-    <div class="mtitle" id="mHareketTitle">➕ Hareket Ekle <button class="mclose" onclick="kModal('mHareket')">✕</button></div>
+    <div class="mtitle" id="mHareketTitle">Hareket Ekle <button class="mclose" onclick="kModal('mHareket')">✕</button></div>
     <input type="hidden" id="hr-hesap-id">
     <div class="field"><label>Hesap</label><input type="text" id="hr-hesap-ad" readonly style="background:var(--gray-100)"></div>
     <div class="rfields">
@@ -471,7 +471,7 @@ function openHesapDetay(id){
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray btn-sm" onclick="kModal('mHesapDetay')">Kapat</button>
       <button class="btn btn-primary btn-sm" onclick="kModal('mHesapDetay');openDuzenleHesap('${id}')">✏️ Düzenle</button>
-      <button class="btn btn-success btn-sm" onclick="kModal('mHesapDetay');openHareket('${id}')">➕ Hareket</button>
+      <button class="btn btn-success btn-sm" onclick="kModal('mHesapDetay');openHareket('${id}')">Hareket</button>
     </div>`;
   aModal('mHesapDetay');
 }
