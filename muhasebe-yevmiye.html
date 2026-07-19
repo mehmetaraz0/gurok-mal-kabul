@@ -195,8 +195,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow" style="margin-top:10px">
       <button class="btn btn-gray" onclick="kModal('mYevmiye')">İptal</button>
       <button class="btn btn-danger btn-sm" id="y-sil-btn" onclick="yevmiyeSil()" style="display:none">🗑️</button>
-      <button class="btn btn-gray btn-sm" onclick="yevmiyeKaydet(false)">📝 Taslak</button>
-      <button class="btn btn-primary" onclick="yevmiyeKaydet(true)">✅ Onayla</button>
+      <button class="btn btn-gray btn-sm" id="y-taslak-btn" onclick="yevmiyeKaydet(false)" disabled>📝 Taslak</button>
+      <button class="btn btn-primary" id="y-onayla-btn" onclick="yevmiyeKaydet(true)" disabled>✅ Onayla</button>
     </div>
   </div>
 </div>
@@ -214,6 +214,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 let yevmiyeler={},hesapPlani={};
+let YETKI_HARITASI = {};
 let yevKalemler=[];
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 
@@ -434,7 +435,7 @@ function openDuzenleYevmiye(id){
   document.getElementById('y-belge').value=y.belge||'';
   document.getElementById('y-aciklama').value=y.aciklama||'';
   document.getElementById('y-otel').value=y.otelId||'810';
-  document.getElementById('y-sil-btn').style.display='flex';
+  document.getElementById('y-sil-btn').style.display=['kayit','tam'].includes(YETKI_HARITASI['yevmiye_fis_giris'])?'flex':'none';
   renderYevmiyeKalemler();
   aModal('mYevmiye');
 }
@@ -822,6 +823,9 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   document.getElementById('mizan-bas').value=ayBasiStr;
   document.getElementById('mizan-bit').value=today;
   renderYevmiye();
+  YETKI_HARITASI = await kullaniciYetkileriGetir();
+  document.getElementById('y-taslak-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['yevmiye_fis_giris']);
+  document.getElementById('y-onayla-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['yevmiye_fis_onay']);
 })();
 </script>
 </body>
