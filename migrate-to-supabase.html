@@ -2,6 +2,11 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script>
+let OTURUM_KULLANICI = requireLogin();
+if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici']);
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gürok — Supabase Migration</title>
 <style>
