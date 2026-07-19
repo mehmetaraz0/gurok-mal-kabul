@@ -6,24 +6,23 @@
 <script src="supabase-config.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok Turizm — Depo Yönetim Sistemi</title>
-<meta name="theme-color" content="#1a2744">
+<meta name="theme-color" content="#15213a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <style>
 :root {
-  --primary: #1a2744;
+  --primary: #15213a;
   --primary-light: #2d4080;
-  --accent: #e8a020;
-  --accent-light: #f5c060;
+  --accent: #c9a24b;
   --success: #27ae60;
-  --warning: #f39c12;
-  --danger: #e74c3c;
+  --warning: #c8862c;
+  --danger: #b5442a;
   --gray-50: #f8f9fa;
   --gray-100: #f1f3f5;
-  --gray-200: #e9ecef;
+  --gray-200: #e4e7ec;
   --gray-300: #dee2e6;
   --gray-400: #ced4da;
-  --gray-500: #adb5bd;
-  --gray-600: #6c757d;
+  --gray-500: #8992a3;
+  --gray-600: #5b6472;
   --gray-700: #495057;
   --white: #ffffff;
 }
@@ -44,7 +43,7 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 
 .login-box {
   background: white;
-  border-radius: 20px;
+  border-radius: 12px;
   padding: 32px 28px;
   width: 100%;
   max-width: 360px;
@@ -55,15 +54,17 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
   margin-bottom: 28px;
 }
 .login-logo .logo-icon {
-  width: 64px; height: 64px;
+  width: 56px; height: 56px;
   background: var(--primary);
-  border-radius: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.25);
   display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 12px;
-  font-size: 32px;
+  margin: 0 auto 14px;
+  font: 700 20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  color: #fff; letter-spacing: .3px;
 }
-.login-logo h1 { font-size: 22px; font-weight: 800; color: var(--primary); }
-.login-logo p { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+.login-logo h1 { font-size: 20px; font-weight: 800; color: var(--primary); letter-spacing: -.01em; }
+.login-logo p { font-size: 12.5px; color: var(--gray-500); margin-top: 4px; }
 
 .pin-label { text-align: center; font-size: 13px; color: var(--gray-600); margin-bottom: 6px; }
 .pin-user-show { text-align: center; font-weight: 700; color: var(--primary); font-size: 15px; min-height: 22px; margin-bottom: 10px; }
@@ -73,158 +74,161 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 .pin-error { text-align: center; font-size: 12px; color: var(--danger); min-height: 18px; margin-bottom: 8px; }
 .pin-pad { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 4px; }
 .pin-btn {
-  height: 56px; border: none; border-radius: 12px;
-  font-size: 22px; font-weight: 600; cursor: pointer;
+  height: 56px; border: none; border-radius: 8px;
+  font-size: 20px; font-weight: 600; cursor: pointer;
   background: var(--gray-100); color: var(--primary);
   transition: all 0.1s;
 }
 .pin-btn:active { background: var(--gray-300); transform: scale(0.95); }
 .pin-btn.empty { background: transparent; cursor: default; }
-.pin-btn.del { font-size: 18px; }
-.btn-ms{width:100%;margin-top:14px;padding:12px;border:1.5px solid var(--primary);border-radius:12px;background:white;color:var(--primary);font-size:14px;font-weight:600;cursor:pointer}
+.pin-btn.del { font-size: 16px; }
+.btn-ms{width:100%;margin-top:14px;padding:12px;border:1.5px solid var(--primary);border-radius:8px;background:white;color:var(--primary);font-size:14px;font-weight:600;cursor:pointer}
 .btn-ms:active{background:var(--gray-100)}
 
-/* ===== PORTAL ===== */
-#screen-portal { display: none; min-height: 100vh; flex-direction: column; }
+/* ===== PORTAL SHELL ===== */
+#screen-portal { display: none; min-height: 100vh; }
 #screen-portal.active { display: flex; }
 
-.portal-header {
-  background: var(--primary);
-  color: white;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  position: sticky; top: 0; z-index: 100;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+/* Sidebar (desktop, >=900px) */
+.sidebar {
+  width: 236px; flex: none; background: var(--primary);
+  display: flex; flex-direction: column; padding: 0 0 20px;
 }
-.portal-header-logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
-.portal-header-sub { font-size: 11px; opacity: 0.65; display: block; margin-top: 1px; }
-.portal-header-user {
-  margin-left: auto;
-  display: flex; align-items: center; gap: 8px;
+@media (max-width: 899px) { .sidebar { display: none; } }
+
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 24px 22px 20px; border-bottom: 1px solid rgba(255,255,255,.08);
 }
-.portal-header-user .user-name { font-size: 12px; opacity: 0.8; text-align: right; }
-.portal-header-user .user-rol {
-  font-size: 10px;
-  background: rgba(255,255,255,0.15);
-  padding: 2px 8px; border-radius: 10px;
-}
-.portal-header-user .logout-btn {
-  background: rgba(255,255,255,0.15);
-  border: none; color: white;
-  width: 32px; height: 32px; border-radius: 50%;
-  font-size: 16px; cursor: pointer;
+.brand-mark {
+  width: 32px; height: 32px; border-radius: 7px;
+  border: 1px solid rgba(255,255,255,.3);
   display: flex; align-items: center; justify-content: center;
+  font: 700 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color: #fff; flex: none;
 }
-.portal-header-user .logout-btn:active { background: rgba(255,255,255,0.3); }
+.brand-mark.small { width: 26px; height: 26px; font-size: 12px; border-radius: 6px; }
+.brand-name { font-size: 13.5px; font-weight: 700; color: #fff; letter-spacing: .4px; }
+.brand-sub { font-size: 10px; font-weight: 500; color: rgba(255,255,255,.45); margin-top: 2px; letter-spacing: .3px; text-transform: uppercase; }
 
-.portal-content { flex: 1; padding: 20px; max-width: 900px; margin: 0 auto; width: 100%; }
-
-/* Hoşgeldin */
-.portal-welcome {
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: white;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.sidebar-item {
+  display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 6px;
+  font-size: 13px; font-weight: 500; color: rgba(255,255,255,.72);
+  text-decoration: none; cursor: pointer; border-left: 2px solid transparent;
 }
-.portal-welcome h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-.portal-welcome p { font-size: 12px; opacity: 0.75; }
-.portal-welcome .date { font-size: 12px; opacity: 0.6; white-space: nowrap; }
+.sidebar-item svg { width: 15px; height: 15px; flex: none; opacity: .85; }
+.sidebar-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+.sidebar-item.active { background: rgba(255,255,255,.08); color: #fff; border-left-color: var(--accent); }
+.sidebar-item.disabled { opacity: .45; cursor: default; pointer-events: none; }
+.sidebar-footer { padding: 14px 22px 0; font-size: 10.5px; color: rgba(255,255,255,.35); }
+
+/* Main column */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--gray-100); }
+
+.topbar {
+  height: 60px; flex: none; background: #fff; border-bottom: 1px solid var(--gray-200);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 26px;
+}
+@media (max-width: 899px) { .topbar { background: var(--primary); border-bottom: none; padding: 0 16px; height: 56px; } }
+
+.topbar-brand { display: none; align-items: center; gap: 9px; }
+@media (max-width: 899px) { .topbar-brand { display: flex; } }
+.topbar-brand span { font: 700 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color: #fff; letter-spacing: .3px; }
+
+.crumb { font-size: 13px; color: var(--gray-600); }
+.crumb b { color: var(--primary); font-weight: 600; }
+@media (max-width: 899px) { .crumb { display: none; } }
+
+.topbar-user { display: flex; align-items: center; gap: 10px; }
+.user-info { text-align: right; line-height: 1.25; }
+.user-name { font-size: 12.5px; font-weight: 600; color: var(--primary); }
+@media (max-width: 899px) { .user-name { color: #fff; } }
+.user-rol { font-size: 10.5px; color: var(--gray-500); }
+@media (max-width: 899px) { .user-rol { color: rgba(255,255,255,.6); } }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--primary);
+  border: 1px solid var(--accent); color: #fff; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  font: 600 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+.logout-btn {
+  background: rgba(21,33,58,.08); border: none; color: var(--primary);
+  width: 30px; height: 30px; border-radius: 50%; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+@media (max-width: 899px) { .logout-btn { background: rgba(255,255,255,.15); color: #fff; } }
+.logout-btn:active { background: rgba(21,33,58,.18); }
+
+.main-content { flex: 1; padding: 24px 26px 40px; max-width: 1200px; width: 100%; overflow-y: auto; }
+@media (max-width: 899px) { .main-content { padding: 16px 16px 32px; } }
+
+.welcome-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.welcome-row h2 { font-size: 19px; font-weight: 700; color: var(--primary); letter-spacing: -.01em; }
+.welcome-row p { font-size: 12.5px; color: var(--gray-500); margin-top: 2px; }
+.welcome-date { font-size: 12.5px; font-weight: 500; color: var(--gray-500); white-space: nowrap; }
+
+/* KPI şeridi */
+.kpi-strip { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 26px; }
+@media (min-width: 560px) { .kpi-strip { grid-template-columns: repeat(4,1fr); } }
+@media (max-width: 559px) { .kpi-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; } }
+.kpi-card {
+  background: #fff; border: 1px solid var(--gray-200); border-top: 2px solid var(--accent);
+  border-radius: 6px; padding: 12px 14px;
+}
+@media (max-width: 559px) { .kpi-card { flex: none; min-width: 128px; } }
+.kpi-label { font-size: 10.5px; font-weight: 500; color: var(--gray-500); text-transform: uppercase; letter-spacing: .4px; }
+.kpi-num { font-size: 21px; font-weight: 800; color: var(--primary); margin-top: 3px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.kpi-num.warn { color: var(--danger); }
 
 /* Modül grid */
 .modules-title {
   font-size: 11px; font-weight: 600; color: var(--gray-500);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  margin-bottom: 12px;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin-bottom: 14px;
 }
 
-.modules-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-@media (min-width: 600px) {
-  .modules-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (min-width: 900px) {
-  .modules-grid { grid-template-columns: repeat(4, 1fr); }
-}
+.modules-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px; }
+@media (min-width: 600px) { .modules-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 900px) { .modules-grid { grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); } }
 
 .module-card {
   background: white;
-  border-radius: 16px;
-  padding: 20px 16px;
-  text-align: center;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 18px;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: border-color 0.15s, transform 0.15s;
   text-decoration: none;
   color: inherit;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  gap: 13px;
+  align-items: flex-start;
   position: relative;
-  border: 2px solid transparent;
 }
-.module-card:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
-.module-card.available:hover { border-color: var(--primary); }
-.module-card.coming-soon { opacity: 0.5; cursor: default; }
-.module-card.coming-soon:active { transform: none; }
+.module-card.available:hover { border-color: var(--primary); transform: translateY(-1px); }
+.module-card.coming-soon { background: var(--gray-50); border-style: dashed; opacity: 0.65; cursor: default; }
 
 .module-icon {
-  width: 56px; height: 56px;
-  border-radius: 14px;
+  width: 38px; height: 38px; flex: none;
+  border-radius: 7px; border: 1px solid var(--primary);
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px;
-  flex-shrink: 0;
+  color: var(--primary);
 }
-.module-name { font-size: 13px; font-weight: 700; color: var(--primary); line-height: 1.3; }
-.module-desc { font-size: 11px; color: var(--gray-500); line-height: 1.4; }
-.module-badge {
-  position: absolute; top: 10px; right: 10px;
-  background: var(--danger); color: white;
-  font-size: 10px; font-weight: 700;
-  padding: 2px 6px; border-radius: 8px;
-}
+.module-card.coming-soon .module-icon { border-color: var(--gray-500); color: var(--gray-500); }
+.module-icon svg { width: 18px; height: 18px; }
+.module-name { font-size: 13.5px; font-weight: 700; color: var(--primary); line-height: 1.3; }
+.module-desc { font-size: 11.5px; color: var(--gray-500); line-height: 1.4; margin-top: 2px; }
 .module-soon-tag {
-  font-size: 10px; font-weight: 600;
-  background: var(--gray-100); color: var(--gray-500);
-  padding: 3px 8px; border-radius: 8px;
-}
-
-/* Renk temaları */
-.icon-blue   { background: #dbeafe; }
-.icon-green  { background: #d1fae5; }
-.icon-orange { background: #fed7aa; }
-.icon-purple { background: #ede9fe; }
-.icon-red    { background: #fee2e2; }
-.icon-teal   { background: #ccfbf1; }
-.icon-yellow { background: #fef9c3; }
-.icon-gray   { background: var(--gray-100); }
-
-/* Alt bilgi */
-.portal-footer {
-  text-align: center;
-  padding: 16px 20px;
-  font-size: 11px;
-  color: var(--gray-400);
-  border-top: 1px solid var(--gray-200);
+  font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+  background: var(--gray-200); color: var(--gray-500);
+  padding: 2px 7px; border-radius: 4px; margin-top: 6px; display: inline-block;
 }
 
 /* Loading */
 #loading {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(26,39,68,0.85);
+  background: rgba(21,33,58,0.85);
   z-index: 9999;
   align-items: center; justify-content: center;
   flex-direction: column; gap: 12px; color: white;
@@ -258,7 +262,7 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 <div id="screen-login">
   <div class="login-box">
     <div class="login-logo">
-      <div class="logo-icon">🏨</div>
+      <div class="logo-icon">G</div>
       <h1>Gürok</h1>
       <p>Depo Yönetim Sistemi</p>
     </div>
@@ -287,45 +291,54 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
       <button class="pin-btn" onclick="pinInput('0')">0</button>
       <button class="pin-btn del" onclick="pinDelete()">⌫</button>
     </div>
-    <button class="btn-ms" onclick="showToast('🔷 Microsoft girişi yakında aktif olacak')">🔷 Microsoft ile Giriş</button>
+    <button class="btn-ms" onclick="showToast('🔷 Microsoft girişi yakında aktif olacak')">Microsoft ile Giriş</button>
   </div>
 </div>
 
 <!-- ===== PORTAL ===== -->
 <div id="screen-portal">
-  <div class="portal-header">
-    <div>
-      <div class="portal-header-logo">gürok</div>
-      <span class="portal-header-sub">Depo Yönetim Sistemi</span>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">G</div>
+      <div><div class="brand-name">GÜROK</div><div class="brand-sub">Depo Yönetimi</div></div>
     </div>
-    <div class="portal-header-user">
-      <div>
-        <div class="user-name" id="header-user-name">—</div>
-        <div class="user-rol" id="header-user-rol">—</div>
+    <nav class="sidebar-nav" id="sidebar-nav"><!-- JS ile doldurulur --></nav>
+    <div class="sidebar-footer">v1.0 · Gürok Turizm Grubu</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-brand"><div class="brand-mark small">G</div><span>GÜROK</span></div>
+      <div class="crumb">Uygulamalar <b>/ Ana Sayfa</b></div>
+      <div class="topbar-user">
+        <div class="user-info">
+          <div class="user-name" id="header-user-name">—</div>
+          <div class="user-rol" id="header-user-rol">—</div>
+        </div>
+        <div class="avatar" id="header-avatar">—</div>
+        <button class="logout-btn" onclick="logout()" title="Çıkış">↩</button>
       </div>
-      <button class="logout-btn" onclick="logout()" title="Çıkış">↩</button>
     </div>
-  </div>
 
-  <div class="portal-content">
-    <!-- Hoşgeldin -->
-    <div class="portal-welcome">
-      <div>
-        <h2 id="welcome-text">Hoş geldiniz</h2>
-        <p id="welcome-sub">Gürok Turizm Grubu — Depo Operasyonları</p>
+    <div class="main-content">
+      <div class="welcome-row">
+        <div>
+          <h2 id="welcome-text">Hoş geldiniz</h2>
+          <p id="welcome-sub">Gürok Turizm Grubu — Depo Operasyonları</p>
+        </div>
+        <div class="welcome-date" id="welcome-date"></div>
       </div>
-      <div class="date" id="welcome-date"></div>
-    </div>
 
-    <!-- Modüller -->
-    <div class="modules-title">Uygulamalar</div>
-    <div class="modules-grid" id="modules-grid">
-      <!-- JS ile doldurulur -->
-    </div>
-  </div>
+      <div class="kpi-strip">
+        <div class="kpi-card"><div class="kpi-label">Açık Talepler</div><div class="kpi-num" id="kpi-talep">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Bekleyen Onay</div><div class="kpi-num" id="kpi-onay">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">SKT Uyarısı</div><div class="kpi-num warn" id="kpi-skt">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Aktif Kullanıcı</div><div class="kpi-num" id="kpi-kullanici">—</div></div>
+      </div>
 
-  <div class="portal-footer">
-    Gürok Turizm Grubu • Depo Yönetim Sistemi v1.0
+      <div class="modules-title">Uygulamalar</div>
+      <div class="modules-grid" id="modules-grid"><!-- JS ile doldurulur --></div>
+    </div>
   </div>
 </div>
 
@@ -339,107 +352,57 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 // SESSION_KEY artık auth-guard.js'de tanımlı (paylaşılan) — burada tekrar tanımlanmıyor.
 
-// Modül tanımları
+// Modül tanımları — ikon: 24x24 çizgi ikon path'i (stroke=currentColor)
 const MODULLER = [
   {
-    id: 'malkabul',
-    ad: 'Mal Kabul',
-    desc: 'Teslimat girişi, onay, SKT takip',
-    ikon: '📋',
-    renk: 'icon-blue',
-    url: 'mal-kabul-v2.html',
-    moduller: ['mal_kabul_form','mal_kabul_kalite'],
-    durum: 'aktif'
+    id: 'malkabul', ad: 'Mal Kabul', desc: 'Teslimat girişi, onay, SKT takip',
+    url: 'mal-kabul-v2.html', moduller: ['mal_kabul_form','mal_kabul_kalite'], durum: 'aktif',
+    svg: '<path d="M9 3h6v3H9z"/><rect x="4" y="6" width="16" height="15" rx="1"/><path d="M8 12h8M8 16h5"/>'
   },
   {
-    id: 'stok',
-    ad: 'Stok Takip',
-    desc: 'Anlık stok, giriş/çıkış',
-    ikon: '📦',
-    renk: 'icon-green',
-    url: 'stok-takip.html',
-    moduller: ['stok_takip'],
-    durum: 'aktif'
+    id: 'stok', ad: 'Stok Takip', desc: 'Anlık stok, giriş/çıkış',
+    url: 'stok-takip.html', moduller: ['stok_takip'], durum: 'aktif',
+    svg: '<path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/>'
   },
   {
-    id: 'depo-siparis',
-    ad: 'Depo Siparişleri',
-    desc: 'Mutfak & departman talepleri',
-    ikon: '📤',
-    renk: 'icon-orange',
-    url: 'depo-siparis.html',
-    moduller: ['depo_siparis'],
-    durum: 'aktif'
+    id: 'depo-siparis', ad: 'Depo Siparişleri', desc: 'Mutfak & departman talepleri',
+    url: 'depo-siparis.html', moduller: ['depo_siparis'], durum: 'aktif',
+    svg: '<rect x="3" y="7" width="18" height="14" rx="1"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/>'
   },
   {
-    id: 'satinalma',
-    ad: 'Satın Alma',
-    desc: 'Sipariş takip, LN Infor',
-    ikon: '🛒',
-    renk: 'icon-purple',
-    url: 'satin-alma.html',
-    moduller: ['ic_talep','siparis_olustur','siparis_takip','fiyat_kontrol','tedarikci_skorkart','firma_yonetimi'],
-    durum: 'aktif'
+    id: 'satinalma', ad: 'Satın Alma', desc: 'Sipariş takip, LN Infor',
+    url: 'satin-alma.html', moduller: ['ic_talep','siparis_olustur','siparis_takip','fiyat_kontrol','tedarikci_skorkart','firma_yonetimi'], durum: 'aktif',
+    svg: '<circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.2 11.4a2 2 0 002 1.6h7.6a2 2 0 002-1.6L21 8H6"/>'
   },
   {
-    id: 'raporlar',
-    ad: 'Raporlar',
-    desc: 'Analiz, izleme, uygunsuzluk',
-    ikon: '📊',
-    renk: 'icon-yellow',
-    url: 'mal-kabul-izleme.html',
-    moduller: ['mal_kabul_kalite'],
-    durum: 'aktif'
+    id: 'raporlar', ad: 'Raporlar', desc: 'Analiz, izleme, uygunsuzluk',
+    url: 'mal-kabul-izleme.html', moduller: ['mal_kabul_kalite'], durum: 'aktif',
+    svg: '<path d="M4 20V10M12 20V4M20 20v-7"/>'
   },
   {
-    id: 'yonetim',
-    ad: 'Yönetim',
-    desc: 'Kullanıcılar, ayarlar, yedek',
-    ikon: '⚙️',
-    renk: 'icon-gray',
-    url: 'kullanici-yonetimi.html',
-    moduller: ['kullanici_yonetimi'],
-    durum: 'aktif'
+    id: 'yonetim', ad: 'Yönetim', desc: 'Kullanıcılar, ayarlar, yedek',
+    url: 'kullanici-yonetimi.html', moduller: ['kullanici_yonetimi'], durum: 'aktif',
+    svg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09A1.7 1.7 0 008 19.4a1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.55-1H3a2 2 0 010-4h.09A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06A1.7 1.7 0 008 4.6a1.7 1.7 0 001-1.55V3a2 2 0 014 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06A1.7 1.7 0 0019.4 9c.14.36.55 1 1.55 1H21a2 2 0 010 4h-.09a1.7 1.7 0 00-1.51 1z"/>'
   },
   {
-    id: 'muhasebe',
-    ad: 'Muhasebe',
-    desc: 'Cari, fatura, hesap planı',
-    ikon: '💰',
-    renk: 'icon-green',
-    url: 'muhasebe.html',
-    moduller: ['hesap_plani','cari_hesaplar','fatura_giris','fatura_onay','odeme_yapma','uc_yollu_eslestirme','yevmiye_fis_giris','yevmiye_fis_onay','banka_kasa','doviz_manuel','mizan_raporlar','denetim_izi','donem_kilitleme','demirbas_yonetimi','cek_senet_yonetimi','butce_yonetimi','sene_sonu_kapama','e_fatura','e_defter','muhasebe_asistan'],
-    durum: 'aktif'
+    id: 'muhasebe', ad: 'Muhasebe', desc: 'Cari, fatura, hesap planı',
+    url: 'muhasebe.html', moduller: ['hesap_plani','cari_hesaplar','fatura_giris','fatura_onay','odeme_yapma','uc_yollu_eslestirme','yevmiye_fis_giris','yevmiye_fis_onay','banka_kasa','doviz_manuel','mizan_raporlar','denetim_izi','donem_kilitleme','demirbas_yonetimi','cek_senet_yonetimi','butce_yonetimi','sene_sonu_kapama','e_fatura','e_defter','muhasebe_asistan'], durum: 'aktif',
+    svg: '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'
   },
   {
-    id: 'bar',
-    ad: 'F&B Bar',
-    desc: 'Müşteri kart, sipariş takip',
-    ikon: '🍹',
-    renk: 'icon-red',
-    url: 'bar.html',
-    moduller: ['bar_qr_siparis'],
-    durum: 'yapiyor'
+    id: 'bar', ad: 'F&B Bar', desc: 'Müşteri kart, sipariş takip',
+    url: 'bar.html', moduller: ['bar_qr_siparis'], durum: 'yapiyor',
+    svg: '<path d="M3 11l18-5v12L3 13z"/>'
   },
   {
-    id: 'gunlukTuketim',
-    ad: 'Günlük Tüketim',
-    desc: 'Bar/Mutfak günlük malzeme tüketimi',
-    ikon: '📉',
-    renk: 'icon-orange',
-    url: 'gunluk-tuketim.html',
-    moduller: ['gunluk_tuketim'],
-    durum: 'aktif'
+    id: 'gunlukTuketim', ad: 'Günlük Tüketim', desc: 'Bar/Mutfak günlük malzeme tüketimi',
+    url: 'gunluk-tuketim.html', moduller: ['gunluk_tuketim'], durum: 'aktif',
+    svg: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2.2"/>'
   },
   {
-    id: 'trendler',
-    ad: 'Trendler',
-    desc: 'Stok, tüketim ve food-cost eğilimleri',
-    ikon: '📈',
-    renk: 'icon-teal',
-    url: 'trend-raporlama.html',
-    moduller: ['trend_raporlama'],
-    durum: 'aktif'
+    id: 'trendler', ad: 'Trendler', desc: 'Stok, tüketim ve food-cost eğilimleri',
+    url: 'trend-raporlama.html', moduller: ['trend_raporlama'], durum: 'aktif',
+    svg: '<path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/>'
   }
 ];
 
@@ -590,48 +553,93 @@ async function showPortal() {
   document.getElementById('screen-login').classList.add('hidden');
   document.getElementById('screen-portal').classList.add('active');
 
-  // Header
+  // Topbar / sidebar kullanıcı bilgisi
   document.getElementById('header-user-name').textContent = u.ad;
-  document.getElementById('header-user-rol').textContent = (ROL_IKON[u.rol]||'👤') + ' ' + (ROL_AD[u.rol]||u.rol);
+  document.getElementById('header-user-rol').textContent = ROL_AD[u.rol] || u.rol;
+  document.getElementById('header-avatar').textContent = u.ad.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
 
   // Hoşgeldin
   document.getElementById('welcome-text').textContent = 'Hoş geldin, ' + u.ad.split(' ')[0];
-  document.getElementById('welcome-sub').textContent = ROL_AD[u.rol] + ' • ' + (u.departman||'');
+  document.getElementById('welcome-sub').textContent = (ROL_AD[u.rol]||u.rol) + ' • ' + (u.departman||'');
 
   // Tarih
   const now = new Date();
   document.getElementById('welcome-date').textContent =
     now.toLocaleDateString('tr-TR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 
-  // Modülleri render et — artık gerçek yetki_matrisi'ne göre
+  // Modülleri render et — gerçek yetki_matrisi'ne göre
   const yetkiHaritasi = await kullaniciYetkileriGetir();
-  renderModuller(yetkiHaritasi);
-}
-
-function renderModuller(yetkiHaritasi) {
-  const grid = document.getElementById('modules-grid');
   const izinliSeviyeler = ['goruntule','kayit','tam'];
   const gorunur = MODULLER.filter(m => m.moduller.some(kod => izinliSeviyeler.includes(yetkiHaritasi[kod])));
+  renderSidebar(gorunur);
+  renderModuleGrid(gorunur);
 
-  grid.innerHTML = gorunur.map(m => {
+  loadKpiler();
+}
+
+function iconSvg(pathData) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${pathData}</svg>`;
+}
+
+function renderSidebar(list) {
+  const nav = document.getElementById('sidebar-nav');
+  nav.innerHTML = `<a class="sidebar-item active" href="index.html">${iconSvg('<path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>')}Ana Sayfa</a>` +
+    list.map(m => {
+      const aktif = m.durum === 'aktif';
+      return aktif
+        ? `<a class="sidebar-item" href="${m.url}">${iconSvg(m.svg)}${m.ad}</a>`
+        : `<span class="sidebar-item disabled">${iconSvg(m.svg)}${m.ad}</span>`;
+    }).join('');
+}
+
+function renderModuleGrid(list) {
+  const grid = document.getElementById('modules-grid');
+  grid.innerHTML = list.map(m => {
     const aktif = m.durum === 'aktif';
+    const tag = aktif ? 'a' : 'div';
+    const hrefAttr = aktif ? ` href="${m.url}"` : '';
     return `
-      <div class="module-card ${aktif ? 'available' : 'coming-soon'}"
-        onclick="${aktif ? `gotoModule('${m.url}')` : 'void(0)'}">
-        <div class="module-icon ${m.renk}">${m.ikon}</div>
+      <${tag} class="module-card ${aktif ? 'available' : 'coming-soon'}"${hrefAttr}>
+        <div class="module-icon">${iconSvg(m.svg)}</div>
         <div>
           <div class="module-name">${m.ad}</div>
           <div class="module-desc">${m.desc}</div>
+          ${!aktif ? '<span class="module-soon-tag">Yakında</span>' : ''}
         </div>
-        ${!aktif ? '<span class="module-soon-tag">Yakında</span>' : ''}
-      </div>
+      </${tag}>
     `;
   }).join('');
 }
 
-function gotoModule(url) {
-  // Session'ı portal'dan aktararak modüle geç
-  window.location.href = url;
+// ============================================================
+// KPI ŞERİDİ — açık talep / bekleyen onay / SKT uyarısı / aktif kullanıcı.
+// Bir tablo RLS ile engelliyse ilgili kart "—" gösterir (0 değil — "veri
+// yok" ile "erişim engellendi" birbirine karışmasın diye).
+// ============================================================
+async function loadKpiler() {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('kpi-kullanici', users.length);
+  try {
+    const [tR, mR, sR] = await Promise.all([
+      fetch(SB_URL + '/rest/v1/satin_alma_talepleri?durum=eq.bekleyen&select=id', { headers: SB_HEADERS }),
+      fetch(SB_URL + '/rest/v1/mal_kabuller?durum=eq.bekleyen&select=id', { headers: SB_HEADERS }),
+      fetch(SB_URL + '/rest/v1/skt_kayitlari?durum=eq.aktif&select=skt_tarihi', { headers: SB_HEADERS }),
+    ]);
+    set('kpi-talep', tR.ok ? (await tR.json()).length : '—');
+    set('kpi-onay', mR.ok ? (await mR.json()).length : '—');
+    if (sR.ok) {
+      const bugun = new Date(); bugun.setHours(0,0,0,0);
+      const kritik = (await sR.json()).filter(r => {
+        const gun = Math.round((new Date(r.skt_tarihi) - bugun) / 86400000);
+        return gun >= 0 && gun < 14;
+      }).length;
+      set('kpi-skt', kritik);
+    } else {
+      set('kpi-skt', '—');
+    }
+  } catch (e) {
+    set('kpi-talep', '—'); set('kpi-onay', '—'); set('kpi-skt', '—');
+  }
 }
 
 function logout() {
