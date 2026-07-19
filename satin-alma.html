@@ -111,7 +111,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="brow" style="margin-bottom:10px">
       <button class="btn btn-sm btn-gray" onclick="talepleriExcelAktar()">📤 Excel'e Aktar</button>
-      <button class="btn btn-sm btn-gray" onclick="document.getElementById('talep-excel-input').click()">📥 Excel'den Yükle</button>
+      <button class="btn btn-sm btn-gray" id="talep-excel-yukle-btn" onclick="document.getElementById('talep-excel-input').click()" disabled>📥 Excel'den Yükle</button>
       <input type="file" id="talep-excel-input" accept=".xlsx,.xls" style="display:none" onchange="talepExcelYukle(event)">
     </div>
     <div id="talepler-liste"></div>
@@ -148,7 +148,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       </div>
       <div class="brow" style="margin-bottom:16px">
         <button class="btn btn-gray" onclick="spSifirla()">🗑️ Temizle</button>
-        <button class="btn btn-primary" onclick="spGrupla()">📦 Firma Bazlı Grupla →</button>
+        <button class="btn btn-primary" id="sp-grupla-btn" onclick="spGrupla()" disabled>📦 Firma Bazlı Grupla →</button>
       </div>
     </div>
     <!-- Adım 2: Firma Grupları -->
@@ -224,7 +224,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="brow" style="margin-bottom:16px">
       <button class="btn btn-gray" onclick="iadeSifirla()">🗑️ Temizle</button>
-      <button class="btn btn-danger" onclick="iadeOlustur()">↩️ İade Siparişi Oluştur</button>
+      <button class="btn btn-danger" id="iade-olustur-btn" onclick="iadeOlustur()" disabled>↩️ İade Siparişi Oluştur</button>
     </div>
 
     <div class="card">
@@ -260,7 +260,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div style="margin-top:14px;display:flex;gap:8px">
       <button class="btn btn-gray" onclick="kModal('mIadeDetay')">Kapat</button>
       <button class="btn btn-gray" onclick="iadeBelgeYazdir()">🖨️ Belge Yazdır</button>
-      <button class="btn btn-success" style="flex:1" id="iade-muhasebe-btn" onclick="iadeMuhasebeGonder()">📤 Muhasebe'ye Gönder</button>
+      <button class="btn btn-success" style="flex:1" id="iade-muhasebe-btn" onclick="iadeMuhasebeGonder()" disabled>📤 Muhasebe'ye Gönder</button>
     </div>
   </div>
 </div>
@@ -303,7 +303,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="field" style="margin-top:10px"><label>Not</label><input type="text" id="yt-not" placeholder="Opsiyonel..."></div>
     <div class="brow" style="margin-top:8px">
       <button class="btn btn-gray" onclick="kModal('mYeniTalep')">İptal</button>
-      <button class="btn btn-primary" onclick="ytKaydet()">📤 Talep Gönder</button>
+      <button class="btn btn-primary" id="yt-kaydet-btn" onclick="ytKaydet()" disabled>📤 Talep Gönder</button>
     </div>
   </div>
 </div>
@@ -315,7 +315,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="yeniden-siparis-liste" style="max-height:65vh;overflow-y:auto"></div>
     <div class="brow" style="margin-top:10px">
       <button class="btn btn-gray" onclick="kModal('mYenidenSiparis')">Kapat</button>
-      <button class="btn btn-primary" onclick="yenidenSiparisOlustur()">📤 Seçilenlerden Talep Oluştur</button>
+      <button class="btn btn-primary" id="yeniden-siparis-btn" onclick="yenidenSiparisOlustur()" disabled>📤 Seçilenlerden Talep Oluştur</button>
     </div>
   </div>
 </div>
@@ -377,6 +377,7 @@ const RIKSON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍',mutfak:
 
 let CU=null;
 let DB={talepler:{},siparisler:{},kullanicilar:[...TUSERS],firmalar:[],teklifler:{}};
+let YETKI_HARITASI = {};
 // SP_SATIRLAR aşağıda tanımlandı
 let talepFilter='tumu', teklifFilter='tumu';
 
@@ -2330,7 +2331,7 @@ function iadeDetayAc(siparisNo){
 
   const gonderildi=!!s.gonderildiMuhasebe;
   const btn=document.getElementById('iade-muhasebe-btn');
-  btn.disabled=false;
+  btn.disabled=!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur']);
   btn.textContent=gonderildi?'🔁 Tekrar Gönder (zaten gönderilmişti)':'📤 Muhasebe\'ye Gönder';
 
   aModal('mIadeDetay');
@@ -2553,6 +2554,14 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   CU = requireLogin();
   if(!CU) return;
   if(!requireRole(CU, ['yonetici','satinalma','depo','cost_control'])) return;
+  YETKI_HARITASI = await kullaniciYetkileriGetir();
+  const icTalepYaziYetkisi = ['kayit','tam'].includes(YETKI_HARITASI['ic_talep']);
+  const siparisOlusturYaziYetkisi = ['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur']);
+  document.getElementById('talep-excel-yukle-btn').disabled = !icTalepYaziYetkisi;
+  document.getElementById('yt-kaydet-btn').disabled = !icTalepYaziYetkisi;
+  document.getElementById('yeniden-siparis-btn').disabled = !icTalepYaziYetkisi;
+  document.getElementById('sp-grupla-btn').disabled = !siparisOlusturYaziYetkisi;
+  document.getElementById('iade-olustur-btn').disabled = !siparisOlusturYaziYetkisi;
   await loadDB();
   await hesaplaYetkiliAsamalar();
   basla();
