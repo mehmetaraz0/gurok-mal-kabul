@@ -176,7 +176,7 @@ function render(){
     durumEl.innerHTML=`<div class="durum-bar durum-yok">⚠️ Henüz hiç kur çekilmemiş. Otomatik güncelleme (GitHub Actions) ilk kez çalışana kadar aşağıdan manuel kur girebilirsin.</div>`;
   }else{
     const fark=gunFarki(guncelKur.tarih);
-    const sifirlaBtn=`<button onclick="bugunuSifirla()" style="background:none;border:1px solid currentColor;color:inherit;border-radius:14px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;margin-left:8px">🗑️ Bugünkü kaydı sıfırla</button>`;
+    const sifirlaBtn=`<button onclick="bugunuSifirla()" style="background:none;border:1px solid currentColor;color:inherit;border-radius:14px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;margin-left:8px" ${['kayit','tam'].includes(YETKI_HARITASI['doviz_manuel'])?'':'disabled'}>🗑️ Bugünkü kaydı sıfırla</button>`;
     if(fark===0){
       durumEl.innerHTML=`<div class="durum-bar durum-guncel">✅ Bugünün kuru güncel — ${guncelKur.tarihStr} (${guncelKur.kaynak==='TCMB'?'TCMB':'Manuel giriş'})${guncelKur.kaynak==='Manuel'?sifirlaBtn:''}</div>`;
     }else if(fark!==null&&fark<=3){
@@ -229,6 +229,7 @@ function render(){
 // BUGÜNÜN HATALI KAYDINI SIFIRLA
 // ============================================================
 async function bugunuSifirla(){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['doviz_manuel'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const today=new Date();
   const tarihKey=today.toISOString().split('T')[0];
   const oncekiTarihler=Object.keys(gunlukKurlar).filter(t=>t!==tarihKey).sort();
