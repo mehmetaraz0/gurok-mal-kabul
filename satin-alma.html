@@ -880,13 +880,13 @@ async function openTalepDetay(id){
       </div>`:''}
     ${t.durum==='onaylandi'?`
       <div class="brow" style="margin-top:8px">
-        <button class="btn btn-gray btn-sm" onclick="teklifIste('${id}')">📨 Teklif İste</button>
-        <button class="btn btn-info btn-sm" onclick="talepSipariseDonustur('${id}')">📦 Siparişe Dönüştür</button>
+        <button class="btn btn-gray btn-sm" onclick="teklifIste('${id}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>📨 Teklif İste</button>
+        <button class="btn btn-info btn-sm" onclick="talepSipariseDonustur('${id}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>📦 Siparişe Dönüştür</button>
       </div>`:''}
     ${t.durum==='bekleyen'&&t.asama==='depo'?`
       <div class="brow" style="margin-top:8px">
         <button class="btn btn-gray btn-sm" onclick="kalemExcelAktar('${id}')">📊 Excel'e Aktar</button>
-        <button class="btn btn-gray btn-sm" onclick="_kalemExcelAktifTalepId='${id}';document.getElementById('kalem-excel-input').click()">📥 Excel'den Yükle</button>
+        <button class="btn btn-gray btn-sm" onclick="_kalemExcelAktifTalepId='${id}';document.getElementById('kalem-excel-input').click()" ${['kayit','tam'].includes(YETKI_HARITASI['ic_talep'])?'':'disabled'}>📥 Excel'den Yükle</button>
       </div>`:''}
     <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTalepDetay')">Kapat</button>`;
   aModal('mTalepDetay');
@@ -917,6 +917,7 @@ async function talepKararVer(id,karar){
 }
 
 async function talepSipariseDonustur(id){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const t=DB.talepler[id];if(!t)return;
   // Sipariş Oluştur sekmesine geç, ürünleri oraya aktar (artık yapılandırılmış satırlardan — miktar/birim de gelir)
   kModal('mTalepDetay');
@@ -952,6 +953,7 @@ async function kalemExcelAktar(talepId){
 }
 
 async function kalemExcelYukle(event,talepId){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['ic_talep'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const file=event.target.files[0];if(!file)return;event.target.value='';
   const t=DB.talepler[talepId];if(!t)return;
   sLD();
@@ -1026,6 +1028,7 @@ async function kalemExcelUygula(talepId,mod,yazilacaklar){
 
 // ====== TEKLİFLER (RFQ) ======
 async function teklifIste(talepId){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const t=DB.talepler[talepId];if(!t)return;
   sLD();
   try{
@@ -1109,6 +1112,7 @@ function teklifTedarikciOnerileriGetir(kalemler){
 }
 
 async function teklifTedarikciEkle(teklifTalepId,firmaAd,firmaKodu){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   if(!firmaAd)return;
   const tk=DB.teklifler[teklifTalepId];
   if(tk&&tk.tedarikciler.some(f=>f.firmaAd===firmaAd)){toast('⚠️ Bu tedarikçi zaten eklenmiş');return;}
@@ -1146,13 +1150,13 @@ function openTeklifDetay(id){
     ${tk.durum==='acik'&&tk.tedarikciler.length?`
     <div class="brow" style="margin-bottom:12px">
       <button class="btn btn-sm btn-gray" onclick="teklifleriExcelAktar('${id}')">📤 Excel'e Aktar</button>
-      <button class="btn btn-sm btn-gray" onclick="document.getElementById('teklif-excel-input').click()">📥 Excel'den Yükle</button>
+      <button class="btn btn-sm btn-gray" onclick="document.getElementById('teklif-excel-input').click()" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>📥 Excel'den Yükle</button>
       <input type="file" id="teklif-excel-input" accept=".xlsx,.xls" style="display:none" onchange="teklifExcelYukle(event,'${id}')">
     </div>`:''}
     ${tk.durum==='acik'?`
     <div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase;margin-bottom:6px">Tedarikçi Ekle</div>
-      ${oneriler.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${oneriler.map(f=>`<button class="btn btn-sm btn-gray" onclick="teklifTedarikciEkle('${id}','${escapeHtml(f.ad).replace(/'/g,"\\'")}','${f.kod||''}')">➕ ${escapeHtml(f.ad)}</button>`).join('')}</div>`:''}
+      ${oneriler.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${oneriler.map(f=>`<button class="btn btn-sm btn-gray" onclick="teklifTedarikciEkle('${id}','${escapeHtml(f.ad).replace(/'/g,"\\'")}','${f.kod||''}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>➕ ${escapeHtml(f.ad)}</button>`).join('')}</div>`:''}
       <div style="position:relative">
         <input type="text" id="teklif-firma-ara-${id}" placeholder="Firma ara..." oninput="filterTeklifFirma('${id}',this.value)" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none">
         <div id="teklif-firma-dd-${id}" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--gray-300);border-radius:8px;max-height:200px;overflow-y:auto;z-index:10;display:none"></div>
@@ -1211,7 +1215,7 @@ function tedarikciTeklifGirModalAc(tedarikciTeklifId){
     <div id="tt-genel-toplam" style="font-size:14px;font-weight:800;margin-bottom:12px">— ₺</div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mTedarikciTeklif')">İptal</button>
-      <button class="btn btn-success" onclick="tedarikciTeklifKaydet('${tedarikciTeklifId}')">💾 Kaydet</button>
+      <button class="btn btn-success" onclick="tedarikciTeklifKaydet('${tedarikciTeklifId}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>💾 Kaydet</button>
     </div>`;
   ttFiyatToplamGuncelle(tk.id);
   aModal('mTedarikciTeklif');
@@ -1230,6 +1234,7 @@ function ttFiyatToplamGuncelle(teklifTalepId){
 }
 
 async function tedarikciTeklifKaydet(tedarikciTeklifId){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const bulunan=teklifBulByTedarikciId(tedarikciTeklifId);if(!bulunan)return;
   const{tk,f}=bulunan;
   sLD();
@@ -1286,6 +1291,7 @@ async function teklifleriExcelAktar(teklifTalepId){
 }
 
 async function teklifExcelYukle(event,teklifTalepId){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const file=event.target.files[0];if(!file)return;event.target.value='';
   const tk=DB.teklifler[teklifTalepId];if(!tk)return;
   sLD();
@@ -1412,12 +1418,13 @@ function renderTeklifKarsilastirma(teklifTalepId){
         ${satirlarHtml}
       </table>
     </div>
-    ${tk.durum==='acik'?`<button class="btn btn-success btn-block" onclick="teklifSecilenleriSiparisDonustur('${teklifTalepId}')">📦 Seçilenleri Siparişe Dönüştür</button>`:''}
+    ${tk.durum==='acik'?`<button class="btn btn-success btn-block" onclick="teklifSecilenleriSiparisDonustur('${teklifTalepId}')" ${['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])?'':'disabled'}>📦 Seçilenleri Siparişe Dönüştür</button>`:''}
     <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTeklifKarsilastirma')">Kapat</button>`;
   aModal('mTeklifKarsilastirma');
 }
 
 async function teklifSecilenleriSiparisDonustur(teklifTalepId){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const tk=DB.teklifler[teklifTalepId];if(!tk)return;
   const secimler=[]; // {kalem, tedarikciTeklifId, fiyat}
   tk.kalemler.forEach(k=>{
