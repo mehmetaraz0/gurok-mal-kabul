@@ -114,7 +114,7 @@ async function renderUygun(){
           ${r.faaliyet_aciklama?`<div style="margin-top:2px"><b>Faaliyet:</b> ${escapeHtml(r.faaliyet_aciklama)}</div>`:''}
           <div style="color:var(--gray-500);margin-top:2px">${r.faaliyet_yapan||''} ${r.faaliyet_tarih?'• '+r.faaliyet_tarih:''}</div>
         </div>
-        <button class="btn btn-primary btn-sm btn-block" style="margin-top:6px" onclick="uygunsuzlukYazdir('${r.id}')">🖨️ Formu Yazdır</button>`}
+        <button class="btn btn-primary btn-sm btn-block" style="margin-top:6px" onclick="uygunsuzlukYazdir('${r.id}')">Formu Yazdır</button>`}
   </div>`).join('');
 }
 function filterUygun(f,el){uygunFilter=f;document.querySelectorAll('#tab-uygun .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderUygun();}

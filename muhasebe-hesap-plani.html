@@ -128,7 +128,7 @@ td:first-child{min-width:90px}
   <!-- HEADER -->
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">← Muhasebe</button>
-    <h1>📊 Hesap Planı — Tekdüzen Hesap Planı (THP)</h1>
+    <h1>Hesap Planı — Tekdüzen Hesap Planı (THP)</h1>
     <button class="hbtn primary" onclick="openYeniHesap()">➕ Yeni Hesap</button>
     <button class="hbtn" onclick="thpYukle()">📥 THP Yükle</button>
     <button class="hbtn" onclick="gurokYukle()" style="background:#fce7f3">🏨 Gürok Özel</button>
@@ -138,13 +138,13 @@ td:first-child{min-width:90px}
   <!-- TOOLBAR -->
   <div class="toolbar">
     <button class="toolbar-btn primary" onclick="openYeniHesap()">Yeni Hesap</button>
-    <button class="toolbar-btn" onclick="openDuzenle()">✏️ Düzenle</button>
-    <button class="toolbar-btn" onclick="hesapSil()">🗑️ Sil</button>
+    <button class="toolbar-btn" onclick="openDuzenle()">Düzenle</button>
+    <button class="toolbar-btn" onclick="hesapSil()">Sil</button>
     <div class="toolbar-sep"></div>
     <button class="toolbar-btn" onclick="altHesapAc()">Alt Hesap Aç</button>
     <div class="toolbar-sep"></div>
-    <button class="toolbar-btn" onclick="tumunuAc()">⊞ Tümünü Aç</button>
-    <button class="toolbar-btn" onclick="tumunuKapat()">⊟ Tümünü Kapat</button>
+    <button class="toolbar-btn" onclick="tumunuAc()">Tümünü Aç</button>
+    <button class="toolbar-btn" onclick="tumunuKapat()">Tümünü Kapat</button>
     <div class="toolbar-sep"></div>
     <button class="toolbar-btn" onclick="hesapPlaniExcelAktar()">Toplu Düzenle — Aktar</button>
     <button class="toolbar-btn" id="hesap-plani-excel-yukle-btn" onclick="document.getElementById('hesap-plani-excel-input').click()" disabled>Toplu Düzenle — Yükle</button>
@@ -264,7 +264,7 @@ td:first-child{min-width:90px}
     <div class="field"><label>Açıklama</label><input type="text" id="h-aciklama" placeholder="Opsiyonel açıklama"></div>
     <div class="brow">
       <button class="btn btn-gray" onclick="kModal('mHesap')">İptal</button>
-      <button class="btn btn-danger" id="h-sil-btn" onclick="hesapSilModal()" style="display:none">🗑️ Sil</button>
+      <button class="btn btn-danger" id="h-sil-btn" onclick="hesapSilModal()" style="display:none">Sil</button>
       <button class="btn btn-primary" id="h-kaydet-btn" onclick="hesapKaydet()" disabled>Kaydet</button>
     </div>
   </div>

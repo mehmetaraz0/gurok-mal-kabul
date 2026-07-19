@@ -99,8 +99,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- MAL KABUL: Form (varsayılan) + Geçmiş Kayıtlar (toggle) -->
   <div class="sc" id="tab-liste" style="display:block">
     <div class="ftabs">
-      <button class="ftab active" id="mk-view-form-btn" onclick="mkSwitchView('form')">➕ Yeni Kabul</button>
-      <button class="ftab" id="mk-view-liste-btn" onclick="mkSwitchView('liste')">📜 Geçmiş Kayıtlar</button>
+      <button class="ftab active" id="mk-view-form-btn" onclick="mkSwitchView('form')">Yeni Kabul</button>
+      <button class="ftab" id="mk-view-liste-btn" onclick="mkSwitchView('liste')">Geçmiş Kayıtlar</button>
     </div>
 
     <!-- Yeni Kabul Formu -->
@@ -216,7 +216,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <div class="mo" id="mUrunDuzelt">
   <div class="mbox">
-    <div class="mtitle">✏️ Ürün Düzelt <button class="mclose" onclick="kModal('mUrunDuzelt')">✕</button></div>
+    <div class="mtitle">Ürün Düzelt <button class="mclose" onclick="kModal('mUrunDuzelt')">✕</button></div>
     <div id="mUrunDuzeltIc"></div>
     <div class="brow" id="mUrunDuzeltActions" style="margin-top:14px"></div>
   </div>
@@ -1023,7 +1023,7 @@ function openDetay(id){
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mDetay')">Kapat</button>
       ${f.durum==='onaylandi'?`<button class="btn btn-primary btn-sm" style="flex:1" onclick="kModal('mDetay');kabulOzetAc('${f.id}')">Kabul Sayfası</button>`:''}
-      ${f.durum==='onaylandi'?`<button class="btn btn-warning btn-sm" style="flex:1" onclick="duzeltmeModuAc('${f.id}')">✏️ Düzelt</button>`:''}
+      ${f.durum==='onaylandi'?`<button class="btn btn-warning btn-sm" style="flex:1" onclick="duzeltmeModuAc('${f.id}')">Düzelt</button>`:''}
     </div>`;
   aModal('mDetay');
 }
@@ -1419,8 +1419,8 @@ function kabulOzetAc(id,onayBilgisi){
 
   document.getElementById('mKabulOzetActions').innerHTML=`
     <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mKabulOzet')">Kapat</button>
-    <button class="btn btn-sm" style="flex:1;background:#ede9fe;color:#5b21b6" onclick="koliEtiketYazdir('${id}')">🏷️ Koli Etiketleri</button>
-    <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.print()">🖨️ Yazdır</button>
+    <button class="btn btn-sm" style="flex:1;background:#ede9fe;color:#5b21b6" onclick="koliEtiketYazdir('${id}')">Koli Etiketleri</button>
+    <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.print()">Yazdır</button>
   `;
   aModal('mKabulOzet');
 }

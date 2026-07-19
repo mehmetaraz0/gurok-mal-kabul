@@ -89,7 +89,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- BİLANÇO -->
   <div class="sc" id="tab-bilanco">
     <div class="card no-print">
-      <div class="card-title">⚖️ Bilanço</div>
+      <div class="card-title">Bilanço</div>
       <p style="font-size:11px;color:var(--gray-500);margin-bottom:8px">Hesapların kümülatif (tüm zamanlar) bakiyesi — belirli bir tarihe kadar.</p>
       <div class="field"><label>Tarih (bu tarihe kadar)</label><input type="date" id="bl-tarih" onchange="renderBilanco()"></div>
     </div>
@@ -479,7 +479,7 @@ function renderEkstre(){
       <div style="font-size:11px;color:var(--gray-500)">DÖNEM SONU BAKİYE</div>
       <div style="font-size:22px;font-weight:800;color:${bakiye>0?'var(--danger)':bakiye<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(bakiye))} ₺ ${bakiye>0?'(Borçlu)':bakiye<0?'(Alacaklı)':''}</div>
     </div>`:'<div class="es"><div class="ei">📄</div><div class="et">Bu dönemde hareket yok</div></div>'}
-    <button class="btn btn-primary btn-block no-print" style="margin-top:8px" onclick="window.print()">🖨️ Yazdır</button>`;
+    <button class="btn btn-primary btn-block no-print" style="margin-top:8px" onclick="window.print()">Yazdır</button>`;
 }
 
 // ============================================================

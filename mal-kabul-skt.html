@@ -56,11 +56,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="stats-grid" id="skt-stats" style="grid-template-columns:repeat(2,1fr)"></div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterSkt('tumu',this)">Tümü (Aktif)</button>
-      <button class="ftab" onclick="filterSkt('gecmis',this)">⛔ Geçmiş</button>
+      <button class="ftab" onclick="filterSkt('gecmis',this)">Geçmiş</button>
       <button class="ftab" onclick="filterSkt('kritik',this)">🔴 Kritik</button>
       <button class="ftab" onclick="filterSkt('uyari',this)">🟡 Uyarı</button>
       <button class="ftab" onclick="filterSkt('tuketildi',this)">✅ Tüketildi</button>
-      <button class="ftab" onclick="filterSkt('imha_edildi',this)">🗑️ İmha Edildi</button>
+      <button class="ftab" onclick="filterSkt('imha_edildi',this)">İmha Edildi</button>
     </div>
     <div id="skt-icerik"></div>
   </div>
@@ -143,7 +143,7 @@ async function renderSkt(){
       <div style="font-size:12px;font-weight:700;color:${renk};margin-top:4px">${gunMetni}</div>
       ${r.durum==='aktif'?`<div class="brow" style="margin-top:8px">
         <button class="btn btn-gray btn-sm" onclick="sktDurumDegistir('${r.id}','tuketildi')">✅ Tüketildi</button>
-        <button class="btn btn-danger btn-sm" onclick="sktDurumDegistir('${r.id}','imha_edildi')">🗑️ İmha Et</button>
+        <button class="btn btn-danger btn-sm" onclick="sktDurumDegistir('${r.id}','imha_edildi')">İmha Et</button>
       </div>`:''}
     </div>`;
   }).join('');

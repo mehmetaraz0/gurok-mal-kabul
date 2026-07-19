@@ -69,7 +69,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <div class="sc" id="tab-iade">
     <div class="card">
-      <div class="card-title">↩️ Yeni İade Siparişi</div>
+      <div class="card-title">Yeni İade Siparişi</div>
       <div class="rfields" style="margin-bottom:8px">
         <div class="field"><label>Otel *</label>
           <select id="iade-otel">
@@ -107,8 +107,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div id="iade-satirlar"></div>
     </div>
     <div class="brow" style="margin-bottom:16px">
-      <button class="btn btn-gray" onclick="iadeSifirla()">🗑️ Temizle</button>
-      <button class="btn btn-danger" id="iade-olustur-btn" onclick="iadeOlustur()" disabled>↩️ İade Siparişi Oluştur</button>
+      <button class="btn btn-gray" onclick="iadeSifirla()">Temizle</button>
+      <button class="btn btn-danger" id="iade-olustur-btn" onclick="iadeOlustur()" disabled>İade Siparişi Oluştur</button>
     </div>
 
     <div class="card">
@@ -128,11 +128,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- MODAL: İade Detay / Fiyat Belirle -->
 <div class="mo" id="mIadeDetay">
   <div class="mbox" style="max-height:95vh">
-    <div class="mtitle">↩️ İade Siparişi <button class="mclose" onclick="kModal('mIadeDetay')">✕</button></div>
+    <div class="mtitle">İade Siparişi <button class="mclose" onclick="kModal('mIadeDetay')">✕</button></div>
     <div id="iade-modal-content"></div>
     <div style="margin-top:14px;display:flex;gap:8px">
       <button class="btn btn-gray" onclick="kModal('mIadeDetay')">Kapat</button>
-      <button class="btn btn-gray" onclick="iadeBelgeYazdir()">🖨️ Belge Yazdır</button>
+      <button class="btn btn-gray" onclick="iadeBelgeYazdir()">Belge Yazdır</button>
       <button class="btn btn-success" style="flex:1" id="iade-muhasebe-btn" onclick="iadeMuhasebeGonder()" disabled>Muhasebe'ye Gönder</button>
     </div>
   </div>

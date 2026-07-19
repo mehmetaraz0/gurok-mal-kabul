@@ -105,8 +105,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterCari('tumu',this)">Tümü</button>
-      <button class="ftab" onclick="filterCari('tedarikci',this)">🏭 Tedarikçi</button>
-      <button class="ftab" onclick="filterCari('musteri',this)">👤 Müşteri</button>
+      <button class="ftab" onclick="filterCari('tedarikci',this)">Tedarikçi</button>
+      <button class="ftab" onclick="filterCari('musteri',this)">Müşteri</button>
       <button class="ftab" onclick="filterCari('borc',this)">🔴 Borçlular</button>
       <button class="ftab" onclick="filterCari('alacak',this)">🟢 Alacaklılar</button>
     </div>
@@ -151,8 +151,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Vadesi geçmiş borç/alacakları gün bazında gruplar. Sadece ödenmemiş faturalara bağlı ya da açık (durumu belli olmayan) hareketler dahildir — ödenmiş/iptal faturaların hareketleri hariç tutulur.</p>
       <div class="ftabs">
         <button class="ftab active" onclick="filterYaslandirma('tumu',this)">Tümü</button>
-        <button class="ftab" onclick="filterYaslandirma('tedarikci',this)">🏭 Tedarikçi (Borç)</button>
-        <button class="ftab" onclick="filterYaslandirma('musteri',this)">👤 Müşteri (Alacak)</button>
+        <button class="ftab" onclick="filterYaslandirma('tedarikci',this)">Tedarikçi (Borç)</button>
+        <button class="ftab" onclick="filterYaslandirma('musteri',this)">Müşteri (Alacak)</button>
       </div>
     </div>
     <div class="stats-grid" id="yasl-stats" style="grid-template-columns:repeat(5,1fr)"></div>
@@ -582,7 +582,7 @@ function openCariDetay(id){
       </div>`).join('')}
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray btn-sm" onclick="kModal('mCariDetay')">Kapat</button>
-      <button class="btn btn-primary btn-sm" onclick="kModal('mCariDetay');openDuzenleCari('${id}')">✏️ Düzenle</button>
+      <button class="btn btn-primary btn-sm" onclick="kModal('mCariDetay');openDuzenleCari('${id}')">Düzenle</button>
       <button class="btn btn-success btn-sm" onclick="kModal('mCariDetay');openHareket('${id}')">Hareket</button>
     </div>`;
   aModal('mCariDetay');
