@@ -91,7 +91,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="tabbtn" onclick="location.href='satin-alma-siparisler.html'">📦 LN Siparişler</button>
     <button class="tabbtn" onclick="gTab('yeniSiparis',this)">✉️ Sipariş Oluştur</button>
     <button class="tabbtn" onclick="location.href='satin-alma-firmalar.html'">🏢 Firmalar</button>
-    <button class="tabbtn" onclick="gTab('siparisTakip',this)">📊 Sipariş Takip</button>
+    <button class="tabbtn" onclick="location.href='satin-alma-siparistakip.html'">📊 Sipariş Takip</button>
     <button class="tabbtn" onclick="location.href='satin-alma-fiyatkontrol.html'">💰 Fiyat Kontrolü</button>
     <button class="tabbtn" onclick="gTab('iade',this)">↩️ İade</button>
     <button class="tabbtn" onclick="location.href='satin-alma-skorkart.html'">⭐ Tedarikçi Skor Kartı</button>
@@ -161,24 +161,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       </div>
       <div id="sp-gruplar"></div>
     </div>
-  </div>
-
-  <!-- FİRMALAR -->
-  <!-- SİPARİŞ TAKİP -->
-  <div class="sc" id="tab-siparisTakip">
-    <div class="card">
-      <div class="card-title">📊 Sipariş Takip
-        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="loadSiparisTakip()">🔄 Yenile</button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px" id="st-stats"></div>
-    </div>
-    <div class="ftabs">
-      <button class="ftab active" id="st-tab-bekleyen" onclick="filterSiparisTakip('bekleyen',this)">⏳ Bekleyen</button>
-      <button class="ftab" id="st-tab-kismi" onclick="filterSiparisTakip('kismi',this)">🔶 Kısmen Geldi</button>
-      <button class="ftab" id="st-tab-tamamlandi" onclick="filterSiparisTakip('tamamlandi',this)">✅ Tamamlandı</button>
-      <button class="ftab" id="st-tab-tumu" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
-    </div>
-    <div id="siparis-takip-liste"></div>
   </div>
 
   <!-- FİYAT KONTROLÜ PANELİ -->
@@ -463,7 +445,6 @@ function gTab(tab,el){
   if(el2)el2.style.display='block';
   if(el)el.classList.add('active');
   if(tab==='talepler')renderTalepler();
-  if(tab==='siparisTakip')loadSiparisTakip();
   if(tab==='yeniSiparis'){
     document.getElementById('sp-tarih').value=new Date().toISOString().split('T')[0];
     document.getElementById('sp-termin').value='';
@@ -1764,147 +1745,6 @@ function spMail(gi){
 
 function spMailGonder(){spMail(0);}// eski referans için
 
-// ============================================================
-// SİPARİŞ TAKİP — siparisHavuzu'ndan okur
-// ============================================================
-let _stFilter='bekleyen';
-let _siparisHavuzuData={};
-
-async function loadSiparisTakip(){
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/siparisler?select=*,siparis_kalemleri(*)',{headers:SB_HEADERS});
-    if(r.ok){
-      const rows=await r.json();
-      _siparisHavuzuData={};
-      rows.forEach(row=>{_siparisHavuzuData[row.siparis_no]=siparisSbdenCamele(row);});
-    }
-  }catch(e){}
-  renderSiparisTakip();
-}
-
-function filterSiparisTakip(f,el){
-  _stFilter=f;
-  document.querySelectorAll('#tab-siparisTakip .ftab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  renderSiparisTakip();
-}
-
-function renderSiparisTakip(){
-  const tumSiparisler=Object.values(_siparisHavuzuData).filter(s=>s&&!s.rezerve);
-
-  // Stats
-  const bek=tumSiparisler.filter(s=>s.durum==='bekleyen').length;
-  const kis=tumSiparisler.filter(s=>s.durum==='kismi').length;
-  const tam=tumSiparisler.filter(s=>s.durum==='tamamlandi').length;
-  document.getElementById('st-stats').innerHTML=`
-    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-      <div style="font-size:18px;font-weight:800;color:var(--warning)">${bek}</div>
-      <div style="font-size:10px;color:var(--gray-500)">BEKLEYEN</div>
-    </div>
-    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-      <div style="font-size:18px;font-weight:800;color:#92400e">${kis}</div>
-      <div style="font-size:10px;color:var(--gray-500)">KISMİ</div>
-    </div>
-    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
-      <div style="font-size:18px;font-weight:800;color:var(--success)">${tam}</div>
-      <div style="font-size:10px;color:var(--gray-500)">TAMAM</div>
-    </div>`;
-
-  let liste=tumSiparisler;
-  if(_stFilter!=='tumu')liste=tumSiparisler.filter(s=>s.durum===_stFilter);
-  liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
-
-  const c=document.getElementById('siparis-takip-liste');
-  if(!liste.length){
-    c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:var(--gray-400)">
-      <div style="font-size:40px;margin-bottom:12px">📦</div>
-      <div style="font-size:13px">${_stFilter==='bekleyen'?'Bekleyen sipariş yok':'Kayıt bulunamadı'}</div>
-      <div style="font-size:11px;margin-top:6px;color:var(--gray-300)">Sipariş oluşturmak için "Sipariş Oluştur" sekmesini kullanın</div>
-    </div>`;
-    return;
-  }
-
-  const durumChip={
-    bekleyen:'<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ Bekliyor</span>',
-    kismi:'<span style="background:#fed7aa;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🔶 Kısmen Geldi</span>',
-    tamamlandi:'<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">✅ Tamamlandı</span>',
-    iptal:'<span style="background:#fde8e8;color:#9b1c1c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">❌ İptal</span>'
-  };
-
-  c.innerHTML=liste.map(s=>{
-    const kalemler=s.kalemler||[];
-    const toplamKalem=kalemler.length;
-    const gelenKalem=kalemler.filter(k=>k.kalanMiktar<=0.01).length;
-    const yuzde=toplamKalem>0?Math.round(gelenKalem/toplamKalem*100):0;
-    const eksikler=kalemler.filter(k=>k.kalanMiktar>0.01);
-
-    return`<div class="card" style="margin-bottom:8px;border-left:4px solid ${s.durum==='tamamlandi'?'var(--success)':s.durum==='kismi'?'var(--warning)':'var(--danger)'};cursor:pointer" onclick="stDetayAc('${s.siparisNo}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
-        <div>
-          <div style="font-size:13px;font-weight:700;color:var(--primary)">${s.firma||'—'}</div>
-          <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
-            <span style="font-family:monospace;font-weight:700;color:#5b21b6">${s.siparisNo}</span>
-            ${s.tarih?' • '+s.tarih:''}
-            ${s.olusturanAd?' • '+s.olusturanAd:''}
-          </div>
-        </div>
-        ${durumChip[s.durum]||''}
-      </div>
-      <!-- Progress bar -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="flex:1;height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${yuzde}%;background:${s.durum==='tamamlandi'?'var(--success)':s.durum==='kismi'?'var(--warning)':'var(--danger)'};transition:width .3s"></div>
-        </div>
-        <span style="font-size:11px;color:var(--gray-500);flex-shrink:0">${gelenKalem}/${toplamKalem} kalem</span>
-      </div>
-      ${eksikler.length&&s.durum!=='tamamlandi'?`
-        <div style="font-size:11px;color:var(--danger);font-weight:600;margin-bottom:4px">⚠️ Bekleyen kalemler:</div>
-        ${eksikler.slice(0,3).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — Sipariş: ${k.miktar} ${k.birim}${k.gelenMiktar>0?' | Gelen: '+k.gelenMiktar+' | Kalan: '+k.kalanMiktar:''}</div>`).join('')}
-        ${eksikler.length>3?`<div style="font-size:11px;color:var(--gray-400)">+${eksikler.length-3} kalem daha...</div>`:''}
-      `:''}
-    </div>`;
-  }).join('');
-}
-
-function stDetayAc(siparisNo){
-  const s=_siparisHavuzuData[siparisNo];if(!s)return;
-  const kalemler=s.kalemler||[];
-
-  // Modal gibi kullanmak için basit popup
-  const popup=window.open('','siparis_detay','width=600,height=700');
-  if(!popup)return;
-  popup.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>${siparisNo}</title>
-  <style>body{font-family:-apple-system,sans-serif;padding:20px;background:#f1f3f5}
-  h2{color:#1a2744;margin-bottom:4px}
-  .sub{color:#6c757d;font-size:13px;margin-bottom:16px}
-  table{width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-  th{background:#1a2744;color:white;padding:8px 12px;text-align:left;font-size:12px}
-  td{padding:8px 12px;border-bottom:1px solid #eee;font-size:12px}
-  .ok{color:#27ae60;font-weight:700} .warn{color:#e74c3c;font-weight:700}
-  .chip{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
-  </style></head><body>
-  <h2>${s.firma}</h2>
-  <div class="sub">${siparisNo} • ${s.tarih||'—'} • ${s.olusturanAd||''}</div>
-  <table>
-    <thead><tr><th>#</th><th>Ürün</th><th>Sipariş</th><th>Gelen</th><th>Kalan</th><th>Durum</th></tr></thead>
-    <tbody>
-      ${kalemler.map((k,i)=>{
-        const tamam=(k.kalanMiktar||0)<=0.01;
-        return`<tr>
-          <td>${i+1}</td>
-          <td><b>${k.ad}</b><br><span style="font-family:monospace;font-size:10px;color:#6c757d">${k.kod||''}</span></td>
-          <td>${k.miktar} ${k.birim}</td>
-          <td class="${(k.gelenMiktar||0)>0?'ok':''}">${k.gelenMiktar||0} ${k.birim}</td>
-          <td class="${tamam?'ok':'warn'}">${k.kalanMiktar||k.miktar} ${k.birim}</td>
-          <td>${tamam?'<span class="chip" style="background:#d4edda;color:#155724">✅ Tamam</span>':'<span class="chip" style="background:#fde8e8;color:#9b1c1c">⏳ Bekliyor</span>'}</td>
-        </tr>`;
-      }).join('')}
-    </tbody>
-  </table>
-  </body></html>`);
-  popup.document.close();
-}
 
 
 
