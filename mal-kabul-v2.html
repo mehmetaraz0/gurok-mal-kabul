@@ -90,7 +90,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="tab-bar">
     <button class="tabbtn active" onclick="gTab('liste',this)">📥 Mal Kabul</button>
     <button class="tabbtn" onclick="gTab('kalite',this)">✅ Kalite Onayı <span class="badge" id="bkalite" style="display:none"></span></button>
-    <button class="tabbtn" onclick="gTab('skt',this)">📅 SKT Takip <span class="badge" id="bskt" style="display:none"></span></button>
+    <button class="tabbtn" onclick="location.href='mal-kabul-skt.html'">📅 SKT Takip</button>
     <button class="tabbtn" onclick="gTab('uygun',this)">⚠️ Uygunsuzluk</button>
     <button class="tabbtn" onclick="location.href='mal-kabul-siparistakip.html'">📦 Sipariş Takip</button>
     <button class="tabbtn" onclick="gTab('esleme',this)">📊 İzleme</button>
@@ -185,18 +185,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 
   <!-- SKT TAKİP -->
-  <div class="sc" id="tab-skt">
-    <div class="stats-grid" id="skt-stats" style="grid-template-columns:repeat(2,1fr)"></div>
-    <div class="ftabs">
-      <button class="ftab active" onclick="filterSkt('tumu',this)">Tümü (Aktif)</button>
-      <button class="ftab" onclick="filterSkt('gecmis',this)">⛔ Geçmiş</button>
-      <button class="ftab" onclick="filterSkt('kritik',this)">🔴 Kritik</button>
-      <button class="ftab" onclick="filterSkt('uyari',this)">🟡 Uyarı</button>
-      <button class="ftab" onclick="filterSkt('tuketildi',this)">✅ Tüketildi</button>
-      <button class="ftab" onclick="filterSkt('imha_edildi',this)">🗑️ İmha Edildi</button>
-    </div>
-    <div id="skt-icerik"></div>
-  </div>
 
   <!-- UYGUNSUZLUK -->
   <div class="sc" id="tab-uygun">
@@ -350,7 +338,7 @@ const ROL_INDIRGEME={yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalit
 
 let currentUser=null;
 let malKabuller={}, siparisler={}, urunler=[], cariler=[], uygunsuzluklarAcik={};
-let listeFilter='tumu', sktFilter='tumu', uygunFilter='acik', eslemeFilter='tumu';
+let listeFilter='tumu', uygunFilter='acik', eslemeFilter='tumu';
 let formKalemleri=[];
 let formOtelId='810', previewMkNo='';
 
@@ -409,7 +397,6 @@ async function initApp(){
   await loadDB();
   mkSwitchView('form');
   renderKaliteOnay(); // bkalite rozetini güncellemek için arka planda
-  renderSkt();        // bskt rozetini güncellemek için arka planda
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('exp-bas').value=today;
   document.getElementById('exp-bit').value=today;
@@ -1582,87 +1569,6 @@ async function koliEtiketYazdir(mkId){
 }
 
 // ============================================================
-// SKT TAKİP
-// ============================================================
-async function renderSkt(){
-  sLD();
-  let rows=[];
-  try{
-    const r=await fetch(SB_URL+`/rest/v1/skt_kayitlari?select=*&order=skt_tarihi.asc`,{headers:SB_HEADERS});
-    if(r.ok)rows=await r.json();
-  }catch(e){}
-  hLD();
-
-  const bugun=new Date();bugun.setHours(0,0,0,0);
-  rows.forEach(r=>{r._gun=Math.round((new Date(r.skt_tarihi)-bugun)/86400000);});
-
-  const aktif=rows.filter(r=>r.durum==='aktif');
-  const gecmis=aktif.filter(r=>r._gun<0);
-  const kritik=aktif.filter(r=>r._gun>=0&&r._gun<14);
-  const uyari=aktif.filter(r=>r._gun>=14&&r._gun<30);
-  const tuketildi=rows.filter(r=>r.durum==='tuketildi');
-  const imha=rows.filter(r=>r.durum==='imha_edildi');
-
-  document.getElementById('skt-stats').innerHTML=`
-    <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${gecmis.length}</div><div class="stat-lbl">⛔ Süresi Geçmiş</div></div>
-    <div class="stat-kart"><div class="stat-num" style="color:#dc2626">${kritik.length}</div><div class="stat-lbl">🔴 Kritik (&lt;14g)</div></div>
-    <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${uyari.length}</div><div class="stat-lbl">🟡 Uyarı (14-30g)</div></div>
-    <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${tuketildi.length}</div><div class="stat-lbl">✅ Tüketildi</div></div>`;
-
-  const bskt=document.getElementById('bskt');
-  if(bskt){
-    const acilSayi=gecmis.length+kritik.length;
-    bskt.textContent=acilSayi;
-    bskt.style.display=acilSayi>0?'inline-block':'none';
-  }
-
-  let list;
-  if(sktFilter==='gecmis')list=gecmis;
-  else if(sktFilter==='kritik')list=kritik;
-  else if(sktFilter==='uyari')list=uyari;
-  else if(sktFilter==='tuketildi')list=tuketildi;
-  else if(sktFilter==='imha_edildi')list=imha;
-  else list=aktif; // tumu = tüm aktifler
-
-  list=[...list].sort((a,b)=>a._gun-b._gun);
-
-  const c=document.getElementById('skt-icerik');
-  if(!list.length){c.innerHTML='<div class="es"><div class="ei">✅</div><div class="et">Kayıt yok</div></div>';return;}
-  c.innerHTML=list.map(r=>{
-    const gun=r._gun;
-    const isTuketildi=r.durum==='tuketildi', isImha=r.durum==='imha_edildi';
-    let renk,chip;
-    if(isTuketildi){renk='var(--success)';chip='<span class="chip chip-green">✅ Tüketildi</span>';}
-    else if(isImha){renk='var(--gray-500)';chip='<span class="chip chip-gray">🗑️ İmha Edildi</span>';}
-    else if(gun<0){renk='var(--danger)';chip='<span class="chip chip-red">⛔ Geçmiş</span>';}
-    else if(gun<14){renk='#dc2626';chip='<span class="chip chip-red">🔴 Kritik</span>';}
-    else if(gun<30){renk='var(--warning)';chip='<span class="chip chip-yellow">🟡 Uyarı</span>';}
-    else{renk='var(--gray-400)';chip='<span class="chip chip-gray">🟢 Normal</span>';}
-    const urun=urunler.find(u=>u.kod===r.urun_kodu);
-    const gunMetni=isTuketildi?'Tüketildi':isImha?'İmha edildi':(gun<0?Math.abs(gun)+' gün geçti':gun+' gün kaldı');
-    return`<div class="mk-kart" style="border-left-color:${renk}">
-      <div style="display:flex;justify-content:space-between;gap:6px">
-        <div><div style="font-size:13px;font-weight:700">${urun?.ad||r.urun_kodu||'—'}</div><div style="font-size:11px;color:var(--gray-500)">${r.miktar} adet/kg</div></div>
-        <div style="text-align:right">${chip}<div style="font-size:10px;color:var(--gray-400);margin-top:2px">${r.skt_tarihi}</div></div>
-      </div>
-      <div style="font-size:12px;font-weight:700;color:${renk};margin-top:4px">${gunMetni}</div>
-      ${r.durum==='aktif'?`<div class="brow" style="margin-top:8px">
-        <button class="btn btn-gray btn-sm" onclick="sktDurumDegistir('${r.id}','tuketildi')">✅ Tüketildi</button>
-        <button class="btn btn-danger btn-sm" onclick="sktDurumDegistir('${r.id}','imha_edildi')">🗑️ İmha Et</button>
-      </div>`:''}
-    </div>`;
-  }).join('');
-}
-async function sktDurumDegistir(id,durum){
-  sLD();
-  try{await fetch(SB_URL+'/rest/v1/skt_kayitlari?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum})});}catch(e){}
-  await auditLogYaz('update','skt',id,`SKT durumu değişti: ${durum}`);
-  hLD();renderSkt();
-  toast('✅ Güncellendi');
-}
-function filterSkt(f,el){sktFilter=f;document.querySelectorAll('#tab-skt .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderSkt();}
-
-// ============================================================
 // UYGUNSUZLUK
 // ============================================================
 let uygunCache={};
@@ -2284,7 +2190,6 @@ function gTab(tab,el){
   el.classList.add('active');
   if(tab==='liste')mkSwitchView('form');
   if(tab==='kalite')renderKaliteOnay();
-  if(tab==='skt')renderSkt();
   if(tab==='uygun')renderUygun();
   if(tab==='esleme')izlemeSwitchTab('analiz');
 }
