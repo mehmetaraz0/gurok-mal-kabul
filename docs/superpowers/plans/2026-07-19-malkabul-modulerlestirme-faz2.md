@@ -15,37 +15,41 @@ ve plan dosyası (`C:\Users\mta-1\.claude\plans\flickering-giggling-koala.md`).
 
 - [x] Bu iki dosya.
 
-### Task 2: İzleme → `mal-kabul-izleme.html`
+### Task 2: İzleme → `mal-kabul-izleme.html` ✅
 
-- [ ] Taşı (en düşük risk, hiçbir yazma işlemi yok), `mkSbdenCamele()`
+- [x] Taşı (en düşük risk, hiçbir yazma işlemi yok), `mkSbdenCamele()`
   kopyalandı, kendi 2-fetch `loadDB()`. `openDetay(id)` çağrıları
   `location.href='mal-kabul-liste.html?detay='+id` Bridge'ine çevrildi.
-- [ ] Statik grep + tarayıcı testi.
-- [ ] Commit.
+- [x] Statik grep + tarayıcı testi.
+- [x] Commit (47e7a54).
 
-### Task 3: Liste + Kalite → `mal-kabul-liste.html`
+### Task 3: Liste + Kalite → `mal-kabul-liste.html` ✅
 
-- [ ] Taşı (paylaşılan çekirdek bölünmeden birlikte), `?detay=<id>` ve
+- [x] Taşı (paylaşılan çekirdek bölünmeden birlikte), `?detay=<id>` ve
   `?tab=kalite` bridge alıcıları eklendi. `gTab()` liste/kalite'ye
   indirgendi. `initApp()`'teki hash-yönlendirme bloğu kaldırıldı.
-- [ ] Statik grep + tarayıcı testi.
-- [ ] Commit.
+- [x] Statik grep + tarayıcı testi (fabrike kayıtla `openDetay`,
+  `?tab=kalite`, `?detay=` bridge'i canlı doğrulandı).
+- [x] Commit (4f74b02).
 
-### Task 4: `mal-kabul-v2.html` → hub
+### Task 4: `mal-kabul-v2.html` → hub ✅
 
-- [ ] Tüm iş mantığı silinir, 7 kartlık statik hub (satin-alma.html
+- [x] Tüm iş mantığı silinir, 7 kartlık statik hub (satin-alma.html
   deseni).
-- [ ] Statik grep + tarayıcı testi.
-- [ ] Commit.
+- [x] Statik grep + tarayıcı testi.
+- [x] Commit (713613b).
 
-### Task 5: `index.html` güncelle
+### Task 5: `index.html` güncelle ✅
 
-- [ ] "Raporlar" kartının `url`'i `mal-kabul-izleme.html` olur.
-- [ ] Tarayıcı testi.
-- [ ] Commit.
+- [x] "Raporlar" kartının `url`'i `mal-kabul-izleme.html` olur.
+- [x] Tarayıcı testi.
+- [x] Commit (ac2a3b5).
 
-### Task 6: Uçtan uca regresyon + rapor
+### Task 6: Uçtan uca regresyon + rapor ✅
 
-- [ ] Liste, Kalite onay+reddet, İzleme→Liste detay bridge, hub
-  kartlarının hepsi, index.html linki.
-- [ ] Rapor.
+- [x] Liste, Kalite onay+reddet (fonksiyon gövdesinde İzleme referansı
+  kalmadığı doğrulandı), İzleme→Liste detay bridge (fabrike kayıtla
+  gerçek tıklama + URL doğrulandı), hub kartlarının hepsi (7/7 doğru
+  href), index.html linki, 4 dokunulmamış Faz 1 dosyası (SKT/
+  Uygunsuzluk/Sipariş Takip/LN Export) konsol hatasız yüklendi.
+- [x] Rapor.
