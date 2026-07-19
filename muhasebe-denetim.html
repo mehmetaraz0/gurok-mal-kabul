@@ -242,7 +242,7 @@ function renderDonemler(){
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="chip ${d.durum==='kapali'?'chip-gray':'chip-green'}">${d.durum==='kapali'?'🔒 Kapalı':'🔓 Açık'}</span>
-        <button class="btn btn-sm ${d.durum==='kapali'?'btn-success':'btn-warning'}" onclick="donemDurumDegistir('${d.id}','${d.durum==='kapali'?'acik':'kapali'}')">
+        <button class="btn btn-sm ${d.durum==='kapali'?'btn-success':'btn-warning'}" onclick="donemDurumDegistir('${d.id}','${d.durum==='kapali'?'acik':'kapali'}')" ${['kayit','tam'].includes(YETKI_HARITASI['donem_kilitleme'])?'':'disabled'}>
           ${d.durum==='kapali'?'Aç':'Kapat'}
         </button>
       </div>
@@ -275,6 +275,7 @@ async function donemOlustur(){
 }
 
 async function donemDurumDegistir(id,yeniDurum){
+  if(!['kayit','tam'].includes(YETKI_HARITASI['donem_kilitleme'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const d=donemler[id];if(!d)return;
   const mesaj=yeniDurum==='kapali'
     ? `"${d.ad}" dönemi kapatılsın mı? Kapatıldıktan sonra bu döneme yeni yevmiye fişi girilemez.`
