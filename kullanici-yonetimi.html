@@ -50,7 +50,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='index.html'">←</button>
+    <button class="hbtn" onclick="location.href='index.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Kullanıcı Yönetimi</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">PIN, rol ve otel ataması</span></div>
     <button class="hbtn" onclick="openYeniKullanici()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
@@ -150,7 +150,7 @@ function render(){
         <div style="font-size:13px;font-weight:700">${escapeHtml(u.ad)}</div>
         <div style="font-size:11px;color:var(--gray-500)">${escapeHtml(u.rolAd)}${u.departman?' • '+escapeHtml(u.departman):''}</div>
         <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">
-          <span class="chip ${u.otelId==='811'?'chip-blue':u.otelId==='810'?'chip-orange':'chip-purple'}">${u.otelId?'🏨 '+OTEL_ISIMLERI[u.otelId]:'🌐 Grup'}</span>
+          <span class="chip ${u.otelId==='811'?'chip-blue':u.otelId==='810'?'chip-orange':'chip-purple'}">${u.otelId?OTEL_ISIMLERI[u.otelId]:'Grup'}</span>
           ${!u.aktif?'<span class="chip chip-red">Pasif</span>':''}
         </div>
       </div>
@@ -161,7 +161,7 @@ function render(){
 
 function rolSecenekleriDoldur(seciliId){
   const sel=document.getElementById('k-rol-id');
-  sel.innerHTML=roller.map(r=>`<option value="${r.id}"${r.id===seciliId?' selected':''}>${r.seviye==='grup'?'🌐':'🏨'} ${r.ad}</option>`).join('');
+  sel.innerHTML=roller.map(r=>`<option value="${r.id}"${r.id===seciliId?' selected':''}>${r.ad}</option>`).join('');
 }
 
 function openYeniKullanici(){

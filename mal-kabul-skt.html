@@ -48,7 +48,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='mal-kabul-v2.html'">←</button>
+    <button class="hbtn" onclick="location.href='mal-kabul-v2.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>SKT Takip</h1><span style="font-size:11px;opacity:.7" id="hdrOtel"></span></div>
   </div>
 
@@ -57,9 +57,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="ftabs">
       <button class="ftab active" onclick="filterSkt('tumu',this)">Tümü (Aktif)</button>
       <button class="ftab" onclick="filterSkt('gecmis',this)">Geçmiş</button>
-      <button class="ftab" onclick="filterSkt('kritik',this)">🔴 Kritik</button>
-      <button class="ftab" onclick="filterSkt('uyari',this)">🟡 Uyarı</button>
-      <button class="ftab" onclick="filterSkt('tuketildi',this)">✅ Tüketildi</button>
+      <button class="ftab" onclick="filterSkt('kritik',this)">Kritik</button>
+      <button class="ftab" onclick="filterSkt('uyari',this)">Uyarı</button>
+      <button class="ftab" onclick="filterSkt('tuketildi',this)">Tüketildi</button>
       <button class="ftab" onclick="filterSkt('imha_edildi',this)">İmha Edildi</button>
     </div>
     <div id="skt-icerik"></div>
@@ -122,7 +122,7 @@ async function renderSkt(){
   list=[...list].sort((a,b)=>a._gun-b._gun);
 
   const c=document.getElementById('skt-icerik');
-  if(!list.length){c.innerHTML='<div class="es"><div class="ei">✅</div><div class="et">Kayıt yok</div></div>';return;}
+  if(!list.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt yok</div></div>';return;}
   c.innerHTML=list.map(r=>{
     const gun=r._gun;
     const isTuketildi=r.durum==='tuketildi', isImha=r.durum==='imha_edildi';
@@ -142,7 +142,7 @@ async function renderSkt(){
       </div>
       <div style="font-size:12px;font-weight:700;color:${renk};margin-top:4px">${gunMetni}</div>
       ${r.durum==='aktif'?`<div class="brow" style="margin-top:8px">
-        <button class="btn btn-gray btn-sm" onclick="sktDurumDegistir('${r.id}','tuketildi')">✅ Tüketildi</button>
+        <button class="btn btn-gray btn-sm" onclick="sktDurumDegistir('${r.id}','tuketildi')">Tüketildi</button>
         <button class="btn btn-danger btn-sm" onclick="sktDurumDegistir('${r.id}','imha_edildi')">İmha Et</button>
       </div>`:''}
     </div>`;

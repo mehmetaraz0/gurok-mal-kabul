@@ -67,15 +67,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <button class="hbtn" onclick="location.href='muhasebe.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Yevmiye Defteri</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Günlük muhasebe kayıtları</span></div>
     <button class="hbtn" onclick="openYeniYevmiye()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
   <div class="tab-bar">
-    <button class="tabbtn active" onclick="gTab('yevmiye',this)">📒 Yevmiye</button>
-    <button class="tabbtn" onclick="gTab('kebir',this)">📗 Defteri Kebir</button>
-    <button class="tabbtn" onclick="gTab('mizan',this)">📊 Mizan</button>
-    <button class="tabbtn" onclick="gTab('masrafmerkezi',this)">🏢 Masraf Merkezi</button>
+    <button class="tabbtn active" onclick="gTab('yevmiye',this)">Yevmiye</button>
+    <button class="tabbtn" onclick="gTab('kebir',this)">Defteri Kebir</button>
+    <button class="tabbtn" onclick="gTab('mizan',this)">Mizan</button>
+    <button class="tabbtn" onclick="gTab('masrafmerkezi',this)">Masraf Merkezi</button>
   </div>
 
   <!-- YEVMİYE -->
@@ -196,7 +196,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="btn btn-gray" onclick="kModal('mYevmiye')">İptal</button>
       <button class="btn btn-danger btn-sm" id="y-sil-btn" onclick="yevmiyeSil()" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6M14 11v6"/></svg></button>
       <button class="btn btn-gray btn-sm" id="y-taslak-btn" onclick="yevmiyeKaydet(false)" disabled>Taslak</button>
-      <button class="btn btn-primary" id="y-onayla-btn" onclick="yevmiyeKaydet(true)" disabled>✅ Onayla</button>
+      <button class="btn btn-primary" id="y-onayla-btn" onclick="yevmiyeKaydet(true)" disabled>Onayla</button>
     </div>
   </div>
 </div>
@@ -341,7 +341,7 @@ function renderYevmiye(){
     .sort((a,b)=>b.tarih-a.tarih);
 
   const c=document.getElementById('yevmiye-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📒</div><div class="et">Yevmiye kaydı bulunamadı</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Yevmiye kaydı bulunamadı</div></div>';return;}
 
   // Gün bazlı grupla
   const gruplar={};
@@ -625,7 +625,7 @@ function renderKebir(){
       });
     });
 
-  if(!satirlar.length){document.getElementById('kebir-sonuc').innerHTML='<div class="es"><div class="ei">📗</div><div class="et">Bu hesapta hareket yok</div></div>';return;}
+  if(!satirlar.length){document.getElementById('kebir-sonuc').innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu hesapta hareket yok</div></div>';return;}
 
   let topBorc=0,topAlacak=0,bakiye=0;
   const hesap=Object.values(hesapPlani).find(h=>h.kod===kod);
@@ -697,7 +697,7 @@ function renderMizan(){
   const topBorc=satirlar.reduce((t,h)=>t+h.borc,0);
   const topAlacak=satirlar.reduce((t,h)=>t+h.alacak,0);
 
-  if(!satirlar.length){document.getElementById('mizan-tablo').innerHTML='<div class="es"><div class="ei">📊</div><div class="et">Bu dönemde onaylı kayıt yok</div></div>';return;}
+  if(!satirlar.length){document.getElementById('mizan-tablo').innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu dönemde onaylı kayıt yok</div></div>';return;}
 
   document.getElementById('mizan-tablo').innerHTML=`
     <div class="card" style="padding:0;overflow:hidden">
@@ -764,7 +764,7 @@ function renderMasrafMerkezi(){
 
   const c=document.getElementById('mm-tablo');
   if(!satirlar.length){
-    c.innerHTML='<div class="es"><div class="ei">🏢</div><div class="et">Bu dönemde masraf merkezi işaretlenmiş kayıt yok</div></div>';
+    c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu dönemde masraf merkezi işaretlenmiş kayıt yok</div></div>';
     return;
   }
 

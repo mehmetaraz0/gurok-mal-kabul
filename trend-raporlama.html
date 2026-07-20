@@ -94,7 +94,7 @@ async function renderStokTrend(){
     <div class="card-title">Stok Trendi (pencere içi kümülatif net hareket)</div>
     <div class="field"><select id="stok-trend-urun" onchange="_stokTrendUrun=this.value;renderStokTrend()">${secenekler}</select></div>
     <div style="position:relative;height:220px"><canvas id="stok-trend-canvas"></canvas></div>`;
-  if(!_stokTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Ürün bulunamadı</div></div>';return;}
+  if(!_stokTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Ürün bulunamadı</div></div>';return;}
 
   const baslangic=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString();
   let hareketler=[];
@@ -118,7 +118,7 @@ async function renderStokTrend(){
   const veri=gunler.map(g=>{kumulatif+=(gunlukNet[g]||0);return kumulatif;});
 
   if(!hareketler.length){
-    document.getElementById('stok-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Bu aralıkta hareket yok</div></div>';
+    document.getElementById('stok-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu aralıkta hareket yok</div></div>';
     return;
   }
 
@@ -139,7 +139,7 @@ async function renderTuketimTrend(){
     <div class="card-title">Tüketim Trendi</div>
     <div class="field"><select id="tuketim-trend-urun" onchange="_tuketimTrendUrun=this.value;renderTuketimTrend()">${secenekler}</select></div>
     <div style="position:relative;height:220px"><canvas id="tuketim-trend-canvas"></canvas></div>`;
-  if(!_tuketimTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei">📉</div><div class="et">Ürün bulunamadı</div></div>';return;}
+  if(!_tuketimTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Ürün bulunamadı</div></div>';return;}
 
   const baslangic=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString();
   let hareketler=[];
@@ -149,7 +149,7 @@ async function renderTuketimTrend(){
   }catch(e){}
 
   if(!hareketler.length){
-    document.getElementById('tuketim-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei">📉</div><div class="et">Bu aralıkta tüketim yok</div></div>';
+    document.getElementById('tuketim-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu aralıkta tüketim yok</div></div>';
     return;
   }
 
@@ -187,7 +187,7 @@ async function renderFoodCostTrend(){
 
   const gecerli=kayitlar.filter(k=>k.food_cost_yuzde!==null&&k.food_cost_yuzde!==undefined);
   if(!gecerli.length){
-    document.getElementById('foodcost-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei">💰</div><div class="et">Bu aralıkta food-cost verisi yok</div></div>';
+    document.getElementById('foodcost-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu aralıkta food-cost verisi yok</div></div>';
     return;
   }
 

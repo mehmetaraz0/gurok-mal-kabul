@@ -54,7 +54,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='mal-kabul-v2.html'">←</button>
+    <button class="hbtn" onclick="location.href='mal-kabul-v2.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>İzleme</h1><span style="font-size:11px;opacity:.7" id="hdrOtel"></span></div>
   </div>
 
@@ -96,9 +96,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div class="stats-grid" id="esleme-stats"></div>
       <div class="ftabs">
         <button class="ftab active" onclick="filterEsleme('tumu',this)">Tümü</button>
-        <button class="ftab" onclick="filterEsleme('tam',this)">✅ Tam Eşleşti</button>
-        <button class="ftab" onclick="filterEsleme('fatura_bek',this)">⏳ Fatura Bekliyor</button>
-        <button class="ftab" onclick="filterEsleme('eksik',this)">❌ Eksik</button>
+        <button class="ftab" onclick="filterEsleme('tam',this)">Tam Eşleşti</button>
+        <button class="ftab" onclick="filterEsleme('fatura_bek',this)">Fatura Bekliyor</button>
+        <button class="ftab" onclick="filterEsleme('eksik',this)">Eksik</button>
       </div>
       <div id="esleme-icerik"></div>
     </div>
@@ -193,7 +193,7 @@ function renderIzlemeAnaliz(){
   });
   const topFirmalar=Object.entries(firmaStats).sort((a,b)=>b[1].uygunsuz-a[1].uygunsuz).slice(0,15);
 
-  const durumChip={bekleyen:'<span class="chip chip-yellow">⏳</span>',onaylandi:'<span class="chip chip-green">✅</span>',iptal:'<span class="chip chip-red">❌</span>'};
+  const durumChip={bekleyen:'<span class="chip chip-yellow">Bekliyor</span>',onaylandi:'<span class="chip chip-green">Onaylı</span>',iptal:'<span class="chip chip-red">İptal</span>'};
 
   c.innerHTML=`
     <div class="stats-grid">
@@ -214,7 +214,7 @@ function renderIzlemeAnaliz(){
               <div style="font-size:13px;font-weight:600">${escapeHtml(firma)}</div>
               <div style="font-size:11px;color:var(--gray-500)">${s.total} teslimat • ${s.urunSayisi} ürün • ${s.uygunsuz} uygunsuz</div>
             </div>
-            <span class="chip ${kritik?'chip-red':s.uygunsuz>0?'chip-yellow':'chip-green'}">${kritik?'🔴':s.uygunsuz>0?'🟡':'✅'} %${oran}</span>
+            <span class="chip ${kritik?'chip-red':s.uygunsuz>0?'chip-yellow':'chip-green'}">%${oran}</span>
           </div>
           <div style="background:var(--gray-200);border-radius:6px;height:6px;overflow:hidden">
             <div style="background:${kritik?'var(--danger)':'var(--warning)'};height:100%;width:${Math.min(oran,100)}%"></div>
@@ -262,7 +262,7 @@ async function renderIzlemeRaporlar(){
     return t>=start&&t<=end;
   });
 
-  if(!filtered.length){c.innerHTML='<div class="es"><div class="ei">✅</div><div class="et">Bu dönemde uygunsuzluk formu yok</div></div>';return;}
+  if(!filtered.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu dönemde uygunsuzluk formu yok</div></div>';return;}
 
   const kararEtiket={iade:'İade',sartli:'Şartlı Kullanım',imha:'İmha',duzeltme:'Düzeltme/Tekrar İşleme'};
   c.innerHTML=`
@@ -273,7 +273,7 @@ async function renderIzlemeRaporlar(){
           <div style="font-size:12px;color:var(--gray-600)">${escapeHtml(u.aciklama)}</div>
           <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${new Date(u.olusturma_tarihi).toLocaleDateString('tr-TR')} • ${escapeHtml(u.bildiren_ad)||'—'}</div>
         </div>
-        <span class="chip ${u.durum==='acik'?'chip-red':'chip-green'}">${u.durum==='acik'?'⏳ Açık':'✅ Kapatıldı'}</span>
+        <span class="chip ${u.durum==='acik'?'chip-red':'chip-green'}">${u.durum==='acik'?'Açık':'Kapatıldı'}</span>
       </div>
       ${u.karar?`<div style="margin-top:6px"><span class="chip chip-purple">Karar: ${kararEtiket[u.karar]||u.karar}</span></div>`:''}
     </div>`).join('')}`;
@@ -308,7 +308,7 @@ function renderEslemeRaporu(){
   liste=liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
 
   const c=document.getElementById('esleme-icerik');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🔗</div><div class="et">Kayıt yok</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt yok</div></div>';return;}
   c.innerHTML=liste.map(f=>{
     const kenar=f._durum==='tam'?'var(--success)':f._durum==='fatura_bek'?'var(--warning)':'var(--danger)';
     return`<div class="mk-kart" style="border-left-color:${kenar};cursor:pointer" onclick="location.href='mal-kabul-liste.html?detay=${f.id}'">

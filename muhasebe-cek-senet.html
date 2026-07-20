@@ -76,14 +76,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <button class="hbtn" onclick="location.href='muhasebe.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Çek / Senet</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Portföy ve vade takibi</span></div>
     <button class="hbtn" onclick="openYeniKayit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
   <div class="tab-bar">
-    <button class="tabbtn active" onclick="gTab('alinan',this)">📥 Alınan</button>
-    <button class="tabbtn" onclick="gTab('verilen',this)">📤 Verilen</button>
-    <button class="tabbtn" onclick="gTab('vade',this)">📅 Vade Takvimi</button>
+    <button class="tabbtn active" onclick="gTab('alinan',this)">Alınan</button>
+    <button class="tabbtn" onclick="gTab('verilen',this)">Verilen</button>
+    <button class="tabbtn" onclick="gTab('vade',this)">Vade Takvimi</button>
   </div>
   <div style="display:flex;gap:8px;padding:10px 12px 0">
     <button class="btn btn-gray btn-sm" style="flex:1" onclick="cekSenetExcelAktar()">Toplu Düzenle — Aktar</button>
@@ -97,9 +97,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="ftabs">
       <button class="ftab active" onclick="filterKayit('alinan','tumu',this)">Tümü</button>
       <button class="ftab" onclick="filterKayit('alinan','portfoyde',this)">Portföyde</button>
-      <button class="ftab" onclick="filterKayit('alinan','tahsilde',this)">⏳ Tahsilde</button>
-      <button class="ftab" onclick="filterKayit('alinan','tamamlandi',this)">✅ Tahsil Edildi</button>
-      <button class="ftab" onclick="filterKayit('alinan','karsiliksiz',this)">❌ Karşılıksız</button>
+      <button class="ftab" onclick="filterKayit('alinan','tahsilde',this)">Tahsilde</button>
+      <button class="ftab" onclick="filterKayit('alinan','tamamlandi',this)">Tahsil Edildi</button>
+      <button class="ftab" onclick="filterKayit('alinan','karsiliksiz',this)">Karşılıksız</button>
     </div>
     <div id="alinan-liste"></div>
   </div>
@@ -110,9 +110,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="ftabs">
       <button class="ftab active" onclick="filterKayit('verilen','tumu',this)">Tümü</button>
       <button class="ftab" onclick="filterKayit('verilen','portfoyde',this)">Elde</button>
-      <button class="ftab" onclick="filterKayit('verilen','tahsilde',this)">⏳ Verildi</button>
-      <button class="ftab" onclick="filterKayit('verilen','tamamlandi',this)">✅ Ödendi</button>
-      <button class="ftab" onclick="filterKayit('verilen','karsiliksiz',this)">❌ Karşılıksız</button>
+      <button class="ftab" onclick="filterKayit('verilen','tahsilde',this)">Verildi</button>
+      <button class="ftab" onclick="filterKayit('verilen','tamamlandi',this)">Ödendi</button>
+      <button class="ftab" onclick="filterKayit('verilen','karsiliksiz',this)">Karşılıksız</button>
     </div>
     <div id="verilen-liste"></div>
   </div>
@@ -406,11 +406,11 @@ function renderListe(yon){
     <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamTamamlandi)}</div><div class="stat-lbl">${yon==='alinan'?'✅ Tahsil':'✅ Ödendi'}</div></div>`;
 
   const c=document.getElementById(yon+'-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📄</div><div class="et">Kayıt bulunamadı</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt bulunamadı</div></div>';return;}
 
   const durumChip={
     portfoyde:`<span class="chip chip-blue">${yon==='alinan'?'Portföyde':'Elde'}</span>`,
-    tahsilde:`<span class="chip chip-yellow">⏳ ${yon==='alinan'?'Tahsilde':'Verildi'}</span>`,
+    tahsilde:`<span class="chip chip-yellow">${yon==='alinan'?'Tahsilde':'Verildi'}</span>`,
     tamamlandi:`<span class="chip chip-green">${yon==='alinan'?'Tahsil Edildi':'Ödendi'}</span>`,
     karsiliksiz:'<span class="chip chip-red">Karşılıksız</span>'
   };
@@ -446,7 +446,7 @@ function filterKayit(yon,f,el){
 function renderVadeTakvimi(){
   const liste=Object.values(kayitlar).filter(k=>k&&(k.durum==='portfoyde'||k.durum==='tahsilde')).sort((a,b)=>new Date(a.vade)-new Date(b.vade));
   const c=document.getElementById('vade-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📅</div><div class="et">Açık vade yok</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Açık vade yok</div></div>';return;}
   c.innerHTML=liste.map(k=>{
     const gun=Math.floor((new Date(k.vade+'T00:00:00')-new Date(bugunYerelStr()+'T00:00:00'))/86400000);
     const renk=gun<0?'var(--danger)':gun<=7?'var(--warning)':'var(--gray-500)';
@@ -594,9 +594,9 @@ function openDetay(id){
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px">Mevcut Durum: ${durumAdlari[k.durum]}</div>
     <div class="brow" style="flex-wrap:wrap;gap:6px">
-      ${k.durum==='portfoyde'?`<button class="btn btn-warning btn-sm" onclick="durumDegistir('${id}','tahsilde')">${alinan?'⏳ Tahsile Ver':'📤 Tedarikçiye Ver'}</button>`:''}
-      ${(k.durum==='portfoyde'||k.durum==='tahsilde')?`<button class="btn btn-success btn-sm" onclick="durumDegistir('${id}','tamamlandi')">✅ ${alinan?'Tahsil Edildi':'Ödendi'}</button>`:''}
-      ${(k.durum==='portfoyde'||k.durum==='tahsilde')?`<button class="btn btn-danger btn-sm" onclick="durumDegistir('${id}','karsiliksiz')">❌ Karşılıksız</button>`:''}
+      ${k.durum==='portfoyde'?`<button class="btn btn-warning btn-sm" onclick="durumDegistir('${id}','tahsilde')">${alinan?'Tahsile Ver':'Tedarikçiye Ver'}</button>`:''}
+      ${(k.durum==='portfoyde'||k.durum==='tahsilde')?`<button class="btn btn-success btn-sm" onclick="durumDegistir('${id}','tamamlandi')">${alinan?'Tahsil Edildi':'Ödendi'}</button>`:''}
+      ${(k.durum==='portfoyde'||k.durum==='tahsilde')?`<button class="btn btn-danger btn-sm" onclick="durumDegistir('${id}','karsiliksiz')">Karşılıksız</button>`:''}
     </div>
     <div class="brow" style="margin-top:10px">
       <button class="btn btn-gray btn-sm" onclick="kModal('mDetay')">Kapat</button>

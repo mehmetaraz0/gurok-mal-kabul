@@ -79,15 +79,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <button class="hbtn" onclick="location.href='muhasebe.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Banka / Kasa</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Hesaplar, hareketler, virman</span></div>
     <button class="hbtn" onclick="openYeniHesap()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
   <div class="tab-bar">
-    <button class="tabbtn active" onclick="gTab('hesaplar',this)">🏦 Hesaplar</button>
-    <button class="tabbtn" onclick="gTab('hareketler',this)">📋 Hareketler</button>
-    <button class="tabbtn" onclick="gTab('virman',this)">🔄 Virman</button>
-    <button class="tabbtn" onclick="gTab('ekstre',this)">📥 Ekstre İçe Aktar</button>
+    <button class="tabbtn active" onclick="gTab('hesaplar',this)">Hesaplar</button>
+    <button class="tabbtn" onclick="gTab('hareketler',this)">Hareketler</button>
+    <button class="tabbtn" onclick="gTab('virman',this)">Virman</button>
+    <button class="tabbtn" onclick="gTab('ekstre',this)">Ekstre İçe Aktar</button>
   </div>
 
   <!-- HESAPLAR -->
@@ -347,7 +347,7 @@ function renderHesaplar(){
     <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(kasaToplam)} ₺</div><div class="stat-lbl">💰 Kasa (TL)</div></div>`;
 
   const c=document.getElementById('hesaplar-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🏦</div><div class="et">Henüz hesap eklenmemiş</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Henüz hesap eklenmemiş</div></div>';return;}
   c.innerHTML=liste.map(h=>{
     const bakiye=hesapBakiye(h.id);
     return`<div class="hesap-kart ${h.tur}" onclick="openHesapDetay('${h.id}')">
@@ -529,7 +529,7 @@ function renderHareketler(){
   liste.sort((a,b)=>b.tarih-a.tarih);
 
   const c=document.getElementById('hareketler-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Hareket bulunamadı</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Hareket bulunamadı</div></div>';return;}
 
   const gruplar={};
   liste.forEach(h=>{const g=new Date(h.tarih).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(h);});

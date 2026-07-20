@@ -67,7 +67,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- GİRİŞ (bugünkü tüketim) -->
   <div class="sc" id="tGiris" style="display:block">
     <div class="card" id="depoAtanmamisUyari" style="display:none;border-left:4px solid var(--danger)">
-      <div class="card-title" style="color:var(--danger)">⚠️ Depo Atanmamış</div>
+      <div class="card-title" style="color:var(--danger)">Depo Atanmamış</div>
       <p id="depoUyariMetin" style="font-size:13px;color:var(--gray-600)">Hesabınıza henüz bir depo/departman kodu atanmamış.</p>
       <div id="yoneticiDepoSecici" style="display:none;margin-top:10px">
         <label style="font-size:11px;font-weight:600;color:var(--gray-600)">Test/izleme için bir nokta seç (kalıcı atama değildir, sadece bu oturum için)</label>
@@ -82,7 +82,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></span>
       </div>
       <div id="urun-liste"></div>
-      <button class="btn btn-success btn-block" style="margin:12px 0 16px" onclick="tuketimKaydet()">✅ Bugünkü Tüketimi Kaydet</button>
+      <button class="btn btn-success btn-block" style="margin:12px 0 16px" onclick="tuketimKaydet()">Bugünkü Tüketimi Kaydet</button>
     </div>
   </div>
 
@@ -242,9 +242,9 @@ async function loadGecmis(){
   const otuzGunOnce=new Date(Date.now()-30*86400000).toISOString();
   try{
     const r=await fetch(SB_URL+`/rest/v1/stok_hareketleri?select=*&depo_kodu=eq.${encodeURIComponent(depoId)}&tip=eq.cikis&aciklama=ilike.*gunluk_tuketim*&tarih=gte.${otuzGunOnce}&order=tarih.desc`,{headers:SB_HEADERS});
-    if(!r.ok){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Kayıt yok</div></div>';return;}
+    if(!r.ok){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt yok</div></div>';return;}
     const rows=await r.json();
-    if(!rows.length){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Henüz tüketim girilmemiş</div></div>';return;}
+    if(!rows.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Henüz tüketim girilmemiş</div></div>';return;}
     c.innerHTML=rows.map(h=>{
       const urunAd=DB.urunAdlari?.[h.urun_kodu]?.ad||h.urun_kodu;
       return`<div class="har-item">
@@ -275,7 +275,7 @@ function renderUrunler(){
   urunler.sort((a,b)=>(DB.urunAdlari?.[a.kod]?.ad||a.kod).localeCompare(DB.urunAdlari?.[b.kod]?.ad||b.kod,'tr'));
 
   if(!urunler.length){
-    c.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Deponuzda stok görünmüyor</div></div>';
+    c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Deponuzda stok görünmüyor</div></div>';
     return;
   }
   c.innerHTML=urunler.map(u=>{
@@ -405,7 +405,7 @@ function renderReceteler(){
   let liste=Object.values(DB.receteler||{}).filter(receteGorebilirMi);
   if(ara)liste=liste.filter(r=>r.ad.toLowerCase().includes(ara));
   liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📖</div><div class="et">Henüz reçete yok — Yeni Reçete ile başlayın</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Henüz reçete yok — Yeni Reçete ile başlayın</div></div>';return;}
   c.innerHTML=liste.map(r=>{
     const{toplam,eksik}=receteMaliyetHesapla(r.kalemler);
     const fc=r.satisFiyati?Math.round(toplam/r.satisFiyati*1000)/10:null;
@@ -453,7 +453,7 @@ function renderReceteForm(){
   const r=R_EDIT_ID?DB.receteler[R_EDIT_ID]:null;
   const varsayilanRol=CU.rol==='yonetici'?(r?.rol||'mutfak'):CU.rol;
   document.getElementById('tReceteForm').innerHTML=`
-    <button class="btn btn-gray btn-sm" style="margin-bottom:10px" onclick="receteFormKapat()">← Geri</button>
+    <button class="btn btn-gray btn-sm" style="margin-bottom:10px" onclick="receteFormKapat()">Geri</button>
     <div class="card">
       <div class="card-title">${r?'Reçeteyi Düzenle':'Yeni Reçete'}</div>
       <div class="field"><label>Reçete Adı *</label><input type="text" id="rf-ad" value="${(r?.ad||'').replace(/"/g,'&quot;')}" placeholder="örn. Köfte Porsiyon"></div>
@@ -483,7 +483,7 @@ function renderReceteForm(){
 
     <div style="display:flex;gap:8px;margin:12px 0 20px">
       ${r?`<button class="btn btn-danger btn-sm" onclick="receteSil('${r.id}')">Sil</button>`:''}
-      <button class="btn btn-success" style="flex:1" onclick="receteKaydet()">✅ Kaydet</button>
+      <button class="btn btn-success" style="flex:1" onclick="receteKaydet()">Kaydet</button>
     </div>`;
   renderRKalemler();
 }
@@ -616,7 +616,7 @@ function renderTuketListe(){
   let liste=Object.values(DB.receteler||{}).filter(r=>r.rol===CU.rol||CU.rol==='yonetici');
   if(ara)liste=liste.filter(r=>r.ad.toLowerCase().includes(ara));
   liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🍽️</div><div class="et">Henüz reçete tanımlı değil</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Henüz reçete tanımlı değil</div></div>';return;}
   c.innerHTML=liste.map(r=>`<div class="urow" style="cursor:pointer" onclick="tuketDetayAc('${r.id}')">
     <div class="urow-top"><div><div class="urow-ad">${escapeHtml(r.ad)}</div><div class="urow-stok">${r.kalemler.length} malzeme</div></div></div>
   </div>`).join('');
@@ -629,7 +629,7 @@ function tuketDetayAc(id){
       <div class="card-title">${r.ad}</div>
       <div class="field"><label>Kaç Porsiyon Satıldı?</label><input type="number" id="tuket-porsiyon" min="1" step="1" placeholder="örn. 12" oninput="tuketOnizlemeGuncelle()"></div>
       <div id="tuket-onizleme"></div>
-      <button class="btn btn-success btn-block" style="margin-top:10px" onclick="tuketKaydet()">✅ Stoktan Düş</button>
+      <button class="btn btn-success btn-block" style="margin-top:10px" onclick="tuketKaydet()">Stoktan Düş</button>
     </div>`;
   tuketOnizlemeGuncelle();
 }
@@ -720,7 +720,7 @@ function renderFoodCost(){
 
   if(!liste.length){
     document.getElementById('fc-stats').innerHTML='';
-    document.getElementById('fc-liste').innerHTML='<div class="es"><div class="ei">📊</div><div class="et">Henüz reçete yok</div></div>';
+    document.getElementById('fc-liste').innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Henüz reçete yok</div></div>';
     return;
   }
   const gecerli=liste.filter(r=>r.fc!==null);

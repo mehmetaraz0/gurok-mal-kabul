@@ -45,16 +45,16 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='mal-kabul-v2.html'">←</button>
+    <button class="hbtn" onclick="location.href='mal-kabul-v2.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Sipariş Takip</h1><span style="font-size:11px;opacity:.7" id="hdrOtel"></span></div>
   </div>
 
   <div class="sc" id="tab-siparis" style="display:block">
     <div class="stats-grid" id="siparis-stats" style="grid-template-columns:repeat(3,1fr)"></div>
     <div class="ftabs">
-      <button class="ftab active" onclick="filterSiparisTakip('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="ftab active" onclick="filterSiparisTakip('bekleyen',this)">Bekleyen</button>
       <button class="ftab" onclick="filterSiparisTakip('kismi',this)">Kısmen Geldi</button>
-      <button class="ftab" onclick="filterSiparisTakip('tamamlandi',this)">✅ Tamamlandı</button>
+      <button class="ftab" onclick="filterSiparisTakip('tamamlandi',this)">Tamamlandı</button>
       <button class="ftab" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
     </div>
     <div id="siparis-icerik"></div>
@@ -104,8 +104,8 @@ function renderSiparisTakip(){
   liste=liste.sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
 
   const c=document.getElementById('siparis-icerik');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📦</div><div class="et">Kayıt yok</div></div>';return;}
-  const durumChip={bekleyen:'<span class="chip chip-red">⏳ Bekliyor</span>',kismi:'<span class="chip chip-yellow">Kısmen Geldi</span>',tamamlandi:'<span class="chip chip-green">Tamamlandı</span>',iptal:'<span class="chip chip-gray">İptal</span>'};
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt yok</div></div>';return;}
+  const durumChip={bekleyen:'<span class="chip chip-red">Bekliyor</span>',kismi:'<span class="chip chip-yellow">Kısmen Geldi</span>',tamamlandi:'<span class="chip chip-green">Tamamlandı</span>',iptal:'<span class="chip chip-gray">İptal</span>'};
   c.innerHTML=liste.map(s=>{
     const kalemler=s.kalemler||[];
     const toplam=kalemler.length;

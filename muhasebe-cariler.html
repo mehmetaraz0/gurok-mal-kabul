@@ -79,16 +79,16 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <button class="hbtn" onclick="location.href='muhasebe.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Cari Hesaplar</h1><span class="sub" id="hsub"></span></div>
     <button class="hbtn" onclick="openYeniCari()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
     <button class="hbtn" onclick="firmaDBaktar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></button>
   </div>
   <div class="tab-bar">
-    <button class="tabbtn active" onclick="gTab('cariler',this)">👥 Cariler</button>
-    <button class="tabbtn" onclick="gTab('hareketler',this)">📋 Hareketler</button>
-    <button class="tabbtn" onclick="gTab('mutabakat',this)">✅ Mutabakat</button>
-    <button class="tabbtn" onclick="gTab('yaslandirma',this)">⏳ Yaşlandırma</button>
+    <button class="tabbtn active" onclick="gTab('cariler',this)">Cariler</button>
+    <button class="tabbtn" onclick="gTab('hareketler',this)">Hareketler</button>
+    <button class="tabbtn" onclick="gTab('mutabakat',this)">Mutabakat</button>
+    <button class="tabbtn" onclick="gTab('yaslandirma',this)">Yaşlandırma</button>
   </div>
 
   <!-- CARİLER -->
@@ -107,8 +107,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab active" onclick="filterCari('tumu',this)">Tümü</button>
       <button class="ftab" onclick="filterCari('tedarikci',this)">Tedarikçi</button>
       <button class="ftab" onclick="filterCari('musteri',this)">Müşteri</button>
-      <button class="ftab" onclick="filterCari('borc',this)">🔴 Borçlular</button>
-      <button class="ftab" onclick="filterCari('alacak',this)">🟢 Alacaklılar</button>
+      <button class="ftab" onclick="filterCari('borc',this)">Borçlular</button>
+      <button class="ftab" onclick="filterCari('alacak',this)">Alacaklılar</button>
     </div>
     <div id="cariler-liste"></div>
   </div>
@@ -130,7 +130,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- MUTABAKAT -->
   <div class="sc" id="tab-mutabakat">
     <div class="card">
-      <div class="card-title">✅ Cari Mutabakat</div>
+      <div class="card-title">Cari Mutabakat</div>
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Tedarikçi ile bakiye mutabakatı yapın.</p>
       <div class="field"><label>Cari Seç</label>
         <select id="mut-cari" onchange="renderMutabakat()">
@@ -147,7 +147,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <!-- YAŞLANDIRMA -->
   <div class="sc" id="tab-yaslandirma">
     <div class="card">
-      <div class="card-title">⏳ Yaşlandırma Analizi</div>
+      <div class="card-title">Yaşlandırma Analizi</div>
       <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px">Vadesi geçmiş borç/alacakları gün bazında gruplar. Sadece ödenmemiş faturalara bağlı ya da açık (durumu belli olmayan) hareketler dahildir — ödenmiş/iptal faturaların hareketleri hariç tutulur.</p>
       <div class="ftabs">
         <button class="ftab active" onclick="filterYaslandirma('tumu',this)">Tümü</button>
@@ -500,7 +500,7 @@ function renderCariler(){
     <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamAlacak)}</div><div class="stat-lbl">🟢 Alacak</div></div>`;
 
   const c=document.getElementById('cariler-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">👥</div><div class="et">Cari bulunamadı</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Cari bulunamadı</div></div>';return;}
 
   c.innerHTML=liste.map(cari=>{
     const bak=cariBakiye(cari.id);
@@ -780,7 +780,7 @@ function renderHareketler(){
     return true;
   }).sort((a,b)=>b.tarih-a.tarih);
   const c=document.getElementById('hareketler-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Hareket bulunamadı</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Hareket bulunamadı</div></div>';return;}
   // Gün bazlı grupla
   const gruplar={};
   liste.forEach(h=>{const g=new Date(h.tarih).toLocaleDateString('tr-TR');if(!gruplar[g])gruplar[g]=[];gruplar[g].push(h);});
@@ -978,7 +978,7 @@ function renderYaslandirma(){
     </div>`).join('');
 
   const liste=document.getElementById('yaslandirma-liste');
-  if(!cariListesi.length){liste.innerHTML='<div class="es"><div class="ei">⏳</div><div class="et">Açık (ödenmemiş) hareket bulunamadı</div></div>';return;}
+  if(!cariListesi.length){liste.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Açık (ödenmemiş) hareket bulunamadı</div></div>';return;}
 
   liste.innerHTML=cariListesi.map(c=>{
     const enKotu=YASL_BUCKETLAR.slice().reverse().find(b=>(c.bucketlar[b.key]||0)>0);

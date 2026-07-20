@@ -57,7 +57,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='satin-alma.html'">←</button>
+    <button class="hbtn" onclick="location.href='satin-alma.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Fiyat Kontrolü</h1><span class="sub" id="hsub"></span></div>
   </div>
 
@@ -72,8 +72,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px" id="fk-stats"></div>
     </div>
     <div class="ftabs">
-      <button class="ftab active" id="fk-tab-bekleyen" onclick="filterFiyatKontrol('bekleyen',this)">⏳ Kontrol Bekliyor</button>
-      <button class="ftab" id="fk-tab-kontrol" onclick="filterFiyatKontrol('kontrol',this)">✅ Kontrol Edildi</button>
+      <button class="ftab active" id="fk-tab-bekleyen" onclick="filterFiyatKontrol('bekleyen',this)">Kontrol Bekliyor</button>
+      <button class="ftab" id="fk-tab-kontrol" onclick="filterFiyatKontrol('kontrol',this)">Kontrol Edildi</button>
       <button class="ftab" id="fk-tab-muhasebe" onclick="filterFiyatKontrol('muhasebe',this)">Muhasebe'ye Gönderildi</button>
       <button class="ftab" id="fk-tab-tumu" onclick="filterFiyatKontrol('tumu',this)">Tümü</button>
     </div>
