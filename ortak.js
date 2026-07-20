@@ -8,15 +8,19 @@
 
 function sLD(){document.getElementById('ld').classList.add('show');}
 function hLD(){document.getElementById('ld').classList.remove('show');}
-// Mesaj ✅/❌/⚠️/⏳ ile başlıyorsa emoji metinden çıkarılır, yerine renkli
+// Mesaj bir emoji ile başlıyorsa emoji metinden çıkarılır, yerine renkli
 // sol kenarlık kullanılır (durum hâlâ tek bakışta ayırt edilebiliyor,
-// ama emoji karakteri görünmüyor).
-const TOAST_RENK={'✅':'var(--success)','❌':'var(--danger)','⚠️':'var(--warning)','⏳':'var(--gray-500)'};
+// ama emoji karakteri görünmüyor). Bilinmeyen emoji nötr griyle gösterilir.
+const TOAST_RENK={
+  '✅':'var(--success)','❌':'var(--danger)','⚠':'var(--warning)','⏳':'var(--gray-500)',
+  '🗑':'var(--danger)','📦':'var(--success)','📤':'var(--success)','📥':'var(--success)',
+  '🔄':'var(--primary-light)','✏':'var(--primary-light)','👁':'var(--gray-500)','⚡':'var(--warning)'
+};
 function toast(msg,d=2500){
   const t=document.getElementById('toast');
-  const m=String(msg).match(/^(✅|❌|⚠️|⏳)\s*(.*)$/s);
+  const m=String(msg).match(/^([\u{1F300}-\u{1FAFF}☀-➿])️?\s*(.*)$/su);
   t.textContent=m?m[2]:msg;
-  t.style.borderLeft=m?('4px solid '+TOAST_RENK[m[1]]):'';
+  t.style.borderLeft=m?('4px solid '+(TOAST_RENK[m[1]]||'var(--gray-400)')):'';
   t.style.paddingLeft=m?'16px':'20px';
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),d);
