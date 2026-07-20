@@ -285,7 +285,7 @@ function renderUrunler(){
       <div class="urow-top">
         <div>
           <div class="urow-ad">${meta.ad}</div>
-          <div class="urow-stok">Mevcut stok: ${u.miktar} ${meta.birim}</div>
+          <div class="urow-stok">Mevcut stok: ${u.miktar} ${meta.birim}${birimDonusumEtiketi(u.kod,u.miktar)?` (${birimDonusumEtiketi(u.kod,u.miktar)})`:''}</div>
         </div>
       </div>
       <div class="urow-inputs">
@@ -798,6 +798,7 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.cla
   CU = requireLogin();
   if(!CU) return;
   if(!requireRole(CU, ['mutfak','bar','yonetici'])) return;
+  await birimDonusumHaritasiYukle();
   await loadKullanicilar();
   await loadUrunAdlari();
   basla();
