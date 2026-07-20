@@ -40,3 +40,21 @@ async function loadXlsxLib(){
     document.head.appendChild(s);
   });
 }
+
+// Birim dönüşüm sistemi — ürün başına opsiyonel büyük birim/çarpan gösterimi.
+// Sadece raporlama/gösterim amaçlı; mal kabul/stok giriş akışlarını etkilemez.
+// Harita boşsa veya ürünün kaydı yoksa '' döner (sessiz, katmanlı özellik).
+let BIRIM_DONUSUM_HARITASI={};
+async function birimDonusumHaritasiYukle(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/urun_birim_donusum?select=urun_kodu,buyuk_birim,carpan&silindi=eq.false',{headers:SB_HEADERS});
+    if(!r.ok)return;
+    (await r.json()).forEach(row=>{BIRIM_DONUSUM_HARITASI[row.urun_kodu]={buyuk_birim:row.buyuk_birim,carpan:parseFloat(row.carpan)};});
+  }catch(e){}
+}
+function birimDonusumEtiketi(urunKodu,miktar){
+  const d=BIRIM_DONUSUM_HARITASI[urunKodu];
+  if(!d||!d.carpan)return'';
+  const m=parseFloat(miktar)||0;
+  return`≈${(m/d.carpan).toFixed(2)} ${d.buyuk_birim}`;
+}
