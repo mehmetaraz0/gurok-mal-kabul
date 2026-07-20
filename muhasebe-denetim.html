@@ -71,12 +71,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <button class="hbtn" onclick="location.href='muhasebe.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Denetim İzi & Dönemler</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Audit Trail • Mali Dönem Yönetimi</span></div>
   </div>
   <div class="tab-bar">
-    <button class="tabbtn active" onclick="gTab('log',this)">📜 Denetim İzi</button>
-    <button class="tabbtn" onclick="gTab('donem',this)">🗓️ Mali Dönemler</button>
+    <button class="tabbtn active" onclick="gTab('log',this)">Denetim İzi</button>
+    <button class="tabbtn" onclick="gTab('donem',this)">Mali Dönemler</button>
   </div>
 
   <!-- DENETİM İZİ -->
@@ -90,7 +90,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterLog('create',this)">Oluşturma</button>
       <button class="ftab" onclick="filterLog('update',this)">Güncelleme</button>
       <button class="ftab" onclick="filterLog('delete',this)">Silme</button>
-      <button class="ftab" onclick="filterLog('approve',this)">✅ Onay</button>
+      <button class="ftab" onclick="filterLog('approve',this)">Onay</button>
       <button class="ftab" onclick="filterLog('period',this)">Dönem</button>
     </div>
     <div id="log-liste"></div>
@@ -200,7 +200,7 @@ function renderLog(){
   liste=liste.slice(0,200); // performans için son 200
 
   const c=document.getElementById('log-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📜</div><div class="et">Kayıt bulunamadı</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt bulunamadı</div></div>';return;}
 
   // Gün bazlı grupla
   const gruplar={};
@@ -233,7 +233,7 @@ function filterLog(f,el){
 function renderDonemler(){
   const liste=Object.values(donemler).filter(Boolean).sort((a,b)=>new Date(b.baslangic)-new Date(a.baslangic));
   const c=document.getElementById('donemler-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🗓️</div><div class="et">Henüz dönem tanımlanmamış</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Henüz dönem tanımlanmamış</div></div>';return;}
   c.innerHTML=liste.map(d=>`
     <div class="donem-kart ${d.durum==='kapali'?'kapali':'acik'}">
       <div>
@@ -241,7 +241,7 @@ function renderDonemler(){
         <div style="font-size:12px;color:var(--gray-500)">${d.baslangic} → ${d.bitis}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <span class="chip ${d.durum==='kapali'?'chip-gray':'chip-green'}">${d.durum==='kapali'?'🔒 Kapalı':'🔓 Açık'}</span>
+        <span class="chip ${d.durum==='kapali'?'chip-gray':'chip-green'}">${d.durum==='kapali'?'Kapalı':'Açık'}</span>
         <button class="btn btn-sm ${d.durum==='kapali'?'btn-success':'btn-warning'}" onclick="donemDurumDegistir('${d.id}','${d.durum==='kapali'?'acik':'kapali'}')" ${['kayit','tam'].includes(YETKI_HARITASI['donem_kilitleme'])?'':'disabled'}>
           ${d.durum==='kapali'?'Aç':'Kapat'}
         </button>

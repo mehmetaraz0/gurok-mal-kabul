@@ -42,7 +42,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='satin-alma.html'">←</button>
+    <button class="hbtn" onclick="location.href='satin-alma.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Sipariş Takip</h1><span class="sub" id="hsub"></span></div>
   </div>
 
@@ -54,9 +54,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px" id="st-stats"></div>
     </div>
     <div class="ftabs">
-      <button class="ftab active" id="st-tab-bekleyen" onclick="filterSiparisTakip('bekleyen',this)">⏳ Bekleyen</button>
+      <button class="ftab active" id="st-tab-bekleyen" onclick="filterSiparisTakip('bekleyen',this)">Bekleyen</button>
       <button class="ftab" id="st-tab-kismi" onclick="filterSiparisTakip('kismi',this)">Kısmen Geldi</button>
-      <button class="ftab" id="st-tab-tamamlandi" onclick="filterSiparisTakip('tamamlandi',this)">✅ Tamamlandı</button>
+      <button class="ftab" id="st-tab-tamamlandi" onclick="filterSiparisTakip('tamamlandi',this)">Tamamlandı</button>
       <button class="ftab" id="st-tab-tumu" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
     </div>
     <div id="siparis-takip-liste"></div>
@@ -221,7 +221,7 @@ function stDetayAc(siparisNo){
           <td>${k.miktar} ${k.birim}</td>
           <td class="${(k.gelenMiktar||0)>0?'ok':''}">${k.gelenMiktar||0} ${k.birim}</td>
           <td class="${tamam?'ok':'warn'}">${k.kalanMiktar||k.miktar} ${k.birim}</td>
-          <td>${tamam?'<span class="chip" style="background:#d4edda;color:#155724">Tamam</span>':'<span class="chip" style="background:#fde8e8;color:#9b1c1c">⏳ Bekliyor</span>'}</td>
+          <td>${tamam?'<span class="chip" style="background:#d4edda;color:#155724">Tamam</span>':'<span class="chip" style="background:#fde8e8;color:#9b1c1c">Bekliyor</span>'}</td>
         </tr>`;
       }).join('')}
     </tbody>

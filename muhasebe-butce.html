@@ -66,13 +66,13 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <button class="hbtn" onclick="location.href='muhasebe.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Bütçe</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Plan / Gerçekleşen karşılaştırması</span></div>
     <button class="hbtn" onclick="openYeniButce()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
   <div class="tab-bar">
-    <button class="tabbtn active" onclick="gTab('rapor',this)">📊 Bütçe/Gerçekleşen</button>
-    <button class="tabbtn" onclick="gTab('girisler',this)">📋 Bütçe Girişleri</button>
+    <button class="tabbtn active" onclick="gTab('rapor',this)">Bütçe/Gerçekleşen</button>
+    <button class="tabbtn" onclick="gTab('girisler',this)">Bütçe Girişleri</button>
   </div>
 
   <!-- RAPOR -->
@@ -335,7 +335,7 @@ function renderRapor(){
     <div class="stat-kart"><div class="stat-num" style="color:${toplamButce-toplamGerc>=0?'var(--success)':'var(--danger)'}">${fmt(Math.abs(toplamButce-toplamGerc))}</div><div class="stat-lbl">${toplamButce-toplamGerc>=0?'Altında':'Üstünde'}</div></div>`;
 
   const c=document.getElementById('rapor-liste');
-  if(!satirlar.length){c.innerHTML='<div class="es"><div class="ei">📊</div><div class="et">Bu yıl için bütçe girişi yok</div></div>';return;}
+  if(!satirlar.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu yıl için bütçe girişi yok</div></div>';return;}
 
   c.innerHTML=satirlar.map(s=>{
     const oran=s.butce>0?Math.min(150,(s.gerc/s.butce*100)):(s.gerc>0?150:0);
@@ -343,7 +343,7 @@ function renderRapor(){
     return`<div class="rapor-satir" style="border-radius:8px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
         <span style="font-size:13px;font-weight:700">${s.hesapKodu} — ${s.hesapAd||''}</span>
-        <span class="chip ${asimVar?'chip-red':'chip-green'}">${asimVar?'⚠️ Aşım':'✅ Normal'}</span>
+        <span class="chip ${asimVar?'chip-red':'chip-green'}">${asimVar?'Aşım':'Normal'}</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-600)">
         <span>Bütçe: <b>${fmt(s.butce)} ₺</b></span>
@@ -361,7 +361,7 @@ function renderRapor(){
 function renderButceListesi(){
   const liste=Object.values(butceler).sort((a,b)=>b.yil-a.yil||a.hesapKodu.localeCompare(b.hesapKodu));
   const c=document.getElementById('butce-liste');
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Henüz bütçe girişi yok</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Henüz bütçe girişi yok</div></div>';return;}
   c.innerHTML=liste.map(b=>{
     const toplamYillik=(b.aylar||[]).reduce((t,v)=>t+(parseFloat(v)||0),0);
     return`<div class="bh-kart" onclick="openDuzenleButce('${b.id}')">

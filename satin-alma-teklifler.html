@@ -59,15 +59,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='satin-alma.html'">←</button>
+    <button class="hbtn" onclick="location.href='satin-alma.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Teklifler</h1><span class="sub" id="hsub"></span></div>
   </div>
 
   <div class="sc" id="tab-teklifler">
     <div class="ftabs" id="teklif-ftabs">
       <button class="ftab active" onclick="filterTeklif('tumu',this)">Tümü</button>
-      <button class="ftab" onclick="filterTeklif('acik',this)">⏳ Açık</button>
-      <button class="ftab" onclick="filterTeklif('kapandi',this)">✅ Kapandı</button>
+      <button class="ftab" onclick="filterTeklif('acik',this)">Açık</button>
+      <button class="ftab" onclick="filterTeklif('kapandi',this)">Kapandı</button>
     </div>
     <div id="teklifler-liste"></div>
   </div>
@@ -148,8 +148,8 @@ function renderTeklifler(){
   let liste=Object.values(DB.teklifler||{}).filter(Boolean);
   if(teklifFilter!=='tumu')liste=liste.filter(tk=>tk.durum===teklifFilter);
   liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
-  if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📨</div><div class="et">Teklif talebi bulunamadı</div></div>';return;}
-  const chipMap={acik:'<span class="chip chip-warn">⏳ Açık</span>',kapandi:'<span class="chip chip-ok">Kapandı</span>'};
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Teklif talebi bulunamadı</div></div>';return;}
+  const chipMap={acik:'<span class="chip chip-warn">Açık</span>',kapandi:'<span class="chip chip-ok">Kapandı</span>'};
   c.innerHTML=liste.map(tk=>`
     <div class="skart" onclick="openTeklifDetay('${tk.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
@@ -191,7 +191,7 @@ async function teklifTedarikciEkle(teklifTalepId,firmaAd,firmaKodu){
 
 function openTeklifDetay(id){
   const tk=DB.teklifler[id];if(!tk)return;
-  const chipMap={acik:'<span class="chip chip-warn">⏳ Açık</span>',kapandi:'<span class="chip chip-ok">Kapandı</span>'};
+  const chipMap={acik:'<span class="chip chip-warn">Açık</span>',kapandi:'<span class="chip chip-ok">Kapandı</span>'};
   const oneriler=tk.durum==='acik'?teklifTedarikciOnerileriGetir(tk.kalemler).filter(f=>!tk.tedarikciler.some(t=>t.firmaAd===f.ad)):[];
   document.getElementById('mTeklifDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">

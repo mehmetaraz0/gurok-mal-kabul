@@ -50,7 +50,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <body>
 <div id="app">
   <div class="header">
-    <button class="hbtn" onclick="location.href='muhasebe.html'">←</button>
+    <button class="hbtn" onclick="location.href='muhasebe.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Sene Sonu Devir</h1><span style="font-size:11px;opacity:.7;display:block;margin-top:1px">Dönem kapanış işlemi</span></div>
   </div>
   <div class="sc">
@@ -205,9 +205,9 @@ function donemDurumGoster(){
   if(!yil){el.innerHTML='';return;}
   const buYil=new Date().getFullYear();
   if(yil>=buYil){
-    el.innerHTML=`<div class="chip chip-red">⚠️ ${yil} henüz tamamlanmamış olabilir — sadece geçmiş, bitmiş yılları kapat</div>`;
+    el.innerHTML=`<div class="chip chip-red">${yil} henüz tamamlanmamış olabilir — sadece geçmiş, bitmiş yılları kapat</div>`;
   }else if(kapanmisYillar[yil]){
-    el.innerHTML=`<div class="chip chip-gray">✅ ${yil} zaten kapatılmış — ${new Date(kapanmisYillar[yil].kapanmaTarihi).toLocaleString('tr-TR')}</div>`;
+    el.innerHTML=`<div class="chip chip-gray">${yil} zaten kapatılmış — ${new Date(kapanmisYillar[yil].kapanmaTarihi).toLocaleString('tr-TR')}</div>`;
   }else{
     el.innerHTML=`<div class="chip chip-green">Kapatılmaya hazır</div>`;
   }

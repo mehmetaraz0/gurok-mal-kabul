@@ -489,7 +489,7 @@ function basla(){
       // Hesaba depo atanmamış — talep açmasına İZİN VERME, net uyarı göster.
       document.getElementById('tVer').innerHTML=`
         <div class="card" style="border-left:4px solid var(--danger)">
-          <div class="card-title" style="color:var(--danger)">⚠️ Depo Atanmamış</div>
+          <div class="card-title" style="color:var(--danger)">Depo Atanmamış</div>
           <p style="font-size:13px;color:var(--gray-600)">Hesabınıza (${CU.ad}) henüz bir depo/departman kodu atanmamış. Talep açabilmeniz için yöneticinizin Kullanıcı Yönetimi'nden hesabınıza bir depo (örn. CMM201, CSM301) ataması gerekiyor.</p>
         </div>`;
       gTab('ver');
@@ -662,12 +662,12 @@ function rTaleplerim(){
   liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
   c.innerHTML=`<div class="ftabs">
     <button class="ftab ${TF==='tumu'?'active':''}" onclick="TF='tumu';rTaleplerim()">Tümü</button>
-    <button class="ftab ${TF==='bekleyen'?'active':''}" onclick="TF='bekleyen';rTaleplerim()">⏳ Bekleyen</button>
-    <button class="ftab ${TF==='onaylandi'?'active':''}" onclick="TF='onaylandi';rTaleplerim()">✅ Onaylanan</button>
-    <button class="ftab ${TF==='reddedildi'?'active':''}" onclick="TF='reddedildi';rTaleplerim()">❌ Reddedilen</button>
-  </div>`+(liste.length===0?'<div class="es"><div class="ei">📋</div><div class="et">Talep bulunamadı</div></div>':
+    <button class="ftab ${TF==='bekleyen'?'active':''}" onclick="TF='bekleyen';rTaleplerim()">Bekleyen</button>
+    <button class="ftab ${TF==='onaylandi'?'active':''}" onclick="TF='onaylandi';rTaleplerim()">Onaylanan</button>
+    <button class="ftab ${TF==='reddedildi'?'active':''}" onclick="TF='reddedildi';rTaleplerim()">Reddedilen</button>
+  </div>`+(liste.length===0?'<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Talep bulunamadı</div></div>':
   liste.map(s=>{
-    const cm={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">Onaylandı</span>',reddedildi:'<span class="chip chip-err">Reddedildi</span>'};
+    const cm={bekleyen:'<span class="chip chip-warn">Bekliyor</span>',onaylandi:'<span class="chip chip-ok">Onaylandı</span>',reddedildi:'<span class="chip chip-err">Reddedildi</span>'};
     return`<div class="skart ${s.durum}">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">${cm[s.durum]||''}<div style="text-align:right;font-size:11px;color:var(--gray-500)">${s.tarih}</div></div>
       ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${u.ad||u.urunAd||""} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
@@ -686,15 +686,15 @@ function rGelen(){
   if(GF!=='tumu')liste=liste.filter(s=>s.durum===GF);
   liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
   c.innerHTML=`<div class="ftabs">
-    <button class="ftab ${GF==='bekleyen'?'active':''}" onclick="GF='bekleyen';rGelen()">⏳ Bekleyen</button>
-    <button class="ftab ${GF==='onaylandi'?'active':''}" onclick="GF='onaylandi';rGelen()">✅ Onaylanan</button>
-    <button class="ftab ${GF==='reddedildi'?'active':''}" onclick="GF='reddedildi';rGelen()">❌ Reddedilen</button>
+    <button class="ftab ${GF==='bekleyen'?'active':''}" onclick="GF='bekleyen';rGelen()">Bekleyen</button>
+    <button class="ftab ${GF==='onaylandi'?'active':''}" onclick="GF='onaylandi';rGelen()">Onaylanan</button>
+    <button class="ftab ${GF==='reddedildi'?'active':''}" onclick="GF='reddedildi';rGelen()">Reddedilen</button>
     <button class="ftab ${GF==='tumu'?'active':''}" onclick="GF='tumu';rGelen()">Tümü</button>
-  </div>`+(liste.length===0?'<div class="es"><div class="ei">📥</div><div class="et">'+(GF==='bekleyen'?'Bekleyen talep yok':'Kayıt yok')+'</div></div>':
+  </div>`+(liste.length===0?'<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">'+(GF==='bekleyen'?'Bekleyen talep yok':'Kayıt yok')+'</div></div>':
   liste.map(s=>`<div class="skart ${s.durum}" onclick="aOnay('${s.id}')">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div><div style="font-size:13px;font-weight:700">${sipDepartmanGoster(s)}</div><div style="font-size:11px;color:var(--gray-500)">${s.tarih||""} • ${s.personel||""} • ${(s.urunler||s.kalemler||[]).length} ürün</div></div>
-      <span class="chip ${s.durum==='bekleyen'?'chip-warn':s.durum==='onaylandi'?'chip-ok':'chip-err'}">${s.durum==='bekleyen'?'⏳':s.durum==='onaylandi'?'✅':'❌'}</span>
+      <span class="chip ${s.durum==='bekleyen'?'chip-warn':s.durum==='onaylandi'?'chip-ok':'chip-err'}">${s.durum==='bekleyen'?'Bekliyor':s.durum==='onaylandi'?'Onaylandı':'Reddedildi'}</span>
     </div>
     <div style="font-size:12px;color:var(--gray-600)">${(s.urunler||s.kalemler||[]).slice(0,3).map(u=>`${u.ad||u.urunAd||''} ${u.miktar||''} ${u.birim||''}`).join(' • ')}${(s.urunler||s.kalemler||[]).length>3?` +${(s.urunler||s.kalemler||[]).length-3} daha`:''}</div>
   </div>`).join(''));
@@ -735,8 +735,8 @@ function aOnay(id){
         <button class="btn btn-primary btn-sm" onclick="pdfCikti('${id}')">PDF Çıktı</button>
       </div>
       <div class="brow" style="margin-top:6px;">
-        <button class="btn btn-danger btn-sm" onclick="kModal('mOnay');onayOzetGoster('${id}','red')">❌ Reddet</button>
-        <button class="btn btn-success" onclick="kModal('mOnay');onayOzetGoster('${id}','onayla')">✅ Onayla</button>
+        <button class="btn btn-danger btn-sm" onclick="kModal('mOnay');onayOzetGoster('${id}','red')">Reddet</button>
+        <button class="btn btn-success" onclick="kModal('mOnay');onayOzetGoster('${id}','onayla')">Onayla</button>
       </div>`:`
       <div class="brow">
         <button class="btn btn-gray btn-sm" onclick="kModal('mOnay')">Kapat</button>
@@ -1013,7 +1013,7 @@ function rBugun(){
   const c=document.getElementById('tBugun');if(!c)return;
   const today=new Date().toISOString().split('T')[0];
   const liste=Object.values(DB.siparisler||{}).filter(Boolean).filter(s=>s.durum==='onaylandi'&&s.tarih===today).sort((a,b)=>b.onayTarih-a.onayTarih);
-  c.innerHTML=liste.length===0?'<div class="es"><div class="ei">✅</div><div class="et">Bugün teslim edilecek sipariş yok</div></div>':
+  c.innerHTML=liste.length===0?'<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bugün teslim edilecek sipariş yok</div></div>':
     `<div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase">📅 ${today} — ${liste.length} teslimat</div>`+
     liste.map(s=>`<div class="skart onaylandi">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${sipDepartmanGoster(s)}</div><span class="chip chip-ok">Teslim</span></div>
@@ -1111,8 +1111,8 @@ async function onayOzetGoster(id, tip){
       }).join('')}
       ${stokYetersiz?'<div style="background:#fde8e8;border-radius:6px;padding:8px;margin-top:8px;font-size:12px;color:var(--danger)">⚠️ Stok yetersiz ürünler var. Geri dönüp miktarları azaltın.</div>':''}
       <div class="brow" style="margin-top:14px">
-        <button class="btn btn-gray" onclick="kModal('mOzet')">← Geri</button>
-        <button class="btn btn-success" id="btnOnay" ${stokYetersiz?'disabled style="opacity:0.5;cursor:not-allowed"':''} onclick="evetOnayla()">✅ Evet, Onayla</button>
+        <button class="btn btn-gray" onclick="kModal('mOzet')">Geri</button>
+        <button class="btn btn-success" id="btnOnay" ${stokYetersiz?'disabled style="opacity:0.5;cursor:not-allowed"':''} onclick="evetOnayla()">Evet, Onayla</button>
       </div>`;
   } else {
     icerik=`
@@ -1122,8 +1122,8 @@ async function onayOzetGoster(id, tip){
       </div>
       <div class="field"><label>Red Nedeni</label><input type="text" id="rednot2" placeholder="Neden reddedildi?"></div>
       <div class="brow">
-        <button class="btn btn-gray" onclick="kModal('mOzet')">← Geri</button>
-        <button class="btn btn-danger" onclick="document.getElementById('rednot').value=document.getElementById('rednot2')?.value||'';kModal('mOzet');reddet('${id}')">❌ Evet, Reddet</button>
+        <button class="btn btn-gray" onclick="kModal('mOzet')">Geri</button>
+        <button class="btn btn-danger" onclick="document.getElementById('rednot').value=document.getElementById('rednot2')?.value||'';kModal('mOzet');reddet('${id}')">Evet, Reddet</button>
       </div>`;
   }
 
