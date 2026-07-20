@@ -93,8 +93,9 @@ async function renderStokTrend(){
   el.innerHTML=`
     <div class="card-title">Stok Trendi (pencere içi kümülatif net hareket)</div>
     <div class="field"><select id="stok-trend-urun" onchange="_stokTrendUrun=this.value;renderStokTrend()">${secenekler}</select></div>
+    <div id="stok-trend-ozet" style="font-size:12px;color:var(--gray-500);margin-bottom:6px"></div>
     <div style="position:relative;height:220px"><canvas id="stok-trend-canvas"></canvas></div>`;
-  if(!_stokTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Ürün bulunamadı</div></div>';return;}
+  if(!_stokTrendUrun){document.getElementById('stok-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Ürün bulunamadı</div></div>';return;}
 
   const baslangic=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString();
   let hareketler=[];
@@ -116,6 +117,9 @@ async function renderStokTrend(){
   }
   let kumulatif=0;
   const veri=gunler.map(g=>{kumulatif+=(gunlukNet[g]||0);return kumulatif;});
+  const netToplam=veri.length?veri[veri.length-1]:0;
+  const netEtiket=birimDonusumEtiketi(_stokTrendUrun,Math.abs(netToplam));
+  document.getElementById('stok-trend-ozet').textContent=`Net değişim: ${round2(netToplam)}${netEtiket?' (≈'+netEtiket.replace('≈','')+')':''}`;
 
   if(!hareketler.length){
     document.getElementById('stok-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bu aralıkta hareket yok</div></div>';
@@ -138,8 +142,9 @@ async function renderTuketimTrend(){
   el.innerHTML=`
     <div class="card-title">Tüketim Trendi</div>
     <div class="field"><select id="tuketim-trend-urun" onchange="_tuketimTrendUrun=this.value;renderTuketimTrend()">${secenekler}</select></div>
+    <div id="tuketim-trend-ozet" style="font-size:12px;color:var(--gray-500);margin-bottom:6px"></div>
     <div style="position:relative;height:220px"><canvas id="tuketim-trend-canvas"></canvas></div>`;
-  if(!_tuketimTrendUrun){el.querySelector('div[style]').innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Ürün bulunamadı</div></div>';return;}
+  if(!_tuketimTrendUrun){document.getElementById('tuketim-trend-canvas').parentElement.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Ürün bulunamadı</div></div>';return;}
 
   const baslangic=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString();
   let hareketler=[];
@@ -164,6 +169,9 @@ async function renderTuketimTrend(){
     gunler.push(new Date(Date.now()-i*24*60*60*1000).toISOString().slice(0,10));
   }
   const veri=gunler.map(g=>gunlukToplam[g]||0);
+  const toplamTuketim=veri.reduce((a,b)=>a+b,0);
+  const tukEtiket=birimDonusumEtiketi(_tuketimTrendUrun,toplamTuketim);
+  document.getElementById('tuketim-trend-ozet').textContent=`Toplam tüketim: ${round2(toplamTuketim)}${tukEtiket?' ('+tukEtiket+')':''}`;
 
   new Chart(document.getElementById('tuketim-trend-canvas'),{
     type:'line',
@@ -227,6 +235,7 @@ function basla(){
   CU = requireLogin();
   if(!CU) return;
   if(!requireRole(CU, ['yonetici','depo','cost_control'])) return;
+  await birimDonusumHaritasiYukle();
   basla();
 })();
 </script>

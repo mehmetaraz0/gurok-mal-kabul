@@ -344,7 +344,8 @@ function renderSPSatirlar(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div><label style="font-size:11px;font-weight:600;color:var(--gray-600)">MİKTAR</label>
           <input type="number" value="${u.miktar}" placeholder="0" oninput="SP_SATIRLAR[${i}].miktar=this.value"
-            style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none"></div>
+            style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
+          ${birimDonusumEtiketi(u.kod,u.miktar)?`<div style="font-size:10px;color:var(--gray-500);margin-top:3px">${birimDonusumEtiketi(u.kod,u.miktar)}</div>`:''}</div>
         <div><label style="font-size:11px;font-weight:600;color:var(--gray-600)">BİRİM</label>
           <select id="spb${i}" onchange="SP_SATIRLAR[${i}].birim=this.value"
             style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;-webkit-appearance:none;outline:none">
@@ -446,6 +447,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
     }catch(e){SP_SATIRLAR=[];}
   }
   if(SP_SATIRLAR.length===0)addSPSatir();
+  await birimDonusumHaritasiYukle();
   renderSPSatirlar();
 })();
 </script>

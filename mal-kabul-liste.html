@@ -308,6 +308,7 @@ async function loadDB(){
 
 async function initApp(){
   await loadDB();
+  await birimDonusumHaritasiYukle();
   mkSwitchView('form');
   renderKaliteOnay(); // bkalite rozetini güncellemek için arka planda
 
@@ -461,7 +462,7 @@ function renderKalemler(){
         <button onclick="kalemSil(${i})" style="background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;padding:0 2px;margin-top:20px">✕</button>
       </div>
       <div class="rfields">
-        <div class="field"><label>Miktar *</label><input type="number" id="k-miktar-${i}" value="${k.miktar}" placeholder="Miktar" min="0" step="0.01" onchange="formKalemleri[${i}].miktar=this.value"></div>
+        <div class="field"><label>Miktar *</label><input type="number" id="k-miktar-${i}" value="${k.miktar}" placeholder="Miktar" min="0" step="0.01" onchange="formKalemleri[${i}].miktar=this.value">${birimDonusumEtiketi(k.kod,k.miktar)?`<div style="font-size:10px;color:var(--gray-500);margin-top:3px">${birimDonusumEtiketi(k.kod,k.miktar)}</div>`:''}</div>
         <div class="field"><label>Birim</label><input type="text" id="k-birim-${i}" value="${k.birim}" onchange="formKalemleri[${i}].birim=this.value"></div>
       </div>
       <div class="field" style="margin-bottom:8px">
