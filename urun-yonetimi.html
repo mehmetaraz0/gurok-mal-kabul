@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="ortak.js"></script>
+<script src="gurok_veritabani.js"></script>
+<link rel="stylesheet" href="theme.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gürok — Ürün Birim Yönetimi</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.header-btn:active{background:rgba(255,255,255,.3)}
+.uyari{background:#fff3cd;color:#856404;border-radius:10px;padding:12px 14px;margin:12px;font-size:12px;line-height:1.5;border:1.5px solid #fcd34d}
+.scroll-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 12px 12px}
+.scroll-content::-webkit-scrollbar{display:none}
+.search-bar{padding:10px 12px;background:white;border-bottom:1px solid var(--gray-200);flex-shrink:0}
+.search-bar input{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:14px;outline:none}
+.urow{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.urow-ad{font-size:13px;font-weight:700;color:var(--primary)}
+.urow-kod{font-size:11px;color:var(--gray-500)}
+.urow-birim{font-size:11px;color:var(--gray-500)}
+.urow-fields{display:flex;gap:8px;margin-left:auto;align-items:center}
+.urow-fields input{width:90px;padding:7px 9px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px;outline:none}
+.urow-fields button{padding:7px 12px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:var(--primary);color:white;min-height:32px}
+.urow-fields button:disabled{background:var(--gray-300);cursor:not-allowed}
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="app" style="display:none">
+  <div class="header">
+    <button class="header-btn" onclick="location.href='stok-takip.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+    <div style="flex:1"><h1>Ürün Birim Yönetimi</h1><span class="sub" id="hsub"></span></div>
+  </div>
+  <div class="uyari">Sadece koli/kg gibi büyük-küçük birim ilişkisi olan ürünler için "Büyük Birim" ve "Çarpan" gir (örn. 1 KOLİ = 10 KG için Büyük Birim: KOLİ, Çarpan: 10). Bu, sadece raporlarda kg'yi koli'ye çevirmek için kullanılır — mal kabulde gerçek ağırlık girişini değiştirmez.</div>
+  <div class="search-bar"><input type="text" id="arama" placeholder="Ürün kodu veya adı ara (en az 2 karakter)..." oninput="aramaYap()"></div>
+  <div class="scroll-content" id="urun-liste">
+    <div class="es"><div class="ei">🔍</div><div class="et">Aramaya başlamak için en az 2 karakter yaz</div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+// SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
+// sLD/hLD/toast/escapeHtml -> ortak.js
+// URUN_DB -> gurok_veritabani.js
+
+let CU=null;
+let YETKI_HARITASI={};
+let MEVCUT_DONUSUMLER={}; // {urun_kodu: {buyuk_birim, carpan}}
+
+async function mevcutDonusumleriYukle(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/urun_birim_donusum?select=urun_kodu,buyuk_birim,carpan&silindi=eq.false',{headers:SB_HEADERS});
+    if(r.ok){
+      MEVCUT_DONUSUMLER={};
+      (await r.json()).forEach(row=>{MEVCUT_DONUSUMLER[row.urun_kodu]={buyuk_birim:row.buyuk_birim,carpan:row.carpan};});
+    }
+  }catch(e){}
+}
+
+function aramaYap(){
+  const q=document.getElementById('arama').value.trim().toLocaleUpperCase('tr-TR');
+  const el=document.getElementById('urun-liste');
+  if(q.length<2){
+    el.innerHTML='<div class="es"><div class="ei">🔍</div><div class="et">Aramaya başlamak için en az 2 karakter yaz</div></div>';
+    return;
+  }
+  const sonuclar=URUN_DB.filter(u=>u.kod.toLocaleUpperCase('tr-TR').includes(q)||u.ad.toLocaleUpperCase('tr-TR').includes(q)).slice(0,50);
+  if(!sonuclar.length){
+    el.innerHTML='<div class="es"><div class="ei">🔍</div><div class="et">Sonuç bulunamadı</div></div>';
+    return;
+  }
+  const kayitliMi=['kayit','tam'].includes(YETKI_HARITASI['urun_yonetimi']);
+  el.innerHTML=sonuclar.map(u=>{
+    const mevcut=MEVCUT_DONUSUMLER[u.kod]||{};
+    return`<div class="urow" id="urow-${escapeHtml(u.kod)}">
+      <div>
+        <div class="urow-ad">${escapeHtml(u.ad)}</div>
+        <div class="urow-kod">${escapeHtml(u.kod)} · <span class="urow-birim">${escapeHtml(u.birim)}</span></div>
+      </div>
+      <div class="urow-fields">
+        <input type="text" id="bb-${escapeHtml(u.kod)}" placeholder="Büyük Birim" value="${escapeHtml(mevcut.buyuk_birim||'')}" ${kayitliMi?'':'disabled'}>
+        <input type="number" min="0.01" step="0.01" id="cp-${escapeHtml(u.kod)}" placeholder="Çarpan" value="${mevcut.carpan||''}" ${kayitliMi?'':'disabled'}>
+        <button onclick="donusumKaydet('${escapeHtml(u.kod).replace(/'/g,"\\'")}')" ${kayitliMi?'':'disabled'}>Kaydet</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function donusumKaydet(kod){
+  const buyukBirim=document.getElementById('bb-'+kod).value.trim();
+  const carpan=parseFloat(document.getElementById('cp-'+kod).value);
+  if(!buyukBirim||!carpan||carpan<=0){toast('❌ Büyük birim ve çarpan (0\'dan büyük) gerekli');return;}
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/urun_birim_donusum?on_conflict=urun_kodu',{
+      method:'POST',
+      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({urun_kodu:kod,buyuk_birim:buyukBirim,carpan:carpan,silindi:false})
+    });
+    if(!r.ok)throw new Error(await r.text());
+    MEVCUT_DONUSUMLER[kod]={buyuk_birim:buyukBirim,carpan:carpan};
+    toast('✅ Kaydedildi');
+  }catch(e){toast('❌ Kaydedilemedi: '+e.message);}
+  hLD();
+}
+
+(async function(){
+  CU=requireLogin();
+  if(!CU)return;
+  if(!requireRole(CU,['yonetici','depo','cost_control']))return;
+  document.getElementById('app').style.display='flex';
+  document.getElementById('hsub').textContent=(CU.rol||'')+' '+(CU.ad||'');
+  YETKI_HARITASI=await kullaniciYetkileriGetir();
+  await mevcutDonusumleriYukle();
+})();
+</script>
+</body>
+</html>
