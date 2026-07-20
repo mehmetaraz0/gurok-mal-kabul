@@ -149,7 +149,7 @@ function renderTeklifler(){
   if(teklifFilter!=='tumu')liste=liste.filter(tk=>tk.durum===teklifFilter);
   liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📨</div><div class="et">Teklif talebi bulunamadı</div></div>';return;}
-  const chipMap={acik:'<span class="chip chip-warn">⏳ Açık</span>',kapandi:'<span class="chip chip-ok">✅ Kapandı</span>'};
+  const chipMap={acik:'<span class="chip chip-warn">⏳ Açık</span>',kapandi:'<span class="chip chip-ok">Kapandı</span>'};
   c.innerHTML=liste.map(tk=>`
     <div class="skart" onclick="openTeklifDetay('${tk.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
@@ -191,7 +191,7 @@ async function teklifTedarikciEkle(teklifTalepId,firmaAd,firmaKodu){
 
 function openTeklifDetay(id){
   const tk=DB.teklifler[id];if(!tk)return;
-  const chipMap={acik:'<span class="chip chip-warn">⏳ Açık</span>',kapandi:'<span class="chip chip-ok">✅ Kapandı</span>'};
+  const chipMap={acik:'<span class="chip chip-warn">⏳ Açık</span>',kapandi:'<span class="chip chip-ok">Kapandı</span>'};
   const oneriler=tk.durum==='acik'?teklifTedarikciOnerileriGetir(tk.kalemler).filter(f=>!tk.tedarikciler.some(t=>t.firmaAd===f.ad)):[];
   document.getElementById('mTeklifDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">

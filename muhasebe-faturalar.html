@@ -534,12 +534,12 @@ function renderFaturalar(tur){
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei">🧾</div><div class="et">Fatura bulunamadı</div></div>';return;}
 
   const durumChip={
-    taslak:'<span class="chip chip-gray">📝 Taslak</span>',
+    taslak:'<span class="chip chip-gray">Taslak</span>',
     bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',
-    onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',
-    kismi_odendi:'<span class="chip chip-orange">💰 Kısmi Ödendi</span>',
-    odendi:'<span class="chip chip-blue">💳 Ödendi</span>',
-    iptal:'<span class="chip chip-red">❌ İptal</span>'
+    onaylandi:'<span class="chip chip-green">Onaylı</span>',
+    kismi_odendi:'<span class="chip chip-orange">Kısmi Ödendi</span>',
+    odendi:'<span class="chip chip-blue">Ödendi</span>',
+    iptal:'<span class="chip chip-red">İptal</span>'
   };
 
   c.innerHTML=liste.map(f=>`
@@ -556,8 +556,8 @@ function renderFaturalar(tur){
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         ${durumChip[f.durum]||''}
-        ${f.siparisNo?`<span class="chip chip-purple">📋 ${f.siparisNo}</span>`:''}
-        ${f.otelId?`<span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[f.otelId]||f.otelId}</span>`:''}
+        ${f.siparisNo?`<span class="chip chip-purple">${f.siparisNo}</span>`:''}
+        ${f.otelId?`<span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">${OTEL_KISA[f.otelId]||f.otelId}</span>`:''}
         ${f.iade?'<span class="chip chip-red">↩️ İade</span>':''}
         ${f.vade?`<span style="font-size:11px;color:${new Date(f.vade)<new Date()&&f.durum!=='odendi'?'var(--danger)':'var(--gray-500)'}">Vade: ${f.vade}</span>`:''}
       </div>
@@ -585,8 +585,8 @@ function filterF(tur,f,el){
 function openFaturaDetay(id){
   const f=faturalar[id];if(!f)return;
   document.getElementById('mFaturaDetayTitle').textContent=f.no;
-  const durumChip={taslak:'<span class="chip chip-gray">📝 Taslak</span>',bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-green">✅ Onaylı</span>',kismi_odendi:'<span class="chip chip-orange">💰 Kısmi Ödendi</span>',odendi:'<span class="chip chip-blue">💳 Ödendi</span>',iptal:'<span class="chip chip-red">❌ İptal</span>'};
-  const efDurumChip={taslak:'<span class="chip chip-gray">📝 Taslak</span>',gonderiliyor:'<span class="chip chip-yellow">⏳ Gönderiliyor</span>',gonderildi:'<span class="chip chip-blue">✅ Gönderildi</span>',onaylandi:'<span class="chip chip-green">✔️ Onaylandı</span>',reddedildi:'<span class="chip chip-red">❌ Reddedildi</span>',iptal:'<span class="chip chip-gray">🚫 İptal</span>'};
+  const durumChip={taslak:'<span class="chip chip-gray">Taslak</span>',bekliyor:'<span class="chip chip-yellow">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-green">Onaylı</span>',kismi_odendi:'<span class="chip chip-orange">Kısmi Ödendi</span>',odendi:'<span class="chip chip-blue">Ödendi</span>',iptal:'<span class="chip chip-red">İptal</span>'};
+  const efDurumChip={taslak:'<span class="chip chip-gray">Taslak</span>',gonderiliyor:'<span class="chip chip-yellow">⏳ Gönderiliyor</span>',gonderildi:'<span class="chip chip-blue">Gönderildi</span>',onaylandi:'<span class="chip chip-green">Onaylandı</span>',reddedildi:'<span class="chip chip-red">Reddedildi</span>',iptal:'<span class="chip chip-gray">İptal</span>'};
   document.getElementById('mFaturaDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">
       <div>
@@ -595,7 +595,7 @@ function openFaturaDetay(id){
       </div>
       ${durumChip[f.durum]||''}
     </div>
-    ${f.siparisNo||f.otelId?`<div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">${f.siparisNo?`<span class="chip chip-purple">📋 LN Sipariş: ${f.siparisNo}</span>`:''}${f.otelId?`<span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_ISIMLERI[f.otelId]||f.otelId}</span>`:''}</div>`:''}
+    ${f.siparisNo||f.otelId?`<div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">${f.siparisNo?`<span class="chip chip-purple">LN Sipariş: ${f.siparisNo}</span>`:''}${f.otelId?`<span class="chip ${f.otelId==='811'?'chip-blue':'chip-orange'}">${OTEL_ISIMLERI[f.otelId]||f.otelId}</span>`:''}</div>`:''}
     ${f.tur==='satis'?`
     ${EFATURA_SIMULASYON?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:#92400e;font-weight:600">⚠️ SİMÜLASYON MODU — gerçek GİB gönderimi yapılmıyor</div>`:''}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">

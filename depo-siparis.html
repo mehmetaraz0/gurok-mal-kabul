@@ -667,7 +667,7 @@ function rTaleplerim(){
     <button class="ftab ${TF==='reddedildi'?'active':''}" onclick="TF='reddedildi';rTaleplerim()">❌ Reddedilen</button>
   </div>`+(liste.length===0?'<div class="es"><div class="ei">📋</div><div class="et">Talep bulunamadı</div></div>':
   liste.map(s=>{
-    const cm={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">✅ Onaylandı</span>',reddedildi:'<span class="chip chip-err">❌ Reddedildi</span>'};
+    const cm={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">Onaylandı</span>',reddedildi:'<span class="chip chip-err">Reddedildi</span>'};
     return`<div class="skart ${s.durum}">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">${cm[s.durum]||''}<div style="text-align:right;font-size:11px;color:var(--gray-500)">${s.tarih}</div></div>
       ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${u.ad||u.urunAd||""} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
@@ -1016,7 +1016,7 @@ function rBugun(){
   c.innerHTML=liste.length===0?'<div class="es"><div class="ei">✅</div><div class="et">Bugün teslim edilecek sipariş yok</div></div>':
     `<div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase">📅 ${today} — ${liste.length} teslimat</div>`+
     liste.map(s=>`<div class="skart onaylandi">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${sipDepartmanGoster(s)}</div><span class="chip chip-ok">✅ Teslim</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${sipDepartmanGoster(s)}</div><span class="chip chip-ok">Teslim</span></div>
       ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0">• ${u.ad||u.urunAd||""} — ${u.onaylananMiktar||u.miktar} ${u.birim}</div>`).join('')}
       <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Onaylayan: ${s.onaylayanAd||'—'}</div>
     </div>`).join('');

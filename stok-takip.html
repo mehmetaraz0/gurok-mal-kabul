@@ -148,7 +148,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="stats-grid" id="stok-stats"></div>
     <div class="search-bar">
       <input type="text" id="stok-search" placeholder="Ürün adı veya LN kodu ara..." oninput="renderStok()">
-      <span class="search-icon">🔍</span>
+      <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></span>
     </div>
     <div class="filter-tabs">
       <button class="filter-tab active" onclick="filterStok('tumu',this)">Tümü</button>
@@ -264,7 +264,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="sayim-yeni-alani">
       <div class="search-bar">
         <input type="text" id="sayim-search" placeholder="Ürün adı veya LN kodu ara..." oninput="renderSayimYeni()">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></span>
       </div>
       <div class="filter-tabs" id="sayim-kat-tabs"></div>
       <div id="sayim-liste"></div>
@@ -1733,7 +1733,7 @@ async function iadeSiparisiOlustur(){
   document.getElementById('iade-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
     <div class="card-title">✅ İade Siparişi Oluşturuldu</div>
     <div style="font-size:13px;">
-      <span class="chip" style="background:#ede9fe;color:#5b21b6;font-family:monospace;font-weight:700">📋 ${siparisNo}</span>
+      <span class="chip" style="background:#ede9fe;color:#5b21b6;font-family:monospace;font-weight:700">${siparisNo}</span>
       &nbsp;${firmaAd}
     </div>
     <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length-basarisizlar.length} kalem, ${depoAd}'dan stoktan düşüldü.${basarisizlar.length?` <span style="color:var(--danger)">(${basarisizlar.length} kalemde stok güncellenemedi)</span>`:''}</div>

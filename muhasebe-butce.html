@@ -368,7 +368,7 @@ function renderButceListesi(){
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-size:13px;font-weight:700">${b.hesapKodu} — ${b.hesapAd||''}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${b.yil} • <span class="chip ${b.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[b.otelId]||b.otelId}</span></div>
+          <div style="font-size:11px;color:var(--gray-500)">${b.yil} • <span class="chip ${b.otelId==='811'?'chip-blue':'chip-orange'}">${OTEL_KISA[b.otelId]||b.otelId}</span></div>
         </div>
         <div style="font-size:14px;font-weight:800;color:var(--primary)">${fmt(toplamYillik)} ₺</div>
       </div>

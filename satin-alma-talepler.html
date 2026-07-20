@@ -582,7 +582,7 @@ function renderTalepler(){
 
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Talep bulunamadı</div></div>';return;}
 
-  const chipMap={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">✅ Onaylandı</span>',siparis:'<span class="chip chip-info">📦 Siparişe Dönüştü</span>',reddedildi:'<span class="chip chip-err">❌ Reddedildi</span>'};
+  const chipMap={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">Onaylandı</span>',siparis:'<span class="chip chip-info">Siparişe Dönüştü</span>',reddedildi:'<span class="chip chip-err">Reddedildi</span>'};
   c.innerHTML=liste.map(t=>`
     <div class="skart ${t.durum}" onclick="openTalepDetay('${t.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
@@ -721,7 +721,7 @@ async function talepGecmisiGetir(id){
 
 async function openTalepDetay(id){
   const t=DB.talepler[id];if(!t)return;
-  const chipMap={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">✅ Onaylandı</span>',siparis:'<span class="chip chip-info">📦 Siparişe Dönüştü</span>',reddedildi:'<span class="chip chip-err">❌ Reddedildi</span>'};
+  const chipMap={bekleyen:'<span class="chip chip-warn">⏳ Bekliyor</span>',onaylandi:'<span class="chip chip-ok">Onaylandı</span>',siparis:'<span class="chip chip-info">Siparişe Dönüştü</span>',reddedildi:'<span class="chip chip-err">Reddedildi</span>'};
   const yetkili=t.durum==='bekleyen'&&_yetkiliAsamalar.has(t.asama);
   const gecmis=await talepGecmisiGetir(id);
   document.getElementById('mTalepDetayIc').innerHTML=`

@@ -409,10 +409,10 @@ function renderListe(yon){
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei">📄</div><div class="et">Kayıt bulunamadı</div></div>';return;}
 
   const durumChip={
-    portfoyde:`<span class="chip chip-blue">💼 ${yon==='alinan'?'Portföyde':'Elde'}</span>`,
+    portfoyde:`<span class="chip chip-blue">${yon==='alinan'?'Portföyde':'Elde'}</span>`,
     tahsilde:`<span class="chip chip-yellow">⏳ ${yon==='alinan'?'Tahsilde':'Verildi'}</span>`,
-    tamamlandi:`<span class="chip chip-green">✅ ${yon==='alinan'?'Tahsil Edildi':'Ödendi'}</span>`,
-    karsiliksiz:'<span class="chip chip-red">❌ Karşılıksız</span>'
+    tamamlandi:`<span class="chip chip-green">${yon==='alinan'?'Tahsil Edildi':'Ödendi'}</span>`,
+    karsiliksiz:'<span class="chip chip-red">Karşılıksız</span>'
   };
 
   c.innerHTML=liste.map(k=>{
@@ -430,7 +430,7 @@ function renderListe(yon){
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         ${durumChip[k.durum]||''}
-        ${k.otelId?`<span class="chip ${k.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[k.otelId]||k.otelId}</span>`:''}
+        ${k.otelId?`<span class="chip ${k.otelId==='811'?'chip-blue':'chip-orange'}">${OTEL_KISA[k.otelId]||k.otelId}</span>`:''}
       </div>
     </div>`;
   }).join('');
