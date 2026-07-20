@@ -41,11 +41,11 @@ async function kullaniciYetkileriGetir() {
   const user = oturumGetir();
   if (!user || !user.rol_id) return {};
   try {
-    const r = await fetch(SB_URL + '/rest/v1/yetki_matrisi?select=yetki,moduller(kod)&rol_id=eq.' + user.rol_id, { headers: SB_HEADERS });
+    const r = await fetch(SB_URL + '/rest/v1/yetki_matrisi?select=yetki,moduller(kod,aktif)&rol_id=eq.' + user.rol_id, { headers: SB_HEADERS });
     if (!r.ok) return {};
     const rows = await r.json();
     const harita = {};
-    rows.forEach(row => { if (row.moduller) harita[row.moduller.kod] = row.yetki; });
+    rows.forEach(row => { if (row.moduller && row.moduller.aktif) harita[row.moduller.kod] = row.yetki; });
     return harita;
   } catch (e) { return {}; }
 }
