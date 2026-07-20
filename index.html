@@ -653,9 +653,13 @@ function logout() {
   document.getElementById('screen-login').classList.remove('hidden');
 }
 
+const TOAST_RENK={'✅':'var(--success)','❌':'var(--danger)','⚠️':'var(--warning)','🔷':'var(--primary-light)'};
 function showToast(msg, dur=2500) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  const m = String(msg).match(/^(✅|❌|⚠️|🔷)\s*(.*)$/s);
+  t.textContent = m ? m[2] : msg;
+  t.style.borderLeft = m ? ('4px solid '+TOAST_RENK[m[1]]) : '';
+  t.style.paddingLeft = m ? '16px' : '20px';
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), dur);
 }

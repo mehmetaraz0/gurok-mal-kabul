@@ -148,9 +148,14 @@ async function hucreDegistir(rolId,modulId){
   }
 }
 
+const TOAST_RENK={'✅':'var(--success)','❌':'var(--danger)','⚠️':'var(--warning)'};
 function toast(msg){
   const t=document.getElementById('toast');
-  t.textContent=msg;t.classList.add('show');
+  const m=String(msg).match(/^(✅|❌|⚠️)\s*(.*)$/s);
+  t.textContent=m?m[2]:msg;
+  t.style.borderLeft=m?('4px solid '+TOAST_RENK[m[1]]):'';
+  t.style.paddingLeft=m?'16px':'20px';
+  t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),1500);
 }
 

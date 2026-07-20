@@ -101,7 +101,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <input type="file" id="cari-excel-input" accept=".xlsx,.xls" style="display:none" onchange="cariExcelYukle(event)">
     <div class="search-bar">
       <input type="text" id="cari-ara" placeholder="Cari adı, VKN veya kod ara..." oninput="renderCariler()">
-      <span class="search-icon">🔍</span>
+      <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></span>
     </div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterCari('tumu',this)">Tümü</button>
@@ -505,7 +505,7 @@ function renderCariler(){
   c.innerHTML=liste.map(cari=>{
     const bak=cariBakiye(cari.id);
     const durum=bak.net>0?'borc':bak.net<0?'alacak':'sifir';
-    const tipChip=cari.tip==='tedarikci'?'<span class="chip chip-orange">🏭 Tedarikçi</span>':cari.tip==='musteri'?'<span class="chip chip-blue">👤 Müşteri</span>':'<span class="chip chip-gray">🔄 Her İkisi</span>';
+    const tipChip=cari.tip==='tedarikci'?'<span class="chip chip-orange">Tedarikçi</span>':cari.tip==='musteri'?'<span class="chip chip-blue">Müşteri</span>':'<span class="chip chip-gray">Her İkisi</span>';
     return`<div class="cari-kart ${durum}" onclick="openCariDetay('${cari.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div>
@@ -520,7 +520,7 @@ function renderCariler(){
       <div style="display:flex;gap:6px;align-items:center">
         ${tipChip}
         ${cari.efatura==='evet'?'<span class="chip chip-green">e-Fatura</span>':''}
-        ${cari.acente?`<span class="chip chip-purple">🏨 Acente %${cari.komisyonOrani||0}</span>`:''}
+        ${cari.acente?`<span class="chip chip-purple">Acente %${cari.komisyonOrani||0}</span>`:''}
         ${cari.vade?`<span style="font-size:11px;color:var(--gray-500)">${cari.vade} gün vade</span>`:''}
       </div>
     </div>`;

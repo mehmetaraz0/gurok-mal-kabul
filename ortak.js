@@ -8,7 +8,19 @@
 
 function sLD(){document.getElementById('ld').classList.add('show');}
 function hLD(){document.getElementById('ld').classList.remove('show');}
-function toast(msg,d=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d);}
+// Mesaj ✅/❌/⚠️/⏳ ile başlıyorsa emoji metinden çıkarılır, yerine renkli
+// sol kenarlık kullanılır (durum hâlâ tek bakışta ayırt edilebiliyor,
+// ama emoji karakteri görünmüyor).
+const TOAST_RENK={'✅':'var(--success)','❌':'var(--danger)','⚠️':'var(--warning)','⏳':'var(--gray-500)'};
+function toast(msg,d=2500){
+  const t=document.getElementById('toast');
+  const m=String(msg).match(/^(✅|❌|⚠️|⏳)\s*(.*)$/s);
+  t.textContent=m?m[2]:msg;
+  t.style.borderLeft=m?('4px solid '+TOAST_RENK[m[1]]):'';
+  t.style.paddingLeft=m?'16px':'20px';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),d);
+}
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
 function kModal(id){document.getElementById(id).classList.remove('open');}

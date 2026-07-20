@@ -221,7 +221,7 @@ function stDetayAc(siparisNo){
           <td>${k.miktar} ${k.birim}</td>
           <td class="${(k.gelenMiktar||0)>0?'ok':''}">${k.gelenMiktar||0} ${k.birim}</td>
           <td class="${tamam?'ok':'warn'}">${k.kalanMiktar||k.miktar} ${k.birim}</td>
-          <td>${tamam?'<span class="chip" style="background:#d4edda;color:#155724">✅ Tamam</span>':'<span class="chip" style="background:#fde8e8;color:#9b1c1c">⏳ Bekliyor</span>'}</td>
+          <td>${tamam?'<span class="chip" style="background:#d4edda;color:#155724">Tamam</span>':'<span class="chip" style="background:#fde8e8;color:#9b1c1c">⏳ Bekliyor</span>'}</td>
         </tr>`;
       }).join('')}
     </tbody>

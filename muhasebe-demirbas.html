@@ -92,7 +92,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <input type="file" id="demirbas-excel-input" accept=".xlsx,.xls" style="display:none" onchange="demirbasExcelYukle(event)">
     <div class="search-bar">
       <input type="text" id="db-ara" placeholder="Demirbaş adı, kod veya zimmet ara..." oninput="renderDemirbaslar()">
-      <span class="search-icon">🔍</span>
+      <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></span>
     </div>
     <div class="ftabs">
       <button class="ftab active" onclick="filterDemirbas('tumu',this)">Tümü</button>
@@ -440,7 +440,7 @@ function renderDemirbaslar(){
       <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,oranTuketilmis)}%;background:${oranTuketilmis>=100?'var(--danger)':'var(--primary)'}"></div></div>
       <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
         <span class="chip ${d.durum==='aktif'?'chip-green':'chip-gray'}">${d.durum==='aktif'?'✅ Aktif':'🗑️ Elden Çıkarıldı'}</span>
-        ${d.otelId?`<span class="chip ${d.otelId==='811'?'chip-blue':'chip-orange'}">🏨 ${OTEL_KISA[d.otelId]||d.otelId}</span>`:''}
+        ${d.otelId?`<span class="chip ${d.otelId==='811'?'chip-blue':'chip-orange'}">${OTEL_KISA[d.otelId]||d.otelId}</span>`:''}
         <span class="chip chip-purple">%${d.oran} yıllık</span>
       </div>
     </div>`;

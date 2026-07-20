@@ -127,12 +127,12 @@ async function renderSkt(){
     const gun=r._gun;
     const isTuketildi=r.durum==='tuketildi', isImha=r.durum==='imha_edildi';
     let renk,chip;
-    if(isTuketildi){renk='var(--success)';chip='<span class="chip chip-green">✅ Tüketildi</span>';}
-    else if(isImha){renk='var(--gray-500)';chip='<span class="chip chip-gray">🗑️ İmha Edildi</span>';}
-    else if(gun<0){renk='var(--danger)';chip='<span class="chip chip-red">⛔ Geçmiş</span>';}
-    else if(gun<14){renk='#dc2626';chip='<span class="chip chip-red">🔴 Kritik</span>';}
-    else if(gun<30){renk='var(--warning)';chip='<span class="chip chip-yellow">🟡 Uyarı</span>';}
-    else{renk='var(--gray-400)';chip='<span class="chip chip-gray">🟢 Normal</span>';}
+    if(isTuketildi){renk='var(--success)';chip='<span class="chip chip-green">Tüketildi</span>';}
+    else if(isImha){renk='var(--gray-500)';chip='<span class="chip chip-gray">İmha Edildi</span>';}
+    else if(gun<0){renk='var(--danger)';chip='<span class="chip chip-red">Geçmiş</span>';}
+    else if(gun<14){renk='#dc2626';chip='<span class="chip chip-red">Kritik</span>';}
+    else if(gun<30){renk='var(--warning)';chip='<span class="chip chip-yellow">Uyarı</span>';}
+    else{renk='var(--gray-400)';chip='<span class="chip chip-gray">Normal</span>';}
     const urun=urunler.find(u=>u.kod===r.urun_kodu);
     const gunMetni=isTuketildi?'Tüketildi':isImha?'İmha edildi':(gun<0?Math.abs(gun)+' gün geçti':gun+' gün kaldı');
     return`<div class="mk-kart" style="border-left-color:${renk}">

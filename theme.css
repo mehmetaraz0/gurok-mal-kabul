@@ -8,3 +8,7 @@
   --gray-500:#adb5bd;--gray-600:#6c757d;--gray-700:#495057;
   --radius:12px;--radius-sm:8px;--shadow:0 2px 12px rgba(0,0,0,0.1)
 }
+/* Durum/kategori chip'lerindeki emoji yerine renkli nokta — chip'in kendi
+   rengi (class veya inline style ile ayarlanmış) currentColor üzerinden
+   noktaya otomatik yansır, ayrı bir renk eşlemesi gerekmez. */
+.chip::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:middle}
