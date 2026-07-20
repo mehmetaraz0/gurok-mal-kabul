@@ -699,7 +699,7 @@ function sbdenCamele(r){
 async function loadDB(){
   sLD();
   try{
-    const r=await fetch(SB_URL+'/rest/v1/hesap_plani?select=*&order=kod',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/hesap_plani?select=*&order=kod&silindi=eq.false',{headers:SB_HEADERS});
     if(r.ok){
       const rows=await r.json();
       hesaplar={};
@@ -716,7 +716,8 @@ async function saveHesap(h){
   const satir={
     kod:h.kod,ust_kod:ustKod,ad:h.ad,tip:h.tip,ana_grup:h.anaGrup||null,
     yon:h.yon||'Borç',alt_seviye:h.altSeviye||null,ozellik:h.ozellik||null,
-    doviz:h.doviz||'TRY',durum:h.durum||'aktif',aciklama:h.aciklama||null
+    doviz:h.doviz||'TRY',durum:h.durum||'aktif',aciklama:h.aciklama||null,
+    silindi:false
   };
   try{
     await fetch(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
@@ -1132,7 +1133,7 @@ async function hesapSilModal(){
   if(!confirm(`"${kod}" silinsin mi?`))return;
   const key=kod.replace(/\./g,'_');
   sLD();delete hesaplar[key];
-  try{await fetch(SB_URL+'/rest/v1/hesap_plani?kod=eq.'+encodeURIComponent(kod),{method:'DELETE',headers:SB_HEADERS});}catch(e){console.warn(e);}
+  try{await fetch(SB_URL+'/rest/v1/hesap_plani?kod=eq.'+encodeURIComponent(kod),{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});}catch(e){console.warn(e);}
   hLD();kModal('mHesap');seciliKod=null;renderTablo();toast('🗑️ Silindi');
 }
 

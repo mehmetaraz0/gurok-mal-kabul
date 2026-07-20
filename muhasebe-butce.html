@@ -184,8 +184,8 @@ async function loadDB(){
   try{
     const [bR,hR,yR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/butce_kayitlari?select=*&silindi=eq.false',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad,yon,tip',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=id,tarih,otel_id,yevmiye_kalemleri(hesap_kodu,borc,alacak)',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad,yon,tip&silindi=eq.false',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=id,tarih,otel_id,yevmiye_kalemleri(hesap_kodu,borc,alacak)&silindi=eq.false',{headers:SB_HEADERS}),
     ]);
     butceler={};hesaplar={};yevmiyeler={};
     if(bR.ok){(await bR.json()).forEach(r=>{butceler[r.id]=butceSbdenCamele(r);});}

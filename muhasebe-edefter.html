@@ -384,8 +384,8 @@ async function loadDB(){
   sLD();
   try{
     const [yR,hR]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=*,yevmiye_kalemleri(*)',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/yevmiye_fisler?select=*,yevmiye_kalemleri(*)&silindi=eq.false',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/hesap_plani?select=kod,ad&silindi=eq.false',{headers:SB_HEADERS}),
     ]);
     yevmiyeler={};hesapPlani={};
     if(yR.ok){(await yR.json()).forEach(r=>{yevmiyeler[r.id]=yevSbdenCamele(r);});}

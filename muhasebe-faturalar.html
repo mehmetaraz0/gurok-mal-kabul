@@ -348,7 +348,7 @@ async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs,otelI
   // ile "üzerine yazma" davranışının Supabase karşılığı — idempotency)
   let mevcutId=null,no=null;
   try{
-    const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.${encodeURIComponent(tip)}&belge_no=eq.${encodeURIComponent(belge)}&select=id,no`,{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.${encodeURIComponent(tip)}&belge_no=eq.${encodeURIComponent(belge)}&select=id,no&silindi=eq.false`,{headers:SB_HEADERS});
     if(r.ok){const d=await r.json();if(d&&d.length){mevcutId=d[0].id;no=d[0].no;}}
   }catch(e){}
   if(!no)no=await yeniFisNo();
