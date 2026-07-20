@@ -128,10 +128,10 @@ async function donusumKaydet(kod){
   CU=requireLogin();
   if(!CU)return;
   if(!requireRole(CU,['yonetici','depo','cost_control']))return;
-  document.getElementById('app').style.display='flex';
   document.getElementById('hsub').textContent=(CU.rol||'')+' '+(CU.ad||'');
   YETKI_HARITASI=await kullaniciYetkileriGetir();
   await mevcutDonusumleriYukle();
+  document.getElementById('app').style.display='flex';
 })();
 </script>
 </body>
