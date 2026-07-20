@@ -43,9 +43,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .filtre-inp:focus{border-color:var(--primary)}
 .filtre-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid transparent}
 .filtre-chip.aktif{border-color:var(--primary);background:var(--primary);color:white}
-.filtre-chip.bilanco{background:#dbeafe;color:#1e40af;border-color:#93c5fd}
+.filtre-chip.bilanco{background:#e4e9f2;color:#33476b;border-color:#93c5fd}
 .filtre-chip.gelir{background:#d4edda;color:#155724;border-color:#86efac}
-.filtre-chip.maliyet{background:#ede9fe;color:#5b21b6;border-color:#c4b5fd}
+.filtre-chip.maliyet{background:#e8e5f0;color:#4a3f68;border-color:#c4b5fd}
 .filtre-chip.nazim{background:#fff3cd;color:#856404;border-color:#fcd34d}
 .filtre-chip:hover{opacity:.8}
 
@@ -69,7 +69,7 @@ thead tr th.sort-desc::after{content:' ▼';font-size:9px}
 /* Satırlar */
 tbody tr{border-bottom:1px solid var(--gray-200);cursor:pointer}
 tbody tr:hover{background:#e8f0fe!important}
-tbody tr.secili{background:#dbeafe!important;outline:2px solid var(--info)}
+tbody tr.secili{background:#e4e9f2!important;outline:2px solid var(--info)}
 
 /* Seviye renkleri */
 .lv1 td{background:#1a2744;color:white;font-weight:800;font-size:13px}
@@ -86,9 +86,9 @@ td:first-child{min-width:90px}
 
 /* Chip */
 .chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700}
-.chip-bilanco{background:#dbeafe;color:#1e40af}
+.chip-bilanco{background:#e4e9f2;color:#33476b}
 .chip-gelir{background:#d4edda;color:#155724}
-.chip-maliyet{background:#ede9fe;color:#5b21b6}
+.chip-maliyet{background:#e8e5f0;color:#4a3f68}
 .chip-nazim{background:#fff3cd;color:#856404}
 
 /* Durum */
@@ -129,10 +129,10 @@ td:first-child{min-width:90px}
   <div class="header">
     <button class="hbtn" onclick="location.href='muhasebe.html'">← Muhasebe</button>
     <h1>Hesap Planı — Tekdüzen Hesap Planı (THP)</h1>
-    <button class="hbtn primary" onclick="openYeniHesap()">➕ Yeni Hesap</button>
-    <button class="hbtn" onclick="thpYukle()">📥 THP Yükle</button>
-    <button class="hbtn" onclick="gurokYukle()" style="background:#fce7f3">🏨 Gürok Özel</button>
-    <button class="hbtn" onclick="exportExcel()">📤 Excel</button>
+    <button class="hbtn primary" onclick="openYeniHesap()">Yeni Hesap</button>
+    <button class="hbtn" onclick="thpYukle()">THP Yükle</button>
+    <button class="hbtn" onclick="gurokYukle()" style="background:#ede4e6">Gürok Özel</button>
+    <button class="hbtn" onclick="exportExcel()">Excel</button>
   </div>
 
   <!-- TOOLBAR -->
@@ -161,8 +161,8 @@ td:first-child{min-width:90px}
       <span class="filtre-chip gelir" id="fc-gelir" onclick="filterTip('Gelir Tablosu',this)">Gelir T.</span>
       <span class="filtre-chip maliyet" id="fc-maliyet" onclick="filterTip('Maliyet',this)">Maliyet</span>
       <span class="filtre-chip nazim" id="fc-nazim" onclick="filterTip('Nazım',this)">Nazım</span>
-      <span class="filtre-chip" id="fc-gurok" style="background:#fce7f3;color:#9d174d;border-color:#f9a8d4" onclick="filterGrup('Gürok Özel',this)">🏨 Gürok Özel</span>
-      <span class="filtre-chip" id="fc-as60" style="background:#e0f2fe;color:#075985;border-color:#7dd3fc" onclick="filterAltSeviye('60',this)">60</span>
+      <span class="filtre-chip" id="fc-gurok" style="background:#ede4e6;color:#7a4a56;border-color:#c9a9b3" onclick="filterGrup('Gürok Özel',this)">Gürok Özel</span>
+      <span class="filtre-chip" id="fc-as60" style="background:#e4eef2;color:#2f5568;border-color:#9fb8c4" onclick="filterAltSeviye('60',this)">60</span>
       <span class="filtre-chip" id="fc-as70" style="background:#fff7ed;color:#9a3412;border-color:#fdba74" onclick="filterAltSeviye('70',this)">70</span>
     </div>
   </div>
@@ -210,7 +210,7 @@ td:first-child{min-width:90px}
 <!-- MODAL: Yeni / Düzenle Hesap -->
 <div class="mo" id="mHesap">
   <div class="mbox">
-    <div class="mbaslik" id="mHesapBaslik">➕ Yeni Hesap <button class="mclose" onclick="kModal('mHesap')">✕</button></div>
+    <div class="mbaslik" id="mHesapBaslik">Yeni Hesap <button class="mclose" onclick="kModal('mHesap')">✕</button></div>
     <input type="hidden" id="h-edit-id">
     <div class="rfields" style="margin-bottom:0">
       <div class="field"><label>Hesap Kodu *</label><input type="text" id="h-kod" placeholder="Örn: 100.01" oninput="this.value=this.value.toUpperCase()"></div>
@@ -921,7 +921,7 @@ function renderTablo(){
       <td>${tipChip[h.tip]||h.tip||'—'}</td>
       <td>${h.anaGrup||'—'}</td>
       <td><span style="color:${h.yon==='Borç'?'var(--danger)':'var(--success)'};font-weight:600">${h.yon||'—'}</span></td>
-      <td>${h.altSeviye?'<span class="chip" style="background:'+(h.altSeviye==='70'?'#fff7ed;color:#9a3412':'#e0f2fe;color:#075985')+'">'+h.altSeviye+'</span>':''}</td>
+      <td>${h.altSeviye?'<span class="chip" style="background:'+(h.altSeviye==='70'?'#fff7ed;color:#9a3412':'#e4eef2;color:#2f5568')+'">'+h.altSeviye+'</span>':''}</td>
       <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+' '+h.ozellik:''}</td>
       <td><span class="durum-dot ${h.durum==='pasif'?'durum-pasif':'durum-aktif'}"></span> ${h.durum==='pasif'?'Pasif':'Aktif'}</td>
       <td style="color:var(--gray-600);font-size:11px">${h.aciklama||''}</td>
@@ -954,7 +954,7 @@ function renderTablo(){
         <td>${tipChip[h.tip]||h.tip||'—'}</td>
         <td>${h.anaGrup||'—'}</td>
         <td><span style="color:${h.yon==='Borç'?'var(--danger)':'var(--success)'};font-weight:600">${h.yon||'—'}</span></td>
-        <td>${h.altSeviye?'<span class="chip" style="background:'+(h.altSeviye==='70'?'#fff7ed;color:#9a3412':'#e0f2fe;color:#075985')+'">'+h.altSeviye+'</span>':''}</td>
+        <td>${h.altSeviye?'<span class="chip" style="background:'+(h.altSeviye==='70'?'#fff7ed;color:#9a3412':'#e4eef2;color:#2f5568')+'">'+h.altSeviye+'</span>':''}</td>
         <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+' '+h.ozellik:''}</td>
         <td><span class="durum-dot ${h.durum==='pasif'?'durum-pasif':'durum-aktif'}"></span> ${h.durum==='pasif'?'Pasif':'Aktif'}</td>
         <td style="color:var(--gray-600);font-size:11px">${h.aciklama||''}</td>
@@ -1025,7 +1025,7 @@ function filterAltSeviye(seviye,el){
 // HESAP KAYDET
 // ============================================================
 function openYeniHesap(ustKod){
-  document.getElementById('mHesapBaslik').innerHTML='➕ Yeni Hesap <button class="mclose" onclick="kModal(\'mHesap\')">✕</button>';
+  document.getElementById('mHesapBaslik').innerHTML='Yeni Hesap <button class="mclose" onclick="kModal(\'mHesap\')">✕</button>';
   document.getElementById('h-edit-id').value='';
   document.getElementById('h-kod').value=ustKod||'';
   document.getElementById('h-ust').value=ustKod?getUstKod(ustKod)||ustKod:'';

@@ -374,12 +374,12 @@ function renderKoliModal(){
     <div style="font-size:11px;color:var(--gray-400);margin-bottom:10px">Her koliye ayrı QR etiketi basılacak.</div>
 
     <!-- SABİT MİKTAR MODU — fabrika paketi gibi hepsi aynı miktardaysa tek satırda tümünü doldurur -->
-    <div style="background:#ede9fe;border-radius:8px;padding:10px;margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:#5b21b6;margin-bottom:6px">⚡ Sabit Miktar Modu — hepsi aynı miktardaysa</div>
+    <div style="background:#e8e5f0;border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:#4a3f68;margin-bottom:6px">⚡ Sabit Miktar Modu — hepsi aynı miktardaysa</div>
       <div style="display:flex;gap:6px">
         <input type="number" id="koli-sabit-kg" placeholder="${k.birim||'Miktar'} (örn. 12.5)" min="0" step="0.01" style="flex:1;padding:9px;border:1.5px solid #c4b5fd;border-radius:8px;font-size:13px;outline:none">
         <input type="number" id="koli-sabit-adet" placeholder="Koli sayısı (örn. 120)" min="1" step="1" style="flex:1;padding:9px;border:1.5px solid #c4b5fd;border-radius:8px;font-size:13px;outline:none">
-        <button class="btn btn-sm" style="background:#5b21b6;color:white" onclick="koliSabitUygula()">Uygula</button>
+        <button class="btn btn-sm" style="background:#4a3f68;color:white" onclick="koliSabitUygula()">Uygula</button>
       </div>
       <div style="font-size:10px;color:#7c3aed;margin-top:4px">Örn: toplam 1500 ${k.birim||'birim'} alım, koli başına 12.5 ${k.birim||'birim'} → 12.5 ve 120 gir, tüm etiketler tek seferde oluşur</div>
     </div>
@@ -651,7 +651,7 @@ function renderBSP(){
   c.innerHTML=Object.entries(gruplar).map(([sipNo,g])=>`
     <div style="margin-bottom:10px">
       <div style="background:var(--gray-100);padding:7px 10px;border-radius:6px;font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <span style="font-family:monospace;color:#5b21b6">${sipNo}</span>
+        <span style="font-family:monospace;color:#4a3f68">${sipNo}</span>
         <span style="font-weight:400;color:var(--gray-500)">${g.firma}</span>
         ${g.durum==='kismi'?'<span class="chip chip-yellow">Kısmi</span>':''}
         ${g.tarih?`<span style="font-weight:400;color:var(--gray-400);margin-left:auto">${g.tarih}</span>`:''}
@@ -1017,7 +1017,7 @@ function openDetay(id){
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:700">${u.miktar} ${u.birim}</span>
-        ${f.durum==='bekleyen'?`<button onclick="urunDuzeltAc('${f.id}','${u.id}')" style="padding:2px 8px;background:#dbeafe;color:#1e40af;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">Düzelt</button>`:''}
+        ${f.durum==='bekleyen'?`<button onclick="urunDuzeltAc('${f.id}','${u.id}')" style="padding:2px 8px;background:#e4e9f2;color:#33476b;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600">Düzelt</button>`:''}
       </div>
     </div>`).join('')}
     <div class="brow" style="margin-top:12px">
@@ -1166,7 +1166,7 @@ function renderKaliteOnay(){
         const uygunsuz=uygunsuzKodlar.has(u.kod);
         return`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:${uygunsuz?'var(--danger)':'var(--gray-600)'};padding:3px 0;border-bottom:1px solid var(--gray-100);${uygunsuz?'font-weight:700':''}">
         <span>${uygunsuz?'⚠️ ':''}${u.ad} — ${u.miktar} ${u.birim}</span>
-        <button onclick="urunDuzeltAc('${f.id}','${u.id}')" style="padding:2px 8px;background:#dbeafe;color:#1e40af;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;flex-shrink:0">Düzelt</button>
+        <button onclick="urunDuzeltAc('${f.id}','${u.id}')" style="padding:2px 8px;background:#e4e9f2;color:#33476b;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;flex-shrink:0">Düzelt</button>
       </div>`;
       }).join('')}
     </div>
@@ -1376,9 +1376,9 @@ function kabulOzetAc(id,onayBilgisi){
         <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">Kabul Tarihi</div>
         <div style="font-weight:600">${f.tarih||'—'}</div>
       </div>
-      ${f.lnSiparisNo?`<div style="padding:8px 10px;background:#ede9fe;border-radius:6px;grid-column:span 2">
-        <div style="color:#5b21b6;font-size:10px;text-transform:uppercase;margin-bottom:2px">Sipariş No</div>
-        <div style="font-family:monospace;font-weight:700;color:#5b21b6">${f.lnSiparisNo}</div>
+      ${f.lnSiparisNo?`<div style="padding:8px 10px;background:#e8e5f0;border-radius:6px;grid-column:span 2">
+        <div style="color:#4a3f68;font-size:10px;text-transform:uppercase;margin-bottom:2px">Sipariş No</div>
+        <div style="font-family:monospace;font-weight:700;color:#4a3f68">${f.lnSiparisNo}</div>
       </div>`:''}
       <div style="padding:8px 10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:6px;grid-column:span 2">
         <div style="color:${f.faturaNo?'#155724':'#856404'};font-size:10px;text-transform:uppercase;margin-bottom:2px">Fatura No</div>
@@ -1419,7 +1419,7 @@ function kabulOzetAc(id,onayBilgisi){
 
   document.getElementById('mKabulOzetActions').innerHTML=`
     <button class="btn btn-gray btn-sm" style="flex:1" onclick="kModal('mKabulOzet')">Kapat</button>
-    <button class="btn btn-sm" style="flex:1;background:#ede9fe;color:#5b21b6" onclick="koliEtiketYazdir('${id}')">Koli Etiketleri</button>
+    <button class="btn btn-sm" style="flex:1;background:#e8e5f0;color:#4a3f68" onclick="koliEtiketYazdir('${id}')">Koli Etiketleri</button>
     <button class="btn btn-primary btn-sm" style="flex:1" onclick="window.print()">Yazdır</button>
   `;
   aModal('mKabulOzet');

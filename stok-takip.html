@@ -68,9 +68,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .har-item{padding:10px 0;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:10px}
 .har-item:last-child{border-bottom:none}
 .har-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.har-icon.giris{background:#d1fae5}
-.har-icon.cikis{background:#fee2e2}
-.har-icon.transfer{background:#dbeafe}
+.har-icon.giris{background:#dceee1}
+.har-icon.cikis{background:#f3e3e1}
+.har-icon.transfer{background:#e4e9f2}
 /* Field */
 .field{margin-bottom:12px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
@@ -97,7 +97,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .chip-danger{background:#fde8e8;color:#9b1c1c}
 .chip-warning{background:#fff3cd;color:#856404}
 .chip-success{background:#d4edda;color:#155724}
-.chip-info{background:#d1ecf1;color:#0c5460}
+.chip-info{background:#dfeae7;color:#2c5850}
 /* Modal */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
 .modal-overlay.open{display:flex}
@@ -118,7 +118,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* Transfer badge */
-.transfer-tag{font-size:10px;background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:6px;font-weight:600}
+.transfer-tag{font-size:10px;background:#e4e9f2;color:#33476b;padding:2px 6px;border-radius:6px;font-weight:600}
 .kat-badge{display:inline-block;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:700;background:var(--gray-100);color:var(--gray-600)}
 </style>
 </head>
@@ -300,7 +300,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div class="modal-overlay" id="modal-cikis">
   <div class="modal-box">
     <div class="modal-title">➖ Manuel Çıkış <button class="modal-close" onclick="closeModal('modal-cikis')">✕</button></div>
-    <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:10px" onclick="qrOkutmaBaslat()">Koli Barkodu Okut</button>
+    <button class="btn" style="width:100%;background:#e8e5f0;color:#4a3f68;font-weight:700;margin-bottom:10px" onclick="qrOkutmaBaslat()">Koli Barkodu Okut</button>
     <div id="qr-okuyucu" style="display:none;margin-bottom:10px;border-radius:12px;overflow:hidden"></div>
     <div id="qr-sonuc" style="display:none;background:#d4edda;color:#155724;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;margin-bottom:10px"></div>
     <div class="field">
@@ -1733,7 +1733,7 @@ async function iadeSiparisiOlustur(){
   document.getElementById('iade-sonuc').innerHTML=`<div class="card" style="border-left:4px solid var(--success);">
     <div class="card-title">✅ İade Siparişi Oluşturuldu</div>
     <div style="font-size:13px;">
-      <span class="chip" style="background:#ede9fe;color:#5b21b6;font-family:monospace;font-weight:700">${siparisNo}</span>
+      <span class="chip" style="background:#e8e5f0;color:#4a3f68;font-family:monospace;font-weight:700">${siparisNo}</span>
       &nbsp;${firmaAd}
     </div>
     <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length-basarisizlar.length} kalem, ${depoAd}'dan stoktan düşüldü.${basarisizlar.length?` <span style="color:var(--danger)">(${basarisizlar.length} kalemde stok güncellenemedi)</span>`:''}</div>

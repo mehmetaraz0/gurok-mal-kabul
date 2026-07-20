@@ -38,7 +38,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
 .brow{display:flex;gap:8px}.brow .btn{flex:1}
 .chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
-.chip-warn{background:#fff3cd;color:#856404}.chip-ok{background:#d4edda;color:#155724}.chip-err{background:#fde8e8;color:#9b1c1c}.chip-info{background:#d1ecf1;color:#0c5460}
+.chip-warn{background:#fff3cd;color:#856404}.chip-ok{background:#d4edda;color:#155724}.chip-err{background:#fde8e8;color:#9b1c1c}.chip-info{background:#dfeae7;color:#2c5850}
 .ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
 .ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
 .ftab.active{background:var(--primary);border-color:var(--primary);color:white}
@@ -726,7 +726,7 @@ function aOnay(id){
     }).join('')}
     ${s.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${s.not}</div>`:''}
     ${s.durum==='bekleyen'?`
-      <button class="btn" style="width:100%;background:#ede9fe;color:#5b21b6;font-weight:700;margin-bottom:8px" onclick="depoQrBaslat('${id}')">Koli Okut (miktarlar otomatik birikir)</button>
+      <button class="btn" style="width:100%;background:#e8e5f0;color:#4a3f68;font-weight:700;margin-bottom:8px" onclick="depoQrBaslat('${id}')">Koli Okut (miktarlar otomatik birikir)</button>
       <div id="depo-qr-okuyucu" style="display:none;margin-bottom:8px;border-radius:12px;overflow:hidden"></div>
       <div id="depo-qr-liste"></div>
       <div class="field"><label>Red Notu</label><input type="text" id="rednot" placeholder="Neden reddedildi?"></div>
