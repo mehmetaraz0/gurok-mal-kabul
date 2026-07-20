@@ -36,7 +36,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-info{background:var(--info);color:white}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
 .brow{display:flex;gap:8px}.brow .btn{flex:1}
 .chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
-.chip-warn{background:#fff3cd;color:#856404}.chip-ok{background:#d4edda;color:#155724}.chip-err{background:#fde8e8;color:#9b1c1c}.chip-info{background:#d1ecf1;color:#0c5460}.chip-gray{background:var(--gray-200);color:var(--gray-700)}
+.chip-warn{background:#fff3cd;color:#856404}.chip-ok{background:#d4edda;color:#155724}.chip-err{background:#fde8e8;color:#9b1c1c}.chip-info{background:#dfeae7;color:#2c5850}.chip-gray{background:var(--gray-200);color:var(--gray-700)}
 .ftabs{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
 .ftab{padding:6px 14px;border:1.5px solid var(--gray-300);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;background:white;color:var(--gray-600);flex-shrink:0}
 .ftab.active{background:var(--primary);border-color:var(--primary);color:white}
@@ -365,12 +365,12 @@ function renderIadeTakip(){
 
   const durumChip={
     bekleyen:'<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">⏳ Bekliyor</span>',
-    kismi:'<span style="background:#fed7aa;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🔶 Kısmen</span>',
+    kismi:'<span style="background:#f2e8db;color:#8a5c2c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🔶 Kısmen</span>',
     tamamlandi:'<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">✅ Tamamlandı</span>'
   };
   const kaynakChip={
-    depo:'<span style="background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📦 Depo</span>',
-    satinalma:'<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">🛒 Satın Alma</span>'
+    depo:'<span style="background:#e4e9f2;color:#33476b;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📦 Depo</span>',
+    satinalma:'<span style="background:#e8e5f0;color:#4a3f68;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">🛒 Satın Alma</span>'
   };
   const nedenMap={depozito:'Depozito İadesi',bozuk:'Bozuk/Hasarlı',skt:'SKT',fazla:'Fazla Sipariş',diger:'Diğer'};
 
@@ -380,7 +380,7 @@ function renderIadeTakip(){
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--primary)">${s.firma||'—'}</div>
           <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
-            <span style="font-family:monospace;font-weight:700;color:#5b21b6">${s.siparisNo}</span>
+            <span style="font-family:monospace;font-weight:700;color:#4a3f68">${s.siparisNo}</span>
             ${s.tarih?' • '+s.tarih:''} ${s.olusturanAd?' • '+s.olusturanAd:''}
           </div>
         </div>
@@ -392,8 +392,8 @@ function renderIadeTakip(){
       <div style="font-size:11px;color:var(--gray-600);margin-bottom:4px">↩️ ${nedenMap[s.donusSekli]||s.donusSekli||'—'}${(s.bagliFaturalar&&s.bagliFaturalar.length)?' • '+s.bagliFaturalar.length+' fatura bağlı':(s.orijinalFaturaNo?' • Orj. No: '+s.orijinalFaturaNo:'')}</div>
       ${(s.kalemler||[]).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — ${k.miktar} ${k.birim}${k.birimFiyat?' • '+fmt(k.birimFiyat)+' ₺':''}</div>`).join('')}
       <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        ${s.fiyatlandirildi?'<span style="background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyatlandırıldı</span>':'<span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyat Bekliyor</span>'}
-        ${s.gonderildiMuhasebe?'<span style="background:#ede9fe;color:#5b21b6;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📤 Muhasebe\'de</span>':''}
+        ${s.fiyatlandirildi?'<span style="background:#dceee1;color:#2c5850;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyatlandırıldı</span>':'<span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyat Bekliyor</span>'}
+        ${s.gonderildiMuhasebe?'<span style="background:#e8e5f0;color:#4a3f68;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📤 Muhasebe\'de</span>':''}
         <button class="btn btn-sm btn-primary" style="margin-left:auto;padding:5px 12px;min-height:26px" onclick="event.stopPropagation();iadeDetayAc('${s.siparisNo}')">Detay / Fiyatlandır →</button>
       </div>
     </div>`).join('');

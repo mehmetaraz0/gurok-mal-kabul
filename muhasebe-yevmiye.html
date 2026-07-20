@@ -361,7 +361,7 @@ function renderYevmiye(){
             <div style="font-size:10px;color:var(--gray-400)">${y.onaylandi?'✅ Onaylı':'📝 Taslak'}</div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--gray-500)">${(y.kalemler||[]).map(k=>k.hesapKod).join(' / ')}${y.otelId?` <span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:${y.otelId==='811'?'#dbeafe':'#fed7aa'};color:${y.otelId==='811'?'#1e40af':'#92400e'}">🏨 ${y.otelId==='811'?'Resort':'Club'}</span>`:''}${y.otomatik?' <span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:#ede9fe;color:#5b21b6">🤖 Otomatik</span>':''}</div>
+        <div style="font-size:11px;color:var(--gray-500)">${(y.kalemler||[]).map(k=>k.hesapKod).join(' / ')}${y.otelId?` <span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:${y.otelId==='811'?'#e4e9f2':'#f2e8db'};color:${y.otelId==='811'?'#33476b':'#8a5c2c'}">🏨 ${y.otelId==='811'?'Resort':'Club'}</span>`:''}${y.otomatik?' <span style="display:inline-block;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;background:#e8e5f0;color:#4a3f68">🤖 Otomatik</span>':''}</div>
       </div>`).join('')}
   `).join('');
 }

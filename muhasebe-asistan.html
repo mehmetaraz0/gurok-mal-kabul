@@ -34,7 +34,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .uyari-kart{border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;cursor:pointer}
 .uyari-kart.kritik{background:#fde8e8;border-left:4px solid var(--danger)}
 .uyari-kart.dikkat{background:#fff3cd;border-left:4px solid var(--warning)}
-.uyari-kart.bilgi{background:#dbeafe;border-left:4px solid var(--info)}
+.uyari-kart.bilgi{background:#e4e9f2;border-left:4px solid var(--info)}
 .uyari-ikon{font-size:20px;flex-shrink:0;margin-top:1px}
 .uyari-baslik{font-size:13px;font-weight:700;color:var(--primary)}
 .uyari-detay{font-size:12px;color:var(--gray-600);margin-top:2px}
@@ -321,7 +321,7 @@ function renderUyarilar(){
       <div style="flex:1;min-width:0">
         <div class="uyari-baslik">${u.baslik}</div>
         <div class="uyari-detay">${u.detay}</div>
-        ${u.tutar?`<div class="uyari-tutar" style="color:${u.tip==='kritik'?'var(--danger)':u.tip==='dikkat'?'#92400e':'var(--info)'}">${fmt(u.tutar)} ₺</div>`:''}
+        ${u.tutar?`<div class="uyari-tutar" style="color:${u.tip==='kritik'?'var(--danger)':u.tip==='dikkat'?'#8a5c2c':'var(--info)'}">${fmt(u.tutar)} ₺</div>`:''}
       </div>
     </div>`).join('');
   window._uyarilar=uyarilar;
