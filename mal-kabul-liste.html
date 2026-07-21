@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
 <script src="ortak.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
@@ -247,8 +248,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <script>
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 
-const OTEL_ISIMLERI={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'};
-const OTEL_KISA={'810':'Club','811':'Resort'};
 const ROL_INDIRGEME={yonetici:'yonetici',depo:'depo',satinalma:'satinalma',kalite:'kalite',mutfak:'mutfak',bar:'bar',muhasebe_muduru:'yonetici',muhasebe_calisani:'yonetici',cost_control:'yonetici'};
 
 let malKabuller={}, siparisler={}, urunler=[], cariler=[], uygunsuzluklarAcik={};
@@ -833,7 +832,7 @@ async function formKaydet(){
 
   const otelId=formOtelId;
   const siparisNo=document.getElementById('f-siparis-no').value||null;
-  const depoKodu=otelId==='811'?'300':'100';
+  const depoKodu=merkeziDepoKodu(otelId);
   const mkNo=previewMkNo||yeniMkNoUret();
 
   sLD();
@@ -1084,7 +1083,7 @@ async function duzeltmeModuAc(id){
 // miktarı geri düşer. Aynı composite depo kodu deseniyle çalışır.
 async function stoktanGeriAl(f){
   const otelId=f.otelId||'810';
-  const bareDepoKodu=otelId==='811'?'300':'100';
+  const bareDepoKodu=merkeziDepoKodu(otelId);
   const depoKompozit=otelId+'_'+bareDepoKodu;
   const hatalar=[];
   for(const u of (f.urunler||[])){
@@ -1220,7 +1219,7 @@ async function kaliteOnayla(id){
 // ============================================================
 async function stokaIsle(f){
   const otelId=f.otelId||'810';
-  const bareDepoKodu=otelId==='811'?'300':'100';
+  const bareDepoKodu=merkeziDepoKodu(otelId);
   const depoKompozit=otelId+'_'+bareDepoKodu;
   const hatalar=[];
   for(const u of (f.urunler||[])){
@@ -1367,7 +1366,7 @@ function kabulOzetAc(id,onayBilgisi){
       <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">Otel / Depo</div>
         <div style="font-weight:600">🏨 ${OTEL_ISIMLERI[f.otelId]}</div>
-        <div style="font-size:10px;color:var(--gray-400);margin-top:1px">${f.depoKodu||(f.otelId==='811'?'300':'100')} — ${(f.otelId==='811'?'Resort':'Club')} İşletme Depo</div>
+        <div style="font-size:10px;color:var(--gray-400);margin-top:1px">${f.depoKodu||merkeziDepoKodu(f.otelId)} — ${OTEL_KISA[f.otelId]} İşletme Depo</div>
       </div>
       <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">İrsaliye</div>

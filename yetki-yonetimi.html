@@ -37,6 +37,8 @@ tr:nth-child(even) td.rol-ad, tr:nth-child(even) td.rol-seviye{background:#e9ece
 .legend i{width:14px;height:14px;border-radius:3px;display:inline-block}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:9px 18px;border-radius:18px;font-size:12px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+th.modul-pasif{opacity:.45;text-decoration:line-through;cursor:pointer}
+th.modul-th{cursor:pointer}
 </style>
 </head>
 <body>
@@ -95,7 +97,7 @@ function render(){
     thead1+=`<th colspan="${say}" class="kat-${k}">${KAT_ADLARI[k]||k}</th>`;
   });
   thead1+='</tr><tr>';
-  moduller.forEach(m=>{thead1+=`<th class="kat-${m.kategori}">${m.ad}</th>`;});
+  moduller.forEach(m=>{thead1+=`<th class="kat-${m.kategori} modul-th${m.aktif===false?' modul-pasif':''}" onclick="modulAktifDegistir('${m.id}')" title="Tıkla: modülü aktif/pasif yap">${m.aktif===false?'🔒 ':''}${m.ad}</th>`;});
   thead1+='</tr>';
 
   let gövde='';
@@ -143,6 +145,24 @@ async function hucreDegistir(rolId,modulId){
       matris[key]={id:d[0].id,yetki:yeniYetki};
     }
     toast('✅ Kaydedildi: '+etiket(yeniYetki));
+  }catch(e){
+    toast('⚠️ Kaydedilemedi, tekrar dene');
+    console.warn(e);
+  }
+}
+
+async function modulAktifDegistir(modulId){
+  const m=moduller.find(x=>x.id===modulId);
+  if(!m)return;
+  const yeniDeger=m.aktif===false?true:false;
+  try{
+    await fetch(SB_URL+'/rest/v1/moduller?id=eq.'+modulId,{
+      method:'PATCH',headers:SB_HEADERS,
+      body:JSON.stringify({aktif:yeniDeger})
+    });
+    m.aktif=yeniDeger;
+    render();
+    toast(yeniDeger?'✅ Modül aktif edildi':'✅ Modül pasif edildi');
   }catch(e){
     toast('⚠️ Kaydedilemedi, tekrar dene');
     console.warn(e);

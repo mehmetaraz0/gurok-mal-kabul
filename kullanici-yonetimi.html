@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
 <script src="ortak.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -110,8 +111,6 @@ const ROL_KODU_ESKI_ENUM={
   cost_control_mdr:'cost_control',cost_control:'cost_control',satinalma_mdr:'satinalma',satinalma:'satinalma',
   depo_sef:'depo',depo:'depo',kalite:'kalite',fb_mdr:'yonetici',mutfak:'mutfak',bar:'bar',it_admin:'yonetici'
 };
-
-const OTEL_ISIMLERI={'810':'Club Manavgat','811':'Resort Sorgun'};
 
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:OTURUM_KULLANICI?.ad||'Bilinmeyen'};
