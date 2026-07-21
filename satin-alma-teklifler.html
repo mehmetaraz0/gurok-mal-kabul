@@ -538,7 +538,7 @@ async function teklifSecilenleriSiparisDonustur(teklifTalepId){
     for(const g of grupListesi){
       const siparisNo=await yeniSiparisNoUret(sipPrefix);
       await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
-        siparis_no:siparisNo,firma_ad:g.firmaAd,otel_id:otelId,tarih:new Date().toISOString().split('T')[0],
+        siparis_no:siparisNo,firma_ad:g.firmaAd,otel_id:otelId,tarih:bugunTarih(),
         durum:'bekleyen',olusturan_ad:CU.ad
       })});
       const kalemSatirlar=g.kalemler.map(s=>({
