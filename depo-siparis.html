@@ -5,6 +5,7 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
 <script src="ortak.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -113,7 +114,6 @@ const URUN_DB = [{"kod": "YIY01000001", "ad": "DONER DANA HAZIR BATON (212)", "b
 function tamDepoId(otelId,depoTipi){return otelId+'_'+depoTipi;}
 function depoTipiFromId(depoId){const i=(depoId||'').indexOf('_');return i>=0?depoId.slice(i+1):depoId;}
 function otelFromDepoId(depoId){const i=(depoId||'').indexOf('_');return i>=0?depoId.slice(0,i):'810';}
-function merkeziDepoKodu(otelId){return otelId==='811'?'300':'100';}
 // otelFromDepoId (yukarıda) sadece BİRLEŞİK id'lerde (810_CMM201) çalışır — DB.stok'un kendi
 // iç anahtarları için. CU.depoId / s.departmanId gibi ÇIPLAK kodlar (CMM201, RMM201, 100, 300)
 // için harf ön ekine bakan bu ayrı, güvenilir fonksiyon kullanılmalı.
