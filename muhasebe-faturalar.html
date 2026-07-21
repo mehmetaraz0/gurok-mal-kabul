@@ -346,8 +346,15 @@ async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs,otelI
   let mevcutId=null,no=null;
   try{
     const r=await fetch(SB_URL+`/rest/v1/yevmiye_fisler?tip=eq.${encodeURIComponent(tip)}&belge_no=eq.${encodeURIComponent(belge)}&select=id,no&silindi=eq.false`,{headers:SB_HEADERS});
-    if(r.ok){const d=await r.json();if(d&&d.length){mevcutId=d[0].id;no=d[0].no;}}
-  }catch(e){}
+    if(!r.ok)throw new Error('idempotency sorgusu HTTP '+r.status);
+    const d=await r.json();if(d&&d.length){mevcutId=d[0].id;no=d[0].no;}
+  }catch(e){
+    // Kontrol sorgusu başarısızsa mevcut fişi göremeyiz — devam etmek MÜKERRER fiş üretir.
+    // Eksik fiş (uyarıyla) mükerrer fişten daha güvenli: burada durup kullanıcıya bildiriyoruz.
+    console.error('Yevmiye idempotency kontrolü başarısız, otomatik fiş atlandı:',e);
+    alert('⚠️ Muhasebe fişi kontrol sorgusu başarısız oldu — mükerrer kayıt riski nedeniyle otomatik yevmiye fişi OLUŞTURULMADI ('+belge+'). Bağlantıyı kontrol edip belgeyi yeniden kaydedin.');
+    return;
+  }
   if(!no)no=await yeniFisNo();
 
   const yevSatir={

@@ -58,6 +58,9 @@ th.modul-th{cursor:pointer}
 
 <script>
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
+// Bu sayfa ortak.js YÜKLEMİYOR (kendi toast/TOAST_RENK tanımları const çakışması yaratır) —
+// escapeHtml'in yerel eşdeğeri:
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 const SIRALAMA=['yok','goruntule','kayit','tam'];
 const KAT_ADLARI={depo:'DEPO OPERASYONLARI',satinalma:'SATIN ALMA',muhasebe:'MUHASEBE',sistem:'SİSTEM'};
 
@@ -97,12 +100,12 @@ function render(){
     thead1+=`<th colspan="${say}" class="kat-${k}">${KAT_ADLARI[k]||k}</th>`;
   });
   thead1+='</tr><tr>';
-  moduller.forEach(m=>{thead1+=`<th class="kat-${m.kategori} modul-th${m.aktif===false?' modul-pasif':''}" onclick="modulAktifDegistir('${m.id}')" title="Tıkla: modülü aktif/pasif yap">${m.aktif===false?'🔒 ':''}${m.ad}</th>`;});
+  moduller.forEach(m=>{thead1+=`<th class="kat-${m.kategori} modul-th${m.aktif===false?' modul-pasif':''}" onclick="modulAktifDegistir('${m.id}')" title="Tıkla: modülü aktif/pasif yap">${m.aktif===false?'🔒 ':''}${escapeHtml(m.ad)}</th>`;});
   thead1+='</tr>';
 
   let gövde='';
   roller.forEach(r=>{
-    gövde+=`<tr><td class="rol-ad">${r.ad}</td><td class="rol-seviye">${r.seviye==='grup'?'🌐 Grup':'🏨 Otel'}</td>`;
+    gövde+=`<tr><td class="rol-ad">${escapeHtml(r.ad)}</td><td class="rol-seviye">${r.seviye==='grup'?'🌐 Grup':'🏨 Otel'}</td>`;
     moduller.forEach(m=>{
       const key=r.id+'_'+m.id;
       const yetki=matris[key]?.yetki||'yok';

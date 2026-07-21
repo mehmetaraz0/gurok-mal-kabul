@@ -364,7 +364,7 @@ async function muhasebeGonder(){
 
   const faturaSatir={
     no:f.faturaNo,tur:'alis',cari_ad:f.firma,
-    tarih:new Date().toISOString().split('T')[0],
+    tarih:bugunTarih(),
     siparis_no:f.lnSiparisNo?f.lnSiparisNo.trim():null,
     otel_id:f.otelId||'810',
     ara_toplam:Math.round(araToplam*100)/100,kdv_toplam:0,
@@ -454,7 +454,7 @@ async function grIrTahakkukFisiKes(f,araToplam){
     const fisR=await fetch(SB_URL+'/rest/v1/yevmiye_fisler',{
       method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
       body:JSON.stringify({
-        no:fisNo,tarih:new Date().toISOString().split('T')[0],tip:'tahakkuk',
+        no:fisNo,tarih:bugunTarih(),tip:'tahakkuk',
         belge_no:f.mkNo,otel_id:f.otelId||'810',
         aciklama:`Mal kabul tahakkuku (GR/IR): ${f.mkNo} — ${f.firma} (fatura bekleniyor)`,
         toplam_borc:tutar,toplam_alacak:tutar,onaylandi:true,otomatik:true

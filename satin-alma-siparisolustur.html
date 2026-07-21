@@ -188,7 +188,7 @@ async function spGrupla(){
     g.siparisNo = await yeniSiparisNoUret(sipPrefix);
     try{
       await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
-        siparis_no:g.siparisNo,firma_ad:g.firmaAd||'',otel_id:otelId,tarih:tarih||new Date().toISOString().split('T')[0],durum:'bekleyen'
+        siparis_no:g.siparisNo,firma_ad:g.firmaAd||'',otel_id:otelId,tarih:tarih||bugunTarih(),durum:'bekleyen'
       })});
     }catch(e){console.warn(e);}
   }
@@ -253,7 +253,7 @@ async function spGrupla(){
 
 function spPDF(gi){
   const g=window._spGruplar[gi];
-  const tarih=window._spTarih||new Date().toISOString().split('T')[0];
+  const tarih=window._spTarih||bugunTarih();
   const termin=window._spTermin||'';
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sipariş Formu</title>
   <style>

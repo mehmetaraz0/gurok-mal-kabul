@@ -371,7 +371,7 @@ function renderKoliModal(){
   const k=formKalemleri[_koliAktifKalem];
   const toplam=k.koliler.reduce((t,x)=>t+(parseFloat(x)||0),0);
   document.getElementById('mKoliIc').innerHTML=`
-    <div style="font-size:13px;font-weight:700;margin-bottom:2px">${k.ad||'Ürün'}</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:2px">${escapeHtml(k.ad||'Ürün')}</div>
     <div style="font-size:11px;color:var(--gray-400);margin-bottom:10px">Her koliye ayrı QR etiketi basılacak.</div>
 
     <!-- SABİT MİKTAR MODU — fabrika paketi gibi hepsi aynı miktardaysa tek satırda tümünü doldurur -->
@@ -778,7 +778,15 @@ function mkSwitchView(view){
   else renderListe();
 }
 
+// Çift tıklama koruması — ilk await (sipariş tazeleme) sürerken buton hâlâ
+// tıklanabilir olduğundan, bayrak olmadan hızlı çift tık iki mal_kabuller kaydı üretir.
+let _mkKaydediliyor=false;
 async function formKaydet(){
+  if(_mkKaydediliyor){toast('⏳ Kayıt zaten sürüyor');return;}
+  _mkKaydediliyor=true;
+  try{await _formKaydetIc();}finally{_mkKaydediliyor=false;}
+}
+async function _formKaydetIc(){
   const firmaAd=document.getElementById('f-firma-inp').value.trim();
   const irsaliye=document.getElementById('f-irsaliye').value.trim();
   const aracSicaklik=document.getElementById('f-arac-sicaklik').value;
@@ -1157,7 +1165,7 @@ function renderKaliteOnay(){
     const uygunsuzlar=uygunsuzluklarAcik[f.id]||[];
     const uygunsuzKodlar=new Set(uygunsuzlar.map(u=>u.urun_kodu));
     return`<div class="mk-kart bekleyen" style="${uygunsuzlar.length?'border-left-color:var(--danger)':''}">
-    <div style="font-size:13px;font-weight:700">${f.mkNo} — ${f.firma}</div>
+    <div style="font-size:13px;font-weight:700">${f.mkNo} — ${escapeHtml(f.firma)}</div>
     ${uygunsuzlar.length?`<div style="background:#fde8e8;color:#9b1c1c;font-size:11px;font-weight:700;padding:6px 8px;border-radius:6px;margin:6px 0">
       ⚠️ Bu kayıtta ${uygunsuzlar.length} uygunsuzluk bildirimi var — onaylamadan önce inceleyin
     </div>`:''}
@@ -1298,8 +1306,8 @@ function urunDuzeltAc(mkId,urunId){
   if(!u)return;
   document.getElementById('mUrunDuzeltIc').innerHTML=`
     <div style="margin-bottom:12px">
-      <div style="font-size:14px;font-weight:700">${u.ad}</div>
-      <div style="font-size:11px;color:var(--gray-400);font-family:monospace">${u.kod||'—'}</div>
+      <div style="font-size:14px;font-weight:700">${escapeHtml(u.ad)}</div>
+      <div style="font-size:11px;color:var(--gray-400);font-family:monospace">${escapeHtml(u.kod||'—')}</div>
     </div>
     <div class="rfields">
       <div class="field"><label>Ürün Adı</label><input type="text" id="dz-ad" value="${u.ad.replace(/"/g,'&quot;')}"></div>
@@ -1361,7 +1369,7 @@ function kabulOzetAc(id,onayBilgisi){
       </div>
       <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">Tedarikçi</div>
-        <div style="font-weight:600">${f.firma}</div>
+        <div style="font-weight:600">${escapeHtml(f.firma)}</div>
       </div>
       <div style="padding:8px 10px;background:var(--gray-100);border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px;text-transform:uppercase;margin-bottom:2px">Otel / Depo</div>
@@ -1400,8 +1408,8 @@ function kabulOzetAc(id,onayBilgisi){
           <tr style="border-bottom:1px solid var(--gray-100)">
             <td style="padding:7px 8px;color:var(--gray-400);font-weight:600">${i+1}</td>
             <td style="padding:7px 8px">
-              <div style="font-weight:600">${u.ad}</div>
-              <div style="font-size:10px;color:var(--gray-400);font-family:monospace">${u.kod||''}</div>
+              <div style="font-weight:600">${escapeHtml(u.ad)}</div>
+              <div style="font-size:10px;color:var(--gray-400);font-family:monospace">${escapeHtml(u.kod||'')}</div>
             </td>
             <td style="padding:7px 8px;text-align:right;font-weight:700">${u.miktar} ${u.birim}</td>
           </tr>`).join('')}

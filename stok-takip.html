@@ -1712,7 +1712,7 @@ async function iadeSiparisiOlustur(){
 
   try{
     await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
-      siparis_no:siparisNo,firma_ad:firmaAd,otel_id:otelId,tarih:new Date().toISOString().split('T')[0],
+      siparis_no:siparisNo,firma_ad:firmaAd,otel_id:otelId,tarih:bugunTarih(),
       durum:'bekleyen',tip:'iade',iade_nedeni:neden,orijinal_fatura_no:faturaNo||null,
       not_alani:not||null,kaynak:'depo',depo_kodu:depoId,olusturan_ad:currentUser?.ad||'—'
     })});
@@ -1745,7 +1745,7 @@ async function iadeSiparisiOlustur(){
   </div>`;
   window._sonIadeSiparis={
     siparisNo,otelId,firma:firmaAd,donusSekli:neden,orijinalFaturaNo:faturaNo||'',
-    tarih:new Date().toISOString().split('T')[0],olusturanAd:currentUser?.ad||'—',kalemler
+    tarih:bugunTarih(),olusturanAd:currentUser?.ad||'—',kalemler
   };
 
   // Formu sıfırla
