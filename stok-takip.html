@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
+<script src="otel-config.js"></script>
 <script src="ortak.js"></script>
 <script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
@@ -879,7 +880,7 @@ async function malKabulOnayGiris(form){
   const otelId=form.otel_id||form.otelId||'810';
   // Mal Kabul'ün kendisi de (mal-kabul-v2.html) merkezi depo kodu olarak 100 (Club) / 300 (Resort)
   // kullanıyor — LN'in gerçek "İşletme Depo" kodları. Buradaki hedef depo da bununla aynı olmalı.
-  const merkeziDepoKodu=otelId==='811'?'300':'100';
+  const merkeziDepoKodu=(window.merkeziDepoKodu||function(o){return o==='811'?'300':'100';})(otelId);
   const depoId=tamDepoId(otelId,merkeziDepoKodu);
   const hareketler=[];
   for(const u of form.urunler){
@@ -2229,7 +2230,7 @@ async function malKabulOnayKontrolEt(){
     const hatalar=[];
     for(const row of rows){
       const otelId=row.otel_id||'810';
-      const bareDepoKodu=otelId==='811'?'300':'100';
+      const bareDepoKodu=merkeziDepoKodu(otelId);
       const depoKompozit=otelId+'_'+bareDepoKodu;
       let rowBasarili=true;
       for(const u of (row.mal_kabul_urunleri||[])){
