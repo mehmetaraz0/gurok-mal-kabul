@@ -61,7 +61,12 @@ async function excelSablonIndir(spec, veriler, dosyaAdi){
   const basliklar = gorunur.map(_excelBaslikMetni);
   const satirlar = (veriler||[]).map(v => gorunur.map(s => {
     const val = v[s.alan];
-    return (val===undefined||val===null) ? '' : val;
+    if(val===undefined||val===null) return '';
+    // Formül enjeksiyonu koruması: '=', '+', '-', '@' ile başlayan string bir
+    // hücre Excel'de formül olarak çalışır (örn. ürün adı '=cmd|...' ise).
+    // Başına tek tırnak ekleyerek düz metne zorluyoruz (Excel'in kendi kaçış kuralı).
+    if(typeof val==='string' && /^[=+\-@]/.test(val)) return "'"+val;
+    return val;
   }));
   const ws = XLSX.utils.aoa_to_sheet([basliklar, ...satirlar]);
   excelSutunStilUygula(ws, spec, satirlar.length);
@@ -147,7 +152,11 @@ function excelSatirlariSiniflandir(spec, satirlar, mevcutKayitlar, opts){
 
     const alanlar = {};
     gorunur.forEach((s, c) => {
-      alanlar[s.alan] = (row[c] !== undefined && row[c] !== null) ? String(row[c]).trim() : '';
+      let ham = (row[c] !== undefined && row[c] !== null) ? String(row[c]).trim() : '';
+      // excelSablonIndir'in formül-enjeksiyon kaçışını geri al (yalnızca bizim
+      // eklediğimiz desen: ' + [=+-@] ile başlayan) — round-trip verisi bozulmasın.
+      if (/^'[=+\-@]/.test(ham)) ham = ham.slice(1);
+      alanlar[s.alan] = ham;
     });
 
     const hatalar = [];

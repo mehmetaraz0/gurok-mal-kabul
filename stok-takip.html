@@ -1369,6 +1369,8 @@ function qrOkutmaBaslat(){
   if(typeof Html5Qrcode==='undefined'){
     const s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+    s.integrity='sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+';
+    s.crossOrigin='anonymous';
     s.onload=basla;
     s.onerror=()=>{showToast('⚠️ QR kütüphanesi yüklenemedi (internet?)');kutu.style.display='none';};
     document.head.appendChild(s);

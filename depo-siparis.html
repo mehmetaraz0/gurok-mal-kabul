@@ -771,6 +771,8 @@ function depoQrBaslat(sipId){
   if(typeof Html5Qrcode==='undefined'){
     const sc=document.createElement('script');
     sc.src='https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+    sc.integrity='sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+';
+    sc.crossOrigin='anonymous';
     sc.onload=basla;
     sc.onerror=()=>toast('⚠️ QR kütüphanesi yüklenemedi (internet?)');
     document.head.appendChild(sc);

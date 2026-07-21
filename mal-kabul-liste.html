@@ -260,7 +260,7 @@ let formOtelId='810', previewMkNo='';
 // ============================================================
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:currentUser?.ad||'Bilinmeyen'};
-  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){}
+  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){console.warn('audit_log yazılamadı (denetim izi eksik kalabilir):',e);}
 }
 
 // ============================================================
@@ -1449,7 +1449,7 @@ async function koliEtiketYazdir(mkId){
   const f=malKabuller[mkId];
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Koli Etiketleri — ${f?.mkNo||''}</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"><\/script>
   <style>
     body{font-family:Arial,sans-serif;margin:0;padding:8mm}
     .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}

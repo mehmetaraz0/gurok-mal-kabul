@@ -36,6 +36,8 @@ async function loadXlsxLib(){
   await new Promise(r=>{
     const s=document.createElement('script');
     s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    s.integrity='sha384-OUW9euuUyxyHcAhTqbhI+Iyb8LMssXt/cpz0yXhs9UWG2/R/uaWdakx/4cfww7Vb';
+    s.crossOrigin='anonymous';
     s.onload=r;
     document.head.appendChild(s);
   });

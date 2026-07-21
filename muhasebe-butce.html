@@ -163,7 +163,7 @@ const AY_ALANLARI=['ocak','subat','mart','nisan','mayis','haziran','temmuz','agu
 // ============================================================
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:OTURUM_KULLANICI?.ad||'Bilinmeyen'};
-  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){}
+  try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){console.warn('audit_log yazılamadı (denetim izi eksik kalabilir):',e);}
 }
 
 // ============================================================
