@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
+<script src="otel-config.js"></script>
 <script src="ortak.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script src="efatura-adapter.js"></script>
@@ -273,12 +274,7 @@ let kalemler=[];
 let alisFilter='tumu',satisFilter='tumu';
 let YETKI_HARITASI = {};
 
-// ============================================================
-// OTEL SABİTLERİ (LN finans şirket kodlarıyla hizalı)
-// Sipariş no öneki: C -> 810 Club, R -> 811 Resort
-// ============================================================
-const OTEL_ISIMLERI={'810':'Ali Bey Club Manavgat','811':'Ali Bey Resort Sorgun'};
-const OTEL_KISA={'810':'Club','811':'Resort'};
+// OTEL SABİTLERİ -> otel-config.js'den yükleniyor
 
 function siparisNoOtelTuret(siparisNo){
   const ilk=(siparisNo||'').trim().toUpperCase().charAt(0);
