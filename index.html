@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
+<script src="otel-config.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Gürok Turizm — Depo Yönetim Sistemi</title>
 <meta name="theme-color" content="#15213a">
@@ -486,7 +487,7 @@ function updateDots() {
 }
 
 async function supabaseAuthKoprusu(user) {
-  const email = user.id + '@gurok.internal';
+  const email = user.id + '@' + DAHILI_EMAIL_DOMAIN;
   const password = user.pin;
   try {
     if (!user.auth_user_id) {
