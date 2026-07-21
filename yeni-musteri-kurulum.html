@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script>
+let OTURUM_KULLANICI = requireLogin();
+if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici']);
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — Yeni Müşteri Kurulumu</title>
+<style>
+:root{--primary:#15213a;--success:#27ae60;--danger:#b5442a;--gray-100:#f1f3f5;--gray-300:#dee2e6;--gray-500:#adb5bd;--gray-600:#6c757d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);font-size:13px}
+.header{background:var(--primary);color:white;padding:14px 20px}
+.header h1{font-size:16px}.header p{font-size:12px;opacity:.8;margin-top:2px}
+.content{padding:16px;max-width:800px;margin:0 auto}
+.uyari{background:#fff3cd;color:#856404;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.5;border:1.5px solid #fcd34d}
+.card{background:white;border-radius:10px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px;text-transform:uppercase}
+.field input{width:100%;padding:9px 11px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{padding:9px 16px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:var(--primary);color:white}
+textarea{width:100%;min-height:220px;font-family:monospace;font-size:12px;padding:10px;border:1.5px solid var(--gray-300);border-radius:8px}
+#durum{margin-left:10px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Yeni Müşteri Kurulumu</h1>
+  <p>Tek seferlik araç — 01/02 SQL dökümleri BOŞ Supabase projesinde çalıştırıldıktan SONRA kullanılır. Kurulum bitince bu dosyayı deploy'dan kaldırın.</p>
+</div>
+<div class="content">
+  <div class="uyari">⚠️ Service-role anahtarı RLS'yi bypass eder. Anahtar KALICI OLARAK SAKLANMAZ — yalnızca bu sayfa açıkken bellekte tutulur, sayfa kapanınca silinir.</div>
+
+  <div class="card">
+    <div class="card-title">1) Yeni Projenin Bağlantı Bilgileri</div>
+    <div class="field"><label>Supabase Project URL</label><input type="text" id="sb-url" placeholder="https://xxxxx.supabase.co"></div>
+    <div class="field"><label>Service Role Key</label><input type="password" id="sb-key" placeholder="eyJhbG..."></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">2) Otel Bilgileri → otel-config.js Üret</div>
+    <div class="grid2">
+      <div class="field"><label>Otel 1 Kodu *</label><input id="o1-kod" required placeholder="810"></div>
+      <div class="field"><label>Otel 2 Kodu (opsiyonel)</label><input id="o2-kod" placeholder="811"></div>
+      <div class="field"><label>Otel 1 Adı *</label><input id="o1-ad" required placeholder="Örnek Otel Merkez"></div>
+      <div class="field"><label>Otel 2 Adı</label><input id="o2-ad"></div>
+      <div class="field"><label>Otel 1 Kısa Ad *</label><input id="o1-kisa" required placeholder="Merkez"></div>
+      <div class="field"><label>Otel 2 Kısa Ad</label><input id="o2-kisa"></div>
+      <div class="field"><label>Otel 1 Ticari Unvan *</label><input id="o1-unvan" required></div>
+      <div class="field"><label>Otel 2 Ticari Unvan</label><input id="o2-unvan"></div>
+      <div class="field"><label>Otel 1 Merkezi Depo Kodu *</label><input id="o1-depo" required placeholder="100"></div>
+      <div class="field"><label>Otel 2 Merkezi Depo Kodu</label><input id="o2-depo" placeholder="300"></div>
+    </div>
+    <div class="field"><label>Grup Adı *</label><input id="grup-ad" required placeholder="Örnek Turizm Grubu"></div>
+    <div class="field"><label>Dahili E-posta Domaini *</label><input id="email-domain" required placeholder="ornekotel.internal"></div>
+    <button class="btn" onclick="configUret()">otel-config.js İçeriğini Üret</button>
+    <div class="field" style="margin-top:10px"><label>Üretilen içerik — kopyalayıp repo kökündeki otel-config.js'e yapıştırın</label><textarea id="config-cikti" readonly></textarea></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">3) İlk Yönetici Kullanıcısı</div>
+    <div class="grid2">
+      <div class="field"><label>Ad Soyad *</label><input id="yon-ad" required></div>
+      <div class="field"><label>PIN (6 hane) *</label><input id="yon-pin" required maxlength="6" placeholder="123456"></div>
+    </div>
+    <button class="btn" onclick="ilkYoneticiOlustur()">Yöneticiyi Oluştur</button><span id="durum"></span>
+  </div>
+</div>
+
+<script>
+function deger(id){return document.getElementById(id).value.trim();}
+
+function configUret(){
+  const zorunlu=['o1-kod','o1-ad','o1-kisa','o1-unvan','o1-depo','grup-ad','email-domain'];
+  for(const id of zorunlu){if(!deger(id)){alert('Zorunlu alan boş: '+id);return;}}
+  const o1k=deger('o1-kod'),o2k=deger('o2-kod');
+  const cift=o2k!=='';
+  const harita=(a1,a2)=>cift?`{'${o1k}':'${a1}','${o2k}':'${a2}'}`:`{'${o1k}':'${a1}'}`;
+  const icerik=`// otel-config.js — müşteriye özel kurulum sabitleri.
+// Yeni bir müşteri kurulumunda SADECE bu dosya düzenlenir, başka hiçbir
+// dosyaya dokunulmaz. auth-guard.js -> supabase-config.js -> otel-config.js
+// -> ortak.js sırasında, senkron olarak yüklenir.
+
+const OTEL_ISIMLERI = ${harita(deger('o1-ad'),deger('o2-ad'))};
+const OTEL_KISA = ${harita(deger('o1-kisa'),deger('o2-kisa'))};
+const OTEL_TICARI_UNVAN = ${harita(deger('o1-unvan'),deger('o2-unvan'))};
+const GRUP_ADI = '${deger('grup-ad')}';
+const DAHILI_EMAIL_DOMAIN = '${deger('email-domain')}';
+const MERKEZI_DEPO = ${harita(deger('o1-depo'),deger('o2-depo'))};
+
+function merkeziDepoKodu(otelId){ return MERKEZI_DEPO[otelId] || '${deger('o1-depo')}'; }
+function otelFromDepoId(depoId){ const i=(depoId||'').indexOf('_'); return i>=0 ? depoId.slice(0,i) : '${o1k}'; }
+`;
+  document.getElementById('config-cikti').value=icerik;
+}
+
+async function ilkYoneticiOlustur(){
+  const url=deger('sb-url').replace(/\/$/,''),key=deger('sb-key');
+  const ad=deger('yon-ad'),pin=deger('yon-pin');
+  const durum=document.getElementById('durum');
+  if(!url||!key){durum.textContent='⚠️ Önce bağlantı bilgilerini girin';return;}
+  if(!ad||!pin){durum.textContent='⚠️ Ad ve PIN zorunlu';return;}
+  if(pin.length!==6||!/^\d{6}$/.test(pin)){durum.textContent='⚠️ PIN 6 haneli sayısal olmalı (login ekranı 6 haneli PIN pad kullanır)';return;}
+  const h={'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'};
+  try{
+    const rRol=await fetch(url+'/rest/v1/roller?kod=eq.sistem_admin&select=id',{headers:h});
+    const roller=await rRol.json();
+    if(!roller.length){durum.textContent='❌ sistem_admin rolü bulunamadı — 02-referans-veri.sql çalıştırıldı mı?';return;}
+    // Payload alanları kullanici-yonetimi.html'deki gerçek kullanıcı-ekleme POST
+    // gövdesiyle (kullaniciKaydet() içindeki `satir` nesnesi) birebir eşleştirildi:
+    // gerçek alanlar ad, pin, rol_id, rol (ROL_KODU_ESKI_ENUM üzerinden türetilen
+    // eski enum — requireRole() bu alanı okur), otel_id (nullable), departman
+    // (nullable), aktif. İlk yönetici grup/sistem seviyesinde olduğu için otel_id
+    // ve departman bilinçli olarak null bırakıldı (kullanici-yonetimi.html'de de
+    // boş bırakılınca aynı şekilde null gönderiliyor).
+    const payload={ad,pin,rol:'yonetici',rol_id:roller[0].id,otel_id:null,departman:null,aktif:true};
+    const r=await fetch(url+'/rest/v1/kullanicilar',{method:'POST',headers:{...h,'Prefer':'return=representation'},body:JSON.stringify(payload)});
+    if(!r.ok){durum.textContent='❌ Hata: '+(await r.text()).slice(0,200);return;}
+    durum.textContent='✅ Yönetici oluşturuldu — artık '+ad+' / PIN ile giriş yapılabilir';
+  }catch(e){durum.textContent='❌ Bağlantı hatası: '+e.message;}
+}
+</script>
+</body>
+</html>
