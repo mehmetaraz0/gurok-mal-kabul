@@ -125,6 +125,39 @@ function aksiyonButonlari(s, yzb){
   return b;
 }
 
+async function rpcCagir(fonksiyon, govde){
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/'+fonksiyon,{
+      method:'POST', headers:SB_HEADERS, body:JSON.stringify(govde)
+    });
+    if(!r.ok){ const t=await r.text(); toast('❌ '+(t.slice(0,120))); hLD(); return false; }
+    hLD(); return true;
+  }catch(e){ toast('❌ Bağlantı hatası'); hLD(); return false; }
+}
+
+async function durumGuncelle(id, durum){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  if(await rpcCagir('bar_siparis_durum_guncelle', {p_siparis_id:id, p_durum:durum})){
+    toast('✅ '+durum); await yukle();
+  }
+}
+
+async function teslimEt(id){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  if(await rpcCagir('bar_siparis_teslim_et', {p_siparis_id:id})){
+    toast('✅ Teslim edildi — stok düşüldü'); await yukle();
+  }
+}
+
+async function iptalEt(id){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  if(!confirm('Bu siparişi iptal et? Rezerve edilen stok serbest bırakılacak.')) return;
+  if(await rpcCagir('bar_siparis_iptal', {p_siparis_id:id})){
+    toast('✅ İptal edildi'); await yukle();
+  }
+}
+
 (async function(){
   CU=requireLogin();
   if(!CU) return;
