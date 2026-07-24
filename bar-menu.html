@@ -46,8 +46,18 @@ let MENU = [], SEPET = {};
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 async function menuYukle(){
+  // 1) Masanın otelini çöz (token listesi sızdırmayan RPC)
+  let otelId=null;
   try{
-    const r = await fetch(CUSTOMER_SB_URL + '/rest/v1/menu_urunler?select=*&aktif=eq.true&order=kategori', { headers: H });
+    const rr=await fetch(CUSTOMER_SB_URL+'/rest/v1/rpc/masa_oteli_getir',{
+      method:'POST', headers:H, body:JSON.stringify({p_token:token})
+    });
+    if(rr.ok) otelId=await rr.json();
+  }catch(e){}
+  if(!otelId){ document.getElementById('liste').innerHTML='<div class="mesaj err">Geçersiz masa — otel bulunamadı.</div>'; return; }
+  // 2) O otele ait aktif menüyü çek
+  try{
+    const r = await fetch(CUSTOMER_SB_URL + '/rest/v1/menu_urunler?select=*&otel_id=eq.'+encodeURIComponent(otelId)+'&aktif=eq.true&order=kategori', { headers: H });
     if(r.ok) MENU = await r.json();
   }catch(e){}
   render();
