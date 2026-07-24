@@ -1,7 +1,8 @@
 // Supabase Edge Function: masa-yonetim
-// Personel masa/token CRUD köprüsü. ÖNCE ana projede JWT + bar_siparis_yonetimi kayıt
-// yetkisi doğrular, SONRA customer masa_tokenlari üzerinde işlem yapar (service_role).
-// Deploy: Dashboard → Via Editor, JWT verify ON. Secret: MAIN_ANON_KEY (yeni) + mevcut 4.
+// Personel masa/token CRUD köprüsü. JWT'yi GoTrue ile doğrular → email'den kullanıcı id →
+// rolü service_role ile okur (RLS'siz) → bar_siparis_yonetimi kayıt yetkisi kontrolü →
+// customer masa_tokenlari üzerinde işlem. Deploy: Dashboard → Via Editor.
+// Secret: MAIN_SB_URL, MAIN_ANON_KEY, MAIN_SERVICE_KEY, CUSTOMER_SB_URL, CUSTOMER_SERVICE_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -15,17 +16,29 @@ Deno.serve(async (req) => {
     const { jwt, action } = body ?? {};
     if (!jwt) return json({ ok:false, mesaj:"Oturum yok" }, 401, cors);
 
-    // Yetki kontrolü: JWT'yi ana projede doğrula + bar_siparis_yonetimi kayıt yetkisi.
-    // Herhangi bir hata (bozuk/expired JWT vb.) => yetkisiz say (fail-safe).
-    let yetkili = false;
+    const MAIN_URL = Deno.env.get("MAIN_SB_URL")!;
+    const MAIN_ANON = Deno.env.get("MAIN_ANON_KEY")!;
+    const MAIN_SVC = Deno.env.get("MAIN_SERVICE_KEY")!;
+
+    // 1) JWT'yi GoTrue ile doğrula → email
+    let email = "";
     try {
-      const asUser = createClient(Deno.env.get("MAIN_SB_URL")!, Deno.env.get("MAIN_ANON_KEY")!, {
-        global: { headers: { Authorization: "Bearer " + jwt } },
-      });
-      const { data } = await asUser.rpc("auth_yetki_var", { p_modul_kod:"bar_siparis_yonetimi", p_min_seviye:"kayit" });
-      yetkili = (data === true);
-    } catch { yetkili = false; }
-    if (!yetkili) return json({ ok:false, mesaj:"Yetki yok" }, 403, cors);
+      const uRes = await fetch(MAIN_URL + "/auth/v1/user", { headers: { apikey: MAIN_ANON, Authorization: "Bearer " + jwt } });
+      if (uRes.ok) { const u = await uRes.json(); email = (u && u.email) ? u.email : ""; }
+    } catch {}
+    if (!email) return json({ ok:false, mesaj:"Oturum geçersiz — tekrar giriş yapın" }, 401, cors);
+    const kullaniciId = email.split("@")[0];
+
+    // 2) Rolü service_role ile bul (RLS yok)
+    const main = createClient(MAIN_URL, MAIN_SVC);
+    const { data: kul } = await main.from("kullanicilar").select("rol_id").eq("id", kullaniciId).maybeSingle();
+    if (!kul || !kul.rol_id) return json({ ok:false, mesaj:"Kullanıcı/rol bulunamadı" }, 403, cors);
+
+    // 3) bar_siparis_yonetimi kayıt yetkisi
+    const { data: modul } = await main.from("moduller").select("id").eq("kod","bar_siparis_yonetimi").eq("aktif",true).maybeSingle();
+    if (!modul || !modul.id) return json({ ok:false, mesaj:"Bar modülü kapalı" }, 403, cors);
+    const { data: yrow } = await main.from("yetki_matrisi").select("yetki").eq("rol_id", kul.rol_id).eq("modul_id", modul.id).maybeSingle();
+    if (!yrow || !["kayit","tam"].includes(yrow.yetki)) return json({ ok:false, mesaj:"Yetki yok" }, 403, cors);
 
     // Yetki tamam → customer service_role ile işlem
     const cust = createClient(Deno.env.get("CUSTOMER_SB_URL")!, Deno.env.get("CUSTOMER_SERVICE_KEY")!);
