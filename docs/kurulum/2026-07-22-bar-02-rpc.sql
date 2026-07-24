@@ -31,6 +31,11 @@ declare
   v_gerekli numeric;
   v_musait numeric;
 begin
+  -- GUARD: boş sepet reddedilir (sipariş satırı bile oluşmaz)
+  if p_kalemler is null or jsonb_array_length(p_kalemler) = 0 then
+    raise exception 'Boş sipariş: en az bir kalem gerekli';
+  end if;
+
   insert into bar_siparisleri (otel_id, depo_id, masa_token, oda_no, durum)
   values (p_otel_id::otel_id, p_depo_id, p_masa_token, p_oda_no, 'yeni')
   returning id into v_siparis_id;
