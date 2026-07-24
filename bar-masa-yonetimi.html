@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<script src="qr-mini.js"></script>
+<link rel="stylesheet" href="theme.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — Masa / QR Yönetimi</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);color:var(--gray-800)}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.wrap{max-width:640px;margin:0 auto;padding:16px}
+.kart{background:white;border-radius:var(--radius-sm);padding:16px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.kart h2{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--primary)}
+.alan{margin-bottom:10px}
+.alan label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+.alan input,.alan select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none;background:white}
+.btn{padding:10px 16px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;min-height:42px}
+.btn:disabled{background:var(--gray-200)!important;color:var(--gray-400)!important;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:white;width:100%}
+.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.btn-info{background:var(--info);color:white}.btn-danger{background:var(--danger);color:white}.btn-success{background:var(--success);color:white}
+.masa{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-200)}
+.masa:last-child{border-bottom:none}
+.masa-ad{flex:1;font-size:14px;font-weight:600}
+.masa-alt{font-size:11px;color:var(--gray-500);font-weight:400;display:block;margin-top:1px}
+.rozet{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+.rozet.aktif{background:#d4edda;color:#155724}.rozet.pasif{background:var(--gray-200);color:var(--gray-600)}
+.es{text-align:center;padding:32px 20px;color:var(--gray-400)}
+.modal{display:none;position:fixed;inset:0;background:rgba(26,39,68,.7);z-index:9997;align-items:center;justify-content:center;padding:20px}
+.modal.show{display:flex}
+.modal-ic{background:white;border-radius:var(--radius);padding:20px;max-width:340px;width:100%;text-align:center}
+.modal-ic h3{font-size:16px;margin-bottom:4px;color:var(--primary)}
+.modal-ic .mt{font-size:12px;color:var(--gray-500);margin-bottom:14px}
+#qrKutu{display:flex;justify-content:center;margin:0 auto 14px;padding:10px;background:white}
+.modal-btns{display:flex;gap:8px}.modal-btns .btn{flex:1}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media print{
+  body *{visibility:hidden}
+  #baskiAlan,#baskiAlan *{visibility:visible}
+  #baskiAlan{position:fixed;inset:0;display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  .modal-btns,.header{display:none!important}
+}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <button class="header-btn" onclick="location.href='bar.html'" title="Geri">←</button>
+    <div style="flex:1"><h1>Masa / QR Yönetimi</h1></div>
+  </div>
+  <div class="wrap">
+    <div class="kart" id="ekleKart">
+      <h2>Yeni Masa Ekle</h2>
+      <div class="alan">
+        <label>Otel</label>
+        <select id="fOtel" onchange="depoOnDoldur()">
+          <option value="810">Ali Bey Club Manavgat (810)</option>
+          <option value="811">Ali Bey Resort Sorgun (811)</option>
+        </select>
+      </div>
+      <div class="alan">
+        <label>Depo Kodu</label>
+        <input id="fDepo" placeholder="örn. 100">
+      </div>
+      <div class="alan">
+        <label>Masa Adı</label>
+        <input id="fMasa" placeholder="örn. Havuz Bar Masa 1">
+      </div>
+      <button class="btn btn-primary" id="ekleBtn" onclick="masaEkle()">+ Masa Ekle</button>
+    </div>
+
+    <div class="kart">
+      <h2>Masalar</h2>
+      <div id="liste"><div class="es">Yükleniyor…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="qrModal">
+  <div class="modal-ic">
+    <div id="baskiAlan">
+      <h3 id="qrBaslik">Masa</h3>
+      <div class="mt" id="qrAlt"></div>
+      <div id="qrKutu"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-info btn-sm" onclick="window.print()">🖨️ Yazdır</button>
+      <button class="btn btn-sm" style="background:var(--gray-200)" onclick="qrKapat()">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor…</div></div>
+
+<script>
+// SB_URL/SB_KEY -> supabase-config.js ; toast/escapeHtml/sLD/hLD -> ortak.js
+// oturumAccessTokenGetir/requireRole/kullaniciYetkileriGetir -> auth-guard.js
+const CUSTOMER_SB_URL='https://udjpcsjifgdzvfflezaa.supabase.co';
+const CUSTOMER_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkanBjc2ppZmdkenZmZmxlemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTkzOTksImV4cCI6MjEwMDQ3NTM5OX0.cT-TZ5EImk2MEDuOzMuTpogYeoj8u7ovfO4C5EBM7bc';
+const MASA_FN='/functions/v1/hyper-task';   // masa-yonetim Edge Function (deploy adı hyper-task)
+const QR_BASE='https://mehmetaraz0.github.io/gurok-mal-kabul/bar-menu.html?t=';
+let CU=null, YETKI_HARITASI={}, MASALAR=[];
+
+function yazabilir(){ return ['kayit','tam'].includes(YETKI_HARITASI['bar_siparis_yonetimi']); }
+
+function depoOnDoldur(){
+  const otel=document.getElementById('fOtel').value;
+  try{ document.getElementById('fDepo').value = merkeziDepoKodu(otel) || ''; }catch(e){}
+}
+
+async function masaCagir(payload){
+  const jwt = oturumAccessTokenGetir();
+  if(!jwt){ toast('⚠️ Oturum doğrulanamadı, tekrar giriş yapın'); return null; }
+  sLD();
+  try{
+    const r = await fetch(CUSTOMER_SB_URL+MASA_FN, {
+      method:'POST',
+      headers:{ apikey:CUSTOMER_ANON_KEY, Authorization:'Bearer '+CUSTOMER_ANON_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ jwt, ...payload })
+    });
+    const d = await r.json(); hLD();
+    if(!d.ok){ toast('❌ '+(d.mesaj||'Hata')); return null; }
+    return d;
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); return null; }
+}
+
+async function listeyiYukle(){
+  const d = await masaCagir({ action:'liste' });
+  if(d) MASALAR = d.masalar||[];
+  render();
+}
+
+function render(){
+  const el=document.getElementById('liste');
+  if(!MASALAR.length){ el.innerHTML='<div class="es">Henüz masa yok. Yukarıdan ekleyin.</div>'; return; }
+  const yzb=yazabilir();
+  el.innerHTML = MASALAR.map(m=>{
+    const rozet = m.aktif ? '<span class="rozet aktif">Aktif</span>' : '<span class="rozet pasif">Kapalı</span>';
+    const durumBtn = yzb
+      ? (m.aktif
+          ? `<button class="btn btn-danger btn-sm" onclick="durumDegis('${escapeHtml(m.token)}',false)">Kapat</button>`
+          : `<button class="btn btn-success btn-sm" onclick="durumDegis('${escapeHtml(m.token)}',true)">Aç</button>`)
+      : '';
+    return `<div class="masa">
+      <div class="masa-ad">${escapeHtml(m.masa_adi)} ${rozet}
+        <span class="masa-alt">Otel ${escapeHtml(m.otel_id)} · Depo ${escapeHtml(m.depo_id)}</span></div>
+      <button class="btn btn-info btn-sm" onclick="qrGoster('${escapeHtml(m.token)}','${escapeHtml(m.masa_adi)}')">QR</button>
+      ${durumBtn}
+    </div>`;
+  }).join('');
+}
+
+async function masaEkle(){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  const otel_id=document.getElementById('fOtel').value;
+  const depo_id=document.getElementById('fDepo').value.trim();
+  const masa_adi=document.getElementById('fMasa').value.trim();
+  if(!depo_id || !masa_adi){ toast('⚠️ Depo ve masa adı zorunlu'); return; }
+  const d = await masaCagir({ action:'ekle', otel_id, depo_id, masa_adi });
+  if(d){ toast('✅ Masa eklendi'); document.getElementById('fMasa').value=''; await listeyiYukle(); }
+}
+
+async function durumDegis(token, aktif){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  const d = await masaCagir({ action:'durum', token, aktif });
+  if(d){ toast(aktif?'✅ Açıldı':'✅ Kapatıldı'); await listeyiYukle(); }
+}
+
+function qrGoster(token, masaAdi){
+  document.getElementById('qrBaslik').textContent = masaAdi;
+  document.getElementById('qrAlt').textContent = 'QR okutunca menü açılır';
+  const kutu=document.getElementById('qrKutu'); kutu.innerHTML='';
+  new QRCode(kutu, { text: QR_BASE+token, width:220, height:220, correctLevel: QRCode.CorrectLevel.M });
+  document.getElementById('qrModal').classList.add('show');
+}
+function qrKapat(){ document.getElementById('qrModal').classList.remove('show'); }
+
+(async function(){
+  CU = requireLogin();
+  if(!CU) return;
+  if(!requireRole(CU, ['mutfak','bar','yonetici'])) return;
+  YETKI_HARITASI = await kullaniciYetkileriGetir();
+  if(!yazabilir()){ document.getElementById('ekleKart').style.display='none'; }
+  document.getElementById('app').style.display='';
+  depoOnDoldur();
+  await listeyiYukle();
+})();
+</script>
+</body>
+</html>
