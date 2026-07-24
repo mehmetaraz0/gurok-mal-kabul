@@ -16,7 +16,7 @@ returns integer language plpgsql security definer set search_path = public
 as $$
 declare v_sayi integer;
 begin
-  delete from public.menu_urunler;
+  delete from public.menu_urunler where true;  -- WHERE zorunlu (delete-guard)
   insert into public.menu_urunler (id, ad, kategori, fiyat, ucretli, aktif, otel_id)
   select (x->>'id')::uuid, x->>'ad', x->>'kategori', (x->>'fiyat')::numeric,
          (x->>'ucretli')::boolean, (x->>'aktif')::boolean, x->>'otel_id'
@@ -24,6 +24,7 @@ begin
   get diagnostics v_sayi = row_count;
   return v_sayi;
 end $$;
--- menu_yenile için anon GRANT YOK — varsayılan olarak public'e kapalı bırakılır.
+-- KRİTİK: Postgres yeni fonksiyona varsayılan PUBLIC execute verir — anon'a kapat.
+revoke execute on function public.menu_yenile(jsonb) from public, anon;
 
 commit;
