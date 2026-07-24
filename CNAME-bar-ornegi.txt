@@ -1,0 +1,10 @@
+menu.alibeyclub.com için DNS kaydı (domain panelinde eklenecek):
+  Tip: CNAME
+  Ad:  menu
+  Değer: mehmetaraz0.github.io
+GitHub repo Settings → Pages → Custom domain: menu.alibeyclub.com
+QR kodu şuna yönlendirir: https://menu.alibeyclub.com/bar-menu.html?t=<masa-token>
+(Not: alt alan adı yayına girene kadar test için doğrudan
+ https://mehmetaraz0.github.io/gurok-mal-kabul/bar-menu.html?t=<token> kullanılabilir.)
+
+Edge Function endpoint adı: /functions/v1/hyper-api  (deploy sırasında 'hyper-api' oldu)
