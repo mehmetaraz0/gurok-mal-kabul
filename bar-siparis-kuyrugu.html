@@ -49,6 +49,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   <div class="header">
     <button class="header-btn" onclick="location.href='index.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
     <div style="flex:1"><h1>Bar Sipariş Kuyruğu</h1><span class="sub" id="hsub"></span></div>
+    <button class="header-btn" id="yayinlaBtn" onclick="menuYayinla()" title="Menüyü Yayınla" style="display:none">📢</button>
     <button class="header-btn" onclick="yukle()" title="Yenile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
   </div>
   <div class="ftabs" id="ftabs">
@@ -67,6 +68,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <script>
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 // sLD/hLD/toast/escapeHtml -> ortak.js
+const CUSTOMER_SB_URL='https://udjpcsjifgdzvfflezaa.supabase.co';
+const CUSTOMER_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkanBjc2ppZmdkenZmZmxlemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTkzOTksImV4cCI6MjEwMDQ3NTM5OX0.cT-TZ5EImk2MEDuOzMuTpogYeoj8u7ovfO4C5EBM7bc';
+const YAYIN_FN='/functions/v1/smooth-service';   // menu-yayinla Edge Function (deploy adı smooth-service)
 let CU=null, YETKI_HARITASI={}, SIPARISLER=[], aktifFilter='aktif', _pollTimer=null;
 
 function yazabilir(){ return ['kayit','tam'].includes(YETKI_HARITASI['bar_siparis_yonetimi']); }
@@ -158,6 +162,22 @@ async function iptalEt(id){
   }
 }
 
+async function menuYayinla(){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  if(!confirm('Müşteri menüsü ana projedeki güncel menüyle değiştirilecek. Devam?')) return;
+  sLD();
+  try{
+    const r=await fetch(CUSTOMER_SB_URL+YAYIN_FN,{
+      method:'POST',
+      headers:{apikey:CUSTOMER_ANON_KEY, Authorization:'Bearer '+CUSTOMER_ANON_KEY, 'Content-Type':'application/json'},
+      body:'{}'
+    });
+    const d=await r.json(); hLD();
+    if(d.ok) toast('✅ '+d.sayi+' ürün yayınlandı');
+    else toast('❌ '+(d.mesaj||'Yayın hatası'));
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
+}
+
 (async function(){
   CU=requireLogin();
   if(!CU) return;
@@ -165,6 +185,7 @@ async function iptalEt(id){
   document.getElementById('app').style.display='flex';
   document.getElementById('hsub').textContent=(CU.rol||'')+' '+(CU.ad||'');
   YETKI_HARITASI=await kullaniciYetkileriGetir();
+  if(yazabilir()) document.getElementById('yayinlaBtn').style.display='';
   await yukle();
   _pollTimer=setInterval(yukle, 8000);
 })();
