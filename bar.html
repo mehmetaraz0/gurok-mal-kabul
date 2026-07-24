@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — F&B Bar</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);color:var(--gray-800)}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.kart{background:white;border-radius:var(--radius);padding:22px 20px;box-shadow:0 1px 6px rgba(0,0,0,.08);text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;border:1px solid var(--gray-200);transition:box-shadow .15s,transform .15s}
+.kart:hover{box-shadow:0 6px 20px rgba(0,0,0,.12);transform:translateY(-2px)}
+.kart-ikon{width:44px;height:44px;border-radius:12px;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:22px}
+.kart-ad{font-size:16px;font-weight:700;color:var(--primary)}
+.kart-desc{font-size:13px;color:var(--gray-500)}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="header-btn" href="index.html" title="Portal">←</a>
+    <div style="flex:1"><h1>F&amp;B Bar</h1></div>
+  </div>
+  <div class="wrap">
+    <div class="grid">
+      <a class="kart" href="bar-masa-yonetimi.html">
+        <div class="kart-ikon">🪑</div>
+        <div class="kart-ad">Masa / QR Yönetimi</div>
+        <div class="kart-desc">Masa oluştur, QR kodu üret ve yazdır</div>
+      </a>
+      <a class="kart" href="bar-siparis-kuyrugu.html">
+        <div class="kart-ikon">🍹</div>
+        <div class="kart-ad">Sipariş Kuyruğu</div>
+        <div class="kart-desc">Gelen bar/restoran siparişlerini yönet</div>
+      </a>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const CU = requireLogin();
+  if(!CU) return;
+  if(!requireRole(CU, ['mutfak','bar','yonetici'])) return;
+  document.getElementById('app').style.display='';
+})();
+</script>
+</body>
+</html>
