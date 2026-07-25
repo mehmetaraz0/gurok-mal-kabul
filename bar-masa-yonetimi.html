@@ -113,7 +113,7 @@ html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI
 // oturumAccessTokenGetir/requireRole/kullaniciYetkileriGetir -> auth-guard.js
 const CUSTOMER_SB_URL='https://udjpcsjifgdzvfflezaa.supabase.co';
 const CUSTOMER_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkanBjc2ppZmdkenZmZmxlemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTkzOTksImV4cCI6MjEwMDQ3NTM5OX0.cT-TZ5EImk2MEDuOzMuTpogYeoj8u7ovfO4C5EBM7bc';
-const MASA_FN='/functions/v1/hyper-task';   // masa-yonetim Edge Function (deploy adı hyper-task)
+const MASA_FN='/functions/v1/rapid-handler';   // masa-yonetim Edge Function (deploy adı rapid-handler)
 const QR_BASE='https://mehmetaraz0.github.io/gurok-mal-kabul/bar-menu.html?t=';
 let CU=null, YETKI_HARITASI={}, MASALAR=[];
 
@@ -135,16 +135,7 @@ async function masaCagir(payload){
       body: JSON.stringify({ jwt, ...payload })
     });
     const d = await r.json(); hLD();
-    if(!d.ok){
-      // GEÇİCİ TEŞHİS: getUser'ı doğrudan (doğru anon key ile) dene
-      try{
-        const gr = await fetch(SB_URL + '/auth/v1/user', { headers:{ apikey: SB_KEY, Authorization:'Bearer '+jwt } });
-        const gt = (await gr.text()).slice(0,60);
-        toast('TESHIS getUser=' + gr.status + ' | fn: ' + (d.mesaj||''));
-        console.log('TESHIS getUser', gr.status, gt);
-      }catch(e){ toast('TESHIS throw ' + e); }
-      return null;
-    }
+    if(!d.ok){ toast('❌ '+(d.mesaj||'Hata')); return null; }
     return d;
   }catch(e){ hLD(); toast('❌ Bağlantı hatası'); return null; }
 }
