@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — Garson Sipariş</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);color:var(--gray-800);padding-bottom:96px}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
+.masa-bar{background:white;padding:12px 16px;border-bottom:1px solid var(--gray-200)}
+.masa-bar label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+.masa-bar select{width:100%;padding:11px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:15px;background:white}
+.kat{padding:12px 16px 4px;font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase}
+.urun{background:white;margin:8px 16px;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.urun-ad{flex:1;font-size:15px;font-weight:600}
+.urun-fiyat{font-size:13px;color:#b5442a;font-weight:700}.urun-dahil{font-size:11px;color:#27ae60;font-weight:600}
+.adet{display:flex;align-items:center;gap:8px}
+.adet button{width:32px;height:32px;border-radius:50%;border:none;background:var(--primary);color:#fff;font-size:18px;cursor:pointer}
+.adet span{min-width:22px;text-align:center;font-weight:700}
+.sepet{position:fixed;bottom:0;left:0;right:0;background:white;box-shadow:0 -2px 12px rgba(0,0,0,.12);padding:12px 16px}
+.oda-alani{margin-bottom:8px}
+.oda-alani input{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:15px;outline:none}
+.gonder{width:100%;padding:14px;border:none;border-radius:10px;background:var(--success);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.gonder:disabled{background:var(--gray-400)}
+.es{text-align:center;padding:28px 20px;color:var(--gray-400)}
+#toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="header-btn" href="bar.html" title="Geri">←</a>
+    <div style="flex:1"><h1>Garson Sipariş</h1></div>
+    <button class="header-btn" onclick="masalariYukle()" title="Masaları yenile">⟳</button>
+  </div>
+  <div class="masa-bar">
+    <label>Masa Seç</label>
+    <select id="masaSec" onchange="masaDegisti()"><option value="">— Masa seçin —</option></select>
+  </div>
+  <div id="liste"><div class="es">Önce masa seçin.</div></div>
+</div>
+
+<div class="sepet" id="sepetBar" style="display:none">
+  <div class="oda-alani" id="odaAlani" style="display:none">
+    <input id="odaNo" placeholder="Oda numarası (ücretli ürün için zorunlu)">
+  </div>
+  <button class="gonder" id="gonderBtn" onclick="gonder()">Sipariş Ver</button>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor…</div></div>
+
+<script>
+// SB_URL/SB_KEY -> supabase-config.js ; toast/escapeHtml/sLD/hLD -> ortak.js
+const CUSTOMER_SB_URL='https://udjpcsjifgdzvfflezaa.supabase.co';
+const CUSTOMER_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkanBjc2ppZmdkenZmZmxlemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTkzOTksImV4cCI6MjEwMDQ3NTM5OX0.cT-TZ5EImk2MEDuOzMuTpogYeoj8u7ovfO4C5EBM7bc';
+const MASA_FN='/functions/v1/rapid-handler';
+let CU=null, YETKI_HARITASI={}, MASALAR=[], MENU=[], SEPET={}, seciliMasa=null;
+
+function yazabilir(){ return ['kayit','tam'].includes(YETKI_HARITASI['bar_siparis_yonetimi']); }
+function JH(){ const t=oturumAccessTokenGetir(); return { apikey:SB_KEY, Authorization:'Bearer '+(t||SB_KEY), 'Content-Type':'application/json' }; }
+
+// ---- Masaları getir (rapid-handler, JWT) ----
+async function masalariYukle(){
+  sLD();
+  try{
+    const r=await fetch(CUSTOMER_SB_URL+MASA_FN,{method:'POST',
+      headers:{apikey:CUSTOMER_ANON_KEY,Authorization:'Bearer '+CUSTOMER_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({jwt:oturumAccessTokenGetir(),anon:SB_KEY,action:'liste'})});
+    const d=await r.json(); hLD();
+    if(!d.ok){ toast('❌ '+(d.mesaj||'Masalar alınamadı')); return; }
+    MASALAR=(d.masalar||[]).filter(m=>m.aktif);
+    const sel=document.getElementById('masaSec');
+    sel.innerHTML='<option value="">— Masa seçin —</option>'+MASALAR.map((m,i)=>`<option value="${i}">${escapeHtml(m.masa_adi)} (Otel ${escapeHtml(m.otel_id)})</option>`).join('');
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
+}
+
+async function masaDegisti(){
+  const i=document.getElementById('masaSec').value;
+  SEPET={};
+  if(i===''){ seciliMasa=null; MENU=[]; render(); document.getElementById('sepetBar').style.display='none'; return; }
+  seciliMasa=MASALAR[i];
+  document.getElementById('sepetBar').style.display='';
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/menu_urunler?select=*&otel_id=eq.'+encodeURIComponent(seciliMasa.otel_id)+'&aktif=eq.true&silindi=eq.false&order=kategori',{headers:JH()});
+    MENU=r.ok?await r.json():[];
+  }catch(e){ MENU=[]; }
+  hLD(); render();
+}
+
+function render(){
+  const el=document.getElementById('liste');
+  if(!seciliMasa){ el.innerHTML='<div class="es">Önce masa seçin.</div>'; return; }
+  if(!MENU.length){ el.innerHTML='<div class="es">Bu otel için menü yok (Menü Yönetimi\'nden ekleyip yayınlayın).</div>'; return; }
+  let html='',sonKat=null;
+  for(const u of MENU){
+    if(u.kategori!==sonKat){ html+=`<div class="kat">${escapeHtml(u.kategori||'Diğer')}</div>`; sonKat=u.kategori; }
+    const adet=SEPET[u.id]?.adet||0;
+    const fiyat=u.ucretli?`<span class="urun-fiyat">${u.fiyat} ₺</span>`:'<span class="urun-dahil">Dahil</span>';
+    html+=`<div class="urun"><div class="urun-ad">${escapeHtml(u.ad)}</div>${fiyat}
+      <div class="adet"><button onclick="degis('${u.id}',-1)">−</button><span id="a-${u.id}">${adet}</span><button onclick="degis('${u.id}',1)">+</button></div></div>`;
+  }
+  el.innerHTML=html;
+  odaAlaniGuncelle();
+}
+
+function degis(id,d){
+  const u=MENU.find(x=>x.id===id); if(!u) return;
+  const yeni=Math.max(0,(SEPET[id]?.adet||0)+d);
+  if(yeni===0) delete SEPET[id]; else SEPET[id]={adet:yeni,ucretli:u.ucretli};
+  document.getElementById('a-'+id).textContent=yeni;
+  odaAlaniGuncelle();
+}
+function ucretliVar(){ return Object.values(SEPET).some(x=>x.ucretli); }
+function odaAlaniGuncelle(){ document.getElementById('odaAlani').style.display=ucretliVar()?'block':'none'; }
+
+async function gonder(){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  if(!seciliMasa){ toast('⚠️ Masa seçin'); return; }
+  const kalemler=Object.entries(SEPET).map(([menu_urun_id,v])=>({menu_urun_id,adet:v.adet}));
+  if(!kalemler.length){ toast('Sepet boş'); return; }
+  const odaNo=document.getElementById('odaNo').value.trim();
+  if(ucretliVar()&&!odaNo){ toast('⚠️ Ücretli ürün için oda no zorunlu'); return; }
+  const btn=document.getElementById('gonderBtn'); btn.disabled=true; sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/bar_siparis_olustur',{method:'POST',headers:JH(),
+      body:JSON.stringify({p_otel_id:seciliMasa.otel_id,p_depo_id:seciliMasa.depo_id,p_masa_token:seciliMasa.masa_adi,p_oda_no:ucretliVar()?odaNo:null,p_kalemler:kalemler})});
+    hLD(); btn.disabled=false;
+    if(!r.ok){ const t=await r.text(); toast('❌ '+t.slice(0,120)); return; }
+    toast('✅ Sipariş gönderildi'); SEPET={}; document.getElementById('odaNo').value=''; render();
+  }catch(e){ hLD(); btn.disabled=false; toast('❌ Bağlantı hatası'); }
+}
+
+(async function(){
+  CU=requireLogin(); if(!CU) return;
+  if(!requireRole(CU,['mutfak','bar','yonetici'])) return;
+  YETKI_HARITASI=await kullaniciYetkileriGetir();
+  document.getElementById('app').style.display='';
+  await masalariYukle();
+})();
+</script>
+</body>
+</html>
