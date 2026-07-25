@@ -14,6 +14,8 @@ Deno.serve(async (req) => {
   try {
     let body:any; try { body = await req.json(); } catch { return json({ ok:false, mesaj:"Geçersiz JSON" }, 400, cors); }
     const { jwt, action } = body ?? {};
+    // Sürüm kontrolü (jwt gerektirmez) — controller deploy'un tuttuğunu buradan doğrular
+    if (action === "ping") return json({ ok:true, v:"anon3", anonLen: (body && body.anon ? String(body.anon).length : 0) }, 200, cors);
     if (!jwt) return json({ ok:false, mesaj:"Oturum yok" }, 401, cors);
 
     const MAIN_URL = Deno.env.get("MAIN_SB_URL")!;
