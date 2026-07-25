@@ -135,7 +135,16 @@ async function masaCagir(payload){
       body: JSON.stringify({ jwt, ...payload })
     });
     const d = await r.json(); hLD();
-    if(!d.ok){ toast('❌ '+(d.mesaj||'Hata')); return null; }
+    if(!d.ok){
+      // GEÇİCİ TEŞHİS: getUser'ı doğrudan (doğru anon key ile) dene
+      try{
+        const gr = await fetch(SB_URL + '/auth/v1/user', { headers:{ apikey: SB_KEY, Authorization:'Bearer '+jwt } });
+        const gt = (await gr.text()).slice(0,60);
+        toast('TESHIS getUser=' + gr.status + ' | fn: ' + (d.mesaj||''));
+        console.log('TESHIS getUser', gr.status, gt);
+      }catch(e){ toast('TESHIS throw ' + e); }
+      return null;
+    }
     return d;
   }catch(e){ hLD(); toast('❌ Bağlantı hatası'); return null; }
 }
