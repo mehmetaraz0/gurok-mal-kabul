@@ -132,7 +132,7 @@ async function masaCagir(payload){
     const r = await fetch(CUSTOMER_SB_URL+MASA_FN, {
       method:'POST',
       headers:{ apikey:CUSTOMER_ANON_KEY, Authorization:'Bearer '+CUSTOMER_ANON_KEY, 'Content-Type':'application/json' },
-      body: JSON.stringify({ jwt, ...payload })
+      body: JSON.stringify({ jwt, anon: SB_KEY, ...payload })
     });
     const d = await r.json(); hLD();
     if(!d.ok){ toast('❌ '+(d.mesaj||'Hata')); return null; }

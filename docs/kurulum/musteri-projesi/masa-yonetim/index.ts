@@ -19,10 +19,12 @@ Deno.serve(async (req) => {
     const MAIN_URL = Deno.env.get("MAIN_SB_URL")!;
     const MAIN_SVC = Deno.env.get("MAIN_SERVICE_KEY")!;
 
-    // JWT'yi doğrula → email (apikey = MAIN_SERVICE_KEY; bilinen-çalışan anahtar)
+    // JWT'yi doğrula → email. apikey: sayfadan gelen anon (public, doğrulanmış çalışan);
+    // yoksa secret'lara düş. getUser kimliği Bearer token'dan belirler, apikey sadece geçit.
+    const ANON = (body && body.anon) ? String(body.anon) : (Deno.env.get("MAIN_ANON_KEY") || MAIN_SVC);
     let email = "";
     try {
-      const uRes = await fetch(MAIN_URL + "/auth/v1/user", { headers: { apikey: MAIN_SVC, Authorization: "Bearer " + jwt } });
+      const uRes = await fetch(MAIN_URL + "/auth/v1/user", { headers: { apikey: ANON, Authorization: "Bearer " + jwt } });
       if (uRes.ok) { const u = await uRes.json(); email = (u && u.email) ? u.email : ""; }
     } catch {}
     if (!email) return json({ ok:false, mesaj:"Oturum geçersiz — tekrar giriş yapın" }, 200, cors);
