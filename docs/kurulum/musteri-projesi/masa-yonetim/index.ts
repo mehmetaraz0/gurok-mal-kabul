@@ -20,13 +20,15 @@ Deno.serve(async (req) => {
     const MAIN_ANON = Deno.env.get("MAIN_ANON_KEY")!;
     const MAIN_SVC = Deno.env.get("MAIN_SERVICE_KEY")!;
 
-    // 1) JWT'yi GoTrue ile doğrula → email
-    let email = "";
+    // 1) JWT'yi GoTrue ile doğrula → email  (DEBUG: hata sebebini mesaja koy)
+    let email = "", dbg = "";
     try {
       const uRes = await fetch(MAIN_URL + "/auth/v1/user", { headers: { apikey: MAIN_ANON, Authorization: "Bearer " + jwt } });
+      dbg = "getUser:" + uRes.status;
       if (uRes.ok) { const u = await uRes.json(); email = (u && u.email) ? u.email : ""; }
-    } catch {}
-    if (!email) return json({ ok:false, mesaj:"Oturum geçersiz — tekrar giriş yapın" }, 401, cors);
+      else { dbg += " " + (await uRes.text()).slice(0, 90); }
+    } catch (e) { dbg = "throw:" + String(e).slice(0, 90); }
+    if (!email) return json({ ok:false, mesaj:"Oturum geçersiz [" + dbg + "]" }, 200, cors);
     const kullaniciId = email.split("@")[0];
 
     // 2) Rolü service_role ile bul (RLS yok)
