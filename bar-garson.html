@@ -87,8 +87,8 @@ async function masalariYukle(){
     const d=await r.json(); hLD();
     if(!d.ok){ toast('❌ '+(d.mesaj||'Masalar alınamadı')); return; }
     MASALAR=(d.masalar||[]).filter(m=>m.aktif);
-    const barlar=[...new Set(MASALAR.map(m=>m.bolge||'(Bölgesiz)'))].sort();
-    document.getElementById('barSec').innerHTML='<option value="">— Bar seçin —</option>'+barlar.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+    const barlar=[...new Set(MASALAR.map(m=>m.depo_id||'(Deposuz)'))].sort();
+    document.getElementById('barSec').innerHTML='<option value="">— Bar/Restoran seçin —</option>'+barlar.map(b=>`<option value="${escapeHtml(b)}">🏛️ ${escapeHtml(b)}</option>`).join('');
     document.getElementById('masaSec').innerHTML='<option value="">— Önce bar seçin —</option>';
   }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
 }
@@ -98,7 +98,7 @@ function barDegisti(){
   const sel=document.getElementById('masaSec');
   seciliMasa=null; MENU=[]; SEPET={}; render(); document.getElementById('sepetBar').style.display='none';
   if(!bar){ sel.innerHTML='<option value="">— Önce bar seçin —</option>'; return; }
-  const masalar=MASALAR.filter(m=>(m.bolge||'(Bölgesiz)')===bar);
+  const masalar=MASALAR.filter(m=>(m.depo_id||'(Deposuz)')===bar);
   sel.innerHTML='<option value="">— Masa seçin ('+masalar.length+') —</option>'+masalar.map(m=>`<option value="${escapeHtml(m.token)}">${escapeHtml(m.masa_adi)}</option>`).join('');
 }
 
