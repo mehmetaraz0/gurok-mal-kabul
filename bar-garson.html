@@ -87,8 +87,8 @@ async function masalariYukle(){
     const d=await r.json(); hLD();
     if(!d.ok){ toast('❌ '+(d.mesaj||'Masalar alınamadı')); return; }
     MASALAR=(d.masalar||[]).filter(m=>m.aktif);
-    const barlar=[...new Set(MASALAR.map(m=>m.depo_id||'(Deposuz)'))].sort();
-    document.getElementById('barSec').innerHTML='<option value="">— Bar/Restoran seçin —</option>'+barlar.map(b=>`<option value="${escapeHtml(b)}">🏛️ ${escapeHtml(b)}</option>`).join('');
+    const barlar=[...new Set(MASALAR.map(m=>m.depo_id||'(Deposuz)'))].sort((a,b)=>depoAdi(a).localeCompare(depoAdi(b),'tr'));
+    document.getElementById('barSec').innerHTML='<option value="">— Bar/Restoran seçin —</option>'+barlar.map(b=>`<option value="${escapeHtml(b)}">🏛️ ${escapeHtml(depoAdi(b))}</option>`).join('');
     document.getElementById('masaSec').innerHTML='<option value="">— Önce bar seçin —</option>';
   }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
 }

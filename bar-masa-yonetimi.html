@@ -119,18 +119,16 @@ let CU=null, YETKI_HARITASI={}, MASALAR=[];
 
 function yazabilir(){ return ['kayit','tam'].includes(YETKI_HARITASI['bar_siparis_yonetimi']); }
 
-// Seçili otelin gerçek depolarını (stok tablosundan) açılır listeye doldur
-async function depolariYukle(){
-  const otel=document.getElementById('fOtel').value;
+// Bar/Restoran depoları listesini (otel-config BAR_DEPOLARI) açılır listeye doldur
+function depolariYukle(){
   const sel=document.getElementById('fDepo');
-  sel.innerHTML='<option value="">— Yükleniyor… —</option>';
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/stok?select=depo_kodu&otel_id=eq.'+encodeURIComponent(otel),{headers:JH()});
-    const rows=r.ok?await r.json():[];
-    const depolar=[...new Set(rows.map(x=>x.depo_kodu).filter(Boolean))].sort();
-    if(!depolar.length){ sel.innerHTML='<option value="">— Depo bulunamadı —</option>'; return; }
-    sel.innerHTML='<option value="">— Bar/Restoran deposu seçin —</option>'+depolar.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
-  }catch(e){ sel.innerHTML='<option value="">— Depo yüklenemedi —</option>'; }
+  const kodlar=Object.keys(BAR_DEPOLARI);
+  const opt=k=>`<option value="${k}">${escapeHtml(depoAdi(k))}</option>`;
+  const rest=kodlar.filter(k=>BAR_DEPOLARI[k].tip==='Restoran').sort((a,b)=>depoAdi(a).localeCompare(depoAdi(b),'tr'));
+  const bar=kodlar.filter(k=>BAR_DEPOLARI[k].tip!=='Restoran').sort((a,b)=>depoAdi(a).localeCompare(depoAdi(b),'tr'));
+  sel.innerHTML='<option value="">— Bar/Restoran seçin —</option>'+
+    '<optgroup label="🍽️ Restoranlar">'+rest.map(opt).join('')+'</optgroup>'+
+    '<optgroup label="🍸 Barlar">'+bar.map(opt).join('')+'</optgroup>';
 }
 
 async function masaCagir(payload){
@@ -164,7 +162,7 @@ function render(){
   let html='', sonBolge=null;
   for(const m of sirali){
     const bg=m.depo_id||'(Deposuz)';
-    if(bg!==sonBolge){ html+=`<div class="kat" style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;margin:12px 0 4px">🏛️ ${escapeHtml(bg)}</div>`; sonBolge=bg; }
+    if(bg!==sonBolge){ html+=`<div class="kat" style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;margin:12px 0 4px">🏛️ ${escapeHtml(depoAdi(m.depo_id))}</div>`; sonBolge=bg; }
     const rozet = m.aktif ? '<span class="rozet aktif">Aktif</span>' : '<span class="rozet pasif">Kapalı</span>';
     const durumBtn = yzb
       ? (m.aktif
@@ -173,7 +171,7 @@ function render(){
       : '';
     html+=`<div class="masa">
       <div class="masa-ad">${escapeHtml(m.masa_adi)} ${rozet}
-        <span class="masa-alt">Otel ${escapeHtml(m.otel_id)} · Depo ${escapeHtml(m.depo_id)}</span></div>
+        <span class="masa-alt">Otel ${escapeHtml(m.otel_id)} · ${escapeHtml(depoAdi(m.depo_id))} (${escapeHtml(m.depo_id)})</span></div>
       <button class="btn btn-info btn-sm" onclick="qrGoster('${escapeHtml(m.token)}','${escapeHtml(m.masa_adi)}')">QR</button>
       ${durumBtn}
     </div>`;
