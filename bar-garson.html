@@ -49,8 +49,10 @@ html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI
     <button class="header-btn" onclick="masalariYukle()" title="Masaları yenile">⟳</button>
   </div>
   <div class="masa-bar">
-    <label>Masa Seç</label>
-    <select id="masaSec" onchange="masaDegisti()"><option value="">— Masa seçin —</option></select>
+    <label>Bar / Bölge</label>
+    <select id="barSec" onchange="barDegisti()"><option value="">— Bar seçin —</option></select>
+    <label style="margin-top:8px">Masa</label>
+    <select id="masaSec" onchange="masaDegisti()"><option value="">— Önce bar seçin —</option></select>
   </div>
   <div id="liste"><div class="es">Önce masa seçin.</div></div>
 </div>
@@ -85,16 +87,27 @@ async function masalariYukle(){
     const d=await r.json(); hLD();
     if(!d.ok){ toast('❌ '+(d.mesaj||'Masalar alınamadı')); return; }
     MASALAR=(d.masalar||[]).filter(m=>m.aktif);
-    const sel=document.getElementById('masaSec');
-    sel.innerHTML='<option value="">— Masa seçin —</option>'+MASALAR.map((m,i)=>`<option value="${i}">${escapeHtml(m.masa_adi)} (Otel ${escapeHtml(m.otel_id)})</option>`).join('');
+    const barlar=[...new Set(MASALAR.map(m=>m.bolge||'(Bölgesiz)'))].sort();
+    document.getElementById('barSec').innerHTML='<option value="">— Bar seçin —</option>'+barlar.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+    document.getElementById('masaSec').innerHTML='<option value="">— Önce bar seçin —</option>';
   }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
 }
 
+function barDegisti(){
+  const bar=document.getElementById('barSec').value;
+  const sel=document.getElementById('masaSec');
+  seciliMasa=null; MENU=[]; SEPET={}; render(); document.getElementById('sepetBar').style.display='none';
+  if(!bar){ sel.innerHTML='<option value="">— Önce bar seçin —</option>'; return; }
+  const masalar=MASALAR.filter(m=>(m.bolge||'(Bölgesiz)')===bar);
+  sel.innerHTML='<option value="">— Masa seçin ('+masalar.length+') —</option>'+masalar.map(m=>`<option value="${escapeHtml(m.token)}">${escapeHtml(m.masa_adi)}</option>`).join('');
+}
+
 async function masaDegisti(){
-  const i=document.getElementById('masaSec').value;
+  const tok=document.getElementById('masaSec').value;
   SEPET={};
-  if(i===''){ seciliMasa=null; MENU=[]; render(); document.getElementById('sepetBar').style.display='none'; return; }
-  seciliMasa=MASALAR[i];
+  if(!tok){ seciliMasa=null; MENU=[]; render(); document.getElementById('sepetBar').style.display='none'; return; }
+  seciliMasa=MASALAR.find(m=>m.token===tok);
+  if(!seciliMasa){ return; }
   document.getElementById('sepetBar').style.display='';
   sLD();
   try{

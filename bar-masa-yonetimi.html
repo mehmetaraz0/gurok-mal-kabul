@@ -74,12 +74,17 @@ html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI
         </select>
       </div>
       <div class="alan">
+        <label>Bar / Bölge</label>
+        <input id="fBolge" list="bolgeListe" placeholder="örn. Havuz Bar" autocomplete="off">
+        <datalist id="bolgeListe"></datalist>
+      </div>
+      <div class="alan">
         <label>Depo Kodu</label>
         <input id="fDepo" placeholder="örn. 100">
       </div>
       <div class="alan">
         <label>Masa Adı</label>
-        <input id="fMasa" placeholder="örn. Havuz Bar Masa 1">
+        <input id="fMasa" placeholder="örn. Masa 1">
       </div>
       <button class="btn btn-primary" id="ekleBtn" onclick="masaEkle()">+ Masa Ekle</button>
     </div>
@@ -148,31 +153,39 @@ async function listeyiYukle(){
 
 function render(){
   const el=document.getElementById('liste');
+  // Bar/bölge datalist'ini doldur (otomatik tamamlama)
+  const bolgeler=[...new Set(MASALAR.map(m=>m.bolge).filter(Boolean))].sort();
+  document.getElementById('bolgeListe').innerHTML=bolgeler.map(b=>`<option value="${escapeHtml(b)}">`).join('');
   if(!MASALAR.length){ el.innerHTML='<div class="es">Henüz masa yok. Yukarıdan ekleyin.</div>'; return; }
   const yzb=yazabilir();
-  el.innerHTML = MASALAR.map(m=>{
+  let html='', sonBolge=null;
+  for(const m of MASALAR){
+    const bg=m.bolge||'(Bölgesiz)';
+    if(bg!==sonBolge){ html+=`<div class="kat" style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;margin:12px 0 4px">${escapeHtml(bg)}</div>`; sonBolge=bg; }
     const rozet = m.aktif ? '<span class="rozet aktif">Aktif</span>' : '<span class="rozet pasif">Kapalı</span>';
     const durumBtn = yzb
       ? (m.aktif
           ? `<button class="btn btn-danger btn-sm" onclick="durumDegis('${escapeHtml(m.token)}',false)">Kapat</button>`
           : `<button class="btn btn-success btn-sm" onclick="durumDegis('${escapeHtml(m.token)}',true)">Aç</button>`)
       : '';
-    return `<div class="masa">
+    html+=`<div class="masa">
       <div class="masa-ad">${escapeHtml(m.masa_adi)} ${rozet}
         <span class="masa-alt">Otel ${escapeHtml(m.otel_id)} · Depo ${escapeHtml(m.depo_id)}</span></div>
       <button class="btn btn-info btn-sm" onclick="qrGoster('${escapeHtml(m.token)}','${escapeHtml(m.masa_adi)}')">QR</button>
       ${durumBtn}
     </div>`;
-  }).join('');
+  }
+  el.innerHTML=html;
 }
 
 async function masaEkle(){
   if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
   const otel_id=document.getElementById('fOtel').value;
+  const bolge=document.getElementById('fBolge').value.trim();
   const depo_id=document.getElementById('fDepo').value.trim();
   const masa_adi=document.getElementById('fMasa').value.trim();
   if(!depo_id || !masa_adi){ toast('⚠️ Depo ve masa adı zorunlu'); return; }
-  const d = await masaCagir({ action:'ekle', otel_id, depo_id, masa_adi });
+  const d = await masaCagir({ action:'ekle', otel_id, bolge, depo_id, masa_adi });
   if(d){ toast('✅ Masa eklendi'); document.getElementById('fMasa').value=''; await listeyiYukle(); }
 }
 

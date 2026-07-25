@@ -44,15 +44,15 @@ Deno.serve(async (req) => {
     const cust = createClient(Deno.env.get("CUSTOMER_SB_URL")!, Deno.env.get("CUSTOMER_SERVICE_KEY")!);
 
     if (action === "liste") {
-      const { data, error } = await cust.from("masa_tokenlari").select("token,otel_id,depo_id,masa_adi,aktif").order("masa_adi");
+      const { data, error } = await cust.from("masa_tokenlari").select("token,otel_id,depo_id,masa_adi,bolge,aktif").order("bolge").order("masa_adi");
       if (error) return json({ ok:false, mesaj:error.message }, 200, cors);
       return json({ ok:true, masalar:data }, 200, cors);
     }
     if (action === "ekle") {
-      const { otel_id, depo_id, masa_adi } = body;
+      const { otel_id, depo_id, masa_adi, bolge } = body;
       if (!otel_id || !depo_id || !masa_adi) return json({ ok:false, mesaj:"otel/depo/masa adı zorunlu" }, 400, cors);
       const token = crypto.randomUUID();
-      const { data, error } = await cust.from("masa_tokenlari").insert({ token, otel_id, depo_id, masa_adi, aktif:true }).select().single();
+      const { data, error } = await cust.from("masa_tokenlari").insert({ token, otel_id, depo_id, masa_adi, bolge: bolge || null, aktif:true }).select().single();
       if (error) return json({ ok:false, mesaj:error.message }, 200, cors);
       return json({ ok:true, masa:data }, 200, cors);
     }
