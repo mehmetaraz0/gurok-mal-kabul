@@ -160,9 +160,11 @@ function render(){
   if(!MASALAR.length){ el.innerHTML='<div class="es">Henüz masa yok. Yukarıdan ekleyin.</div>'; return; }
   const yzb=yazabilir();
   // Bar/restoran (depo) bazında grupla
-  const sirali=[...MASALAR].sort((a,b)=>String(a.depo_id||'').localeCompare(String(b.depo_id||''))||String(a.masa_adi||'').localeCompare(String(b.masa_adi||'')));
-  let html='', sonBolge=null;
+  const sirali=[...MASALAR].sort((a,b)=>otelFromDepoId(a.depo_id).localeCompare(otelFromDepoId(b.depo_id))||String(a.depo_id||'').localeCompare(String(b.depo_id||''))||String(a.masa_adi||'').localeCompare(String(b.masa_adi||'')));
+  let html='', sonBolge=null, sonOtel=null;
   for(const m of sirali){
+    const otel=otelFromDepoId(m.depo_id);
+    if(otel!==sonOtel){ html+=`<div class="otel-kat" style="font-size:13px;font-weight:800;border-bottom:2px solid var(--primary);margin:18px 0 6px;padding-bottom:3px">🏨 ${escapeHtml((typeof OTEL_KISA!=='undefined'&&OTEL_KISA[otel])||otel)}</div>`; sonOtel=otel; sonBolge=null; }
     const bg=m.depo_id||'(Deposuz)';
     if(bg!==sonBolge){ html+=`<div class="kat" style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;margin:12px 0 4px">🏛️ ${escapeHtml(depoAdi(m.depo_id))}</div>`; sonBolge=bg; }
     const rozet = m.aktif ? '<span class="rozet aktif">Aktif</span>' : '<span class="rozet pasif">Kapalı</span>';
