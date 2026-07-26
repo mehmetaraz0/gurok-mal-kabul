@@ -759,7 +759,8 @@ async function openTalepDetay(id){
       </div>`).join('')}
     </div>`:''}
     ${t.asama==='cost'&&yetkili?`
-    <div class="field"><label>Tutar (₺)</label><input type="number" id="talep-cost-tutar" placeholder="Toplam tutarı gir" min="0" step="0.01"></div>`:''}
+    <div id="cost-fiyat-kirilim" style="font-size:12px;margin-bottom:8px;color:var(--gray-600)">Fiyatlar yükleniyor…</div>
+    <div class="field"><label>Tutar (₺)</label><input type="number" id="talep-cost-tutar" placeholder="Otomatik — gerekirse düzelt" min="0" step="0.01"></div>`:''}
     ${yetkili?`
       <div class="brow">
         <button class="btn btn-danger btn-sm" onclick="talepKararVer('${id}','red')">Reddet</button>
@@ -777,6 +778,38 @@ async function openTalepDetay(id){
       </div>`:''}
     <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTalepDetay')">Kapat</button>`;
   aModal('mTalepDetay');
+  if(t.asama==='cost'&&yetkili) costFiyatDoldur(t);
+}
+
+async function costFiyatDoldur(t){
+  const kodlar=[...new Set((t.satirlar||[]).map(s=>s.kod).filter(Boolean))];
+  const fiyat={};
+  if(kodlar.length){
+    const inList='('+kodlar.map(k=>encodeURIComponent(k)).join(',')+')';
+    try{
+      const [uR,fR]=await Promise.all([
+        fetch(SB_URL+'/rest/v1/urunler?select=kod,sistem_fiyat&kod=in.'+inList,{headers:SB_HEADERS}),
+        fetch(SB_URL+'/rest/v1/urun_guncel_fiyat?select=urun_kodu,birim_fiyat&urun_kodu=in.'+inList,{headers:SB_HEADERS})
+      ]);
+      const sis={}, fat={};
+      if(uR.ok)(await uR.json()).forEach(r=>{ if(r.sistem_fiyat!=null)sis[r.kod]=parseFloat(r.sistem_fiyat); });
+      if(fR.ok)(await fR.json()).forEach(r=>{ fat[r.urun_kodu]=parseFloat(r.birim_fiyat); });
+      kodlar.forEach(k=>{ fiyat[k]= (sis[k]!=null?sis[k]:(fat[k]!=null?fat[k]:null)); });
+    }catch(e){ console.warn(e); }
+  }
+  let toplam=0, html='';
+  (t.satirlar||[]).forEach(s=>{
+    const f=s.kod?fiyat[s.kod]:null;
+    const satir=(f!=null)?(parseFloat(s.miktar)||0)*f:null;
+    if(satir!=null) toplam+=satir;
+    html+=`<div style="display:flex;justify-content:space-between;padding:2px 0">
+      <span>${escapeHtml(s.ad)} — ${s.miktar} ${escapeHtml(s.birim||'')} × ${f!=null?parseFloat(f).toFixed(2)+'₺':'<b style="color:var(--danger)">fiyat yok</b>'}</span>
+      <span>${satir!=null?parseFloat(satir).toFixed(2)+'₺':''}</span></div>`;
+  });
+  const kir=document.getElementById('cost-fiyat-kirilim');
+  if(kir) kir.innerHTML=html+`<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--gray-200);margin-top:4px;padding-top:4px"><span>Toplam</span><span>${toplam.toFixed(2)}₺</span></div>`;
+  const inp=document.getElementById('talep-cost-tutar');
+  if(inp && !inp.value) inp.value=toplam.toFixed(2);
 }
 
 async function talepKararVer(id,karar){
