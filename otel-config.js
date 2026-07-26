@@ -31,12 +31,11 @@ const BAR_DEPOLARI = {
   'RSM203':{ad:'MEHTABE RESTAURANT',tip:'Restoran',otel:'811'}, 'RSM204':{ad:'KEYFI SEFA RESTAURANT',tip:'Restoran',otel:'811'},
   'RSM205':{ad:'KAIGAN SUSHI CORNER',tip:'Restoran',otel:'811'}, 'RSM206':{ad:'KAIGAN TEPPANYAKI A LA CARTE',tip:'Restoran',otel:'811'},
   'RSM207':{ad:'MEHTABE GRILL',tip:'Restoran',otel:'811'}, 'RSM208':{ad:'MEHTABE FISH',tip:'Restoran',otel:'811'},
-  'RSM101':{ad:'SERVIS MUDURLUGU IDARI',tip:'Bar',otel:'811'},
   'RSM301':{ad:'PEYMANE BAR',tip:'Bar',otel:'811'}, 'RSM302':{ad:'NAZENDE CAFE',tip:'Bar',otel:'811'},
   'RSM303':{ad:'RUMI BAR',tip:'Bar',otel:'811'}, 'RSM304':{ad:'FERASE ALIS PUB',tip:'Bar',otel:'811'},
   'RSM305':{ad:'ENDAME BAR',tip:'Bar',otel:'811'}, 'RSM306':{ad:'LOBBY BAR',tip:'Bar',otel:'811'},
   'RSM307':{ad:'TENIS BAR',tip:'Bar',otel:'811'}, 'RSM308':{ad:'ODA SERVISI',tip:'Bar',otel:'811'},
-  'RSM309':{ad:'BEACH BAR',tip:'Bar',otel:'811'}, 'RSM401':{ad:'CAY OCAKLARI',tip:'Bar',otel:'811'}
+  'RSM309':{ad:'BEACH BAR',tip:'Bar',otel:'811'}
 };
 // Depo kodu ERP genelinde otel-önekli tutulur (ör. '810_CSM302'). depoAdi hem önekli
 // hem ham ('CSM302') formu çözer: ilk '_' sonrasını bar kodu kabul edip BAR_DEPOLARI'ye bakar.
