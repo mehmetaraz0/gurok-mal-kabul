@@ -182,9 +182,12 @@ function render(){
 async function masaEkle(){
   if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
   const otel_id=document.getElementById('fOtel').value;
-  const depo_id=document.getElementById('fDepo').value;
+  const depoKod=document.getElementById('fDepo').value;
   const masa_adi=document.getElementById('fMasa').value.trim();
-  if(!depo_id || !masa_adi){ toast('⚠️ Bar/Restoran (depo) ve masa adı zorunlu'); return; }
+  if(!depoKod || !masa_adi){ toast('⚠️ Bar/Restoran (depo) ve masa adı zorunlu'); return; }
+  // ERP standardı: depo kodu otel-önekli tutulur (tamDepoId → '810_CSM302') ki mal kabul,
+  // İç Talep, transfer ve Stok Takip ile AYNI stok satırına denk gelsin. Bar da bu formatı kullanır.
+  const depo_id=otel_id+'_'+depoKod;
   // depo = bar/restoran = bölge (gruplama depoya göre)
   const d = await masaCagir({ action:'ekle', otel_id, bolge:depo_id, depo_id, masa_adi });
   if(d){ toast('✅ Masa eklendi'); document.getElementById('fMasa').value=''; await listeyiYukle(); }

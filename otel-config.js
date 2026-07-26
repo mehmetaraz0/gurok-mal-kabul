@@ -25,4 +25,11 @@ const BAR_DEPOLARI = {
   'CSM314':{ad:'FRIG BEACH BAR',tip:'Bar'}, 'CSM315':{ad:'PAVILLION BAR',tip:'Bar'}, 'CSM316':{ad:'LOBBY BAR',tip:'Bar'},
   'CSM317':{ad:'PARK TURK KAHVESI',tip:'Bar'}, 'CSM318':{ad:'SARAP VE BIRA EVI',tip:'Bar'}
 };
-function depoAdi(kod){ return (BAR_DEPOLARI[kod] && BAR_DEPOLARI[kod].ad) ? BAR_DEPOLARI[kod].ad : (kod||'—'); }
+// Depo kodu ERP genelinde otel-önekli tutulur (ör. '810_CSM302'). depoAdi hem önekli
+// hem ham ('CSM302') formu çözer: ilk '_' sonrasını bar kodu kabul edip BAR_DEPOLARI'ye bakar.
+function depoAdi(kod){
+  if(!kod) return '—';
+  const i=String(kod).indexOf('_');
+  const bar=i>=0 ? String(kod).slice(i+1) : kod;
+  return (BAR_DEPOLARI[bar] && BAR_DEPOLARI[bar].ad) ? BAR_DEPOLARI[bar].ad : kod;
+}
