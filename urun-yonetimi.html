@@ -148,6 +148,13 @@ async function kategorileriYukle(){
 function renderKategoriler(){
   const kayitliMi=['kayit','tam'].includes(YETKI_HARITASI['urun_yonetimi']);
 
+  // Apply kayitliMi gating to "Yeni Alt Grup Ekle" form controls
+  document.getElementById('yeni-ag-parent').disabled = !kayitliMi;
+  document.getElementById('yeni-ag-kod').disabled = !kayitliMi;
+  document.getElementById('yeni-ag-adi').disabled = !kayitliMi;
+  const ekleBtn = document.querySelector('#tab-kategoriler .card:nth-child(2) .btn');
+  if(ekleBtn) ekleBtn.disabled = !kayitliMi;
+
   const agEl=document.getElementById('ana-grup-liste');
   if(!ANA_GRUPLAR.length){
     agEl.innerHTML='<div class="et" style="color:var(--gray-400)">Henüz ana grup kaydı yok — bu, gurok_veritabani.js\'teki mevcut ürün gruplarından (YIY01 vb.) otomatik türetilmez, her ana grubu tek tek eklemen gerekir.</div>';
