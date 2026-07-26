@@ -926,9 +926,9 @@ async function teklifIste(talepId){
       if(!kr.ok)console.warn('teklif_talep_kalemleri insert hatası');
     }
     hLD();
-    // Teklifler artık ayrı sayfa (satin-alma-teklifler.html) — ?id= ile
+    // Teklifler artık ayrı sayfa (satin-alma-teklif-toplama.html) — ?id= ile
     // doğrudan bu RFQ'nun detayı açılır (bkz. o dosyanın init'i).
-    location.href='satin-alma-teklifler.html?id='+teklifTalepId;
+    location.href='satin-alma-teklif-toplama.html?id='+teklifTalepId;
   }catch(e){console.warn(e);hLD();toast('❌ İşlem başarısız');}
 }
 
