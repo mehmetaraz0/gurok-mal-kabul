@@ -6,6 +6,7 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="ortak-excel.js"></script>
 <script src="gurok_veritabani.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -36,6 +37,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 .btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
 .btn:active{transform:scale(.97)}
 .btn-primary{background:var(--primary);color:white}
+.btn-gray{background:var(--gray-200);color:var(--gray-700)}
 .btn-block{width:100%}
 .ag-satir{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray-100)}
 .ag-kod{font-size:11px;color:var(--gray-500);font-family:monospace;min-width:60px}
@@ -76,6 +78,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <div class="sc" id="tab-urunler" style="display:block">
     <div class="uyari">Sadece koli/kg gibi büyük-küçük birim ilişkisi olan ürünler için "Büyük Birim" ve "Çarpan" gir (örn. 1 KOLİ = 10 KG için Büyük Birim: KOLİ, Çarpan: 10). Bu, sadece raporlarda kg'yi koli'ye çevirmek için kullanılır — mal kabulde gerçek ağırlık girişini değiştirmez. Alt Grup ataması için önce Kategori Kataloğu sekmesinden en az bir alt grup tanımlanmış olmalı.</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="urunSiniflandirmaExcelAktar()">Sınıflandırma — Excel'e Aktar</button>
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="document.getElementById('siniflandirma-excel-input').click()">Sınıflandırma — Excel'den Yükle</button>
+    </div>
+    <input type="file" id="siniflandirma-excel-input" accept=".xlsx,.xls" style="display:none" onchange="urunSiniflandirmaExcelYukle(event)">
     <div class="search-bar"><input type="text" id="arama" placeholder="Ürün kodu veya adı ara (en az 2 karakter)..." oninput="aramaYap()"></div>
     <div id="urun-liste">
       <div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></div><div class="et">Aramaya başlamak için en az 2 karakter yaz</div></div>
@@ -142,6 +149,88 @@ async function siniflandirmalariYukle(){
       (await r.json()).forEach(row=>{URUN_ALT_GRUP_ATANMIS[row.urun_kodu]=row.alt_grup_kod;});
     }
   }catch(e){}
+}
+
+const urunSiniflandirmaExcelSpec = [
+  {alan:'urun_kodu', baslik:'Ürün Kodu', tip:'text', zorunlu:true, genislik:16},
+  {alan:'urun_adi', baslik:'Ürün Adı', tip:'text', genislik:30},
+  {alan:'ana_grup', baslik:'Ana Grup', tip:'text', genislik:12},
+  {alan:'alt_grup_kod', baslik:'Alt Grup Kodu', tip:'text', zorunlu:true, genislik:14},
+  {alan:'alt_grup_adi', baslik:'Alt Grup Adı (bilgi amaçlı)', tip:'text', genislik:22}
+];
+
+async function urunSiniflandirmaExcelAktar(){
+  const altGrupHarita={};
+  ALT_GRUPLAR.forEach(a=>{altGrupHarita[a.alt_grup_kod]=a.alt_grup_adi;});
+  const veriler=URUN_DB.map(u=>({
+    urun_kodu:u.kod,
+    urun_adi:u.ad,
+    ana_grup:u.grup||'',
+    alt_grup_kod:URUN_ALT_GRUP_ATANMIS[u.kod]||'',
+    alt_grup_adi:altGrupHarita[URUN_ALT_GRUP_ATANMIS[u.kod]]||''
+  }));
+  await excelSablonIndir(urunSiniflandirmaExcelSpec, veriler, 'urun-siniflandirma-'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+async function urunSiniflandirmaExcelYukle(event){
+  const file=event.target.files[0]; if(!file)return; event.target.value='';
+  sLD();
+  try{
+    const satirlar=await excelDosyaOku(file);
+    hLD();
+    const urunKoduSet=new Set(URUN_DB.map(u=>u.kod));
+    const altGrupKodSet=new Set(ALT_GRUPLAR.map(a=>a.alt_grup_kod));
+    const mevcutKayitlar=Object.entries(URUN_ALT_GRUP_ATANMIS).map(([kod,altGrupKod])=>({urun_kodu:kod, alt_grup_kod:altGrupKod}));
+    // excelSatirlariSiniflandir bir NESNE değil, doğrudan bir DİZİ döner
+    // (her eleman {satirNo, alanlar, sinif, hatalar[], eskiDeger, yeniDeger,
+    // kayitId} şeklinde — bkz. ortak-excel.js:130-131 imza yorumu).
+    const siniflandirma=excelSatirlariSiniflandir(urunSiniflandirmaExcelSpec, satirlar, mevcutKayitlar, {
+      dogalAnahtarlar:['urun_kodu'],
+      fkAlan:'urun_kodu', fkSet:urunKoduSet
+    });
+    // Ürün kodu FK'sinden ayrı olarak, alt_grup_kod'un kataloğa kayıtlı olup
+    // olmadığını da işaretle — excelSatirlariSiniflandir opts başına tek bir
+    // fkAlan/fkSet çifti kabul ediyor (burada urun_kodu için kullanıldı),
+    // ikinci bir doğrulamayı burada elle ekliyoruz. `hatalar` bir DİZİ,
+    // tekil bir `hataMesaji` alanı yok — push ile eklenir.
+    siniflandirma.forEach(s=>{
+      if(s.sinif==='hata'||s.sinif==='bulunamadi'||s.sinif==='mukerrer')return;
+      const altGrupKod=(s.alanlar.alt_grup_kod||'').trim().toLocaleUpperCase('tr-TR');
+      if(!altGrupKodSet.has(altGrupKod)){
+        s.sinif='hata';
+        s.hatalar.push('Alt grup kodu kataloğa kayıtlı değil: "'+(s.alanlar.alt_grup_kod||'')+'" — önce Kategori Kataloğu sekmesinden ekle');
+      } else {
+        s.alanlar.alt_grup_kod=altGrupKod;
+      }
+    });
+    excelOnizlemeGoster(siniflandirma,{
+      spec:urunSiniflandirmaExcelSpec,
+      dosyaAdiOnek:'urun-siniflandirma',
+      onUygula:(mod,satirlarYaz)=>urunSiniflandirmaExcelUygula(mod,satirlarYaz)
+    });
+  }catch(err){
+    hLD();
+    toast('❌ Dosya okunamadı: '+err.message);
+  }
+}
+
+async function urunSiniflandirmaExcelUygula(mod,yazilacaklar){
+  if(!yazilacaklar.length){toast('ℹ️ Yazılacak satır yok');return;}
+  const satirlar=yazilacaklar.map(s=>({urun_kodu:s.alanlar.urun_kodu, alt_grup_kod:s.alanlar.alt_grup_kod, silindi:false}));
+  sLD();
+  const sonuc=await excelTopluYaz('urun_siniflandirma', satirlar, {onConflict:'urun_kodu'});
+  yazilacaklar.forEach(s=>{ if(s.alanlar.urun_kodu) URUN_ALT_GRUP_ATANMIS[s.alanlar.urun_kodu]=s.alanlar.alt_grup_kod; });
+  await excelImportGecmisiYaz({
+    tabloAdi:'urun_siniflandirma', ilgiliId:null, dosyaAdi:'urun-siniflandirma.xlsx',
+    kullaniciAd:CU?.ad||'', mod, toplamSatir:yazilacaklar.length,
+    yeniSayisi:yazilacaklar.filter(s=>s.sinif==='yeni').length,
+    guncellemeSayisi:yazilacaklar.filter(s=>s.sinif==='guncelleme').length,
+    hataSayisi:0, atlananSayisi:0
+  }, yazilacaklar);
+  hLD();
+  toast(sonuc.hataliGrup?'⚠️ Bazı satırlar yazılamadı':'✅ Sınıflandırma güncellendi ('+sonuc.toplamYazilan+' satır)');
+  const arama=document.getElementById('arama');
+  if(arama.value.trim().length>=2) aramaYap();
 }
 
 let ANA_GRUPLAR=[], ALT_GRUPLAR=[];
