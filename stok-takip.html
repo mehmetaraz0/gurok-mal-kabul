@@ -427,7 +427,7 @@ const ROL_INDIRGEME={
 };
 async function loadKullanicilarFromSupabase(){
   try{
-    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/kullanicilar_genel?select=*&aktif=eq.true',{headers:SB_HEADERS});
     if(!r.ok)return null;
     const rows=await r.json();
     if(!rows||!rows.length)return null;
@@ -1186,10 +1186,29 @@ async function guvenlikStoguHesapla(tamponGun){
   showToast(`✅ ${guncellenen} ürün güncellendi, ${atlanan} ürün yeterli veri olmadığı için atlandı`);
 }
 
+// Birim <select>'i güvenle ayarla. Çıkış/transfer birimi ÜRÜNÜN kendi birimidir; statik
+// seçenek listesi (KG/AD/... ) tüm ürün birimlerini kapsamaz (ör. KTU yok). Seçenek yoksa
+// select.value ataması sessizce başarısız olurdu → yanlış birim kaydedilirdi. Yoksa dinamik ekle.
+function setBirimSelect(selectId,birim){
+  const sel=document.getElementById(selectId);
+  if(!sel)return;
+  const b=(birim||'').trim();
+  if(!b){return;}
+  // <select> ise seçenek yoksa dinamik ekle; <input> ise (ör. iade birim) doğrudan değeri ata.
+  if(sel.options){
+    if(!Array.from(sel.options).some(o=>o.value===b||o.text===b)){
+      const opt=document.createElement('option');
+      opt.value=b; opt.text=b;
+      sel.appendChild(opt);
+    }
+  }
+  sel.value=b;
+}
+
 function prefillCikis(kod,ad,birim,depoId){
   document.getElementById('cikis-urun-inp').value=ad;
   document.getElementById('cikis-urun-kod').value=kod;
-  document.getElementById('cikis-birim').value=birim;
+  setBirimSelect('cikis-birim',birim);
   document.getElementById('cikis-depo').value=depoId||aktifDepoId;
   openModal('modal-cikis');
 }
@@ -1197,7 +1216,7 @@ function prefillCikis(kod,ad,birim,depoId){
 function prefillTransfer(kod,ad,birim,kaynakDepoId){
   document.getElementById('tr-urun-inp').value=ad;
   document.getElementById('tr-urun-kod').value=kod;
-  document.getElementById('tr-birim').value=birim;
+  setBirimSelect('tr-birim',birim);
   document.getElementById('tr-kaynak').value=kaynakDepoId||aktifDepoId;
   openModal('modal-transfer');
 }
@@ -1295,7 +1314,7 @@ function filterUrunDD(inputId,ddId,kodId,birimId,val,depoSelectId){
       e.preventDefault();
       document.getElementById(inputId).value=this.dataset.ad;
       document.getElementById(kodId).value=this.dataset.kod;
-      document.getElementById(birimId).value=this.dataset.birim;
+      setBirimSelect(birimId,this.dataset.birim);
       dd.style.display='none';
     });
   });
@@ -1328,7 +1347,7 @@ function filterIadeUrunDD(inputId,ddId,kodId,birimId,val){
       e.preventDefault();
       document.getElementById(inputId).value=this.dataset.ad;
       document.getElementById(kodId).value=this.dataset.kod;
-      document.getElementById(birimId).value=this.dataset.birim;
+      setBirimSelect(birimId,this.dataset.birim);
       dd.style.display='none';
       const idx=parseInt(inputId.split('-').pop());
       if(!isNaN(idx))iadeKalemGuncelle(idx);

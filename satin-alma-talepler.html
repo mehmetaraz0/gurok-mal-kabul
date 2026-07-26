@@ -217,7 +217,7 @@ const ROL_INDIRGEME={
 
 async function loadKullanicilarFromSupabase(){
   try{
-    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/kullanicilar_genel?select=*&aktif=eq.true',{headers:SB_HEADERS});
     if(!r.ok)return null;
     const rows=await r.json();
     if(!rows||!rows.length)return null;
@@ -759,7 +759,8 @@ async function openTalepDetay(id){
       </div>`).join('')}
     </div>`:''}
     ${t.asama==='cost'&&yetkili?`
-    <div class="field"><label>Tutar (₺)</label><input type="number" id="talep-cost-tutar" placeholder="Toplam tutarı gir" min="0" step="0.01"></div>`:''}
+    <div id="cost-fiyat-kirilim" style="font-size:12px;margin-bottom:8px;color:var(--gray-600)">Fiyatlar yükleniyor…</div>
+    <div class="field"><label>Tutar (₺)</label><input type="number" id="talep-cost-tutar" placeholder="Otomatik — gerekirse düzelt" min="0" step="0.01"></div>`:''}
     ${yetkili?`
       <div class="brow">
         <button class="btn btn-danger btn-sm" onclick="talepKararVer('${id}','red')">Reddet</button>
@@ -777,6 +778,38 @@ async function openTalepDetay(id){
       </div>`:''}
     <button class="btn btn-gray btn-block" style="margin-top:8px" onclick="kModal('mTalepDetay')">Kapat</button>`;
   aModal('mTalepDetay');
+  if(t.asama==='cost'&&yetkili) costFiyatDoldur(t);
+}
+
+async function costFiyatDoldur(t){
+  const kodlar=[...new Set((t.satirlar||[]).map(s=>s.kod).filter(Boolean))];
+  const fiyat={};
+  if(kodlar.length){
+    const inList='('+kodlar.map(k=>encodeURIComponent(k)).join(',')+')';
+    try{
+      const [uR,fR]=await Promise.all([
+        fetch(SB_URL+'/rest/v1/urunler?select=kod,sistem_fiyat&kod=in.'+inList,{headers:SB_HEADERS}),
+        fetch(SB_URL+'/rest/v1/urun_guncel_fiyat?select=urun_kodu,birim_fiyat&urun_kodu=in.'+inList,{headers:SB_HEADERS})
+      ]);
+      const sis={}, fat={};
+      if(uR.ok)(await uR.json()).forEach(r=>{ if(r.sistem_fiyat!=null)sis[r.kod]=parseFloat(r.sistem_fiyat); });
+      if(fR.ok)(await fR.json()).forEach(r=>{ fat[r.urun_kodu]=parseFloat(r.birim_fiyat); });
+      kodlar.forEach(k=>{ fiyat[k]= (sis[k]!=null?sis[k]:(fat[k]!=null?fat[k]:null)); });
+    }catch(e){ console.warn(e); }
+  }
+  let toplam=0, html='';
+  (t.satirlar||[]).forEach(s=>{
+    const f=s.kod?fiyat[s.kod]:null;
+    const satir=(f!=null)?(parseFloat(s.miktar)||0)*f:null;
+    if(satir!=null) toplam+=satir;
+    html+=`<div style="display:flex;justify-content:space-between;padding:2px 0">
+      <span>${escapeHtml(s.ad)} — ${s.miktar} ${escapeHtml(s.birim||'')} × ${f!=null?parseFloat(f).toFixed(2)+'₺':'<b style="color:var(--danger)">fiyat yok</b>'}</span>
+      <span>${satir!=null?parseFloat(satir).toFixed(2)+'₺':''}</span></div>`;
+  });
+  const kir=document.getElementById('cost-fiyat-kirilim');
+  if(kir) kir.innerHTML=html+`<div style="display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--gray-200);margin-top:4px;padding-top:4px"><span>Toplam</span><span>${toplam.toFixed(2)}₺</span></div>`;
+  const inp=document.getElementById('talep-cost-tutar');
+  if(inp && !inp.value) inp.value=toplam.toFixed(2);
 }
 
 async function talepKararVer(id,karar){
@@ -913,23 +946,9 @@ async function kalemExcelUygula(talepId,mod,yazilacaklar){
 // ====== TEKLİFLER (RFQ) ======
 async function teklifIste(talepId){
   if(!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
-  const t=DB.talepler[talepId];if(!t)return;
-  sLD();
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/teklif_talepleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
-      body:JSON.stringify({talep_id:talepId,otel_id:t.otelId||'810',olusturan_ad:CU.ad})});
-    if(!r.ok){hLD();toast('❌ Teklif talebi oluşturulamadı');return;}
-    const d=await r.json();const teklifTalepId=d[0].id;
-    const kalemSatirlar=(t.satirlar||[]).map(u=>({teklif_talep_id:teklifTalepId,urun_kodu:u.kod||null,urun_adi:u.ad,miktar:u.miktar,birim:u.birim}));
-    if(kalemSatirlar.length){
-      const kr=await fetch(SB_URL+'/rest/v1/teklif_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
-      if(!kr.ok)console.warn('teklif_talep_kalemleri insert hatası');
-    }
-    hLD();
-    // Teklifler artık ayrı sayfa (satin-alma-teklifler.html) — ?id= ile
-    // doğrudan bu RFQ'nun detayı açılır (bkz. o dosyanın init'i).
-    location.href='satin-alma-teklifler.html?id='+teklifTalepId;
-  }catch(e){console.warn(e);hLD();toast('❌ İşlem başarısız');}
+  // Teklif talebi oluşturma artık Teklif Toplama sayfasında (?talep= ile otomatik).
+  kModal('mTalepDetay');
+  location.href='satin-alma-teklif-toplama.html?talep='+talepId;
 }
 
 // ====== YARDIMCI ======

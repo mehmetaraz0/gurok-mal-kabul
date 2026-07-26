@@ -49,17 +49,20 @@ begin
     end if;
 
     insert into bar_siparis_kalemleri (siparis_id, menu_urun_id, adet, rezerve_edildi)
-    values (v_siparis_id, v_menu.id, (v_kalem->>'adet')::numeric, true)
+    values (v_siparis_id, v_menu.id, (v_kalem->>'adet')::numeric, v_menu.stok_kodu is not null)
     returning id into v_kalem_id;
 
     if v_menu.tip = 'direkt' then
-      v_gerekli := (v_kalem->>'adet')::numeric * coalesce(v_menu.miktar_per_porsiyon, 1);
-      v_musait := bar_kullanilabilir_stok(v_menu.stok_kodu, p_depo_id);
-      if v_musait < v_gerekli then
-        raise exception 'Yetersiz stok: % (gerekli %, müsait %)', v_menu.stok_kodu, v_gerekli, v_musait;
+      -- stok_kodu YOKSA stok takibi yok (dahil/ücretsiz ürün) → kontrolü ve rezervasyonu atla
+      if v_menu.stok_kodu is not null then
+        v_gerekli := (v_kalem->>'adet')::numeric * coalesce(v_menu.miktar_per_porsiyon, 1);
+        v_musait := bar_kullanilabilir_stok(v_menu.stok_kodu, p_depo_id);
+        if v_musait < v_gerekli then
+          raise exception 'Yetersiz stok: % (gerekli %, müsait %)', v_menu.stok_kodu, v_gerekli, v_musait;
+        end if;
+        insert into stok_rezervasyonlari (stok_kodu, otel_id, depo_id, miktar, siparis_kalem_id, durum)
+        values (v_menu.stok_kodu, p_otel_id::otel_id, p_depo_id, v_gerekli, v_kalem_id, 'aktif');
       end if;
-      insert into stok_rezervasyonlari (stok_kodu, otel_id, depo_id, miktar, siparis_kalem_id, durum)
-      values (v_menu.stok_kodu, p_otel_id::otel_id, p_depo_id, v_gerekli, v_kalem_id, 'aktif');
     else
       for v_bilesen in select * from recete_bilesenleri where menu_urun_id = v_menu.id
       loop

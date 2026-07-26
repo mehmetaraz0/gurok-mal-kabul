@@ -399,7 +399,7 @@ async function loadDB(){
   try{
     const [tR,kR,stR]=await Promise.all([
       fetch(SB_URL+'/rest/v1/ic_talepler?select=*,ic_talep_kalemleri(*)&order=olusturma_tarihi.desc',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/kullanicilar_genel?select=*&aktif=eq.true',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/stok?select=*',{headers:SB_HEADERS}),
     ]);
     DB.siparisler={};
@@ -451,6 +451,7 @@ async function saveHar(h){
       await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:h.lnKod,depo_kodu:h.hedefDepoId,otel_id:otelFromDepoId(h.hedefDepoId),
         tip:'transfer',miktar:h.miktar,belge_no:h.siparisId||null,
+        kaynak_depo_kodu:h.kaynakDepoId||null,
         aciklama:`İç Talep: ${h.kaynakDepoAd} → ${h.hedefDepoAd}${h.not?' — '+h.not:''}`
       })});
     }

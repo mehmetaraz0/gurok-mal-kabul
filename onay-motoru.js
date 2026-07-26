@@ -51,6 +51,9 @@ async function rollerKodHaritasiYukle(){
 async function kullaniciAsamaYetkiliMi(kullanici, asama){
   const katman = ONAY_KATMANLARI[asama];
   if (!katman || !kullanici) return false;
+  // Süperuser: yönetici (admin) rolü HER aşamayı onaylayabilir — küçük işletme/tek
+  // kullanıcılı işleyiş için (görevler ayrılığı bilinçli olarak gevşetildi).
+  if (kullanici.rol === 'yonetici') return true;
   if (asama === 'depo' || asama === 'cost'){
     return katman.roller.includes(kullanici.rol);
   }

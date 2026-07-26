@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gürok — Menü Yönetimi</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);color:var(--gray-800)}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
+.wrap{max-width:680px;margin:0 auto;padding:16px}
+.kart{background:white;border-radius:var(--radius-sm);padding:16px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.kart h2{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--primary)}
+.alan{margin-bottom:10px}
+.alan label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+.alan input,.alan select{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none;background:white}
+.satir{display:flex;gap:10px}.satir>*{flex:1}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--gray-700);cursor:pointer}
+.chk input{width:auto;transform:scale(1.2)}
+.btn{padding:10px 16px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;min-height:42px}
+.btn:disabled{background:var(--gray-200)!important;color:var(--gray-400)!important;cursor:not-allowed}
+.btn-primary{background:var(--primary);color:white;width:100%}
+.btn-yayin{background:var(--success);color:white;width:100%}
+.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.btn-danger{background:var(--danger);color:white}.btn-warn{background:var(--warning);color:#3a2c00}.btn-ok{background:var(--success);color:white}
+.stok-kutu{position:relative}
+.stok-secili{font-size:12px;color:var(--success);font-weight:700;margin-top:4px}
+.stok-oner{border:1px solid var(--gray-200);border-radius:var(--radius-sm);margin-top:4px;max-height:180px;overflow-y:auto;background:white}
+.stok-oner div{padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--gray-100)}
+.stok-oner div:hover{background:var(--gray-100)}
+.urun{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-200)}
+.urun:last-child{border-bottom:none}
+.urun-ad{flex:1;font-size:14px;font-weight:600}
+.urun-alt{font-size:11px;color:var(--gray-500);font-weight:400;display:block;margin-top:1px}
+.rozet{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+.rozet.ucretli{background:#fde8e8;color:#9b1c1c}.rozet.dahil{background:#d4edda;color:#155724}.rozet.pasif{background:var(--gray-200);color:var(--gray-600)}
+.kat{font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;margin:12px 0 2px}
+.es{text-align:center;padding:28px 20px;color:var(--gray-400)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="header-btn" href="bar.html" title="Geri">←</a>
+    <div style="flex:1"><h1>Menü Yönetimi</h1></div>
+    <button class="header-btn" onclick="yayinla()" id="yayinBtn" title="Müşteriye Yayınla" style="display:none">📢</button>
+  </div>
+  <div class="wrap">
+    <div class="kart" id="ekleKart">
+      <h2>Yeni Menü Ürünü</h2>
+      <div class="satir">
+        <div class="alan"><label>Ürün Adı</label><input id="fAd" placeholder="örn. Kola"></div>
+        <div class="alan"><label>Kategori</label><input id="fKat" placeholder="örn. İçecekler"></div>
+      </div>
+      <div class="satir">
+        <div class="alan"><label>Otel</label>
+          <select id="fOtel"><option value="810">Ali Bey Club Manavgat (810)</option><option value="811">Ali Bey Resort Sorgun (811)</option></select>
+        </div>
+        <div class="alan"><label>Fiyat (₺)</label><input id="fFiyat" type="number" value="0" min="0"></div>
+      </div>
+      <div class="alan stok-kutu">
+        <label>Stok Kalemi (bu üründen düşecek)</label>
+        <input id="fStokAra" placeholder="Stok adı/kodu yaz, ara..." oninput="stokAra()" autocomplete="off">
+        <div class="stok-oner" id="stokOner" style="display:none"></div>
+        <div class="stok-secili" id="stokSecili"></div>
+      </div>
+      <div class="satir">
+        <div class="alan"><label>Porsiyon başı adet</label><input id="fMiktar" type="number" value="1" min="0" step="0.001"></div>
+        <div class="alan" style="display:flex;align-items:flex-end;padding-bottom:10px">
+          <label class="chk"><input type="checkbox" id="fUcretli"> Ücretli (müşteri öder)</label>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="ekleBtn" onclick="urunEkle()">+ Menüye Ekle</button>
+    </div>
+
+    <div class="kart">
+      <h2>Menü</h2>
+      <div id="liste"><div class="es">Yükleniyor…</div></div>
+      <button class="btn btn-yayin" id="yayinBtn2" onclick="yayinla()" style="display:none;margin-top:12px">📢 Müşteriye Yayınla</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor…</div></div>
+
+<script>
+// SB_URL/SB_KEY -> supabase-config.js ; toast/escapeHtml/sLD/hLD -> ortak.js
+// oturumAccessTokenGetir/requireLogin/requireRole/kullaniciYetkileriGetir -> auth-guard.js
+const CUSTOMER_SB_URL='https://udjpcsjifgdzvfflezaa.supabase.co';
+const CUSTOMER_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkanBjc2ppZmdkenZmZmxlemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTkzOTksImV4cCI6MjEwMDQ3NTM5OX0.cT-TZ5EImk2MEDuOzMuTpogYeoj8u7ovfO4C5EBM7bc';
+const YAYIN_FN='/functions/v1/smooth-service';
+let CU=null, YETKI_HARITASI={}, MENU=[], seciliStok=null, _araTimer=null;
+
+function yazabilir(){ return ['kayit','tam'].includes(YETKI_HARITASI['bar_siparis_yonetimi']); }
+// Ana projeye personel kimliğiyle (JWT) erişim — her çağrıda taze token
+function JH(){ const t=oturumAccessTokenGetir(); return { apikey:SB_KEY, Authorization:'Bearer '+(t||SB_KEY), 'Content-Type':'application/json', Prefer:'return=representation' }; }
+
+// ---- Stok arama ----
+function stokAra(){
+  clearTimeout(_araTimer);
+  const q=document.getElementById('fStokAra').value.trim();
+  const oner=document.getElementById('stokOner');
+  if(q.length<2){ oner.style.display='none'; return; }
+  _araTimer=setTimeout(async ()=>{
+    try{
+      const url=SB_URL+'/rest/v1/urunler?select=kod,ad&or=(kod.ilike.*'+encodeURIComponent(q)+'*,ad.ilike.*'+encodeURIComponent(q)+'*)&limit=12';
+      const r=await fetch(url,{headers:JH()});
+      const rows=r.ok?await r.json():[];
+      if(!rows.length){ oner.innerHTML='<div style="color:var(--gray-400)">Eşleşen stok yok</div>'; oner.style.display='block'; return; }
+      oner.innerHTML=rows.map(x=>`<div onclick="stokSec('${escapeHtml(x.kod)}','${escapeHtml((x.ad||'').replace(/'/g,""))}')">${escapeHtml(x.kod)} — ${escapeHtml(x.ad||'')}</div>`).join('');
+      oner.style.display='block';
+    }catch(e){ oner.style.display='none'; }
+  },300);
+}
+function stokSec(kod, ad){
+  seciliStok={kod,ad};
+  document.getElementById('stokSecili').textContent='✓ Bağlı stok: '+kod+' — '+ad;
+  document.getElementById('stokOner').style.display='none';
+  document.getElementById('fStokAra').value='';
+}
+
+// ---- Menü CRUD ----
+async function listeyiYukle(){
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/menu_urunler?select=*&silindi=eq.false&order=kategori.asc,ad.asc',{headers:JH()});
+    MENU=r.ok?await r.json():[];
+  }catch(e){ MENU=[]; }
+  hLD(); render();
+}
+function render(){
+  const el=document.getElementById('liste');
+  if(!MENU.length){ el.innerHTML='<div class="es">Henüz ürün yok. Yukarıdan ekleyin.</div>'; return; }
+  const yzb=yazabilir(); let html='', sonKat=null;
+  for(const u of MENU){
+    if(u.kategori!==sonKat){ html+=`<div class="kat">${escapeHtml(u.kategori||'Diğer')}</div>`; sonKat=u.kategori; }
+    const rozet=u.ucretli?`<span class="rozet ucretli">${u.fiyat} ₺</span>`:'<span class="rozet dahil">Dahil</span>';
+    const pasifRoz=u.aktif?'':' <span class="rozet pasif">Pasif</span>';
+    const btnPasif=yzb?(u.aktif?`<button class="btn btn-warn btn-sm" onclick="durumDegis('${u.id}',false)">Pasif</button>`:`<button class="btn btn-ok btn-sm" onclick="durumDegis('${u.id}',true)">Aktif</button>`):'';
+    const btnSil=yzb?`<button class="btn btn-danger btn-sm" onclick="urunSil('${u.id}','${escapeHtml((u.ad||'').replace(/'/g,""))}')">Sil</button>`:'';
+    html+=`<div class="urun">
+      <div class="urun-ad">${escapeHtml(u.ad)} ${rozet}${pasifRoz}
+        <span class="urun-alt">Otel ${escapeHtml(u.otel_id)} · Stok: ${escapeHtml(u.stok_kodu||'—')}${u.miktar_per_porsiyon?(' ×'+u.miktar_per_porsiyon):''}</span></div>
+      ${btnPasif}${btnSil}</div>`;
+  }
+  el.innerHTML=html;
+}
+
+async function urunEkle(){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  const ad=document.getElementById('fAd').value.trim();
+  const kategori=document.getElementById('fKat').value.trim()||'Diğer';
+  const otel_id=document.getElementById('fOtel').value;
+  const fiyat=parseFloat(document.getElementById('fFiyat').value)||0;
+  const ucretli=document.getElementById('fUcretli').checked;
+  const miktar_per_porsiyon=parseFloat(document.getElementById('fMiktar').value)||1;
+  if(!ad){ toast('⚠️ Ürün adı zorunlu'); return; }
+  if(!seciliStok){ toast('⚠️ Bir stok kalemi seçin'); return; }
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/menu_urunler',{method:'POST',headers:JH(),
+      body:JSON.stringify({ad,kategori,otel_id,fiyat,ucretli,tip:'direkt',stok_kodu:seciliStok.kod,miktar_per_porsiyon,aktif:true})});
+    hLD();
+    if(!r.ok){ const t=await r.text(); toast('❌ '+t.slice(0,100)); return; }
+    toast('✅ Eklendi');
+    document.getElementById('fAd').value=''; document.getElementById('fFiyat').value='0';
+    document.getElementById('fUcretli').checked=false; document.getElementById('fMiktar').value='1';
+    seciliStok=null; document.getElementById('stokSecili').textContent='';
+    await listeyiYukle();
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
+}
+async function durumDegis(id, aktif){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/menu_urunler?id=eq.'+id,{method:'PATCH',headers:JH(),body:JSON.stringify({aktif})});
+    hLD(); if(!r.ok){ toast('❌ Hata'); return; } toast(aktif?'✅ Aktif':'✅ Pasif'); await listeyiYukle();
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
+}
+async function urunSil(id, ad){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  if(!confirm('"'+ad+'" menüden silinsin mi?')) return;
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/menu_urunler?id=eq.'+id,{method:'PATCH',headers:JH(),body:JSON.stringify({silindi:true})});
+    hLD(); if(!r.ok){ toast('❌ Hata'); return; } toast('✅ Silindi'); await listeyiYukle();
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
+}
+
+async function yayinla(){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  if(!confirm('Menü müşteri tarafına yayınlansın mı?')) return;
+  sLD();
+  try{
+    const r=await fetch(CUSTOMER_SB_URL+YAYIN_FN,{method:'POST',
+      headers:{apikey:CUSTOMER_ANON_KEY,Authorization:'Bearer '+CUSTOMER_ANON_KEY,'Content-Type':'application/json'},body:'{}'});
+    const d=await r.json(); hLD();
+    if(d.ok) toast('✅ '+d.sayi+' ürün yayınlandı'); else toast('❌ '+(d.mesaj||'Yayın hatası'));
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
+}
+
+(async function(){
+  CU=requireLogin(); if(!CU) return;
+  if(!requireRole(CU,['mutfak','bar','yonetici'])) return;
+  YETKI_HARITASI=await kullaniciYetkileriGetir();
+  if(!yazabilir()){ document.getElementById('ekleKart').style.display='none'; }
+  else { document.getElementById('yayinBtn').style.display=''; document.getElementById('yayinBtn2').style.display=''; }
+  document.getElementById('app').style.display='';
+  await listeyiYukle();
+})();
+</script>
+</body>
+</html>
