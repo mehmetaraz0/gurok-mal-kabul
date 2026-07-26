@@ -132,6 +132,18 @@ async function mevcutDonusumleriYukle(){
   }catch(e){}
 }
 
+let URUN_ALT_GRUP_ATANMIS={};
+
+async function siniflandirmalariYukle(){
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/urun_siniflandirma?select=urun_kodu,alt_grup_kod&silindi=eq.false',{headers:SB_HEADERS});
+    if(r.ok){
+      URUN_ALT_GRUP_ATANMIS={};
+      (await r.json()).forEach(row=>{URUN_ALT_GRUP_ATANMIS[row.urun_kodu]=row.alt_grup_kod;});
+    }
+  }catch(e){}
+}
+
 let ANA_GRUPLAR=[], ALT_GRUPLAR=[];
 
 async function kategorileriYukle(){
@@ -235,6 +247,14 @@ function aramaYap(){
   const kayitliMi=['kayit','tam'].includes(YETKI_HARITASI['urun_yonetimi']);
   el.innerHTML=sonuclar.map(u=>{
     const mevcut=MEVCUT_DONUSUMLER[u.kod]||{};
+    const uyanAltGruplar=ALT_GRUPLAR.filter(a=>a.ana_grup_kod===u.grup);
+    const atanmisAltGrup=URUN_ALT_GRUP_ATANMIS[u.kod]||'';
+    const altGrupSecici = uyanAltGruplar.length
+      ? `<select id="ag-${escapeHtml(u.kod)}" ${kayitliMi?'':'disabled'}>
+           <option value="">— Alt grup seç —</option>
+           ${uyanAltGruplar.map(a=>`<option value="${escapeHtml(a.alt_grup_kod)}" ${a.alt_grup_kod===atanmisAltGrup?'selected':''}>${escapeHtml(a.alt_grup_adi)}</option>`).join('')}
+         </select>`
+      : `<select disabled><option>Bu grup için alt grup yok</option></select>`;
     return`<div class="urow" id="urow-${escapeHtml(u.kod)}">
       <div>
         <div class="urow-ad">${escapeHtml(u.ad)}</div>
@@ -244,6 +264,8 @@ function aramaYap(){
         <input type="text" id="bb-${escapeHtml(u.kod)}" placeholder="Büyük Birim" value="${escapeHtml(mevcut.buyuk_birim||'')}" ${kayitliMi?'':'disabled'}>
         <input type="number" min="0.01" step="0.01" id="cp-${escapeHtml(u.kod)}" placeholder="Çarpan" value="${mevcut.carpan||''}" ${kayitliMi?'':'disabled'}>
         <button onclick="donusumKaydet('${escapeHtml(u.kod).replace(/'/g,"\\'")}')" ${kayitliMi?'':'disabled'}>Kaydet</button>
+        ${altGrupSecici}
+        <button onclick="altGrupAta('${escapeHtml(u.kod).replace(/'/g,"\\'")}')" ${kayitliMi&&uyanAltGruplar.length?'':'disabled'}>Ata</button>
       </div>
     </div>`;
   }).join('');
@@ -267,13 +289,30 @@ async function donusumKaydet(kod){
   hLD();
 }
 
+async function altGrupAta(kod){
+  const altGrupKod=document.getElementById('ag-'+kod).value;
+  if(!altGrupKod){toast('❌ Bir alt grup seç');return;}
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/urun_siniflandirma?on_conflict=urun_kodu',{
+      method:'POST',
+      headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({urun_kodu:kod, alt_grup_kod:altGrupKod, silindi:false})
+    });
+    if(!r.ok)throw new Error(await r.text());
+    URUN_ALT_GRUP_ATANMIS[kod]=altGrupKod;
+    toast('✅ Alt grup atandı');
+  }catch(e){toast('❌ Atanamadı: '+e.message);}
+  hLD();
+}
+
 (async function(){
   CU=requireLogin();
   if(!CU)return;
   if(!requireRole(CU,['yonetici','depo','cost_control']))return;
   document.getElementById('hsub').textContent=(CU.rol||'')+' '+(CU.ad||'');
   YETKI_HARITASI=await kullaniciYetkileriGetir();
-  await Promise.all([mevcutDonusumleriYukle(), kategorileriYukle()]);
+  await Promise.all([mevcutDonusumleriYukle(), kategorileriYukle(), siniflandirmalariYukle()]);
   document.getElementById('app').style.display='flex';
 })();
 </script>
