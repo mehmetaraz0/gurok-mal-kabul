@@ -105,12 +105,53 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
 </div>
 
+<!-- MODAL: Teklif Detay / Karşılaştırma -->
+<div class="mo" id="mTeklifDetay">
+  <div class="mbox" style="max-height:95vh">
+    <div class="mtitle" id="td-baslik">Teklif Detayı <button class="mclose" onclick="kModal('mTeklifDetay')">✕</button></div>
+    <div id="td-kalemler"></div>
+    <div class="brow" style="margin-top:12px">
+      <button class="btn btn-gray btn-block" onclick="kModal('mTeklifDetay')">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Firma Fiyatı Ekle -->
+<div class="mo" id="mFiyatEkle">
+  <div class="mbox">
+    <div class="mtitle">Firma Fiyatı Ekle <button class="mclose" onclick="kModal('mFiyatEkle')">✕</button></div>
+    <div class="field">
+      <label>Firma</label>
+      <select id="fe-firma-sec" onchange="feFirmaSecildi()">
+        <option value="">— Seçin —</option>
+      </select>
+    </div>
+    <div class="field" id="fe-serbest-wrap" style="display:none">
+      <label>Firma Adı (Serbest)</label>
+      <input type="text" id="fe-firma-serbest" placeholder="Firma adı">
+    </div>
+    <div class="field">
+      <label>Birim Fiyat (₺)</label>
+      <input type="number" id="fe-fiyat" step="any" placeholder="0.00">
+    </div>
+    <div class="field">
+      <label>Not (opsiyonel)</label>
+      <input type="text" id="fe-not" placeholder="Not">
+    </div>
+    <div class="brow">
+      <button class="btn btn-gray" onclick="kModal('mFiyatEkle')">İptal</button>
+      <button class="btn btn-primary" onclick="feEkle()">Ekle</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
 
 <script>
 
 let TT={}, ONAYLI_TALEPLER=[], YETKI_HARITASI={};
+let _acikTeklifId=null, _fiyatEkleKalemId=null;
 function yazabilir(){ return ['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur']); }
 
 async function loadTeklifTalepleri(){
@@ -122,8 +163,111 @@ async function loadOnayliTalepler(){
   ONAYLI_TALEPLER = r.ok ? await r.json() : [];
 }
 
-// Task 5'te dolacak — şimdilik satır tıklaması kırık olmasın diye stub.
-function openTeklifDetay(id){toast('Detay yakında');}
+// ====== TEKLİF DETAY / KARŞILAŞTIRMA ======
+function enUcuzTeklifId(kalem){
+  const f=(kalem.teklif_fiyatlari||[]).slice().sort((a,b)=>a.birim_fiyat-b.birim_fiyat);
+  return f.length?f[0].id:null;
+}
+
+async function secimGuncelle(teklifKalemiId, teklifFiyatiId){
+  await fetch(SB_URL+'/rest/v1/teklif_kalemleri?id=eq.'+teklifKalemiId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({secilen_teklif_id:teklifFiyatiId})});
+  await loadTeklifTalepleri();
+  openTeklifDetay(_acikTeklifId); // modalı tazele
+}
+
+async function teklifFiyatiEkle(teklifKalemiId, firmaId, firmaAd, fiyat, notu){
+  if(!yazabilir()){toast('⚠️ Yetkiniz yok');return;}
+  if(!firmaAd || !(parseFloat(fiyat)>=0)){toast('⚠️ Firma ve geçerli fiyat gerekli');return;}
+  await fetch(SB_URL+'/rest/v1/teklif_fiyatlari',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+    teklif_kalemi_id:teklifKalemiId, firma_id:firmaId||null, firma_ad:firmaAd,
+    birim_fiyat:parseFloat(fiyat), giren_kullanici:CU.ad, not_alani:notu||null
+  })});
+  await loadTeklifTalepleri();
+  openTeklifDetay(_acikTeklifId);
+}
+
+function tdKalemHtml(kalem){
+  const fiyatlar=(kalem.teklif_fiyatlari||[]).slice().sort((a,b)=>a.birim_fiyat-b.birim_fiyat);
+  const enUcuzId=enUcuzTeklifId(kalem);
+  const seciliId = (kalem.secilen_teklif_id!=null) ? kalem.secilen_teklif_id : enUcuzId;
+  const yaz = yazabilir();
+  let fiyatHtml;
+  if(!fiyatlar.length){
+    fiyatHtml='<div class="et" style="color:var(--gray-400);font-size:12px;padding:6px 0">Henüz fiyat girilmedi</div>';
+  }else{
+    fiyatHtml = fiyatlar.map(f=>{
+      const enUcuz = String(f.id)===String(enUcuzId);
+      const checked = (seciliId!=null && String(f.id)===String(seciliId)) ? 'checked' : '';
+      return `
+      <label style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:8px;margin-bottom:4px;${enUcuz?'background:#d4edda':''}">
+        <input type="radio" name="sec-${kalem.id}" value="${f.id}" ${checked} ${yaz?'':'disabled'} onchange="secimGuncelle('${kalem.id}','${f.id}')">
+        <span style="flex:1;font-size:13px">${escapeHtml(f.firma_ad)} — ${Number(f.birim_fiyat).toFixed(2)} ₺${f.not_alani?' <span style="color:var(--gray-500)">('+escapeHtml(f.not_alani)+')</span>':''}</span>
+      </label>`;
+    }).join('');
+  }
+  return `
+  <div class="card" style="margin-bottom:10px">
+    <div class="card-title">${escapeHtml(kalem.urun_adi)}${kalem.urun_kodu?' <span style="font-weight:400;color:var(--gray-500)">('+escapeHtml(kalem.urun_kodu)+')</span>':''}</div>
+    <div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">${kalem.miktar} ${escapeHtml(kalem.birim||'')}</div>
+    ${fiyatHtml}
+    ${yaz?`<button class="btn btn-sm btn-gray btn-block" style="margin-top:6px" onclick="fiyatEkleAc('${kalem.id}')">➕ Firma Fiyatı Ekle</button>`:''}
+  </div>`;
+}
+
+function openTeklifDetay(id){
+  _acikTeklifId=id;
+  const t=TT[id];
+  if(!t){toast('⚠️ Teklif talebi bulunamadı');return;}
+  const baslik=document.getElementById('td-baslik');
+  baslik.innerHTML = 'Teklif Talebi — '+escapeHtml(t.olusturan||'—')+' <button class="mclose" onclick="kModal(\'mTeklifDetay\')">✕</button>';
+  const c=document.getElementById('td-kalemler');
+  const kalemler=t.teklif_kalemleri||[];
+  c.innerHTML = kalemler.length ? kalemler.map(tdKalemHtml).join('') : '<div class="es"><div class="ei">📋</div><div class="et">Bu teklif talebinde kalem yok</div></div>';
+  aModal('mTeklifDetay');
+}
+
+// ====== MODAL: Firma Fiyatı Ekle ======
+function fiyatEkleAc(kalemId){
+  if(!yazabilir()){toast('⚠️ Yetkiniz yok');return;}
+  _fiyatEkleKalemId=kalemId;
+  const t=TT[_acikTeklifId];
+  const kalem = t ? (t.teklif_kalemleri||[]).find(k=>String(k.id)===String(kalemId)) : null;
+  const kod = kalem ? kalem.urun_kodu : null;
+  const onerilen = kod ? FIRMA_DB.filter(f=>f.urunler && f.urunler.includes(kod)) : [];
+  const onerilenIds = new Set(onerilen.map(f=>f.id));
+  const digerFirmalar = FIRMA_DB.filter(f=>!onerilenIds.has(f.id));
+  let html='<option value="">— Seçin —</option>';
+  if(onerilen.length){
+    html += '<optgroup label="Önerilen Firmalar">'+onerilen.map(f=>`<option value="${f.id}">${escapeHtml(f.ad)}</option>`).join('')+'</optgroup>';
+  }
+  html += '<optgroup label="Tüm Firmalar">'+digerFirmalar.map(f=>`<option value="${f.id}">${escapeHtml(f.ad)}</option>`).join('')+'</optgroup>';
+  html += '<option value="__serbest__">Diğer / Serbest Firma Adı...</option>';
+  document.getElementById('fe-firma-sec').innerHTML=html;
+  document.getElementById('fe-serbest-wrap').style.display='none';
+  document.getElementById('fe-firma-serbest').value='';
+  document.getElementById('fe-fiyat').value='';
+  document.getElementById('fe-not').value='';
+  aModal('mFiyatEkle');
+}
+function feFirmaSecildi(){
+  const v=document.getElementById('fe-firma-sec').value;
+  document.getElementById('fe-serbest-wrap').style.display = (v==='__serbest__') ? 'block' : 'none';
+}
+async function feEkle(){
+  const v=document.getElementById('fe-firma-sec').value;
+  let firmaId=null, firmaAd='';
+  if(v==='__serbest__'){
+    firmaAd=document.getElementById('fe-firma-serbest').value.trim();
+  }else if(v){
+    const f=FIRMA_DB.find(x=>String(x.id)===String(v));
+    if(f){ firmaId=f.id; firmaAd=f.ad; }
+  }
+  const fiyat=document.getElementById('fe-fiyat').value;
+  const notu=document.getElementById('fe-not').value.trim();
+  if(!firmaAd || !(parseFloat(fiyat)>=0)){toast('⚠️ Firma ve geçerli fiyat gerekli');return;}
+  await teklifFiyatiEkle(_fiyatEkleKalemId, firmaId, firmaAd, fiyat, notu);
+  kModal('mFiyatEkle');
+}
 
 async function teklifTalebiOlustur(secilenKalemler, otelId){
   if(!yazabilir()){toast('⚠️ Yetkiniz yok');return null;}
