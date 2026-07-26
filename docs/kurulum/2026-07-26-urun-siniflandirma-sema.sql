@@ -54,4 +54,19 @@ create policy urun_siniflandirma_yaz on public.urun_siniflandirma
   for all using (public.auth_yetki_var('urun_yonetimi','kayit'))
   with check (public.auth_yetki_var('urun_yonetimi','kayit'));
 
+-- Final review Fix 1: ana grup kataloğunu boş bırakmak yerine, mevcut ürün
+-- kataloğundaki gerçek public.urunler.grup değerlerinden türet (kod listesi
+-- burada elle varsayılmıyor — canlı veriden okunuyor, ör. 'YIY01'..'YIY12').
+-- Bu olmadan Kategori Kataloğu sekmesi kalıcı olarak "Henüz ana grup kaydı
+-- yok" gösterir ve tüm alt-grup/atama/Excel akışı kullanılamaz hale gelir.
+--
+-- Eğer bu dosyanın orijinal sürümünü (bu insert olmadan) daha önce Supabase
+-- SQL Editor'de çalıştırdıysan, dosyanın tamamını tekrar çalıştırma —
+-- sadece aşağıdaki insert'i tek başına SQL Editor'de çalıştırman yeterli.
+insert into public.urun_ana_gruplari (ana_grup_kod, sira)
+select distinct grup, row_number() over (order by grup)
+from public.urunler
+where grup is not null
+on conflict (ana_grup_kod) do nothing;
+
 commit;
