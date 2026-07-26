@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="ortak.js"></script>
+<script src="gurok_veritabani.js"></script>
+<link rel="stylesheet" href="theme.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Teklif Toplama</title>
+<meta name="theme-color" content="#1a2744">
+<script>let CU=requireLogin(); if(CU)requireRole(CU,['yonetici','satinalma','depo','cost_control']);</script>
+<style>
+:root{--accent:#c9a24b}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+/* Nav */
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:block}
+.sc::-webkit-scrollbar{display:none}
+/* Cards */
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+/* Buttons */
+.btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+.btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-info{background:var(--info);color:white}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
+.brow{display:flex;gap:8px}.brow .btn{flex:1}
+/* Chips */
+.chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.chip-warn{background:#fff3cd;color:#856404}.chip-ok{background:#d4edda;color:#155724}.chip-err{background:#fde8e8;color:#9b1c1c}.chip-info{background:#dfeae7;color:#2c5850}.chip-gray{background:var(--gray-200);color:var(--gray-700)}
+/* Kart */
+.skart{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid var(--gray-300);cursor:pointer}
+.skart.acik{border-left-color:var(--warning)}.skart.tamamlandi{border-left-color:var(--success)}
+/* Modal */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end}
+.mo.open{display:flex}
+.mbox{background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-height:90vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mtitle{font-size:16px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mclose{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray-500)}
+/* Empty */
+.es{text-align:center;padding:40px 20px;color:var(--gray-400)}.ei{font-size:48px;margin-bottom:12px}.et{font-size:14px}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#ld{display:none;position:fixed;inset:0;background:rgba(26,39,68,.85);z-index:9998;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:white}
+#ld.show{display:flex}
+.sp{width:36px;height:36px;border:3px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='satin-alma.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+    <div style="flex:1"><h1>Teklif Toplama</h1><span class="sub" id="hsub"></span></div>
+    <button class="hbtn" onclick="yenile()" title="Yenile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+  </div>
+
+  <div class="sc" id="tab-teklif" style="display:block">
+    <div class="brow" style="margin-bottom:10px">
+      <button class="btn btn-primary btn-block" onclick="toast('Yakında')">➕ Yeni Teklif Talebi</button>
+    </div>
+    <div id="liste"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
+
+<script>
+
+let TT={}, ONAYLI_TALEPLER=[], YETKI_HARITASI={};
+function yazabilir(){ return ['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur']); }
+
+async function loadTeklifTalepleri(){
+  const r=await fetch(SB_URL+'/rest/v1/teklif_talepleri?select=*,teklif_kalemleri(*,teklif_fiyatlari(*))&order=olusturma_tarihi.desc',{headers:SB_HEADERS});
+  TT={}; if(r.ok){(await r.json()).forEach(t=>{ TT[t.id]=t; });}
+}
+async function loadOnayliTalepler(){
+  const r=await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?durum=eq.onaylandi&select=id,departman,otel_id,satin_alma_talep_kalemleri(id,urun_adi,urun_kodu,miktar,birim)&order=olusturma_tarihi.desc',{headers:SB_HEADERS});
+  ONAYLI_TALEPLER = r.ok ? await r.json() : [];
+}
+
+// Task 5'te dolacak — şimdilik satır tıklaması kırık olmasın diye stub.
+function openTeklifDetay(id){toast('Detay yakında');}
+
+function renderTeklifTalepleri(){
+  const c=document.getElementById('liste');if(!c)return;
+  const liste=Object.values(TT);
+  if(!liste.length){
+    c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Henüz teklif talebi yok</div></div>';
+    return;
+  }
+  const chipMap={acik:'<span class="chip chip-warn">Açık</span>',tamamlandi:'<span class="chip chip-ok">Tamamlandı</span>'};
+  c.innerHTML=liste.map(t=>`
+    <div class="skart ${t.durum}" onclick="openTeklifDetay('${t.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:700">${escapeHtml(t.olusturan||'—')}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${t.olusturma_tarihi?new Date(t.olusturma_tarihi).toLocaleDateString('tr-TR'):'—'}</div>
+        </div>
+        ${chipMap[t.durum]||''}
+      </div>
+      <div style="font-size:12px;color:var(--gray-600)">${(t.teklif_kalemleri||[]).length} kalem</div>
+    </div>`).join('');
+}
+
+function yenile(){
+  (async function(){
+    sLD();
+    await Promise.all([loadTeklifTalepleri(), loadOnayliTalepler()]);
+    hLD();
+    renderTeklifTalepleri();
+  })();
+}
+
+// ====== INIT ======
+(async function(){
+  if(!CU) return;
+  YETKI_HARITASI = await kullaniciYetkileriGetir();
+  sLD();
+  await Promise.all([loadTeklifTalepleri(), loadOnayliTalepler()]);
+  hLD();
+  renderTeklifTalepleri();
+})();
+</script>
+</body>
+</html>
