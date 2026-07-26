@@ -180,7 +180,18 @@ async function urunSiniflandirmaExcelYukle(event){
     hLD();
     const urunKoduSet=new Set(URUN_DB.map(u=>u.kod));
     const altGrupKodSet=new Set(ALT_GRUPLAR.map(a=>a.alt_grup_kod));
-    const mevcutKayitlar=Object.entries(URUN_ALT_GRUP_ATANMIS).map(([kod,altGrupKod])=>({urun_kodu:kod, alt_grup_kod:altGrupKod}));
+    const altGrupHarita={};
+    ALT_GRUPLAR.forEach(a=>{altGrupHarita[a.alt_grup_kod]=a.alt_grup_adi;});
+    const mevcutKayitlar=Object.entries(URUN_ALT_GRUP_ATANMIS).map(([kod,altGrupKod])=>{
+      const urun=URUN_DB.find(u=>u.kod===kod);
+      return {
+        urun_kodu:kod,
+        urun_adi:urun?.ad||'',
+        ana_grup:urun?.grup||'',
+        alt_grup_kod:altGrupKod,
+        alt_grup_adi:altGrupHarita[altGrupKod]||''
+      };
+    });
     // excelSatirlariSiniflandir bir NESNE değil, doğrudan bir DİZİ döner
     // (her eleman {satirNo, alanlar, sinif, hatalar[], eskiDeger, yeniDeger,
     // kayitId} şeklinde — bkz. ortak-excel.js:130-131 imza yorumu).
