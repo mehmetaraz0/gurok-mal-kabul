@@ -913,23 +913,9 @@ async function kalemExcelUygula(talepId,mod,yazilacaklar){
 // ====== TEKLİFLER (RFQ) ======
 async function teklifIste(talepId){
   if(!['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
-  const t=DB.talepler[talepId];if(!t)return;
-  sLD();
-  try{
-    const r=await fetch(SB_URL+'/rest/v1/teklif_talepleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
-      body:JSON.stringify({talep_id:talepId,otel_id:t.otelId||'810',olusturan_ad:CU.ad})});
-    if(!r.ok){hLD();toast('❌ Teklif talebi oluşturulamadı');return;}
-    const d=await r.json();const teklifTalepId=d[0].id;
-    const kalemSatirlar=(t.satirlar||[]).map(u=>({teklif_talep_id:teklifTalepId,urun_kodu:u.kod||null,urun_adi:u.ad,miktar:u.miktar,birim:u.birim}));
-    if(kalemSatirlar.length){
-      const kr=await fetch(SB_URL+'/rest/v1/teklif_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
-      if(!kr.ok)console.warn('teklif_talep_kalemleri insert hatası');
-    }
-    hLD();
-    // Teklifler artık ayrı sayfa (satin-alma-teklif-toplama.html) — ?id= ile
-    // doğrudan bu RFQ'nun detayı açılır (bkz. o dosyanın init'i).
-    location.href='satin-alma-teklif-toplama.html?id='+teklifTalepId;
-  }catch(e){console.warn(e);hLD();toast('❌ İşlem başarısız');}
+  // Teklif talebi oluşturma artık Teklif Toplama sayfasında (?talep= ile otomatik).
+  kModal('mTalepDetay');
+  location.href='satin-alma-teklif-toplama.html?talep='+talepId;
 }
 
 // ====== YARDIMCI ======

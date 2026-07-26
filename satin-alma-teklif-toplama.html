@@ -27,6 +27,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 /* Cards */
 .card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
 .card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+/* Fields */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:5px;text-transform:uppercase}
+.field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;background:white;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--primary)}
 /* Buttons */
 .btn{padding:11px 18px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
 .btn:active{transform:scale(.97)}.btn-primary{background:var(--primary);color:white}.btn-success{background:var(--success);color:white}.btn-danger{background:var(--danger);color:white}.btn-warning{background:var(--warning);color:white}.btn-gray{background:var(--gray-200);color:var(--gray-700)}.btn-info{background:var(--info);color:white}.btn-block{width:100%}.btn-sm{padding:7px 12px;font-size:12px;min-height:34px}
@@ -65,9 +70,38 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
   <div class="sc" id="tab-teklif" style="display:block">
     <div class="brow" style="margin-bottom:10px">
-      <button class="btn btn-primary btn-block" onclick="toast('Yakında')">➕ Yeni Teklif Talebi</button>
+      <button class="btn btn-primary btn-block" onclick="yeniTeklifTalebiModalAc()">➕ Yeni Teklif Talebi</button>
     </div>
     <div id="liste"></div>
+  </div>
+</div>
+
+<!-- MODAL: Yeni Teklif Talebi -->
+<div class="mo" id="mYeniTeklifTalebi">
+  <div class="mbox" style="max-height:95vh">
+    <div class="mtitle">Yeni Teklif Talebi <button class="mclose" onclick="kModal('mYeniTeklifTalebi')">✕</button></div>
+    <div class="field" style="margin-bottom:12px">
+      <label>Onaylı Talep</label>
+      <select id="ytt-talep" onchange="yttTalepSecildi()">
+        <option value="">— Seçin —</option>
+      </select>
+    </div>
+    <div id="ytt-kalemler"></div>
+    <div style="display:grid;grid-template-columns:1fr 70px 60px;gap:4px;margin-top:10px;padding:0 4px">
+      <div style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase">Serbest Ürün Ekle</div>
+      <div></div><div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 70px 60px;gap:4px;padding:0 4px">
+      <input type="text" id="ytt-serbest-ad" placeholder="Ürün adı">
+      <input type="number" id="ytt-serbest-miktar" placeholder="Miktar" step="any">
+      <input type="text" id="ytt-serbest-birim" placeholder="Birim" value="KG">
+    </div>
+    <button class="btn btn-sm btn-gray btn-block" style="margin-top:6px" onclick="yttSerbestEkle()">+ Serbest Ürün Ekle</button>
+    <div id="ytt-serbest-liste" style="margin-top:8px"></div>
+    <div class="brow" style="margin-top:12px">
+      <button class="btn btn-gray" onclick="kModal('mYeniTeklifTalebi')">İptal</button>
+      <button class="btn btn-primary" onclick="yttOlustur()">Oluştur</button>
+    </div>
   </div>
 </div>
 
@@ -90,6 +124,83 @@ async function loadOnayliTalepler(){
 
 // Task 5'te dolacak — şimdilik satır tıklaması kırık olmasın diye stub.
 function openTeklifDetay(id){toast('Detay yakında');}
+
+async function teklifTalebiOlustur(secilenKalemler, otelId){
+  if(!yazabilir()){toast('⚠️ Yetkiniz yok');return null;}
+  if(!secilenKalemler.length){toast('⚠️ En az bir kalem seçin');return null;}
+  const tr=await fetch(SB_URL+'/rest/v1/teklif_talepleri',{method:'POST',
+    headers:{...SB_HEADERS,'Prefer':'return=representation'},
+    body:JSON.stringify({olusturan:CU.ad, otel_id:otelId||'810', durum:'acik'})});
+  if(!tr.ok){toast('❌ Teklif talebi oluşturulamadı');return null;}
+  const talep=(await tr.json())[0];
+  const kalemler=secilenKalemler.map(k=>({
+    teklif_talebi_id:talep.id, urun_kodu:k.urun_kodu||null, urun_adi:k.urun_adi,
+    miktar:k.miktar, birim:k.birim||'KG', kaynak_ic_talep_kalemi_id:k.kaynak_ic_talep_kalemi_id||null
+  }));
+  await fetch(SB_URL+'/rest/v1/teklif_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemler)});
+  await loadTeklifTalepleri(); renderTeklifTalepleri();
+  toast('✅ Teklif talebi oluşturuldu');
+  return talep.id;
+}
+
+// ====== MODAL: Yeni Teklif Talebi ======
+let _yttSerbestKalemler=[];
+function yeniTeklifTalebiModalAc(){
+  if(!yazabilir()){toast('⚠️ Yetkiniz yok');return;}
+  _yttSerbestKalemler=[];
+  const sel=document.getElementById('ytt-talep');
+  sel.innerHTML='<option value="">— Seçin —</option>'+ONAYLI_TALEPLER.map(t=>
+    `<option value="${t.id}">${escapeHtml(t.departman||'—')} — ${(t.satin_alma_talep_kalemleri||[]).length} kalem</option>`).join('');
+  document.getElementById('ytt-kalemler').innerHTML='';
+  document.getElementById('ytt-serbest-ad').value='';
+  document.getElementById('ytt-serbest-miktar').value='';
+  document.getElementById('ytt-serbest-birim').value='KG';
+  yttRenderSerbestListe();
+  aModal('mYeniTeklifTalebi');
+}
+function yttTalepSecildi(){
+  const id=document.getElementById('ytt-talep').value;
+  const c=document.getElementById('ytt-kalemler');
+  if(!id){c.innerHTML='';return;}
+  const t=ONAYLI_TALEPLER.find(x=>String(x.id)===String(id));
+  const kalemler=(t&&t.satin_alma_talep_kalemleri)||[];
+  if(!kalemler.length){c.innerHTML='<div class="et" style="color:var(--gray-400);font-size:12px;padding:8px 0">Bu talepte kalem yok</div>';return;}
+  c.innerHTML=kalemler.map(k=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--gray-100);font-size:13px">
+      <input type="checkbox" class="ytt-kalem-cb" data-id="${k.id}" data-kod="${escapeHtml(k.urun_kodu||'')}" data-ad="${escapeHtml(k.urun_adi)}" data-miktar="${k.miktar}" data-birim="${escapeHtml(k.birim||'')}" checked>
+      <span>${escapeHtml(k.urun_adi)}${k.urun_kodu?' ('+escapeHtml(k.urun_kodu)+')':''} — ${k.miktar} ${escapeHtml(k.birim||'')}</span>
+    </label>`).join('');
+}
+function yttSerbestEkle(){
+  const ad=document.getElementById('ytt-serbest-ad').value.trim();
+  const miktar=parseFloat(document.getElementById('ytt-serbest-miktar').value);
+  const birim=document.getElementById('ytt-serbest-birim').value.trim()||'KG';
+  if(!ad||!miktar||miktar<=0){toast('⚠️ Ürün adı ve miktar girin');return;}
+  _yttSerbestKalemler.push({urun_kodu:null, urun_adi:ad, miktar:miktar, birim:birim, kaynak_ic_talep_kalemi_id:null});
+  document.getElementById('ytt-serbest-ad').value='';
+  document.getElementById('ytt-serbest-miktar').value='';
+  yttRenderSerbestListe();
+}
+function yttRenderSerbestListe(){
+  const c=document.getElementById('ytt-serbest-liste');
+  if(!_yttSerbestKalemler.length){c.innerHTML='';return;}
+  c.innerHTML=_yttSerbestKalemler.map((k,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--gray-100);font-size:13px">
+      <span style="flex:1">${escapeHtml(k.urun_adi)} — ${k.miktar} ${escapeHtml(k.birim)}</span>
+      <button class="mclose" style="font-size:16px" onclick="yttSerbestSil(${i})">✕</button>
+    </div>`).join('');
+}
+function yttSerbestSil(i){ _yttSerbestKalemler.splice(i,1); yttRenderSerbestListe(); }
+async function yttOlustur(){
+  const talepId=document.getElementById('ytt-talep').value;
+  const t=ONAYLI_TALEPLER.find(x=>String(x.id)===String(talepId));
+  const secilenKalemler=[...document.querySelectorAll('.ytt-kalem-cb:checked')].map(cb=>({
+    urun_kodu:cb.dataset.kod||null, urun_adi:cb.dataset.ad, miktar:parseFloat(cb.dataset.miktar), birim:cb.dataset.birim||'KG',
+    kaynak_ic_talep_kalemi_id:cb.dataset.id
+  })).concat(_yttSerbestKalemler);
+  const yeniId=await teklifTalebiOlustur(secilenKalemler, t?t.otel_id:null);
+  if(yeniId) kModal('mYeniTeklifTalebi');
+}
 
 function renderTeklifTalepleri(){
   const c=document.getElementById('liste');if(!c)return;
@@ -129,6 +240,16 @@ function yenile(){
   await Promise.all([loadTeklifTalepleri(), loadOnayliTalepler()]);
   hLD();
   renderTeklifTalepleri();
+
+  const talepId=new URLSearchParams(location.search).get('talep');
+  if(talepId){
+    const t=ONAYLI_TALEPLER.find(x=>String(x.id)===String(talepId));
+    if(t){
+      const kalemler=(t.satin_alma_talep_kalemleri||[]).map(k=>({urun_kodu:k.urun_kodu,urun_adi:k.urun_adi,miktar:k.miktar,birim:k.birim,kaynak_ic_talep_kalemi_id:k.id}));
+      await teklifTalebiOlustur(kalemler, t.otel_id);
+      history.replaceState(null,'','satin-alma-teklif-toplama.html'); // param'ı temizle (yenilemede tekrar oluşturmasın)
+    }else{ toast('Talep bulunamadı veya onaylı değil'); }
+  }
 })();
 </script>
 </body>
