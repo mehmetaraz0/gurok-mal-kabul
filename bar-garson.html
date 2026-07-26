@@ -49,8 +49,10 @@ html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI
     <button class="header-btn" onclick="masalariYukle()" title="Masaları yenile">⟳</button>
   </div>
   <div class="masa-bar">
-    <label>Bar / Bölge</label>
-    <select id="barSec" onchange="barDegisti()"><option value="">— Bar seçin —</option></select>
+    <label>Otel</label>
+    <select id="otelSec" onchange="otelDegisti()"><option value="">— Otel seçin —</option><option value="810">Club</option><option value="811">Resort</option></select>
+    <label style="margin-top:8px">Bar / Bölge</label>
+    <select id="barSec" onchange="barDegisti()"><option value="">— Önce otel seçin —</option></select>
     <label style="margin-top:8px">Masa</label>
     <select id="masaSec" onchange="masaDegisti()"><option value="">— Önce bar seçin —</option></select>
   </div>
@@ -87,15 +89,20 @@ async function masalariYukle(){
     const d=await r.json(); hLD();
     if(!d.ok){ toast('❌ '+(d.mesaj||'Masalar alınamadı')); return; }
     MASALAR=(d.masalar||[]).filter(m=>m.aktif);
-    const barlar=[...new Set(MASALAR.map(m=>m.depo_id||'(Deposuz)'))];
-    // Club (810) / Resort (811) otel bazında grupla — karışmasın
-    const opt=b=>`<option value="${escapeHtml(b)}">🏛️ ${escapeHtml(depoAdi(b))}</option>`;
-    const grupla=o=>barlar.filter(b=>otelFromDepoId(b)===o).sort((a,b)=>depoAdi(a).localeCompare(depoAdi(b),'tr'));
-    let barHtml='<option value="">— Bar/Restoran seçin —</option>';
-    ['810','811'].forEach(o=>{ const g=grupla(o); if(g.length) barHtml+=`<optgroup label="${escapeHtml((typeof OTEL_KISA!=='undefined'&&OTEL_KISA[o])||o)}">`+g.map(opt).join('')+'</optgroup>'; });
-    document.getElementById('barSec').innerHTML=barHtml;
-    document.getElementById('masaSec').innerHTML='<option value="">— Önce bar seçin —</option>';
+    otelDegisti(); // seçili otele göre bar listesini (yeniden) doldur
   }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
+}
+
+function otelDegisti(){
+  const otel=document.getElementById('otelSec').value;
+  const barSec=document.getElementById('barSec');
+  seciliMasa=null; MENU=[]; SEPET={}; render(); document.getElementById('sepetBar').style.display='none';
+  document.getElementById('masaSec').innerHTML='<option value="">— Önce bar seçin —</option>';
+  if(!otel){ barSec.innerHTML='<option value="">— Önce otel seçin —</option>'; return; }
+  const barlar=[...new Set(MASALAR.filter(m=>otelFromDepoId(m.depo_id)===otel).map(m=>m.depo_id||'(Deposuz)'))]
+    .sort((a,b)=>depoAdi(a).localeCompare(depoAdi(b),'tr'));
+  barSec.innerHTML='<option value="">— Bar/Restoran seçin ('+barlar.length+') —</option>'+
+    barlar.map(b=>`<option value="${escapeHtml(b)}">🏛️ ${escapeHtml(depoAdi(b))}</option>`).join('');
 }
 
 function barDegisti(){
