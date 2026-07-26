@@ -100,7 +100,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div id="ytt-serbest-liste" style="margin-top:8px"></div>
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray" onclick="kModal('mYeniTeklifTalebi')">İptal</button>
-      <button class="btn btn-primary" onclick="yttOlustur()">Oluştur</button>
+      <button class="btn btn-primary" id="ytt-olustur-btn" onclick="yttOlustur()">Oluştur</button>
     </div>
   </div>
 </div>
@@ -137,7 +137,12 @@ async function teklifTalebiOlustur(secilenKalemler, otelId){
     teklif_talebi_id:talep.id, urun_kodu:k.urun_kodu||null, urun_adi:k.urun_adi,
     miktar:k.miktar, birim:k.birim||'KG', kaynak_ic_talep_kalemi_id:k.kaynak_ic_talep_kalemi_id||null
   }));
-  await fetch(SB_URL+'/rest/v1/teklif_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemler)});
+  const kr=await fetch(SB_URL+'/rest/v1/teklif_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemler)});
+  if(!kr.ok){
+    await fetch(SB_URL+'/rest/v1/teklif_talepleri?id=eq.'+talep.id,{method:'DELETE',headers:SB_HEADERS});
+    toast('❌ Kalemler kaydedilemedi, teklif talebi iptal edildi');
+    return null;
+  }
   await loadTeklifTalepleri(); renderTeklifTalepleri();
   toast('✅ Teklif talebi oluşturuldu');
   return talep.id;
@@ -191,15 +196,25 @@ function yttRenderSerbestListe(){
     </div>`).join('');
 }
 function yttSerbestSil(i){ _yttSerbestKalemler.splice(i,1); yttRenderSerbestListe(); }
+let _ttOlusturmaDevam=false;
 async function yttOlustur(){
-  const talepId=document.getElementById('ytt-talep').value;
-  const t=ONAYLI_TALEPLER.find(x=>String(x.id)===String(talepId));
-  const secilenKalemler=[...document.querySelectorAll('.ytt-kalem-cb:checked')].map(cb=>({
-    urun_kodu:cb.dataset.kod||null, urun_adi:cb.dataset.ad, miktar:parseFloat(cb.dataset.miktar), birim:cb.dataset.birim||'KG',
-    kaynak_ic_talep_kalemi_id:cb.dataset.id
-  })).concat(_yttSerbestKalemler);
-  const yeniId=await teklifTalebiOlustur(secilenKalemler, t?t.otel_id:null);
-  if(yeniId) kModal('mYeniTeklifTalebi');
+  if(_ttOlusturmaDevam)return;
+  _ttOlusturmaDevam=true;
+  const btn=document.getElementById('ytt-olustur-btn');
+  if(btn)btn.disabled=true;
+  try{
+    const talepId=document.getElementById('ytt-talep').value;
+    const t=ONAYLI_TALEPLER.find(x=>String(x.id)===String(talepId));
+    const secilenKalemler=[...document.querySelectorAll('.ytt-kalem-cb:checked')].map(cb=>({
+      urun_kodu:cb.dataset.kod||null, urun_adi:cb.dataset.ad, miktar:parseFloat(cb.dataset.miktar), birim:cb.dataset.birim||'KG',
+      kaynak_ic_talep_kalemi_id:cb.dataset.id
+    })).concat(_yttSerbestKalemler);
+    const yeniId=await teklifTalebiOlustur(secilenKalemler, t?t.otel_id:null);
+    if(yeniId) kModal('mYeniTeklifTalebi');
+  }finally{
+    _ttOlusturmaDevam=false;
+    if(btn)btn.disabled=false;
+  }
 }
 
 function renderTeklifTalepleri(){
