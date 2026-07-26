@@ -111,7 +111,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="mtitle" id="td-baslik">Teklif Detayı <button class="mclose" onclick="kModal('mTeklifDetay')">✕</button></div>
     <div id="td-kalemler"></div>
     <div class="brow" style="margin-top:12px">
-      <button class="btn btn-gray btn-block" onclick="kModal('mTeklifDetay')">Kapat</button>
+      <button class="btn btn-gray" onclick="kModal('mTeklifDetay')">Kapat</button>
+      <button class="btn btn-primary" id="td-siparis-btn" style="display:none" onclick="teklifSiparisHazirla(_acikTeklifId)">🧾 Sipariş Hazırla</button>
     </div>
   </div>
 </div>
@@ -223,7 +224,27 @@ function openTeklifDetay(id){
   const c=document.getElementById('td-kalemler');
   const kalemler=t.teklif_kalemleri||[];
   c.innerHTML = kalemler.length ? kalemler.map(tdKalemHtml).join('') : '<div class="es"><div class="ei">📋</div><div class="et">Bu teklif talebinde kalem yok</div></div>';
+  const spBtn=document.getElementById('td-siparis-btn');
+  if(spBtn) spBtn.style.display = yazabilir() ? '' : 'none';
   aModal('mTeklifDetay');
+}
+
+async function teklifSiparisHazirla(teklifTalebiId){
+  if(!yazabilir()){toast('⚠️ Yetkiniz yok');return;}
+  const t=TT[teklifTalebiId]; if(!t)return;
+  const satirlar=[];
+  (t.teklif_kalemleri||[]).forEach(k=>{
+    const secId=k.secilen_teklif_id||enUcuzTeklifId(k);
+    const fy=(k.teklif_fiyatlari||[]).find(f=>String(f.id)===String(secId));
+    satirlar.push({
+      ad:k.urun_adi, kod:k.urun_kodu||'', miktar:k.miktar, birim:k.birim||'KG',
+      firmaId: fy?(fy.firma_id||''):'', firmaAd: fy?fy.firma_ad:'', tahminiFiyat: fy?fy.birim_fiyat:''
+    });
+  });
+  if(!satirlar.length){toast('⚠️ Aktarılacak kalem yok');return;}
+  sessionStorage.setItem('sp_devir_satirlar', JSON.stringify(satirlar));
+  try{ await fetch(SB_URL+'/rest/v1/teklif_talepleri?id=eq.'+teklifTalebiId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'tamamlandi'})}); }catch(e){console.warn(e);}
+  location.href='satin-alma-siparisolustur.html';
 }
 
 // ====== MODAL: Firma Fiyatı Ekle ======
