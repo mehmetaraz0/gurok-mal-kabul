@@ -217,7 +217,7 @@ const ROL_INDIRGEME={
 
 async function loadKullanicilarFromSupabase(){
   try{
-    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/kullanicilar_genel?select=*&aktif=eq.true',{headers:SB_HEADERS});
     if(!r.ok)return null;
     const rows=await r.json();
     if(!rows||!rows.length)return null;

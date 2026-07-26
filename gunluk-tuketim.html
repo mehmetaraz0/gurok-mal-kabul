@@ -181,7 +181,7 @@ let GT='giris';
 // ============================================================
 async function loadKullanicilar(){
   try{
-    const r=await fetch(SB_URL+'/rest/v1/kullanicilar?select=*&aktif=eq.true&rol=in.(mutfak,bar,yonetici)',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/kullanicilar_genel?select=*&aktif=eq.true&rol=in.(mutfak,bar,yonetici)',{headers:SB_HEADERS});
     if(!r.ok)return;
     const d=await r.json();
     if(Array.isArray(d))DB.kullanicilar=d.map(u=>({...u,depoId:u.depo_id||null,otelId:u.otel_id||null}));
