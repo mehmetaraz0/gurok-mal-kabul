@@ -122,7 +122,9 @@ function yazabilir(){ return ['kayit','tam'].includes(YETKI_HARITASI['bar_sipari
 // Bar/Restoran depoları listesini (otel-config BAR_DEPOLARI) açılır listeye doldur
 function depolariYukle(){
   const sel=document.getElementById('fDepo');
-  const kodlar=Object.keys(BAR_DEPOLARI);
+  const otel=document.getElementById('fOtel').value;
+  // Sadece seçili otelin depolarını göster (Club↔Resort karışmasın)
+  const kodlar=Object.keys(BAR_DEPOLARI).filter(k=>BAR_DEPOLARI[k].otel===otel);
   const opt=k=>`<option value="${k}">${escapeHtml(depoAdi(k))}</option>`;
   const rest=kodlar.filter(k=>BAR_DEPOLARI[k].tip==='Restoran').sort((a,b)=>depoAdi(a).localeCompare(depoAdi(b),'tr'));
   const bar=kodlar.filter(k=>BAR_DEPOLARI[k].tip!=='Restoran').sort((a,b)=>depoAdi(a).localeCompare(depoAdi(b),'tr'));
