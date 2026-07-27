@@ -441,15 +441,19 @@ function findUserByEmail(email) {
 // PIN
 // ============================================================
 let pinValue = '';
-let _pinAramaSayaci = 0;
 // PIN kilitleme fonksiyonları (pinKilitliMi/pinBasarisizKaydet/pinBasariliTemizle)
 // artık auth-guard.js'de tanımlı (paylaşılan) — burada tekrar tanımlanmıyor.
 
 // PIN eşleştirmesi istemci tarafında (herkese açık bir kullanıcı+PIN listesi
 // üzerinden) DEĞİL, PIN'i asla dışarı vermeyen bir SECURITY DEFINER RPC
-// üzerinden yapılır (bkz. docs/kurulum/2026-07-22-pin-rls-duzeltme.sql).
-// RPC çağrısı başarısız olursa (offline, ağ hatası, sunucu hatası) fail-closed:
-// hiçbir yerel/sabit kullanıcı listesine düşülmez, boş sonuç döner.
+// üzerinden yapılır (bkz. docs/kurulum/2026-07-27-pin-tam-eslesme.sql).
+// RPC yalnızca TAM 6 haneli eşleşme kabul eder (prefix arama YOK — kısmi
+// girişte anon-çağrılabilir bir "hangi PIN'ler var" oracle'ı oluşturmasın
+// diye kasıtlı olarak kaldırıldı, bkz. commit mesajı). Bu nedenle istemci
+// de yalnızca tam 6 hane girildiğinde bu RPC'yi çağırır; 3-5 hanede isim
+// önizlemesi YAPILMAZ. RPC başarısız olursa (offline, ağ hatası, sunucu
+// hatası) fail-closed: hiçbir yerel/sabit kullanıcı listesine düşülmez,
+// boş sonuç döner.
 async function pinIleKullaniciAra(girisPin) {
   try {
     const r = await fetch(SB_URL + '/rest/v1/rpc/pin_ile_kullanici_ara', {
@@ -474,16 +478,8 @@ async function pinInput(d) {
   if (pinValue.length >= 6) return;
   pinValue += d;
   updateDots();
-  const girilenPin = pinValue;
-  const el = document.getElementById('pin-user-show');
-  const errEl = document.getElementById('pin-error');
-  errEl.textContent = '';
-  if (girilenPin.length < 3) { el.textContent = ''; return; }
-  const sayac = ++_pinAramaSayaci;
-  const eslesenler = await pinIleKullaniciAra(girilenPin);
-  if (sayac !== _pinAramaSayaci) return; // daha yeni bir tuşa basılmış, bu sonucu yok say
-  el.textContent = (eslesenler.length === 1) ? ((ROL_IKON[eslesenler[0].rol]||'👤') + ' ' + eslesenler[0].ad) : '';
-  if (girilenPin.length === 6) setTimeout(() => checkPin(eslesenler), 200);
+  document.getElementById('pin-error').textContent = '';
+  if (pinValue.length === 6) setTimeout(() => checkPin(), 200);
 }
 
 function pinDelete() {
@@ -530,9 +526,9 @@ async function supabaseAuthKoprusu(user, pin) {
   } catch (e) { console.error('supabaseAuthKoprusu hatası:', e); return null; }
 }
 
-async function checkPin(eslesenler) {
+async function checkPin() {
   const girilenPin = pinValue;
-  const adaylar = eslesenler || await pinIleKullaniciAra(girilenPin);
+  const adaylar = await pinIleKullaniciAra(girilenPin);
   const user = adaylar[0];
   if (!user) {
     pinBasarisizKaydet();
