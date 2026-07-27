@@ -16,11 +16,12 @@
 --      Bu script calistiktan sonra bu RPC'yi hicbir istemci cagiramaz (henuz
 --      cagiran bir Edge Function da yok) -- tamamen pasif, zararsiz durur.
 --
--- ONEMLI: Calistirmadan ONCE Faz 0 rehberindeki (0. adim) pgcrypto sema kontrolunu
--- yapin: `select extnamespace::regnamespace from pg_extension where extname='pgcrypto';`
--- Sonuc 'public' DEGILSE (ör. 'extensions'), asagidaki
--- `set search_path = public` satirini `set search_path = public, extensions`
--- (veya ilgili sema) olarak guncelleyip OYLE calistirin.
+-- ONEMLI (UYGULANDI): canli projede pgcrypto 'extensions' semasinda kurulu
+-- oldugu dogrulandi (select extnamespace::regnamespace from pg_extension
+-- where extname='pgcrypto' -> 'extensions' dondu). Bu yuzden asagidaki
+-- pin_dogrula() fonksiyonunun search_path'i `public, extensions` olarak
+-- guncellendi -- fonksiyon crypt()/gen_salt()'i bu sayede bulabilecek.
+-- Baska bir ortamda calistirilacaksa pgcrypto semasini tekrar kontrol edin.
 --
 -- Guvenli test onerisi: asagidaki `commit;` satirini gecici olarak `rollback;`
 -- yaparak once DRY-RUN calistirip hata olup olmadigini gorebilirsiniz, sonra
@@ -70,7 +71,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_basarisiz_sayisi int;
