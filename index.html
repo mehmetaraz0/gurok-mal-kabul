@@ -558,6 +558,7 @@ async function checkPin(eslesenler) {
   pinBasariliTemizle();
   currentUser = user;
   oturumKaydet(user, accessToken);
+  sbHeaderlarYenile(accessToken);
   const params = new URLSearchParams(location.search);
   const returnTo = params.get('returnTo');
   if (returnTo && /^[a-z0-9_-]+\.html(\?[^#]*)?(#.*)?$/i.test(returnTo)) {

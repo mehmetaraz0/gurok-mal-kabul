@@ -12,3 +12,13 @@ const SB_HEADERS = (function(){
   const token = (typeof oturumAccessTokenGetir === 'function') ? oturumAccessTokenGetir() : null;
   return {'apikey':SB_KEY,'Authorization':'Bearer '+(token||SB_KEY),'Content-Type':'application/json'};
 })();
+
+// index.html'de PIN girişi başarılı olup aynı sayfada portal açıldığında
+// (returnTo yoksa, sayfa yenilenmeden) SB_HEADERS hâlâ sayfa yüklenirken
+// hesaplanan eski (anon key'li) haliyle kalır — çünkü yukarıdaki IIFE bir
+// kere çalışır. Auth köprüsünden gerçek JWT alındığı anda bu fonksiyon
+// çağrılarak SB_HEADERS.Authorization güncellenmeli, aksi halde auth.uid()
+// gerektiren RLS'li tablolar (ör. yetki_matrisi) boş sonuç döner.
+function sbHeaderlarYenile(accessToken) {
+  SB_HEADERS.Authorization = 'Bearer ' + (accessToken || SB_KEY);
+}
