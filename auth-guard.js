@@ -11,8 +11,8 @@ function oturumGetir() {
   try {
     const s = sessionStorage.getItem(SESSION_KEY);
     if (!s) return null;
-    const { user, expiry } = JSON.parse(s);
-    if (!user || Date.now() >= expiry) return null;
+    const { user, accessToken, expiry } = JSON.parse(s);
+    if (!user || !accessToken || Date.now() >= expiry) return null;
     return user;
   } catch (e) { return null; }
 }

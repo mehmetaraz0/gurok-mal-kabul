@@ -410,20 +410,10 @@ const MODULLER = [
 // ============================================================
 // KULLANICILAR
 // ============================================================
-const DEFAULT_USERS = [
-  { id:1, ad:'Mehmet Araz',     rol:'yonetici',  departman:'Yönetim',    pin:'123456' },
-  { id:2, ad:'Depo Sorumlu',    rol:'depo',      departman:'Depo',       pin:'111111' },
-  { id:3, ad:'Depo Personel',   rol:'depo',      departman:'Depo',       pin:'222222' },
-  { id:4, ad:'Satinalma',       rol:'satinalma', departman:'Satinalma',  pin:'333333' },
-  { id:5, ad:'Kalite Kontrol',  rol:'kalite',    departman:'Kalite',     pin:'444444' },
-  { id:6, ad:'Ana Mutfak Sefi', rol:'mutfak',    departman:'Ana Mutfak', pin:'555555', depoId:'CMM201', otelId:'810' },
-  { id:7, ad:'Bar Sefi',        rol:'bar',       departman:'Bar',        pin:'666666', depoId:'CSM301', otelId:'810' }
-];
-
 const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹', muhasebe_muduru:'💼', muhasebe_calisani:'💰', cost_control:'📐' };
 const ROL_AD   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite', mutfak:'Mutfak', bar:'Bar', muhasebe_muduru:'Muhasebe Müdürü', muhasebe_calisani:'Muhasebe', cost_control:'Cost Control' };
 
-let users = [...DEFAULT_USERS];
+let users = [];
 let currentUser = null;
 
 async function loadUsers() {
@@ -455,11 +445,11 @@ let _pinAramaSayaci = 0;
 // PIN kilitleme fonksiyonları (pinKilitliMi/pinBasarisizKaydet/pinBasariliTemizle)
 // artık auth-guard.js'de tanımlı (paylaşılan) — burada tekrar tanımlanmıyor.
 
-// PIN eşleştirmesi artık istemci tarafında (herkese açık bir kullanıcı+PIN
-// listesi üzerinden) DEĞİL, PIN'i asla dışarı vermeyen bir SECURITY DEFINER
-// RPC üzerinden yapılır (bkz. docs/kurulum/2026-07-22-pin-rls-duzeltme.sql).
-// Supabase'e erişilemezse (offline vb.) DEFAULT_USERS ile yerel eşleştirmeye
-// düşer — mevcut offline davranış korunur.
+// PIN eşleştirmesi istemci tarafında (herkese açık bir kullanıcı+PIN listesi
+// üzerinden) DEĞİL, PIN'i asla dışarı vermeyen bir SECURITY DEFINER RPC
+// üzerinden yapılır (bkz. docs/kurulum/2026-07-22-pin-rls-duzeltme.sql).
+// RPC çağrısı başarısız olursa (offline, ağ hatası, sunucu hatası) fail-closed:
+// hiçbir yerel/sabit kullanıcı listesine düşülmez, boş sonuç döner.
 async function pinIleKullaniciAra(girisPin) {
   try {
     const r = await fetch(SB_URL + '/rest/v1/rpc/pin_ile_kullanici_ara', {
@@ -475,7 +465,7 @@ async function pinIleKullaniciAra(girisPin) {
       }));
     }
   } catch (e) {}
-  return DEFAULT_USERS.filter(u => String(u.pin).startsWith(girisPin));
+  return [];
 }
 
 async function pinInput(d) {
@@ -555,9 +545,18 @@ async function checkPin(eslesenler) {
     document.getElementById('pin-user-show').textContent = '';
     return;
   }
+  const accessToken = await supabaseAuthKoprusu(user, girilenPin);
+  if (!accessToken) {
+    const errEl = document.getElementById('pin-error');
+    errEl.textContent = '⚠️ Sunucuya bağlanılamadı — giriş yapılamıyor, tekrar deneyin';
+    setTimeout(() => errEl.textContent = '', 4000);
+    pinValue = '';
+    updateDots();
+    document.getElementById('pin-user-show').textContent = '';
+    return;
+  }
   pinBasariliTemizle();
   currentUser = user;
-  const accessToken = await supabaseAuthKoprusu(user, girilenPin);
   oturumKaydet(user, accessToken);
   const params = new URLSearchParams(location.search);
   const returnTo = params.get('returnTo');

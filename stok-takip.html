@@ -671,13 +671,6 @@ let db = {
   cariler:    []    // Supabase cariler (tedarikçi) tablosundan canlı — İade Başlat firma seçimi için
 };
 
-const DEFAULT_USERS = [
-  {id:1,ad:'Mehmet Araz',   rol:'yonetici', pin:'123456'},
-  {id:2,ad:'Depo Sorumlu',  rol:'depo',     pin:'111111'},
-  {id:3,ad:'Depo Personel', rol:'depo',     pin:'222222'},
-  {id:4,ad:'Satinalma',     rol:'satinalma',pin:'333333'},
-  {id:5,ad:'Kalite Kontrol',rol:'kalite',   pin:'444444'},
-];
 const ROL_IKON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍'};
 
 // ============================================================
@@ -729,7 +722,6 @@ async function loadDB(){
     if(kul&&kul.length)db.kullanicilar=kul;
     if(cariR.ok)db.cariler=await cariR.json();
   }catch(e){console.warn('Supabase yükleme:',e);}
-  if(!db.kullanicilar.length)db.kullanicilar=[...DEFAULT_USERS];
   hideLoading();
 }
 
