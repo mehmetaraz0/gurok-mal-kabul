@@ -8,17 +8,17 @@ kullanıcısıyla** doğrulamak.
 
 **Bu doğrulama geçmeden Faz 1 (SQL) canlıya alınmaz, Faz 2/3/4'e hiç geçilmez.**
 
-Bu rehber sizin (kullanıcı) Supabase Dashboard'da/CLI'de takip edeceğiniz adımları
-içerir — ben (Claude) bu adımları sizin adınıza çalıştırmıyorum; service-role key ve
-Supabase CLI oturumu gerektirdiği için bunlar sizin elinizde kalmalı.
+Bu rehber sizin (kullanıcı) Supabase Dashboard'da (tarayıcıda, fare ile) takip
+edeceğiniz adımları içerir — ben (Claude) bu adımları sizin adınıza çalıştırmıyorum;
+service-role key gerektirdiği için bu adımlar sizin elinizde kalmalı.
 
 ---
 
 ## Ön koşullar
 
-- Supabase Dashboard'a ana proje (`xwytofysmgqtqjzkplfi.supabase.co`) için erişim.
-- Supabase CLI kurulu ve bu projeye login/link olmuş (`supabase login`, `supabase link --project-ref xwytofysmgqtqjzkplfi`).
-- Ana projenin **service_role key**'i elinizde (Dashboard → Settings → API → `service_role` — bu anahtarı hiçbir dosyaya/commit'e yazmayın, yalnızca Supabase secret olarak saklanacak).
+- Supabase Dashboard'a (https://supabase.com/dashboard) tarayıcıdan giriş, ana proje seçili.
+- **Supabase CLI/terminal GEREKMİYOR** — bu adımların tamamı Dashboard'da fare ile yapılır. Test çağrısı için tek istisna: Windows'ta hazır gelen PowerShell'e üç satır kopyala-yapıştır (aşağıda tam metniyle var, hiçbir şey kurmanıza gerek yok).
+- Ana projenin **service_role key**'i: Dashboard'da soldaki menüden **Project Settings → API** → sayfada "service_role" yazan satırdaki anahtar (uzun bir metin, "Reveal"/göz ikonuna tıklayınca görünür). **Bu anahtarı hiçbir yere (mail, chat, dosya) yapıştırmayın** — yalnızca aşağıdaki 1. adımda, Supabase'in kendi "Secrets" ekranına gireceksiniz.
 
 ## 0) Ön kontrol — pgcrypto hangi şemada?
 
@@ -37,39 +37,42 @@ where extname = 'pgcrypto';
 - Sonuç `sema = public` ise: Faz 1 SQL'deki `set search_path = public` yeterli, değişiklik gerekmez.
 - Sonuç `sema = extensions` (veya başka bir şema) ise: **bana bildirin** — Faz 1 SQL'indeki `pin_dogrula()` fonksiyonunun `search_path`'ini `public, extensions` (veya ilgili şema) olacak şekilde güncelleyeceğim, aksi halde fonksiyon `crypt`'i bulamaz ve hata verir.
 
-## 1) İzole test Edge Function'ını deploy edin
+## 1) İzole test Edge Function'ını Dashboard'dan oluşturun (CLI YOK)
 
-Kod hazır: `docs/kurulum/ana-proje/pin-girisi-test-faz0/index.ts`
+1. Soldaki menüden **Edge Functions**'a tıklayın.
+2. **"Deploy a new function"** (veya benzer bir "Yeni fonksiyon" / "+" butonu) tıklayın.
+3. İsim olarak tam olarak şunu yazın: `pin-girisi-test-faz0`
+4. Açılan kod editörüne, `docs/kurulum/ana-proje/pin-girisi-test-faz0/index.ts` dosyasının
+   **tüm içeriğini** kopyalayıp yapıştırın (editördeki hazır örnek kodun üzerine, tamamen
+   silip yerine yapıştırın).
+5. "JWT doğrulaması" / "Verify JWT" gibi bir seçenek çıkarsa **KAPALI/off** bırakın (bu
+   test fonksiyonu kendi içinde başka bir doğrulama yapıyor zaten).
+6. **Deploy/Yayınla** butonuna basın. Birkaç saniye sürer, "Deployed" gibi bir onay
+   göreceksiniz.
 
-Bu fonksiyon **gerçek `kullanicilar` tablosuna hiç dokunmaz** — yalnızca verdiğiniz
-e-posta adresine Admin API ile magic-link üretip session'a çevirir ve sonucu JSON
-olarak döner.
+### Secret (gizli anahtar) ekleyin
 
-```bash
-supabase functions deploy pin-girisi-test-faz0 \
-  --project-ref xwytofysmgqtqjzkplfi \
-  --no-verify-jwt
-```
+Aynı Edge Functions bölümünde, genelde fonksiyon listesinin üstünde veya fonksiyona
+tıkladığınızda **"Secrets"** sekmesi/butonu bulunur (bazı sürümlerde Project Settings
+→ Edge Functions altında da olabilir). Orada **"Add new secret"** ile iki tane ekleyin:
 
-(`--no-verify-jwt`: bu fonksiyon kendi içinde yetkilendirme yapmıyor, test amaçlı;
-gerçek [3] fonksiyonunda bu bayrak KULLANILMAYACAK.)
-
-Secret'ları ayarlayın:
-
-```bash
-supabase secrets set TEST_SB_URL=https://xwytofysmgqtqjzkplfi.supabase.co --project-ref xwytofysmgqtqjzkplfi
-supabase secrets set TEST_SERVICE_KEY=<service_role_key> --project-ref xwytofysmgqtqjzkplfi
-```
+| İsim (aynen yazın) | Değer |
+|---|---|
+| `TEST_SB_URL` | `https://xwytofysmgqtqjzkplfi.supabase.co` |
+| `TEST_SERVICE_KEY` | (yukarıdaki Ön koşullar'da bulduğunuz `service_role` anahtarı — olduğu gibi yapıştırın) |
 
 ## 2) Atılabilir test kullanıcısı oluşturun
 
-**Gerçek bir kullanıcı/hesap KULLANMAYIN.** Supabase Dashboard → Authentication →
-Users → "Add user" ile, gerçek verilerle çakışmayan bir e-posta ile yeni bir kullanıcı
-oluşturun, örn:
+**Gerçek bir kullanıcı/hesap KULLANMAYIN.** Soldaki menüden **Authentication → Users**'a
+gidin, **"Add user"** (sağ üstte) → **"Create new user"** ile, gerçek verilerle
+çakışmayan bir e-posta ile yeni bir kullanıcı oluşturun, örn:
 
 ```
-faz0-test-XXXX@gurok.internal      (XXXX yerine rastgele bir sayı, herhangi bir parola)
+faz0-test-1234@gurok.internal
 ```
+
+(Parola alanına ne yazarsanız yazın, önemi yok — hatta rastgele bir şey yazın, biz bu
+parolayı hiç kullanmayacağız zaten, tam da bunu test ediyoruz.)
 
 `public.kullanicilar` tablosunda bu e-postaya karşılık gelen bir satır **oluşturmanıza
 gerek yok** — test fonksiyonu doğrudan Supabase Auth üzerinde çalışıyor, ERP tablosuyla
@@ -77,11 +80,26 @@ hiç etkileşmiyor.
 
 ## 3) Test fonksiyonunu çağırın
 
-```bash
-curl -X POST "https://xwytofysmgqtqjzkplfi.supabase.co/functions/v1/pin-girisi-test-faz0" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"faz0-test-XXXX@gurok.internal"}'
+**A) Önce Dashboard'da deneyin (varsa en kolay yol):** Edge Functions → az önce
+oluşturduğunuz `pin-girisi-test-faz0` fonksiyonuna tıklayın. Sayfada genelde bir
+**"Invoke"/"Test"** alanı bulunur; burada bir JSON kutusuna şunu yazıp gönder/send
+tuşuna basabilirsiniz:
+```json
+{"email":"faz0-test-1234@gurok.internal"}
 ```
+(`faz0-test-1234` kısmını 2. adımda oluşturduğunuz gerçek test e-postasıyla değiştirin.)
+
+**B) Böyle bir test alanı göremezseniz — Windows'ta PowerShell ile (kurulum gerekmez):**
+Başlat menüsüne "powershell" yazıp Enter'a basın, açılan pencereye aşağıdaki **3 satırı
+olduğu gibi kopyalayıp yapıştırın**, yalnızca `faz0-test-1234@gurok.internal` kısmını
+kendi test e-postanızla değiştirin, sonra Enter'a basın:
+
+```powershell
+$body = @{ email = "faz0-test-1234@gurok.internal" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "https://xwytofysmgqtqjzkplfi.supabase.co/functions/v1/pin-girisi-test-faz0" -ContentType "application/json" -Body $body
+```
+
+Ekrana dökülen sonucu (yukarıdaki JSON) aynen bana gönderin.
 
 ### Beklenen BAŞARILI yanıt:
 
@@ -112,11 +130,14 @@ durumda:
 2. `mesaj` "insufficient_scope" veya benzeri bir yetki hatasıysa: kullandığınız key'in
    gerçekten `service_role` olduğunu (anon key değil) teyit edin.
 
-## 4) Sonuç ne olursa olsun temizlik
+## 4) Sonuç ne olursa olsun temizlik (Dashboard'da)
 
-- Test Edge Function'ını Dashboard'dan **silin**: `supabase functions delete pin-girisi-test-faz0 --project-ref xwytofysmgqtqjzkplfi`
-- `TEST_SB_URL` / `TEST_SERVICE_KEY` secret'larını silin.
-- Test kullanıcısını (`faz0-test-XXXX@gurok.internal`) Authentication → Users'tan silin.
+- **Edge Functions** → `pin-girisi-test-faz0` fonksiyonunun yanındaki menüden (üç nokta
+  `⋯` veya çöp kutusu ikonu) **Delete/Sil**.
+- Az önce eklediğiniz `TEST_SB_URL` / `TEST_SERVICE_KEY` secret'larını Secrets
+  ekranından silin.
+- **Authentication → Users** → `faz0-test-1234@gurok.internal` test kullanıcısını
+  bulup silin.
 
 ## 5) Bana bildirin
 
