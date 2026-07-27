@@ -17,8 +17,16 @@ service-role key gerektirdiği için bu adımlar sizin elinizde kalmalı.
 ## Ön koşullar
 
 - Supabase Dashboard'a (https://supabase.com/dashboard) tarayıcıdan giriş, ana proje seçili.
-- **Supabase CLI/terminal GEREKMİYOR** — bu adımların tamamı Dashboard'da fare ile yapılır. Test çağrısı için tek istisna: Windows'ta hazır gelen PowerShell'e üç satır kopyala-yapıştır (aşağıda tam metniyle var, hiçbir şey kurmanıza gerek yok).
-- Ana projenin **service_role key**'i: Dashboard'da soldaki menüden **Project Settings → API** → sayfada "service_role" yazan satırdaki anahtar (uzun bir metin, "Reveal"/göz ikonuna tıklayınca görünür). **Bu anahtarı hiçbir yere (mail, chat, dosya) yapıştırmayın** — yalnızca aşağıdaki 1. adımda, Supabase'in kendi "Secrets" ekranına gireceksiniz.
+- **Supabase CLI KULLANILMIYOR.** Bar fonksiyonlarında (hyper-api/smooth-service/
+  rapid-handler) kullandığınız **aynı "Via Editor" akışı** — Dashboard'da kod kutusuna
+  yapıştır, deploy et.
+- **Secret eklemenize gerek YOK** (bu, önceki sürümden fark — aşağıda açıklandı):
+  Supabase her Edge Function'a `SUPABASE_URL` ve `SUPABASE_SERVICE_ROLE_KEY`'i zaten
+  otomatik olarak veriyor, bu fonksiyon doğrudan onları okuyor.
+- **ÇOK ÖNEMLİ (daha önce yaşadığınız sorun):** "Via Editor" kutusuna **YALNIZCA**
+  `index.ts` dosyasının kod içeriğini yapıştırın. Bu rehberdeki açıklama/talimat
+  metinlerini, başlıkları vb. **asla** koda karıştırmayın — karışırsa bundle hatası
+  verir ve deploy eski sürümde takılı kalır.
 
 ## 0) Ön kontrol — pgcrypto hangi şemada?
 
@@ -37,29 +45,26 @@ where extname = 'pgcrypto';
 - Sonuç `sema = public` ise: Faz 1 SQL'deki `set search_path = public` yeterli, değişiklik gerekmez.
 - Sonuç `sema = extensions` (veya başka bir şema) ise: **bana bildirin** — Faz 1 SQL'indeki `pin_dogrula()` fonksiyonunun `search_path`'ini `public, extensions` (veya ilgili şema) olacak şekilde güncelleyeceğim, aksi halde fonksiyon `crypt`'i bulamaz ve hata verir.
 
-## 1) İzole test Edge Function'ını Dashboard'dan oluşturun (CLI YOK)
+## 1) İzole test Edge Function'ını "Via Editor" ile oluşturun (bar fonksiyonlarıyla aynı akış)
 
-1. Soldaki menüden **Edge Functions**'a tıklayın.
-2. **"Deploy a new function"** (veya benzer bir "Yeni fonksiyon" / "+" butonu) tıklayın.
-3. İsim olarak tam olarak şunu yazın: `pin-girisi-test-faz0`
-4. Açılan kod editörüne, `docs/kurulum/ana-proje/pin-girisi-test-faz0/index.ts` dosyasının
-   **tüm içeriğini** kopyalayıp yapıştırın (editördeki hazır örnek kodun üzerine, tamamen
-   silip yerine yapıştırın).
-5. "JWT doğrulaması" / "Verify JWT" gibi bir seçenek çıkarsa **KAPALI/off** bırakın (bu
-   test fonksiyonu kendi içinde başka bir doğrulama yapıyor zaten).
-6. **Deploy/Yayınla** butonuna basın. Birkaç saniye sürer, "Deployed" gibi bir onay
-   göreceksiniz.
+1. Dashboard → sol menü **Edge Functions**.
+2. **"Deploy a new function"** → **"Via Editor"** seçeneğini seçin (bar fonksiyonlarında
+   kullandığınızın aynısı).
+3. Fonksiyon adı: `pin-girisi-test-faz0` (aynen bu şekilde yazın, tire ile).
+4. Açılan kod kutusundaki hazır örnek kodu **tamamen silin**, yerine bilgisayarınızdaki
+   `docs/kurulum/ana-proje/pin-girisi-test-faz0/index.ts` dosyasını bir metin editöründe
+   açıp **tüm içeriğini** kopyalayıp yapıştırın.
+   **Kutuya SADECE bu kodu yapıştırın — bu rehberdeki hiçbir açıklama/başlık metnini
+   koda karıştırmayın** (karışırsa bundle hatası verip eski sürümde takılı kalır).
+5. "Enforce JWT Verification" (veya "Verify JWT") gibi bir seçenek/anahtar görürseniz
+   **KAPALI** bırakın — bu test fonksiyonu yetkilendirmeyi kendi içinde yapıyor, dışarıdan
+   ayrıca bir giriş JWT'si gerektirmemeli.
+6. **Deploy** butonuna basın. Birkaç saniye sürer, "Deployed"/yeşil onay göreceksiniz.
 
-### Secret (gizli anahtar) ekleyin
-
-Aynı Edge Functions bölümünde, genelde fonksiyon listesinin üstünde veya fonksiyona
-tıkladığınızda **"Secrets"** sekmesi/butonu bulunur (bazı sürümlerde Project Settings
-→ Edge Functions altında da olabilir). Orada **"Add new secret"** ile iki tane ekleyin:
-
-| İsim (aynen yazın) | Değer |
-|---|---|
-| `TEST_SB_URL` | `https://xwytofysmgqtqjzkplfi.supabase.co` |
-| `TEST_SERVICE_KEY` | (yukarıdaki Ön koşullar'da bulduğunuz `service_role` anahtarı — olduğu gibi yapıştırın) |
+**Secret eklemenize gerek YOK** — Supabase bu fonksiyona `SUPABASE_URL` ve
+`SUPABASE_SERVICE_ROLE_KEY`'i kendiliğinden veriyor, kod bunları doğrudan okuyor.
+(Bir önceki sürümde `TEST_SB_URL`/`TEST_SERVICE_KEY` secret'ı eklemenizi istemiştim —
+buna artık gerek yok, kodu buna göre güncelledim.)
 
 ## 2) Atılabilir test kullanıcısı oluşturun
 
@@ -133,9 +138,8 @@ durumda:
 ## 4) Sonuç ne olursa olsun temizlik (Dashboard'da)
 
 - **Edge Functions** → `pin-girisi-test-faz0` fonksiyonunun yanındaki menüden (üç nokta
-  `⋯` veya çöp kutusu ikonu) **Delete/Sil**.
-- Az önce eklediğiniz `TEST_SB_URL` / `TEST_SERVICE_KEY` secret'larını Secrets
-  ekranından silin.
+  `⋯` veya çöp kutusu ikonu) **Delete/Sil**. (Secret eklemediğimiz için silinecek başka
+  bir şey yok.)
 - **Authentication → Users** → `faz0-test-1234@gurok.internal` test kullanıcısını
   bulup silin.
 

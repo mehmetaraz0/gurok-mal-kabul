@@ -10,9 +10,9 @@
 // gerçek bir session'a çevir → üretilen access_token'ı /auth/v1/user'a göndererek
 // GERÇEKTEN geçerli bir JWT olduğunu (doğru kullanıcıya çözüldüğünü) teyit et.
 //
-// Secret (deploy öncesi ayarlanmalı):
-//   TEST_SB_URL      → ana proje Supabase URL'i (supabase-config.js'deki SB_URL ile aynı)
-//   TEST_SERVICE_KEY → ana projenin service_role key'i (Supabase Dashboard → Settings → API)
+// Secret GEREKMİYOR: Supabase her Edge Function'a otomatik olarak SUPABASE_URL ve
+// SUPABASE_SERVICE_ROLE_KEY ortam değişkenlerini enjekte eder (Dashboard'da elle
+// secret eklemenize gerek yok, bu isimler Supabase tarafında ayrılmış/rezerve).
 //
 // NOT: generateLink/verifyOtp'ın döndürdüğü alan adları (ör. hashed_token) kullanılan
 // @supabase/supabase-js sürümüne göre değişebilir. Bu fonksiyon bu yüzden her adımda
@@ -38,8 +38,8 @@ Deno.serve(async (req) => {
     const { email } = body ?? {};
     if (!email) return json({ ok: false, adim: "istek", mesaj: "email zorunlu (test kullanıcısının e-postası)" }, 400, cors);
 
-    const TEST_SB_URL = Deno.env.get("TEST_SB_URL")!;
-    const TEST_SERVICE_KEY = Deno.env.get("TEST_SERVICE_KEY")!;
+    const TEST_SB_URL = Deno.env.get("SUPABASE_URL")!;
+    const TEST_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const admin = createClient(TEST_SB_URL, TEST_SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
