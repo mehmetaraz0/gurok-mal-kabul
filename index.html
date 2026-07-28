@@ -175,6 +175,7 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 .tab-app-content { flex: 1; position: relative; overflow: hidden; }
 .tab-app-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: none; display: none; background: #fff; }
 .tab-app-frame.active { display: block; }
+#tab-panel-home { background: var(--gray-100); }
 
 .welcome-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
 .welcome-row h2 { font-size: 19px; font-weight: 700; color: var(--primary); letter-spacing: -.01em; }
@@ -424,6 +425,11 @@ const MODULLER = [
     id: 'trendler', ad: 'Trendler', desc: 'Stok, tüketim ve food-cost eğilimleri',
     url: 'trend-raporlama.html', moduller: ['trend_raporlama'], durum: 'aktif',
     svg: '<path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/>'
+  },
+  {
+    id: 'urunYonetimi', ad: 'Ürün Yönetimi', desc: 'Ürün kategorileri, sınıflandırma',
+    url: 'urun-yonetimi.html', moduller: ['stok_takip'], durum: 'aktif',
+    svg: '<path d="M20.5 7.5 12 3 3.5 7.5 12 12l8.5-4.5Z"/><path d="M3.5 7.5v9L12 21l8.5-4.5v-9"/><path d="M12 12v9"/>'
   }
 ];
 
@@ -662,26 +668,37 @@ function escapeHtmlSekme(s) {
 
 function sekmeEklePaneliAc() {
   const eski = document.getElementById('sekme-ekle-panel');
-  if (eski) { eski.remove(); return; }
+  if (eski) { sekmeEklePaneliKapat(); return; }
+  // Modül sekmesi (iframe) aktifken içindeki tıklamalar üst document'e
+  // yayılmaz, bu yüzden "dışına tıklayınca kapat" document click-listener
+  // ile güvenilir çalışmaz. nav-drawer.js'deki #nd-overlay deseniyle aynı
+  // yaklaşım: tüm viewport'u kaplayan görünmez bir overlay ekle — iframe'in
+  // önünde render edildiği için tıklama iframe'e ulaşmadan overlay'e düşer.
+  const overlay = document.createElement('div');
+  overlay.id = 'sekme-ekle-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:499;background:transparent';
+  overlay.onclick = sekmeEklePaneliKapat;
   const panel = document.createElement('div');
   panel.id = 'sekme-ekle-panel';
   panel.style.cssText = 'position:fixed;top:96px;right:20px;background:#fff;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:8px;z-index:500;min-width:220px;max-height:70vh;overflow-y:auto';
   const aktifModuller = GORUNUR_MODULLER.filter(m => m.durum === 'aktif');
   panel.innerHTML = aktifModuller.length
     ? aktifModuller.map(m => `
-        <div onclick="sekmeAc({ad:'${m.ad}',url:'${m.url}'});document.getElementById('sekme-ekle-panel').remove();"
+        <div onclick="sekmeAc({ad:'${m.ad}',url:'${m.url}'});sekmeEklePaneliKapat();"
              style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--primary)"
              onmouseover="this.style.background='var(--gray-100)'" onmouseout="this.style.background='transparent'">
           ${iconSvg(m.svg)}${m.ad}
         </div>`).join('')
     : '<div style="padding:12px;font-size:12.5px;color:var(--gray-500)">Açılabilecek modül yok</div>';
+  document.body.appendChild(overlay);
   document.body.appendChild(panel);
-  setTimeout(() => document.addEventListener('click', function disKapat(e) {
-    if (!panel.contains(e.target) && !e.target.closest('#tab-app-add-btn')) {
-      panel.remove();
-      document.removeEventListener('click', disKapat);
-    }
-  }), 0);
+}
+
+function sekmeEklePaneliKapat() {
+  const panel = document.getElementById('sekme-ekle-panel');
+  const overlay = document.getElementById('sekme-ekle-overlay');
+  if (panel) panel.remove();
+  if (overlay) overlay.remove();
 }
 
 window.addEventListener('beforeunload', e => {
