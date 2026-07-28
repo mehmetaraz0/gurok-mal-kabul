@@ -121,7 +121,7 @@ async function ndKur() {
   drawer.id = 'nd-drawer';
   drawer.innerHTML = `
     <div class="nd-brand">
-      <div class="nd-brand-mark">G</div>
+      <div class="nd-brand-mark">A</div>
       <div class="nd-brand-txt"><div class="nd-brand-name">ARAZ</div><div class="nd-brand-sub">Depo Yönetimi</div></div>
     </div>
     <nav class="nd-nav" id="nd-nav"></nav>
