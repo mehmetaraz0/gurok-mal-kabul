@@ -74,6 +74,7 @@ function ndIkon(pathData) {
 
 async function ndKur() {
   if (document.getElementById('nd-drawer')) return; // zaten kurulu
+  if (window.self !== window.top) return; // bir sekme (iframe) içinde çalışıyor — kabuğun kendi sekme çubuğu bu işi görüyor
   const header = document.querySelector('.header');
   if (!header) return;
   const oturum = (typeof oturumGetir === 'function') ? oturumGetir() : null;
