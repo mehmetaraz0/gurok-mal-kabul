@@ -89,12 +89,27 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
 #screen-portal { display: none; min-height: 100vh; }
 #screen-portal.active { display: flex; }
 
-/* Sidebar (desktop, >=900px) */
+/* Sidebar (desktop, >=900px) — açılır/kapanır, varsayılan kapalı */
 .sidebar {
   width: 236px; flex: none; background: var(--primary);
   display: flex; flex-direction: column; padding: 0 0 20px;
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 401;
+  transform: translateX(-100%); transition: transform .22s ease;
+  box-shadow: 2px 0 24px rgba(0,0,0,.35);
 }
+.sidebar.open { transform: translateX(0); }
 @media (max-width: 899px) { .sidebar { display: none; } }
+
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 400; }
+.sidebar-overlay.open { display: block; }
+
+.sidebar-toggle-btn {
+  background: var(--gray-100); border: none; color: var(--primary);
+  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex: none; margin-right: 14px;
+}
+.sidebar-toggle-btn:hover { background: var(--gray-200); }
+@media (max-width: 899px) { .sidebar-toggle-btn { display: none; } }
 
 .sidebar-brand {
   display: flex; align-items: center; gap: 10px;
@@ -321,8 +336,11 @@ html, body { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 
     <div class="sidebar-footer">v1.0 · Araz Turizm Grubu</div>
   </aside>
 
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarKapat()"></div>
+
   <div class="main">
     <div class="topbar">
+      <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="sidebarAc()" title="Menü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div class="topbar-brand"><div class="brand-mark small"><img src="icon-mark.png" alt="Araz" style="width:75%;height:75%;object-fit:contain"></div><span>ARAZ</span></div>
       <div class="crumb">Uygulamalar <b>/ Ana Sayfa</b></div>
       <div class="topbar-user">
@@ -581,11 +599,11 @@ function iconSvg(pathData) {
 
 function renderSidebar(list) {
   const nav = document.getElementById('sidebar-nav');
-  nav.innerHTML = `<a class="sidebar-item active" href="javascript:void(0)" onclick="sekmeSec('home')">${iconSvg('<path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>')}Ana Sayfa</a>` +
+  nav.innerHTML = `<a class="sidebar-item active" href="javascript:void(0)" onclick="sekmeSec('home');sidebarKapat()">${iconSvg('<path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>')}Ana Sayfa</a>` +
     list.map(m => {
       const aktif = m.durum === 'aktif';
       return aktif
-        ? `<a class="sidebar-item" href="javascript:void(0)" onclick="sekmeAc({ad:'${m.ad}',url:'${m.url}'})">${iconSvg(m.svg)}${m.ad}</a>`
+        ? `<a class="sidebar-item" href="javascript:void(0)" onclick="sekmeAc({ad:'${m.ad}',url:'${m.url}'});sidebarKapat()">${iconSvg(m.svg)}${m.ad}</a>`
         : `<span class="sidebar-item disabled">${iconSvg(m.svg)}${m.ad}</span>`;
     }).join('');
 }
@@ -608,6 +626,16 @@ function renderModuleGrid(list) {
     `;
   }).join('');
 }
+
+function sidebarAc() {
+  document.getElementById('sidebar-overlay').classList.add('open');
+  document.querySelector('.sidebar').classList.add('open');
+}
+function sidebarKapat() {
+  document.getElementById('sidebar-overlay').classList.remove('open');
+  document.querySelector('.sidebar').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') sidebarKapat(); });
 
 // ============================================================
 // SEKME SİSTEMİ (uygulama içi, iframe tabanlı) — bkz.

@@ -103,3 +103,21 @@ function pinBasarisizKaydet() {
   localStorage.setItem(PIN_KILIT_ANAHTAR, JSON.stringify(s));
 }
 function pinBasariliTemizle() { localStorage.removeItem(PIN_KILIT_ANAHTAR); }
+
+// Bir modül/hub sayfası bir sekme (iframe) içinde açıldığında, o sayfanın
+// kendi "eve dön" düğmesi (onclick="location.href='index.html'") artık
+// gereksiz VE zararlı — tıklanırsa sekmenin iframe'i kendi içinde ikinci bir
+// index.html (kabuk + Ana Sayfa) açar, "sekmenin içinde sekme" görünümü
+// yaratır. Ana Sayfa zaten sabit bir sekme olarak her zaman bir tık uzakta
+// olduğu için, iframe içindeyken bu düğmeyi tamamen gizliyoruz. Bağımsız
+// (kabuksuz) açılan sayfalarda davranış değişmiyor.
+if (window.self !== window.top) {
+  const eveDonGizle = () => {
+    document.querySelectorAll('[onclick="location.href=\'index.html\'"]').forEach(el => { el.style.display = 'none'; });
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', eveDonGizle);
+  } else {
+    eveDonGizle();
+  }
+}
