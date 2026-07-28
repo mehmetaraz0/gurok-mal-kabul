@@ -105,15 +105,22 @@ function pinBasarisizKaydet() {
 function pinBasariliTemizle() { localStorage.removeItem(PIN_KILIT_ANAHTAR); }
 
 // Bir modül/hub sayfası bir sekme (iframe) içinde açıldığında, o sayfanın
-// kendi "eve dön" düğmesi (onclick="location.href='index.html'") artık
-// gereksiz VE zararlı — tıklanırsa sekmenin iframe'i kendi içinde ikinci bir
-// index.html (kabuk + Ana Sayfa) açar, "sekmenin içinde sekme" görünümü
-// yaratır. Ana Sayfa zaten sabit bir sekme olarak her zaman bir tık uzakta
-// olduğu için, iframe içindeyken bu düğmeyi tamamen gizliyoruz. Bağımsız
-// (kabuksuz) açılan sayfalarda davranış değişmiyor.
+// kendi "eve dön" düğmesi artık gereksiz VE zararlı — tıklanırsa sekmenin
+// iframe'i kendi içinde ikinci bir index.html (kabuk + Ana Sayfa) açar,
+// "sekmenin içinde sekme" görünümü yaratır. Ana Sayfa zaten sabit bir sekme
+// olarak her zaman bir tık uzakta olduğu için, iframe içindeyken bu düğmeyi
+// tamamen gizliyoruz. Sayfalar bu düğmeyi 3 farklı şekilde yazmış:
+// onclick="location.href='index.html'" (çoğu sayfa), href="index.html" olan
+// düz <a> (bar.html), ve ayrı bir gotoPortal() fonksiyonu (stok-takip.html)
+// — üçü de kapsanıyor. Bağımsız (kabuksuz) açılan sayfalarda davranış değişmiyor.
 if (window.self !== window.top) {
   const eveDonGizle = () => {
-    document.querySelectorAll('[onclick="location.href=\'index.html\'"]').forEach(el => { el.style.display = 'none'; });
+    document.querySelectorAll(
+      '[onclick="location.href=\'index.html\'"],' +
+      '[onclick="window.location.href=\'index.html\'"],' +
+      '[onclick="gotoPortal()"],' +
+      'a[href="index.html"]'
+    ).forEach(el => { el.style.display = 'none'; });
   };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', eveDonGizle);
