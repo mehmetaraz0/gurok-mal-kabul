@@ -355,7 +355,7 @@ function renderSPSatirlar(){
       </div>
       <div style="margin-bottom:8px">
         <label style="font-size:11px;font-weight:600;color:var(--gray-600)">TAHMİNİ/ANLAŞILAN FİYAT (₺, opsiyonel)</label>
-        <input type="number" value="${u.tahminiFiyat||''}" placeholder="Bilmiyorsan boş bırak" min="0" step="0.01" oninput="SP_SATIRLAR[${i}].tahminiFiyat=this.value"
+        <input type="number" id="spfiyat${i}" value="${u.tahminiFiyat||''}" placeholder="Bilmiyorsan boş bırak" min="0" step="0.01" oninput="SP_SATIRLAR[${i}].tahminiFiyat=this.value"
           style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
         <div style="font-size:10px;color:var(--gray-500);margin-top:2px">Girilirse, mal kabulde koli bu fiyatla başlar — fatura gelince gerçek fiyatla otomatik güncellenir</div>
       </div>
@@ -391,6 +391,29 @@ function filterSPFirma(i,val){
   dd.style.display='block';
 }
 
+// Ürünün sistem fiyatını çöz: urunler.sistem_fiyat → urun_guncel_fiyat.birim_fiyat → null.
+async function urunFiyatGetir(kod){
+  if(!kod) return null;
+  try{
+    const [uR,fR]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/urunler?select=sistem_fiyat&kod=eq.'+encodeURIComponent(kod),{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/urun_guncel_fiyat?select=birim_fiyat&urun_kodu=eq.'+encodeURIComponent(kod),{headers:SB_HEADERS})
+    ]);
+    const u=uR.ok?(await uR.json())[0]:null;
+    if(u&&u.sistem_fiyat!=null) return parseFloat(u.sistem_fiyat);
+    const f=fR.ok?(await fR.json())[0]:null;
+    if(f&&f.birim_fiyat!=null) return parseFloat(f.birim_fiyat);
+  }catch(e){console.warn(e);}
+  return null;
+}
+// Satırın tahmini fiyatını sistem fiyatından doldur — YALNIZ boşsa (elle gireni ezme).
+async function spFiyatDoldur(idx){
+  const row=SP_SATIRLAR[idx]; if(!row||!row.kod) return;
+  if(row.tahminiFiyat!==''&&row.tahminiFiyat!=null) return;
+  const f=await urunFiyatGetir(row.kod);
+  if(f!=null){ SP_SATIRLAR[idx].tahminiFiyat=f; const el=document.getElementById('spfiyat'+idx); if(el)el.value=f; }
+}
+
 function filterSPUrun(i,val){
   SP_SATIRLAR[i].ad=val;
   const dd=document.getElementById('spdd'+i);
@@ -413,6 +436,7 @@ function filterSPUrun(i,val){
       const sel=document.getElementById('spb'+idx);if(sel)sel.value=this.dataset.birim||'KG';
       const finp=document.getElementById('spf'+idx);
       if(finp&&firma){finp.value=firma.ad;finp.style.borderColor='var(--success)';finp.style.color='var(--success)';finp.style.fontWeight='600';}
+      spFiyatDoldur(idx);
     });
   });
   dd.style.display='block';
@@ -450,6 +474,8 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   if(SP_SATIRLAR.length===0)addSPSatir();
   await birimDonusumHaritasiYukle();
   renderSPSatirlar();
+  // İç Talep'ten/otomatik gelen kalemlerde fiyat boşsa sistem fiyatından doldur.
+  SP_SATIRLAR.forEach((r,i)=>{ if(r.kod && (r.tahminiFiyat===''||r.tahminiFiyat==null)) spFiyatDoldur(i); });
 })();
 </script>
 </body>

@@ -410,20 +410,10 @@ const MODULLER = [
 // ============================================================
 // KULLANICILAR
 // ============================================================
-const DEFAULT_USERS = [
-  { id:1, ad:'Mehmet Araz',     rol:'yonetici',  departman:'Yönetim',    pin:'123456' },
-  { id:2, ad:'Depo Sorumlu',    rol:'depo',      departman:'Depo',       pin:'111111' },
-  { id:3, ad:'Depo Personel',   rol:'depo',      departman:'Depo',       pin:'222222' },
-  { id:4, ad:'Satinalma',       rol:'satinalma', departman:'Satinalma',  pin:'333333' },
-  { id:5, ad:'Kalite Kontrol',  rol:'kalite',    departman:'Kalite',     pin:'444444' },
-  { id:6, ad:'Ana Mutfak Sefi', rol:'mutfak',    departman:'Ana Mutfak', pin:'555555', depoId:'CMM201', otelId:'810' },
-  { id:7, ad:'Bar Sefi',        rol:'bar',       departman:'Bar',        pin:'666666', depoId:'CSM301', otelId:'810' }
-];
-
 const ROL_IKON = { yonetici:'👔', depo:'📦', satinalma:'🛒', kalite:'🔍', mutfak:'🍳', bar:'🍹', muhasebe_muduru:'💼', muhasebe_calisani:'💰', cost_control:'📐' };
 const ROL_AD   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', kalite:'Kalite', mutfak:'Mutfak', bar:'Bar', muhasebe_muduru:'Muhasebe Müdürü', muhasebe_calisani:'Muhasebe', cost_control:'Cost Control' };
 
-let users = [...DEFAULT_USERS];
+let users = [];
 let currentUser = null;
 
 async function loadUsers() {
@@ -451,31 +441,26 @@ function findUserByEmail(email) {
 // PIN
 // ============================================================
 let pinValue = '';
-let _pinAramaSayaci = 0;
 // PIN kilitleme fonksiyonları (pinKilitliMi/pinBasarisizKaydet/pinBasariliTemizle)
 // artık auth-guard.js'de tanımlı (paylaşılan) — burada tekrar tanımlanmıyor.
 
-// PIN eşleştirmesi artık istemci tarafında (herkese açık bir kullanıcı+PIN
-// listesi üzerinden) DEĞİL, PIN'i asla dışarı vermeyen bir SECURITY DEFINER
-// RPC üzerinden yapılır (bkz. docs/kurulum/2026-07-22-pin-rls-duzeltme.sql).
-// Supabase'e erişilemezse (offline vb.) DEFAULT_USERS ile yerel eşleştirmeye
-// düşer — mevcut offline davranış korunur.
-async function pinIleKullaniciAra(girisPin) {
+// PIN doğrulaması ve Auth oturumu üretimi artık TAMAMEN sunucu tarafında,
+// tek bir Edge Function (pin-girisi) üzerinden yapılır: PIN hiçbir zaman
+// Supabase Auth parolası olarak GÖNDERİLMEZ (bkz. docs/kurulum/ana-proje/
+// pin-girisi/index.ts + docs/kurulum/2026-07-27-pin-hash-faz1-hazirlik.sql).
+// Fonksiyon eşleşme yoksa VEYA sunucu taraflı rate-limit'e takılırsa
+// AYIRT ETTİRMEDEN aynı genel hatayı döner (oracle oluşturmamak için).
+async function pinGirisiDogrula(girisPin) {
   try {
-    const r = await fetch(SB_URL + '/rest/v1/rpc/pin_ile_kullanici_ara', {
-      method: 'POST', headers: SB_HEADERS, body: JSON.stringify({ p_giris: girisPin })
+    const r = await fetch(SB_URL + '/functions/v1/pin-girisi', {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: girisPin })
     });
-    if (r.ok) {
-      const data = await r.json();
-      if (Array.isArray(data)) return data.map(u => ({
-        ...u,
-        rol: u.rol === 'personel' ? 'depo' : u.rol,
-        depoId: u.depo_id || u.depoId || null,
-        otelId: u.otel_id || u.otelId || null
-      }));
-    }
-  } catch (e) {}
-  return DEFAULT_USERS.filter(u => String(u.pin).startsWith(girisPin));
+    return await r.json();
+  } catch (e) {
+    return { ok: false, mesaj: 'Sunucuya bağlanılamadı' };
+  }
 }
 
 async function pinInput(d) {
@@ -484,16 +469,8 @@ async function pinInput(d) {
   if (pinValue.length >= 6) return;
   pinValue += d;
   updateDots();
-  const girilenPin = pinValue;
-  const el = document.getElementById('pin-user-show');
-  const errEl = document.getElementById('pin-error');
-  errEl.textContent = '';
-  if (girilenPin.length < 3) { el.textContent = ''; return; }
-  const sayac = ++_pinAramaSayaci;
-  const eslesenler = await pinIleKullaniciAra(girilenPin);
-  if (sayac !== _pinAramaSayaci) return; // daha yeni bir tuşa basılmış, bu sonucu yok say
-  el.textContent = (eslesenler.length === 1) ? ((ROL_IKON[eslesenler[0].rol]||'👤') + ' ' + eslesenler[0].ad) : '';
-  if (girilenPin.length === 6) setTimeout(() => checkPin(eslesenler), 200);
+  document.getElementById('pin-error').textContent = '';
+  if (pinValue.length === 6) setTimeout(() => checkPin(), 200);
 }
 
 function pinDelete() {
@@ -508,57 +485,26 @@ function updateDots() {
   }
 }
 
-async function supabaseAuthKoprusu(user, pin) {
-  const email = user.id + '@' + DAHILI_EMAIL_DOMAIN;
-  const password = pin;
-  try {
-    if (!user.auth_user_id) {
-      const r = await fetch(SB_URL + '/auth/v1/signup', {
-        method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      if (!r.ok) { console.error('Supabase Auth signup hatası:', await r.text()); return null; }
-      const data = await r.json();
-      const authUserId = data.user?.id;
-      const accessToken = data.access_token;
-      if (authUserId) {
-        await fetch(SB_URL + '/rest/v1/kullanicilar?id=eq.' + user.id, {
-          method: 'PATCH', headers: SB_HEADERS,
-          body: JSON.stringify({ auth_user_id: authUserId })
-        });
-      }
-      return accessToken || null;
-    } else {
-      const r = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
-        method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      if (!r.ok) { console.error('Supabase Auth signin hatası:', await r.text()); return null; }
-      const data = await r.json();
-      return data.access_token || null;
-    }
-  } catch (e) { console.error('supabaseAuthKoprusu hatası:', e); return null; }
-}
-
-async function checkPin(eslesenler) {
+async function checkPin() {
   const girilenPin = pinValue;
-  const adaylar = eslesenler || await pinIleKullaniciAra(girilenPin);
-  const user = adaylar[0];
-  if (!user) {
+  const sonuc = await pinGirisiDogrula(girilenPin);
+  if (!sonuc || !sonuc.ok) {
     pinBasarisizKaydet();
-    const kalanSn=pinKilitliMi();
+    const kalanSn = pinKilitliMi();
     const errEl = document.getElementById('pin-error');
-    errEl.textContent = kalanSn>0?`🔒 Çok fazla hatalı deneme — ${kalanSn} sn kilitlendi`:'❌ Hatalı PIN';
-    setTimeout(() => errEl.textContent = '', kalanSn>0?4000:2000);
+    errEl.textContent = kalanSn > 0
+      ? `🔒 Çok fazla hatalı deneme — ${kalanSn} sn kilitlendi`
+      : '❌ ' + (sonuc?.mesaj || 'Hatalı PIN');
+    setTimeout(() => errEl.textContent = '', kalanSn > 0 ? 4000 : 2000);
     pinValue = '';
     updateDots();
     document.getElementById('pin-user-show').textContent = '';
     return;
   }
   pinBasariliTemizle();
-  currentUser = user;
-  const accessToken = await supabaseAuthKoprusu(user, girilenPin);
-  oturumKaydet(user, accessToken);
+  currentUser = sonuc.kullanici;
+  oturumKaydet(currentUser, sonuc.access_token);
+  sbHeaderlarYenile(sonuc.access_token);
   const params = new URLSearchParams(location.search);
   const returnTo = params.get('returnTo');
   if (returnTo && /^[a-z0-9_-]+\.html(\?[^#]*)?(#.*)?$/i.test(returnTo)) {
