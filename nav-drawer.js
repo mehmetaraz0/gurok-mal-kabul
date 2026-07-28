@@ -1,4 +1,4 @@
-// nav-drawer.js — Gürok ERP paylaşılan uygulama-içi hızlı geçiş menüsü.
+// nav-drawer.js — Araz ERP paylaşılan uygulama-içi hızlı geçiş menüsü.
 // index.html DIŞINDAKİ her modül sayfası bunu <head> içinde auth-guard.js
 // ve supabase-config.js'den SONRA yükler. Her sayfanın header'ına bir
 // hamburger düğmesi ekleyip, tüm modülleri listeleyen kaydırmalı bir
@@ -122,10 +122,10 @@ async function ndKur() {
   drawer.innerHTML = `
     <div class="nd-brand">
       <div class="nd-brand-mark">G</div>
-      <div class="nd-brand-txt"><div class="nd-brand-name">GÜROK</div><div class="nd-brand-sub">Depo Yönetimi</div></div>
+      <div class="nd-brand-txt"><div class="nd-brand-name">ARAZ</div><div class="nd-brand-sub">Depo Yönetimi</div></div>
     </div>
     <nav class="nd-nav" id="nd-nav"></nav>
-    <div class="nd-footer">v1.0 · Gürok Turizm Grubu</div>`;
+    <div class="nd-footer">v1.0 · Araz Turizm Grubu</div>`;
 
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);

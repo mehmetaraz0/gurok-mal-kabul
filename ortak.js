@@ -1,4 +1,4 @@
-// ortak.js — Gürok ERP paylaşılan UI yardımcıları (sLD/hLD/toast/escapeHtml/
+// ortak.js — Araz ERP paylaşılan UI yardımcıları (sLD/hLD/toast/escapeHtml/
 // round2/kModal/aModal) ve XLSX kütüphane yükleyici. Sayfalar bunu <head>
 // içinde auth-guard.js'den SONRA, senkron olarak yükler.
 //

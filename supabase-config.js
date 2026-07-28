@@ -1,4 +1,4 @@
-// supabase-config.js — Gürok ERP paylaşılan Supabase bağlantı sabitleri.
+// supabase-config.js — Araz ERP paylaşılan Supabase bağlantı sabitleri.
 // Sayfalar bunu <head> içinde auth-guard.js'den SONRA, senkron olarak yükler
 // (ortak.js/onay-motoru.js/efatura-adapter.js gibi SB_URL/SB_HEADERS'a
 // bağımlı diğer paylaşılan dosyalardan ÖNCE gelmeli).

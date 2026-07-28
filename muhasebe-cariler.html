@@ -13,7 +13,7 @@ let OTURUM_KULLANICI = requireLogin();
 if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma','muhasebe_muduru','muhasebe_calisani','cost_control']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — Cari Hesaplar</title>
+<title>Araz — Cari Hesaplar</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -857,7 +857,7 @@ function renderMutabakat(){
 // ============================================================
 async function firmaDBaktar(){
   if(!window.FIRMA_DB){
-    const s=document.createElement('script');s.src='gurok_veritabani.js';document.head.appendChild(s);
+    const s=document.createElement('script');s.src='araz_veritabani.js';document.head.appendChild(s);
     await new Promise(r=>{s.onload=r;s.onerror=r;setTimeout(r,5000);});
   }
   if(!window.FIRMA_DB||!window.FIRMA_DB.length){toast('⚠️ FIRMA_DB yüklenemedi');return;}

@@ -10,7 +10,7 @@
 <script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — Stok Takip</title>
+<title>Araz — Stok Takip</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 :root {
@@ -413,7 +413,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <div id="loading"><div class="spinner"></div><div style="font-size:13px;">Yükleniyor...</div></div>
 
 <!-- Not: FIRMA_DB/URUN_DB artık kullanılmıyor — firma ve ürün verisi artık Supabase'den canlı çekiliyor (bkz. loadDB). Script include zararsız, dosyada başka global tanım varsa diye kaldırılmadı. -->
-<script src="gurok_veritabani.js"></script>
+<script src="araz_veritabani.js"></script>
 
 <script>
 // ============================================================
@@ -1799,7 +1799,7 @@ function iadeBelgeYazdir(siparisNo){
   <table><tr><th>#</th><th>Ürün</th><th>Miktar</th><th>Birim</th></tr>
   ${s.kalemler.map((k,i)=>`<tr><td>${i+1}</td><td>${k.ad}</td><td>${k.miktar}</td><td>${k.birim}</td></tr>`).join('')}
   </table>
-  <p style="margin-top:24px;font-size:11px;color:#888;">Gürok ERP — Stok Takip modülünden otomatik oluşturulmuştur.</p>
+  <p style="margin-top:24px;font-size:11px;color:#888;">Araz ERP — Stok Takip modülünden otomatik oluşturulmuştur.</p>
   </body></html>`);
   w.document.close();
   w.print();

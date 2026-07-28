@@ -13,7 +13,7 @@ let currentUser = requireLogin();
 if (currentUser) requireRole(currentUser, ['yonetici','depo','satinalma','kalite']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — LN Export</title>
+<title>Araz — LN Export</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -283,7 +283,7 @@ function buildMkFormuXlsx(liste,sktMap,uygunsuzMap,bas,bit){
     XLSX.utils.book_append_sheet(wb,ws,sayfaAdi);
   }
 
-  XLSX.writeFile(wb,`gurok_malkabul_${bas}_${bit}.xlsx`);
+  XLSX.writeFile(wb,`araz_malkabul_${bas}_${bit}.xlsx`);
   toast(`✅ Resmi form indirildi — ${toplamSayfa} sayfa`);
 }
 

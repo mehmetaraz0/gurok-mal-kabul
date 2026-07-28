@@ -12,7 +12,7 @@ let CU = requireLogin();
 if (CU) requireRole(CU, ['yonetici','satinalma','depo']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — LN Siparişler</title>
+<title>Araz — LN Siparişler</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 :root{--accent:#c9a24b}
@@ -213,7 +213,7 @@ function openLNDetay(siparisNo){
 
 function lnEksikleriAktar(siparisNo){
   // Mal kabul modülüne yönlendir (mal-kabul-v2.html — initApp() bu anahtarı okuyup siparişi otomatik yükler)
-  sessionStorage.setItem('gurok_malkabul_siparisNo',siparisNo);
+  sessionStorage.setItem('araz_malkabul_siparisNo',siparisNo);
   location.href='mal-kabul-v2.html';
 }
 

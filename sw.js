@@ -1,4 +1,4 @@
-const CACHE = 'gurok-mal-kabul-v2';
+const CACHE = 'araz-erp-v2';
 // icon.svg repoda yok (icon.png var) — addAll tek dosyada bile başarısız olursa
 // TÜM cache kurulumu reddedilir, bu yüzden yalnızca gerçekten var olan dosyalar listelenmeli.
 const FILES = ['./index.html', './manifest.json', './icon.png'];

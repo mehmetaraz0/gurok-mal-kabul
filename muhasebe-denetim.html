@@ -12,7 +12,7 @@ let OTURUM_KULLANICI = requireLogin();
 if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma','muhasebe_muduru','muhasebe_calisani','cost_control']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — Denetim İzi</title>
+<title>Araz — Denetim İzi</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -152,7 +152,7 @@ async function loadDB(){
 }
 
 // Dışarıdan çağrılabilir global fonksiyon — diğer modüller bunu kullanacak
-window.gurokAuditLog = async function(action, entityType, entityId, detail, userName){
+window.arazAuditLog = async function(action, entityType, entityId, detail, userName){
   const log = {
     action:action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',
     kullanici_ad:userName||OTURUM_KULLANICI?.ad||'Bilinmeyen'
@@ -164,7 +164,7 @@ window.gurokAuditLog = async function(action, entityType, entityId, detail, user
 };
 
 // Dönem kontrolü — diğer modüller işlem öncesi bunu çağırır
-window.gurokDonemAcikMi = async function(tarihMs){
+window.arazDonemAcikMi = async function(tarihMs){
   try{
     const r = await fetch(SB_URL+'/rest/v1/mali_donemler?select=*',{headers:SB_HEADERS});
     if(!r.ok) return {acik:true}; // veri yoksa engelleme
@@ -264,7 +264,7 @@ async function donemOlustur(){
     id=d[0].id;
     donemler[id]={id,...satir};
   }catch(e){console.warn(e);}
-  await window.gurokAuditLog('create','donem',id,`Mali dönem oluşturuldu: ${ad} (${bas} - ${bit})`);
+  await window.arazAuditLog('create','donem',id,`Mali dönem oluşturuldu: ${ad} (${bas} - ${bit})`);
   hLD();
   document.getElementById('d-ad').value='';
   document.getElementById('d-yil').value='';
@@ -285,7 +285,7 @@ async function donemDurumDegistir(id,yeniDurum){
   sLD();
   d.durum=yeniDurum;
   try{await fetch(SB_URL+'/rest/v1/mali_donemler?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:yeniDurum})});}catch(e){console.warn(e);}
-  await window.gurokAuditLog('period',d.id,id,`Mali dönem ${yeniDurum==='kapali'?'kapatıldı':'açıldı'}: ${d.ad}`);
+  await window.arazAuditLog('period',d.id,id,`Mali dönem ${yeniDurum==='kapali'?'kapatıldı':'açıldı'}: ${d.ad}`);
   hLD();
   renderDonemler();
   renderLog();

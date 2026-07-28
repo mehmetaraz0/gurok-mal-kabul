@@ -6,14 +6,14 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
-<script src="gurok_veritabani.js"></script>
+<script src="araz_veritabani.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let CU = requireLogin();
 if (CU) requireRole(CU, ['yonetici','satinalma','depo','cost_control']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — Sipariş Oluştur</title>
+<title>Araz — Sipariş Oluştur</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 :root{--accent:#c9a24b}
@@ -108,7 +108,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <script>
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 // sLD/hLD/toast/escapeHtml/round2/kModal/aModal/loadXlsxLib -> ortak.js
-// FIRMA_DB/URUN_DB -> gurok_veritabani.js
+// FIRMA_DB/URUN_DB -> araz_veritabani.js
 // Not: spSifirla() burada YOK — kaynak dosyada da var olmayan DOM id'lerine
 // (sp-firma-inp/sp-firma-id/sp-not) referans veren, zaten çalışmayan bir
 // fonksiyondu (Faz 2 planında bilinçli olarak taşınmadı, davranış aynı kalır).
@@ -271,7 +271,7 @@ function spPDF(gi){
     .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:8px}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style></head><body>
-  <h2>Gürok Turizm Grubu</h2>
+  <h2>Araz Turizm Grubu</h2>
   <div class="sub">Sipariş Formu</div>
   <div class="info">
     <div><label>Sipariş No</label><span>${g.siparisNo||'—'}</span></div>
@@ -294,7 +294,7 @@ function spPDF(gi){
     <div><div style="font-size:11px;font-weight:bold;margin-bottom:30px">Satın Alma Sorumlusu</div><div style="border-bottom:1px solid #000;margin-bottom:6px"></div><div style="font-size:10px">${CU.ad}</div></div>
     <div><div style="font-size:11px;font-weight:bold;margin-bottom:30px">Tedarikçi Yetkilisi</div><div style="border-bottom:1px solid #000;margin-bottom:6px"></div><div style="font-size:10px">İmza / Tarih</div></div>
   </div>
-  <div class="footer">Gürok Turizm Grubu — Satın Alma Sistemi • ${new Date().toLocaleString('tr-TR')}</div>
+  <div class="footer">Araz Turizm Grubu — Satın Alma Sistemi • ${new Date().toLocaleString('tr-TR')}</div>
   <script>window.onload=function(){window.print();}<\/script>
   </body></html>`;
   const w=window.open('','_blank','width=800,height=1100');
@@ -309,7 +309,7 @@ function spMail(gi){
   const firma=DB.firmalar.find(f=>f.id==g.firmaId||f.ad===g.firmaAd);
   const mail=firma?.mail||'';
   const kalemler=g.kalemler.map((k,i)=>`${i+1}. ${k.ad} — ${k.miktar} ${k.birim}`).join('\n');
-  const body=`Sayın ${g.firmaAd},\n\nSipariş No: ${g.siparisNo||'—'}\n\nAşağıdaki ürünler için fiyat teklifinizi bekliyoruz:\n\n${kalemler}\n\nSipariş Tarihi: ${tarih}${termin?'\nTermin Tarihi: '+termin:''}\n\nSaygılarımızla,\n${CU.ad}\nGürok Turizm Grubu`;
+  const body=`Sayın ${g.firmaAd},\n\nSipariş No: ${g.siparisNo||'—'}\n\nAşağıdaki ürünler için fiyat teklifinizi bekliyoruz:\n\n${kalemler}\n\nSipariş Tarihi: ${tarih}${termin?'\nTermin Tarihi: '+termin:''}\n\nSaygılarımızla,\n${CU.ad}\nAraz Turizm Grubu`;
   const subject=encodeURIComponent(`Sipariş ${g.siparisNo||''} — ${g.firmaAd} — ${tarih}`);
   window.open(`mailto:${mail}?subject=${subject}&body=${encodeURIComponent(body)}`);
 }

@@ -13,7 +13,7 @@ let OTURUM_KULLANICI = requireLogin();
 if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma','muhasebe_muduru','muhasebe_calisani','cost_control']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gürok — Hesap Planı</title>
+<title>Araz — Hesap Planı</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 /* --radius/--shadow bilerek tema.css'ten farklı (8px/8px, ortak 12px/12px değil) — sayfaya özel override */
@@ -132,7 +132,7 @@ td:first-child{min-width:90px}
     <h1>Hesap Planı — Tekdüzen Hesap Planı (THP)</h1>
     <button class="hbtn primary" onclick="openYeniHesap()">Yeni Hesap</button>
     <button class="hbtn" onclick="thpYukle()">THP Yükle</button>
-    <button class="hbtn" onclick="gurokYukle()" style="background:#ede4e6">Gürok Özel</button>
+    <button class="hbtn" onclick="arazYukle()" style="background:#ede4e6">Araz Özel</button>
     <button class="hbtn" onclick="exportExcel()">Excel</button>
   </div>
 
@@ -162,7 +162,7 @@ td:first-child{min-width:90px}
       <span class="filtre-chip gelir" id="fc-gelir" onclick="filterTip('Gelir Tablosu',this)">Gelir T.</span>
       <span class="filtre-chip maliyet" id="fc-maliyet" onclick="filterTip('Maliyet',this)">Maliyet</span>
       <span class="filtre-chip nazim" id="fc-nazim" onclick="filterTip('Nazım',this)">Nazım</span>
-      <span class="filtre-chip" id="fc-gurok" style="background:#ede4e6;color:#7a4a56;border-color:#c9a9b3" onclick="filterGrup('Gürok Özel',this)">Gürok Özel</span>
+      <span class="filtre-chip" id="fc-araz" style="background:#ede4e6;color:#7a4a56;border-color:#c9a9b3" onclick="filterGrup('Araz Özel',this)">Araz Özel</span>
       <span class="filtre-chip" id="fc-as60" style="background:#e4eef2;color:#2f5568;border-color:#9fb8c4" onclick="filterAltSeviye('60',this)">60</span>
       <span class="filtre-chip" id="fc-as70" style="background:#fff7ed;color:#9a3412;border-color:#fdba74" onclick="filterAltSeviye('70',this)">70</span>
     </div>
@@ -593,95 +593,95 @@ const THP_ANA=[
   ["959","KANUNEN KABUL ED.GID.KARŞ(-)","Nazım","Nazım","Borç","",""],
 ];
 
-const GUROK_OZEL=[
-  ["1001","MUHASEBE KASA","Bilanço","Gürok Özel","Borç","",""],
-  ["1002","ONBURO KASA","Bilanço","Gürok Özel","Borç","",""],
-  ["1011","PORTFOYDEKI CEKLER","Bilanço","Gürok Özel","Borç","",""],
-  ["1012","ONBURO PORTFOY CEKLERI","Bilanço","Gürok Özel","Borç","",""],
-  ["1013","TAHSILDEKI CEKLER","Bilanço","Gürok Özel","Borç","",""],
-  ["1019","DIGER CEKLER","Bilanço","Gürok Özel","Borç","",""],
-  ["1021","BANKALAR VADESIZ","Bilanço","Gürok Özel","Borç","",""],
-  ["1022","BANKALAR VADELI","Bilanço","Gürok Özel","Borç","",""],
-  ["1029","BANKALAR ARA HESABI","Bilanço","Gürok Özel","Borç","",""],
-  ["1080","DIGER HAZIR DEGERLER (TL)","Bilanço","Gürok Özel","Borç","",""],
-  ["1081","DIGER HAZIR DEGERLER (EUR)","Bilanço","Gürok Özel","Borç","",""],
-  ["1082","DIGER HAZIR DEGERLER (USD)","Bilanço","Gürok Özel","Borç","",""],
-  ["1083","DIGER HAZIR DEGERLER (GBP)","Bilanço","Gürok Özel","Borç","",""],
-  ["1089","DIGER HAZIR DEGERLER","Bilanço","Gürok Özel","Borç","",""],
-  ["1201","ALICILAR ACENTE","Bilanço","Gürok Özel","Borç","",""],
-  ["1202","ALICILAR SELF","Bilanço","Gürok Özel","Borç","",""],
-  ["1208","ALICILAR GRUP ICI","Bilanço","Gürok Özel","Borç","",""],
-  ["1209","ALICILAR DIGER","Bilanço","Gürok Özel","Borç","",""],
-  ["1211","PORTFOYDEKI SENETLER","Bilanço","Gürok Özel","Borç","",""],
-  ["1213","TAHSILDEKI SENETLER","Bilanço","Gürok Özel","Borç","",""],
-  ["1218","ILERI TARIHLI DIGER CEK SENET","Bilanço","Gürok Özel","Borç","",""],
-  ["1219","DIGER SENETLER","Bilanço","Gürok Özel","Borç","",""],
-  ["1260","VERILEN DEPOZITO VE TEMINAT(TL)","Bilanço","Gürok Özel","Borç","",""],
-  ["1361","ASGARI GECIM INDIRIMI","Bilanço","Gürok Özel","Borç","",""],
-  ["1362","TESVIK GIR.SSK ISVEREN HISSES","Bilanço","Gürok Özel","Borç","",""],
-  ["1363","TESVIK GIREN GELIR VERGISI","Bilanço","Gürok Özel","Borç","",""],
-  ["1368","KREDI KARTLARI","Bilanço","Gürok Özel","Borç","",""],
-  ["1369","DIGER","Bilanço","Gürok Özel","Borç","",""],
-  ["1501","ANA AMBAR STOKLARI","Bilanço","Gürok Özel","Borç","",""],
-  ["1502","TALI AMBAR STOKLARI","Bilanço","Gürok Özel","Borç","",""],
-  ["1531","KANTIN STOKLARI","Bilanço","Gürok Özel","Borç","",""],
-  ["1533","CLUB BUTIK","Bilanço","Gürok Özel","Borç","",""],
-  ["1590","VERILEN SIPARIS AVANSLARI TL","Bilanço","Gürok Özel","Borç","",""],
-  ["1591","VERILEN SIPARIS AVANSLARI EUR","Bilanço","Gürok Özel","Borç","",""],
-  ["1592","VERILEN SIPARIS AVANSLARI USD","Bilanço","Gürok Özel","Borç","",""],
-  ["1593","VERILEN SIPARIS AVANSLARI GBP","Bilanço","Gürok Özel","Borç","",""],
-  ["1595","VERILEN SIPARIS AVANSLARI AED","Bilanço","Gürok Özel","Borç","",""],
-  ["1599","VERILEN SIPARIS AVANS.DIGER","Bilanço","Gürok Özel","Borç","",""],
-  ["1801","GAYRIMENKUL KIRALARI","Bilanço","Gürok Özel","Borç","",""],
-  ["1802","SIGORTA BEDELLERI","Bilanço","Gürok Özel","Borç","",""],
-  ["1803","CESITLI GIDERLER","Bilanço","Gürok Özel","Borç","",""],
-  ["1804","CALISMAYAN KISIM GIDERLERI","Bilanço","Gürok Özel","Borç","",""],
-  ["1805","ERTELENMIS SGK BORCU","Bilanço","Gürok Özel","Borç","",""],
-  ["1806","GEL.AYLARA AIT GID. (K.TAZMINA","Bilanço","Gürok Özel","Borç","",""],
-  ["1911","INDIRILECEK KDV","Bilanço","Gürok Özel","Borç","",""],
-  ["1912","SATISLARDAN IADE KDV","Bilanço","Gürok Özel","Borç","",""],
-  ["1913","INDIRILEMEYECEK KDV (ALKOLLU)","Bilanço","Gürok Özel","Borç","",""],
-  ["1951","IS AVANSLARI (EUR)","Bilanço","Gürok Özel","Borç","",""],
-  ["1952","IS AVANSLARI (USD)","Bilanço","Gürok Özel","Borç","",""],
-  ["1953","IS AVANSLARI (GBP)","Bilanço","Gürok Özel","Borç","",""],
-  ["1958","KREDI KARTLARI","Bilanço","Gürok Özel","Borç","",""],
-  ["2260","VERILEN DEP.VE TEMINATLAR TL","Bilanço","Gürok Özel","Borç","",""],
-  ["2581","TESVIK DISI YATIRIMLAR","Bilanço","Gürok Özel","Borç","",""],
-  ["2585","TESVIK KAPSAMINDA YATIRIMLAR","Bilanço","Gürok Özel","Borç","",""],
-  ["3200","SATICILAR (TL)","Bilanço","Gürok Özel","Alacak","",""],
-  ["3201","SATICILAR (EUR)","Bilanço","Gürok Özel","Alacak","",""],
-  ["3202","SATICILAR (USD)","Bilanço","Gürok Özel","Alacak","",""],
-  ["3203","SATICILAR (GBP)","Bilanço","Gürok Özel","Alacak","",""],
-  ["3204","SATICILAR (RUB)","Bilanço","Gürok Özel","Alacak","",""],
-  ["3205","SATICILAR (AED)","Bilanço","Gürok Özel","Alacak","",""],
-  ["3209","GRUP ICI SATICILAR","Bilanço","Gürok Özel","Alacak","",""],
-  ["3368","KREDI KARTLARI","Bilanço","Gürok Özel","Alacak","",""],
-  ["3401","ALINAN SIPARIS AVANSLAR ACENTE","Bilanço","Gürok Özel","Alacak","",""],
-  ["3402","ALINAN SIPARIS AVANSLAR SELF","Bilanço","Gürok Özel","Alacak","",""],
-  ["3408","ALINAN SIPARIS AVANSLARI GRUP","Bilanço","Gürok Özel","Alacak","",""],
-  ["3409","ALINAN SIPARIS AVANSLARI DIGER","Bilanço","Gürok Özel","Alacak","",""],
-  ["3601","ODENECEK VERGI VE FONLAR","Bilanço","Gürok Özel","Alacak","",""],
-  ["3602","TEVKIF EDILEN KDV","Bilanço","Gürok Özel","Alacak","",""],
-  ["3911","HESAPLANAN KDV","Bilanço","Gürok Özel","Alacak","",""],
-  ["3912","ALISLARDAN IADE KDV","Bilanço","Gürok Özel","Alacak","",""],
-  ["3913","DIGER HESAPLANAN KDV","Bilanço","Gürok Özel","Alacak","",""],
-  ["3931","MERKEZ","Bilanço","Gürok Özel","Alacak","",""],
-  ["3932","LAV","Bilanço","Gürok Özel","Alacak","",""],
-  ["3933","GCA","Bilanço","Gürok Özel","Alacak","",""],
-  ["3934","ALI BEY RESORT SORGUN","Bilanço","Gürok Özel","Alacak","",""],
-  ["3935","LAPISHAN","Bilanço","Gürok Özel","Alacak","",""],
-  ["3936","GUROK IHRACAT SUBE","Bilanço","Gürok Özel","Alacak","",""],
-  ["3937","GUROK DEKOR SUBE","Bilanço","Gürok Özel","Alacak","",""],
-  ["3938","GUROK RYG MAKINE SUBE","Bilanço","Gürok Özel","Alacak","",""],
-  ["3939","GUROK DIGER SUBELER","Bilanço","Gürok Özel","Alacak","",""],
-  ["39391","GUROK ICECEK SUBE BURDUR","Bilanço","Gürok Özel","Alacak","",""],
-  ["39392","OJO SUBE","Bilanço","Gürok Özel","Alacak","",""],
-  ["39393","YESIL ENERJI","Bilanço","Gürok Özel","Alacak","",""],
-  ["6212","STMM BUTIK","Kar & Zarar","Gürok Özel","Alacak","",""],
-  ["9001","VERILEN TEMINAT MEKTUPLARI","Bilanço","Gürok Özel","Borç","",""],
-  ["9002","ALINAN TEMINAT MEKTUPLARI","Bilanço","Gürok Özel","Borç","",""],
-  ["9091","VERILEN TEMINAT MEKT.KARSILIGI","Bilanço","Gürok Özel","Borç","",""],
-  ["9092","ALINAN TEMINAT MEKT.KARSILIGI","Bilanço","Gürok Özel","Borç","",""],
+const ARAZ_OZEL=[
+  ["1001","MUHASEBE KASA","Bilanço","Araz Özel","Borç","",""],
+  ["1002","ONBURO KASA","Bilanço","Araz Özel","Borç","",""],
+  ["1011","PORTFOYDEKI CEKLER","Bilanço","Araz Özel","Borç","",""],
+  ["1012","ONBURO PORTFOY CEKLERI","Bilanço","Araz Özel","Borç","",""],
+  ["1013","TAHSILDEKI CEKLER","Bilanço","Araz Özel","Borç","",""],
+  ["1019","DIGER CEKLER","Bilanço","Araz Özel","Borç","",""],
+  ["1021","BANKALAR VADESIZ","Bilanço","Araz Özel","Borç","",""],
+  ["1022","BANKALAR VADELI","Bilanço","Araz Özel","Borç","",""],
+  ["1029","BANKALAR ARA HESABI","Bilanço","Araz Özel","Borç","",""],
+  ["1080","DIGER HAZIR DEGERLER (TL)","Bilanço","Araz Özel","Borç","",""],
+  ["1081","DIGER HAZIR DEGERLER (EUR)","Bilanço","Araz Özel","Borç","",""],
+  ["1082","DIGER HAZIR DEGERLER (USD)","Bilanço","Araz Özel","Borç","",""],
+  ["1083","DIGER HAZIR DEGERLER (GBP)","Bilanço","Araz Özel","Borç","",""],
+  ["1089","DIGER HAZIR DEGERLER","Bilanço","Araz Özel","Borç","",""],
+  ["1201","ALICILAR ACENTE","Bilanço","Araz Özel","Borç","",""],
+  ["1202","ALICILAR SELF","Bilanço","Araz Özel","Borç","",""],
+  ["1208","ALICILAR GRUP ICI","Bilanço","Araz Özel","Borç","",""],
+  ["1209","ALICILAR DIGER","Bilanço","Araz Özel","Borç","",""],
+  ["1211","PORTFOYDEKI SENETLER","Bilanço","Araz Özel","Borç","",""],
+  ["1213","TAHSILDEKI SENETLER","Bilanço","Araz Özel","Borç","",""],
+  ["1218","ILERI TARIHLI DIGER CEK SENET","Bilanço","Araz Özel","Borç","",""],
+  ["1219","DIGER SENETLER","Bilanço","Araz Özel","Borç","",""],
+  ["1260","VERILEN DEPOZITO VE TEMINAT(TL)","Bilanço","Araz Özel","Borç","",""],
+  ["1361","ASGARI GECIM INDIRIMI","Bilanço","Araz Özel","Borç","",""],
+  ["1362","TESVIK GIR.SSK ISVEREN HISSES","Bilanço","Araz Özel","Borç","",""],
+  ["1363","TESVIK GIREN GELIR VERGISI","Bilanço","Araz Özel","Borç","",""],
+  ["1368","KREDI KARTLARI","Bilanço","Araz Özel","Borç","",""],
+  ["1369","DIGER","Bilanço","Araz Özel","Borç","",""],
+  ["1501","ANA AMBAR STOKLARI","Bilanço","Araz Özel","Borç","",""],
+  ["1502","TALI AMBAR STOKLARI","Bilanço","Araz Özel","Borç","",""],
+  ["1531","KANTIN STOKLARI","Bilanço","Araz Özel","Borç","",""],
+  ["1533","CLUB BUTIK","Bilanço","Araz Özel","Borç","",""],
+  ["1590","VERILEN SIPARIS AVANSLARI TL","Bilanço","Araz Özel","Borç","",""],
+  ["1591","VERILEN SIPARIS AVANSLARI EUR","Bilanço","Araz Özel","Borç","",""],
+  ["1592","VERILEN SIPARIS AVANSLARI USD","Bilanço","Araz Özel","Borç","",""],
+  ["1593","VERILEN SIPARIS AVANSLARI GBP","Bilanço","Araz Özel","Borç","",""],
+  ["1595","VERILEN SIPARIS AVANSLARI AED","Bilanço","Araz Özel","Borç","",""],
+  ["1599","VERILEN SIPARIS AVANS.DIGER","Bilanço","Araz Özel","Borç","",""],
+  ["1801","GAYRIMENKUL KIRALARI","Bilanço","Araz Özel","Borç","",""],
+  ["1802","SIGORTA BEDELLERI","Bilanço","Araz Özel","Borç","",""],
+  ["1803","CESITLI GIDERLER","Bilanço","Araz Özel","Borç","",""],
+  ["1804","CALISMAYAN KISIM GIDERLERI","Bilanço","Araz Özel","Borç","",""],
+  ["1805","ERTELENMIS SGK BORCU","Bilanço","Araz Özel","Borç","",""],
+  ["1806","GEL.AYLARA AIT GID. (K.TAZMINA","Bilanço","Araz Özel","Borç","",""],
+  ["1911","INDIRILECEK KDV","Bilanço","Araz Özel","Borç","",""],
+  ["1912","SATISLARDAN IADE KDV","Bilanço","Araz Özel","Borç","",""],
+  ["1913","INDIRILEMEYECEK KDV (ALKOLLU)","Bilanço","Araz Özel","Borç","",""],
+  ["1951","IS AVANSLARI (EUR)","Bilanço","Araz Özel","Borç","",""],
+  ["1952","IS AVANSLARI (USD)","Bilanço","Araz Özel","Borç","",""],
+  ["1953","IS AVANSLARI (GBP)","Bilanço","Araz Özel","Borç","",""],
+  ["1958","KREDI KARTLARI","Bilanço","Araz Özel","Borç","",""],
+  ["2260","VERILEN DEP.VE TEMINATLAR TL","Bilanço","Araz Özel","Borç","",""],
+  ["2581","TESVIK DISI YATIRIMLAR","Bilanço","Araz Özel","Borç","",""],
+  ["2585","TESVIK KAPSAMINDA YATIRIMLAR","Bilanço","Araz Özel","Borç","",""],
+  ["3200","SATICILAR (TL)","Bilanço","Araz Özel","Alacak","",""],
+  ["3201","SATICILAR (EUR)","Bilanço","Araz Özel","Alacak","",""],
+  ["3202","SATICILAR (USD)","Bilanço","Araz Özel","Alacak","",""],
+  ["3203","SATICILAR (GBP)","Bilanço","Araz Özel","Alacak","",""],
+  ["3204","SATICILAR (RUB)","Bilanço","Araz Özel","Alacak","",""],
+  ["3205","SATICILAR (AED)","Bilanço","Araz Özel","Alacak","",""],
+  ["3209","GRUP ICI SATICILAR","Bilanço","Araz Özel","Alacak","",""],
+  ["3368","KREDI KARTLARI","Bilanço","Araz Özel","Alacak","",""],
+  ["3401","ALINAN SIPARIS AVANSLAR ACENTE","Bilanço","Araz Özel","Alacak","",""],
+  ["3402","ALINAN SIPARIS AVANSLAR SELF","Bilanço","Araz Özel","Alacak","",""],
+  ["3408","ALINAN SIPARIS AVANSLARI GRUP","Bilanço","Araz Özel","Alacak","",""],
+  ["3409","ALINAN SIPARIS AVANSLARI DIGER","Bilanço","Araz Özel","Alacak","",""],
+  ["3601","ODENECEK VERGI VE FONLAR","Bilanço","Araz Özel","Alacak","",""],
+  ["3602","TEVKIF EDILEN KDV","Bilanço","Araz Özel","Alacak","",""],
+  ["3911","HESAPLANAN KDV","Bilanço","Araz Özel","Alacak","",""],
+  ["3912","ALISLARDAN IADE KDV","Bilanço","Araz Özel","Alacak","",""],
+  ["3913","DIGER HESAPLANAN KDV","Bilanço","Araz Özel","Alacak","",""],
+  ["3931","MERKEZ","Bilanço","Araz Özel","Alacak","",""],
+  ["3932","LAV","Bilanço","Araz Özel","Alacak","",""],
+  ["3933","GCA","Bilanço","Araz Özel","Alacak","",""],
+  ["3934","ALI BEY RESORT SORGUN","Bilanço","Araz Özel","Alacak","",""],
+  ["3935","LAPISHAN","Bilanço","Araz Özel","Alacak","",""],
+  ["3936","araz IHRACAT SUBE","Bilanço","Araz Özel","Alacak","",""],
+  ["3937","araz DEKOR SUBE","Bilanço","Araz Özel","Alacak","",""],
+  ["3938","araz RYG MAKINE SUBE","Bilanço","Araz Özel","Alacak","",""],
+  ["3939","araz DIGER SUBELER","Bilanço","Araz Özel","Alacak","",""],
+  ["39391","araz ICECEK SUBE BURDUR","Bilanço","Araz Özel","Alacak","",""],
+  ["39392","OJO SUBE","Bilanço","Araz Özel","Alacak","",""],
+  ["39393","YESIL ENERJI","Bilanço","Araz Özel","Alacak","",""],
+  ["6212","STMM BUTIK","Kar & Zarar","Araz Özel","Alacak","",""],
+  ["9001","VERILEN TEMINAT MEKTUPLARI","Bilanço","Araz Özel","Borç","",""],
+  ["9002","ALINAN TEMINAT MEKTUPLARI","Bilanço","Araz Özel","Borç","",""],
+  ["9091","VERILEN TEMINAT MEKT.KARSILIGI","Bilanço","Araz Özel","Borç","",""],
+  ["9092","ALINAN TEMINAT MEKT.KARSILIGI","Bilanço","Araz Özel","Borç","",""],
 ];
 
 // ============================================================
@@ -824,14 +824,14 @@ async function thpYukle(skipConfirm){
   toast(`✅ ${eklenen} hesap eklendi`);
 }
 
-async function gurokYukle(skipConfirm){
-  if(!skipConfirm&&!confirm(`Gürok'a özel ${GUROK_OZEL.length} ek hesap yüklensin mi? Bunlar LN Infor'da gerçekten kullanılan firma-özel hesap kodlarıdır (1001, 3401 vb.)`))return;
+async function arazYukle(skipConfirm){
+  if(!skipConfirm&&!confirm(`Araz'a özel ${ARAZ_OZEL.length} ek hesap yüklensin mi? Bunlar LN Infor'da gerçekten kullanılan firma-özel hesap kodlarıdır (1001, 3401 vb.)`))return;
   sLD();
   let eklenen=0;
-  for(const [kod,ad,tip,anaGrup,yon,ozellik,aciklama] of GUROK_OZEL){
+  for(const [kod,ad,tip,anaGrup,yon,ozellik,aciklama] of ARAZ_OZEL){
     const key='G_'+kod.replace(/\./g,'_');
     if(!hesaplar[key]){
-      const h={kod,ad,tip,anaGrup,yon,ozellik,aciklama,durum:'aktif',doviz:'TRY',altSeviye:'70',gurokOzel:true,olusturmaTarih:Date.now()};
+      const h={kod,ad,tip,anaGrup,yon,ozellik,aciklama,durum:'aktif',doviz:'TRY',altSeviye:'70',arazOzel:true,olusturmaTarih:Date.now()};
       hesaplar[key]=h;
       await saveHesap(h);
       eklenen++;
@@ -839,7 +839,7 @@ async function gurokYukle(skipConfirm){
   }
   hLD();
   renderTablo();
-  toast(`✅ ${eklenen} Gürok özel hesabı eklendi`);
+  toast(`✅ ${eklenen} Araz özel hesabı eklendi`);
 }
 
 // ============================================================
@@ -1097,7 +1097,7 @@ async function hesapKaydet(){
   }
   const key=kod.replace(/\./g,'_');
   const editId=document.getElementById('h-edit-id').value;
-  // Aynı kodun farklı bir key altında (örn. Gürok özel G_ önekiyle) zaten var olup olmadığını kontrol et
+  // Aynı kodun farklı bir key altında (örn. Araz özel G_ önekiyle) zaten var olup olmadığını kontrol et
   const cakisan=Object.entries(hesaplar).find(([k,h])=>h&&h.kod===kod&&k!==key&&kod!==editId);
   if(cakisan){
     toast(`⚠️ "${kod}" kodu zaten kullanımda: ${cakisan[1].ad}`,3500);
@@ -1164,7 +1164,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   if(Object.keys(hesaplar).length===0){
     toast('📥 Standart THP yükleniyor...',4000);
     await thpYukle(true);
-    await gurokYukle(true);
+    await arazYukle(true);
   } else {
     renderTablo();
   }

@@ -1,4 +1,4 @@
-// onay-motoru.js — Gürok ERP paylaşılan çok aşamalı onay motoru.
+// onay-motoru.js — Araz ERP paylaşılan çok aşamalı onay motoru.
 // Onay akışı olan sayfalar bunu <head> içinde, auth-guard.js'den SONRA,
 // senkron olarak yükler (<script src="onay-motoru.js"></script>).
 //

@@ -1,11 +1,11 @@
-// auth-guard.js — Gürok ERP paylaşılan oturum/erişim kontrolü.
+// auth-guard.js — Araz ERP paylaşılan oturum/erişim kontrolü.
 // index.html DIŞINDAKİ her modül sayfası bunu <head> içinde en üstte,
 // senkron olarak yükler (<script src="auth-guard.js"></script> — defer/async YOK,
 // sayfa gövdesi render edilmeden önce çalışmalı).
 
-const SESSION_KEY = 'gurok_portal_session';
+const SESSION_KEY = 'araz_portal_session';
 const SESSION_SURESI_MS = 30 * 60 * 1000;
-const PIN_KILIT_ANAHTAR = 'gurok_pin_kilit';
+const PIN_KILIT_ANAHTAR = 'araz_pin_kilit';
 
 function oturumGetir() {
   try {

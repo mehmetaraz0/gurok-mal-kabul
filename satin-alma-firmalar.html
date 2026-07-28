@@ -7,13 +7,13 @@
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
 <link rel="stylesheet" href="theme.css">
-<script src="gurok_veritabani.js"></script>
+<script src="araz_veritabani.js"></script>
 <script>
 let CU = requireLogin();
 if (CU) requireRole(CU, ['yonetici','satinalma','depo']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — Firmalar</title>
+<title>Araz — Firmalar</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 :root{--accent:#c9a24b}
@@ -62,7 +62,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <script>
 // SB_URL/SB_KEY/SB_HEADERS -> supabase-config.js
 // sLD/hLD/toast/escapeHtml/round2/kModal/aModal -> ortak.js
-// FIRMA_DB/URUN_DB -> gurok_veritabani.js
+// FIRMA_DB/URUN_DB -> araz_veritabani.js
 
 const DB={firmalar: typeof FIRMA_DB !== 'undefined' ? FIRMA_DB : []};
 

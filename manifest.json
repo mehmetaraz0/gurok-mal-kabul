@@ -1,7 +1,7 @@
 {
-  "name": "Gürok Mal Kabul",
+  "name": "Araz Mal Kabul",
   "short_name": "Mal Kabul",
-  "description": "Gürok Turizm Grubu Dijital Mal Kabul Sistemi",
+  "description": "Araz Turizm Grubu Dijital Mal Kabul Sistemi",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1a1e3a",

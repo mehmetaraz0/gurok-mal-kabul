@@ -12,7 +12,7 @@ let OTURUM_KULLANICI = requireLogin();
 if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici','satinalma','muhasebe_muduru','muhasebe_calisani','cost_control']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — Muhasebe Asistanı</title>
+<title>Araz — Muhasebe Asistanı</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -385,7 +385,7 @@ async function soruSorInput(){
 
   try{
     const ozet=veriOzetiUret();
-    const sistemPrompt=`Sen Gürok Turizm Grubu için çalışan bir muhasebe asistanısın. Aşağıdaki güncel muhasebe verisine göre soruları kısa, net ve Türkçe cevapla. Sayısal hesaplamaları SEN YAPMA, veride zaten hesaplanmış toplam ve bakiye değerlerini kullan. Eğer veri yetersizse bunu açıkça söyle. Cevapların 2-4 cümle olsun, gereksiz uzatma.
+    const sistemPrompt=`Sen Araz Turizm Grubu için çalışan bir muhasebe asistanısın. Aşağıdaki güncel muhasebe verisine göre soruları kısa, net ve Türkçe cevapla. Sayısal hesaplamaları SEN YAPMA, veride zaten hesaplanmış toplam ve bakiye değerlerini kullan. Eğer veri yetersizse bunu açıkça söyle. Cevapların 2-4 cümle olsun, gereksiz uzatma.
 
 GÜNCEL VERİ (JSON):
 ${JSON.stringify(ozet)}`;

@@ -1,4 +1,4 @@
-// otel-config.js — Gürok ERP müşteriye özel kurulum sabitleri.
+// otel-config.js — Araz ERP müşteriye özel kurulum sabitleri.
 // Yeni bir müşteri kurulumunda SADECE bu dosya düzenlenir, başka hiçbir
 // dosyaya dokunulmaz. auth-guard.js -> supabase-config.js -> otel-config.js
 // -> ortak.js sırasında, senkron olarak yüklenir.

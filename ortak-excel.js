@@ -1,4 +1,4 @@
-// ortak-excel.js — Gürok ERP paylaşılan Excel toplu veri yönetimi motoru.
+// ortak-excel.js — Araz ERP paylaşılan Excel toplu veri yönetimi motoru.
 // <head> içinde ortak.js'den SONRA, senkron olarak yüklenir
 // (<script src="ortak-excel.js"></script>) — loadXlsxLib()'e (ortak.js)
 // ve SB_URL/SB_HEADERS'a (supabase-config.js) bağımlı.

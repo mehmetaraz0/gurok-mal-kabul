@@ -8,7 +8,7 @@ let OTURUM_KULLANICI = requireLogin();
 if (OTURUM_KULLANICI) requireRole(OTURUM_KULLANICI, ['yonetici']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gürok — Supabase Migration</title>
+<title>Araz — Supabase Migration</title>
 <style>
 :root{--primary:#15213a;--success:#27ae60;--warning:#c8862c;--danger:#b5442a;--gray-100:#f1f3f5;--gray-200:#e9ecef;--gray-300:#dee2e6;--gray-500:#adb5bd;--gray-600:#6c757d}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -41,7 +41,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </head>
 <body>
 <div class="header">
-  <h1>Gürok ERP — Firebase → Supabase Migration</h1>
+  <h1>Araz ERP — Firebase → Supabase Migration</h1>
   <p>Tek seferlik veri aktarım aracı. Her adımı sırayla, yukarıdan aşağıya çalıştır.</p>
 </div>
 <div class="content">
@@ -135,7 +135,7 @@ function tarihISO(ms){return ms?new Date(ms).toISOString().split('T')[0]:null;}
 // ============================================================
 const ADIMLAR=[
   {id:'hesap_plani',baslik:'1. Hesap Planı',aciklama:'389 hesap — bağımlılık yok',fn:migrateHesapPlani},
-  {id:'urunler',baslik:'2. Ürün Kataloğu',aciklama:'gurok_veritabani.js → URUN_DB',fn:migrateUrunler},
+  {id:'urunler',baslik:'2. Ürün Kataloğu',aciklama:'araz_veritabani.js → URUN_DB',fn:migrateUrunler},
   {id:'tedarikci_urun',baslik:'3. Tedarikçi-Ürün Eşleşmesi',aciklama:'FIRMA_DB (212 firma → ürün listeleri)',fn:migrateTedarikciUrun},
   {id:'cariler',baslik:'4. Cariler',aciklama:'Tedarikçi/Müşteri kayıtları — ID eşleştirmesi kritik',fn:migrateCariler},
   {id:'siparisler',baslik:'4b. Siparişler',aciklama:'siparisHavuzu → Faturalar buna bağımlı',fn:migrateSiparisler},
@@ -252,19 +252,19 @@ async function migrateHesapPlani(){
 }
 
 // ============================================================
-// 2) ÜRÜNLER (gurok_veritabani.js'ten yükle)
+// 2) ÜRÜNLER (araz_veritabani.js'ten yükle)
 // ============================================================
 async function urunVeritabaniniYukle(){
   if(typeof URUN_DB!=='undefined'&&typeof FIRMA_DB!=='undefined')return;
   await new Promise((resolve,reject)=>{
     const s=document.createElement('script');
-    s.src='gurok_veritabani.js';
+    s.src='araz_veritabani.js';
     s.onload=resolve;
-    s.onerror=()=>reject(new Error('gurok_veritabani.js indirilemedi (404/ağ hatası) — dosya adı ve konumu doğru mu kontrol et'));
+    s.onerror=()=>reject(new Error('araz_veritabani.js indirilemedi (404/ağ hatası) — dosya adı ve konumu doğru mu kontrol et'));
     document.head.appendChild(s);
   });
   if(typeof URUN_DB==='undefined'||typeof FIRMA_DB==='undefined'){
-    throw new Error('gurok_veritabani.js yüklendi ama içinde URUN_DB/FIRMA_DB bulunamadı — dosya içeriği beklenenden farklı olabilir');
+    throw new Error('araz_veritabani.js yüklendi ama içinde URUN_DB/FIRMA_DB bulunamadı — dosya içeriği beklenenden farklı olabilir');
   }
 }
 
@@ -667,7 +667,7 @@ async function migrateKullanicilar(){
 // sadece yönetici rolündeki oturum açık bir kullanıcı görebilir/çalıştırabilir.
 // ============================================================
 function erisimVarMi(){
-  for(const k of['gurok_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
+  for(const k of['araz_portal_session','gurok_session','gurok_stok_session','gurok_siparis_session','gurok_satinalma_session','gurok_tuketim_session']){
     const s=sessionStorage.getItem(k);
     if(!s)continue;
     try{

@@ -13,7 +13,7 @@ let currentUser = requireLogin();
 if (currentUser) requireRole(currentUser, ['yonetici','depo','satinalma','kalite']);
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Gürok — Mal Kabul</title>
+<title>Araz — Mal Kabul</title>
 <meta name="theme-color" content="#1a2744">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -314,9 +314,9 @@ async function initApp(){
 
   // Satın Alma'dan "📋 Mal Kabule Aktar" ile geldiyse (satin-alma.html: lnEksikleriAktar)
   // sipariş numarasını sessionStorage'dan al ve formu otomatik doldur.
-  const aktarSiparisNo=sessionStorage.getItem('gurok_malkabul_siparisNo');
+  const aktarSiparisNo=sessionStorage.getItem('araz_malkabul_siparisNo');
   if(aktarSiparisNo){
-    sessionStorage.removeItem('gurok_malkabul_siparisNo');
+    sessionStorage.removeItem('araz_malkabul_siparisNo');
     const s=siparisler[aktarSiparisNo];
     if(s){
       document.getElementById('f-siparis-inp').value=s.siparisNo;
