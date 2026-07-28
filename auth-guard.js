@@ -57,7 +57,15 @@ function requireLogin() {
   const user = oturumGetir();
   if (user) return user;
   const donusUrl = location.pathname.split('/').pop() + location.search + location.hash;
-  location.replace('index.html?returnTo=' + encodeURIComponent(donusUrl));
+  const hedef = 'index.html?returnTo=' + encodeURIComponent(donusUrl);
+  // Bir sekme (iframe) içinde çalışıyorsak, üst çerçeveyi (index.html kabuğunu)
+  // yönlendir — aksi halde sekmenin iframe'i içinde ikinci bir index.html
+  // (kabuk + giriş ekranı) iç içe açılır.
+  if (window.self !== window.top) {
+    window.top.location.href = hedef;
+  } else {
+    location.replace(hedef);
+  }
   return null;
 }
 
