@@ -1944,7 +1944,7 @@ async function sayimQrOkundu(text){
   }catch(e){}
   if(!koli){_sayimOkutulanKoliler.splice(_sayimOkutulanKoliler.indexOf(koliId),1);showToast('❌ Koli bulunamadı — etiket geçersiz olabilir');return;}
   if(koli.durum!=='depoda'){_sayimOkutulanKoliler.splice(_sayimOkutulanKoliler.indexOf(koliId),1);showToast(`⚠️ Bu koli kullanılamaz (durum: ${koli.durum})`);return;}
-  if(koli.depo_kodu!==aktifDepoId){_sayimOkutulanKoliler.splice(_sayimOkutulanKoliler.indexOf(koliId),1);showToast('⚠️ Bu koli farklı bir depoya ait, bu sayıma dahil edilemez');return;}
+  if(tamDepoId(koli.otel_id,koli.depo_kodu)!==aktifDepoId){_sayimOkutulanKoliler.splice(_sayimOkutulanKoliler.indexOf(koliId),1);showToast('⚠️ Bu koli farklı bir depoya ait, bu sayıma dahil edilemez');return;}
 
   const lnKod=koli.urun_kodu;
   const miktar=parseFloat(koli.miktar)||0;
