@@ -983,7 +983,7 @@ function durumKart(f){
   const durumChip={bekleyen:'<span class="chip chip-yellow">Bekliyor</span>',onaylandi:'<span class="chip chip-green">Onaylı</span>',iptal:'<span class="chip chip-red">İptal</span>',arsivlendi:'<span class="chip chip-gray">Arşiv</span>'};
   return`<div class="mk-kart ${f.durum}" onclick="openDetay('${f.id}')">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div><div style="font-size:13px;font-weight:700">${f.mkNo}</div><div style="font-size:11px;color:var(--gray-500)">${escapeHtml(f.firma)} • ${f.tarih}</div></div>
+      <div><div style="font-size:13px;font-weight:700">${f.mkNo}</div><div style="font-size:11px;color:var(--gray-500)">${escapeHtml(f.firma)} • ${f.tarih}${f.personel?' • '+escapeHtml(f.personel):''}</div></div>
       <div style="text-align:right">${durumChip[f.durum]||''}</div>
     </div>
     <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
