@@ -2,8 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict Uw7qWdC9jiZGL5wzu4vh17XIzWOLTSBMjl4xYiq9DJFN6XPlhlIOaWMaLsEYCXp
-
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.10
 
@@ -740,6 +738,4 @@ f7f261f8-65aa-4875-b890-33c65b8fde2c	ee93e5b8-f124-40b3-8ce2-f4f2cb5dc53e	4d5df9
 --
 -- PostgreSQL database dump complete
 --
-
-\unrestrict Uw7qWdC9jiZGL5wzu4vh17XIzWOLTSBMjl4xYiq9DJFN6XPlhlIOaWMaLsEYCXp
 

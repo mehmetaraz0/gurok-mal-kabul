@@ -2,8 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict Qpbcxu28RPBkE2ymVmBZZUhCTD8xcH89jKlykwNFqZ8Rc0ZItpwBtGrV0zjG32F
-
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.10
 
@@ -23,7 +21,7 @@ SET row_security = off;
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --
 
-CREATE SCHEMA public;
+CREATE SCHEMA IF NOT EXISTS public;
 
 
 --
@@ -3931,5 +3929,4 @@ END OR public.auth_yetki_var('fiyat_kontrol'::text, 'kayit'::text)));
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Qpbcxu28RPBkE2ymVmBZZUhCTD8xcH89jKlykwNFqZ8Rc0ZItpwBtGrV0zjG32F
 
