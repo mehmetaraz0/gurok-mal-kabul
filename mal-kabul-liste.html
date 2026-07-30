@@ -911,7 +911,14 @@ async function _formKaydetIc(){
         }
       });
       if(koliSatirlar.length){
-        await fetch(SB_URL+'/rest/v1/koli_etiketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(koliSatirlar)});
+        const rKoli=await fetch(SB_URL+'/rest/v1/koli_etiketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(koliSatirlar)});
+        if(!rKoli.ok){
+          const hataMetni=await rKoli.text();
+          console.error('koli_etiketleri INSERT hatası:',hataMetni);
+          hLD();
+          alert('❌ Koli etiketleri kaydedilemedi:\n\n'+hataMetni+'\n\n(Not: Ana kayıt '+mkNo+' ve ürünler zaten kaydedildi, sadece koli/QR etiketleri eksik kaldı — "Koli Etiketleri" ile daha sonra tekrar deneyin veya sistem yöneticinize bildirin)');
+          return;
+        }
       }
     }catch(e){console.warn('Koli etiketi yazılamadı:',e);}
 
