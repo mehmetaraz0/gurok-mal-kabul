@@ -1447,11 +1447,18 @@ function kabulOzetAc(id,onayBilgisi){
 async function koliEtiketYazdir(mkId){
   sLD();
   let koliler=[];
+  let sorguHatasi=null;
   try{
     const r=await fetch(SB_URL+'/rest/v1/koli_etiketleri?mk_id=eq.'+mkId+'&order=urun_adi,koli_no',{headers:SB_HEADERS});
-    if(r.ok)koliler=await r.json();
-  }catch(e){}
+    if(r.ok){
+      koliler=await r.json();
+    }else{
+      sorguHatasi=await r.text();
+      console.error('koli_etiketleri SELECT hatası:',sorguHatasi);
+    }
+  }catch(e){sorguHatasi=String(e);console.error('koli_etiketleri SELECT hatası:',e);}
   hLD();
+  if(sorguHatasi){alert('❌ Koli etiketleri sorgulanamadı:\n\n'+sorguHatasi+'\n\n(Not: bu, etiketlerin gerçekten olmadığı anlamına gelmez — sorgu başarısız oldu, sistem yöneticinize bildirin)');return;}
   if(!koliler.length){toast('⚠️ Bu kayıtta koli etiketi yok — kabul sırasında "Koli Bazlı Giriş" kullanılmamış');return;}
   const f=malKabuller[mkId];
   const w=window.open('','_blank');
