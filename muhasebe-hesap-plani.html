@@ -915,17 +915,17 @@ function renderTablo(){
     const cocukVar=cocuklar.length>0;
     const acik=agacAcik.has(h.kod);
     const girintiPx=(seviye-1)*22;
-    const chevron=cocukVar?`<span onclick="toggleAgac('${h.kod}',event)" style="cursor:pointer;display:inline-block;width:16px;text-align:center">${acik?'▾':'▸'}</span>`:'<span style="display:inline-block;width:16px"></span>';
-    let html=`<tr class="lv${Math.min(seviye,4)} ${seciliKod===h.kod?'secili':''}" onclick="secRow('${h.kod}')">
-      <td style="font-family:monospace;font-weight:700">${h.kod}</td>
-      <td><span style="display:inline-flex;align-items:center;padding-left:${girintiPx}px">${chevron}${h.ad}</span></td>
+    const chevron=cocukVar?`<span class="chevron-toggle" data-kod="${escapeHtml(h.kod)}" style="cursor:pointer;display:inline-block;width:16px;text-align:center">${acik?'▾':'▸'}</span>`:'<span style="display:inline-block;width:16px"></span>';
+    let html=`<tr class="lv${Math.min(seviye,4)} ${seciliKod===h.kod?'secili':''}" data-kod="${escapeHtml(h.kod)}">
+      <td style="font-family:monospace;font-weight:700">${escapeHtml(h.kod)}</td>
+      <td><span style="display:inline-flex;align-items:center;padding-left:${girintiPx}px">${chevron}${escapeHtml(h.ad)}</span></td>
       <td>${tipChip[h.tip]||h.tip||'—'}</td>
       <td>${h.anaGrup||'—'}</td>
       <td><span style="color:${h.yon==='Borç'?'var(--danger)':'var(--success)'};font-weight:600">${h.yon||'—'}</span></td>
       <td>${h.altSeviye?'<span class="chip" style="background:'+(h.altSeviye==='70'?'#fff7ed;color:#9a3412':'#e4eef2;color:#2f5568')+'">'+h.altSeviye+'</span>':''}</td>
       <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+' '+h.ozellik:''}</td>
       <td><span class="durum-dot ${h.durum==='pasif'?'durum-pasif':'durum-aktif'}"></span> ${h.durum==='pasif'?'Pasif':'Aktif'}</td>
-      <td style="color:var(--gray-600);font-size:11px">${h.aciklama||''}</td>
+      <td style="color:var(--gray-600);font-size:11px">${escapeHtml(h.aciklama||'')}</td>
     </tr>`;
     if(cocukVar&&acik){
       cocuklar.forEach(c=>{html+=satirHTML(c,seviye+1);});
@@ -949,16 +949,16 @@ function renderTablo(){
     }
     outputHTML=eslesenler.map(h=>{
       const seviye=getSeviye(h.kod);
-      return`<tr class="lv${Math.min(seviye,4)} ${seciliKod===h.kod?'secili':''}" onclick="secRow('${h.kod}')">
-        <td style="font-family:monospace;font-weight:700">${h.kod}</td>
-        <td>${h.ad}</td>
+      return`<tr class="lv${Math.min(seviye,4)} ${seciliKod===h.kod?'secili':''}" data-kod="${escapeHtml(h.kod)}">
+        <td style="font-family:monospace;font-weight:700">${escapeHtml(h.kod)}</td>
+        <td>${escapeHtml(h.ad)}</td>
         <td>${tipChip[h.tip]||h.tip||'—'}</td>
         <td>${h.anaGrup||'—'}</td>
         <td><span style="color:${h.yon==='Borç'?'var(--danger)':'var(--success)'};font-weight:600">${h.yon||'—'}</span></td>
         <td>${h.altSeviye?'<span class="chip" style="background:'+(h.altSeviye==='70'?'#fff7ed;color:#9a3412':'#e4eef2;color:#2f5568')+'">'+h.altSeviye+'</span>':''}</td>
         <td>${h.ozellik?(ozellikIkon[h.ozellik]||'')+' '+h.ozellik:''}</td>
         <td><span class="durum-dot ${h.durum==='pasif'?'durum-pasif':'durum-aktif'}"></span> ${h.durum==='pasif'?'Pasif':'Aktif'}</td>
-        <td style="color:var(--gray-600);font-size:11px">${h.aciklama||''}</td>
+        <td style="color:var(--gray-600);font-size:11px">${escapeHtml(h.aciklama||'')}</td>
       </tr>`;
     }).join('');
     document.getElementById('sb-filtreli').textContent=`Filtrelenmiş: ${eslesenler.length}`;
@@ -970,6 +970,12 @@ function renderTablo(){
   }
 
   document.getElementById('tablo-body').innerHTML=outputHTML||'<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray-400)">Hesap bulunamadı</td></tr>';
+  document.querySelectorAll('#tablo-body tr[data-kod]').forEach(tr=>{
+    tr.addEventListener('click',function(){secRow(this.dataset.kod);});
+  });
+  document.querySelectorAll('#tablo-body .chevron-toggle[data-kod]').forEach(sp=>{
+    sp.addEventListener('click',function(e){toggleAgac(this.dataset.kod,e);});
+  });
   document.getElementById('sb-toplam').textContent=`Toplam: ${toplamSayi} hesap`;
   document.getElementById('sb-secili').textContent=seciliKod?`Seçili: ${seciliKod}`:'';
 }

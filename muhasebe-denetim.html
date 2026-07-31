@@ -213,8 +213,8 @@ function renderLog(){
       ${loglar.map(l=>`<div class="log-satir">
         <div class="log-ikon" style="background:${actionRenk[l.action]||'#f1f3f5'}">${actionIkon[l.action]||'📝'}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600">${l.userName||'Bilinmeyen'} <span style="font-weight:400;color:var(--gray-500)">— ${entityAd[l.entityType]||l.entityType}</span></div>
-          <div style="font-size:11px;color:var(--gray-600);margin-top:1px">${l.detail||''}</div>
+          <div style="font-size:12px;font-weight:600">${escapeHtml(l.userName||'Bilinmeyen')} <span style="font-weight:400;color:var(--gray-500)">— ${entityAd[l.entityType]||l.entityType}</span></div>
+          <div style="font-size:11px;color:var(--gray-600);margin-top:1px">${escapeHtml(l.detail||'')}</div>
           <div style="font-size:10px;color:var(--gray-400);margin-top:2px">${new Date(l.timestamp).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</div>
         </div>
       </div>`).join('')}
@@ -238,7 +238,7 @@ function renderDonemler(){
   c.innerHTML=liste.map(d=>`
     <div class="donem-kart ${d.durum==='kapali'?'kapali':'acik'}">
       <div>
-        <div style="font-size:14px;font-weight:700">${d.ad}</div>
+        <div style="font-size:14px;font-weight:700">${escapeHtml(d.ad)}</div>
         <div style="font-size:12px;color:var(--gray-500)">${d.baslangic} → ${d.bitis}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">

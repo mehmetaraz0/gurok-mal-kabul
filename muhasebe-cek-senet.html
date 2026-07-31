@@ -420,7 +420,7 @@ function renderListe(yon){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div>
           <div style="font-size:13px;font-weight:700">${escapeHtml(k.cariAd)}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${k.tur==='cek'?'📄 Çek':'📝 Senet'}${k.no?' • '+k.no:''}${k.banka?' • '+k.banka:''}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${k.tur==='cek'?'📄 Çek':'📝 Senet'}${k.no?' • '+escapeHtml(k.no):''}${k.banka?' • '+escapeHtml(k.banka):''}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:15px;font-weight:800;color:var(--primary)">${fmt(k.tutar)} ₺</div>
@@ -453,7 +453,7 @@ function renderVadeTakvimi(){
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-size:13px;font-weight:700">${escapeHtml(k.cariAd)}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${k.yon==='alinan'?'📥 Alınan':'📤 Verilen'} ${k.tur==='cek'?'Çek':'Senet'}${k.no?' • '+k.no:''}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${k.yon==='alinan'?'📥 Alınan':'📤 Verilen'} ${k.tur==='cek'?'Çek':'Senet'}${k.no?' • '+escapeHtml(k.no):''}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:14px;font-weight:800">${fmt(k.tutar)} ₺</div>
@@ -586,10 +586,10 @@ function openDetay(id){
   document.getElementById('mDetayIc').innerHTML=`
     <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px">
       <div style="font-size:20px;font-weight:800;color:var(--primary);margin-bottom:4px">${fmt(k.tutar)} ₺</div>
-      <div style="font-size:12px;color:var(--gray-600)">${k.tur==='cek'?'📄 Çek':'📝 Senet'} ${k.no?'• No: '+k.no:''} ${k.banka?'• '+k.banka:''}</div>
+      <div style="font-size:12px;color:var(--gray-600)">${k.tur==='cek'?'📄 Çek':'📝 Senet'} ${k.no?'• No: '+escapeHtml(k.no):''} ${k.banka?'• '+escapeHtml(k.banka):''}</div>
       <div style="font-size:12px;color:var(--gray-600)">Düzenleme: ${k.duzenleme||'—'} • Vade: ${k.vade}</div>
       <div style="font-size:12px;color:var(--gray-600)">Otel: ${OTEL_ISIMLERI[k.otelId]||k.otelId}</div>
-      ${k.not?`<div style="font-size:12px;color:var(--gray-600);margin-top:4px">Not: ${k.not}</div>`:''}
+      ${k.not?`<div style="font-size:12px;color:var(--gray-600);margin-top:4px">Not: ${escapeHtml(k.not)}</div>`:''}
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px">Mevcut Durum: ${durumAdlari[k.durum]}</div>
     <div class="brow" style="flex-wrap:wrap;gap:6px">
@@ -651,7 +651,7 @@ function filterCariDD(val){
   const yon=document.getElementById('k-yon').value;
   const res=Object.values(cariler).filter(c=>c&&(yon==='alinan'?(c.tip==='musteri'||c.tip==='her_ikisi'):(c.tip==='tedarikci'||c.tip==='her_ikisi'))&&c.ad.toLowerCase().includes(val.toLowerCase())).slice(0,15);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(c=>`<div class="uddi" data-id="${c.id}" data-ad="${c.ad.replace(/"/g,'&quot;')}">${c.ad}</div>`).join('');
+  dd.innerHTML=res.map(c=>`<div class="uddi" data-id="${c.id}" data-ad="${escapeHtml(c.ad)}">${escapeHtml(c.ad)}</div>`).join('');
   dd.querySelectorAll('[data-id]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();

@@ -460,7 +460,7 @@ function renderEkstre(){
 
   c1.innerHTML=`
     <div class="card">
-      <div style="font-size:15px;font-weight:800">${c.ad}</div>
+      <div style="font-size:15px;font-weight:800">${escapeHtml(c.ad)}</div>
       <div style="font-size:11px;color:var(--gray-500)">${c.kod||''} ${c.vkn?'• VKN: '+c.vkn:''} ${c.tel?'• '+c.tel:''}</div>
       <div style="font-size:11px;color:var(--gray-500)">Dönem: ${bas||'başlangıç'} — ${bit||'bugün'}</div>
     </div>
@@ -470,7 +470,7 @@ function renderEkstre(){
       </div>
       ${satirlar.map(h=>`<div style="display:grid;grid-template-columns:70px 1fr 70px 70px 80px;padding:7px 10px;border-bottom:1px solid var(--gray-100);font-size:11px">
         <span>${new Date(h.tarih).toLocaleDateString('tr-TR')}</span>
-        <span>${h.belge||h.aciklama||'—'}</span>
+        <span>${escapeHtml(h.belge||h.aciklama||'—')}</span>
         <span style="text-align:right;color:var(--danger)">${h.tip==='borc'?fmt(h.tutar):''}</span>
         <span style="text-align:right;color:var(--success)">${h.tip!=='borc'?fmt(h.tutar):''}</span>
         <span style="text-align:right;font-weight:700;color:${h.bakiye>0?'var(--danger)':h.bakiye<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(h.bakiye))}</span>
