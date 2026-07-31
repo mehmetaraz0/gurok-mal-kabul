@@ -166,11 +166,11 @@ function renderSiparisTakip(){
     return`<div class="card" style="margin-bottom:8px;border-left:4px solid ${s.durum==='tamamlandi'?'var(--success)':s.durum==='kismi'?'var(--warning)':'var(--danger)'};cursor:pointer" onclick="stDetayAc('${s.siparisNo}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
-          <div style="font-size:13px;font-weight:700;color:var(--primary)">${s.firma||'—'}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--primary)">${escapeHtml(s.firma)||'—'}</div>
           <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
             <span style="font-family:monospace;font-weight:700;color:#4a3f68">${s.siparisNo}</span>
             ${s.tarih?' • '+s.tarih:''}
-            ${s.olusturanAd?' • '+s.olusturanAd:''}
+            ${s.olusturanAd?' • '+escapeHtml(s.olusturanAd):''}
           </div>
         </div>
         ${durumChip[s.durum]||''}
@@ -184,7 +184,7 @@ function renderSiparisTakip(){
       </div>
       ${eksikler.length&&s.durum!=='tamamlandi'?`
         <div style="font-size:11px;color:var(--danger);font-weight:600;margin-bottom:4px">⚠️ Bekleyen kalemler:</div>
-        ${eksikler.slice(0,3).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — Sipariş: ${k.miktar} ${k.birim}${k.gelenMiktar>0?' | Gelen: '+k.gelenMiktar+' | Kalan: '+k.kalanMiktar:''}</div>`).join('')}
+        ${eksikler.slice(0,3).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${escapeHtml(k.ad)} — Sipariş: ${k.miktar} ${k.birim}${k.gelenMiktar>0?' | Gelen: '+k.gelenMiktar+' | Kalan: '+k.kalanMiktar:''}</div>`).join('')}
         ${eksikler.length>3?`<div style="font-size:11px;color:var(--gray-400)">+${eksikler.length-3} kalem daha...</div>`:''}
       `:''}
     </div>`;
@@ -209,8 +209,8 @@ function stDetayAc(siparisNo){
   .ok{color:#27ae60;font-weight:700} .warn{color:#e74c3c;font-weight:700}
   .chip{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
   </style></head><body>
-  <h2>${s.firma}</h2>
-  <div class="sub">${siparisNo} • ${s.tarih||'—'} • ${s.olusturanAd||''}</div>
+  <h2>${escapeHtml(s.firma)}</h2>
+  <div class="sub">${siparisNo} • ${s.tarih||'—'} • ${escapeHtml(s.olusturanAd||'')}</div>
   <table>
     <thead><tr><th>#</th><th>Ürün</th><th>Sipariş</th><th>Gelen</th><th>Kalan</th><th>Durum</th></tr></thead>
     <tbody>
@@ -218,7 +218,7 @@ function stDetayAc(siparisNo){
         const tamam=(k.kalanMiktar||0)<=0.01;
         return`<tr>
           <td>${i+1}</td>
-          <td><b>${k.ad}</b><br><span style="font-family:monospace;font-size:10px;color:#6c757d">${k.kod||''}</span></td>
+          <td><b>${escapeHtml(k.ad)}</b><br><span style="font-family:monospace;font-size:10px;color:#6c757d">${k.kod||''}</span></td>
           <td>${k.miktar} ${k.birim}</td>
           <td class="${(k.gelenMiktar||0)>0?'ok':''}">${k.gelenMiktar||0} ${k.birim}</td>
           <td class="${tamam?'ok':'warn'}">${k.kalanMiktar||k.miktar} ${k.birim}</td>

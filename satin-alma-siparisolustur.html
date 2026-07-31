@@ -198,7 +198,7 @@ async function spGrupla(){
     <div class="card" style="margin-bottom:10px;border-left:4px solid var(--primary)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div>
-          <div style="font-size:14px;font-weight:700;color:var(--primary)">${g.firmaAd||'⚠️ Firma Atanmamış'}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--primary)">${escapeHtml(g.firmaAd)||'⚠️ Firma Atanmamış'}</div>
           <div style="font-size:11px;color:var(--gray-500)">${g.kalemler.length} kalem</div>
           <div style="margin-top:4px"><span class="chip" style="background:#e8e5f0;color:#4a3f68;font-family:monospace;font-weight:700">${g.siparisNo}</span></div>
         </div>
@@ -216,7 +216,7 @@ async function spGrupla(){
         </tr>
         ${g.kalemler.map((k,ki)=>`<tr style="border-bottom:1px solid var(--gray-100)">
           <td style="padding:5px 6px;color:var(--gray-400)">${ki+1}</td>
-          <td style="padding:5px 6px;font-weight:600">${k.ad}</td>
+          <td style="padding:5px 6px;font-weight:600">${escapeHtml(k.ad)}</td>
           <td style="padding:5px 6px;text-align:right;font-weight:700">${k.miktar}</td>
           <td style="padding:5px 6px;color:var(--gray-500)">${k.birim}</td>
         </tr>`).join('')}
@@ -275,7 +275,7 @@ function spPDF(gi){
   <div class="sub">Sipariş Formu</div>
   <div class="info">
     <div><label>Sipariş No</label><span>${g.siparisNo||'—'}</span></div>
-    <div><label>Tedarikçi Firma</label><span>${g.firmaAd}</span></div>
+    <div><label>Tedarikçi Firma</label><span>${escapeHtml(g.firmaAd)}</span></div>
     <div><label>Sipariş Tarihi</label><span>${tarih}</span></div>
     <div><label>Hazırlayan</label><span>${CU.ad}</span></div>
     ${termin?`<div><label>Termin Tarihi</label><span>${termin}</span></div>`:''}
@@ -283,7 +283,7 @@ function spPDF(gi){
   <table>
     <thead><tr><th>#</th><th>Ürün Adı</th><th>LN Kodu</th><th>Miktar</th><th>Birim</th><th>Teklif Fiyatı</th></tr></thead>
     <tbody>${g.kalemler.map((k,i)=>`<tr>
-      <td>${i+1}</td><td><b>${k.ad}</b></td>
+      <td>${i+1}</td><td><b>${escapeHtml(k.ad)}</b></td>
       <td style="font-family:monospace;font-size:10px">${k.kod||'—'}</td>
       <td style="text-align:center;font-weight:bold">${k.miktar}</td>
       <td>${k.birim}</td>
@@ -333,11 +333,11 @@ function renderSPSatirlar(){
     <div class="usatir">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="background:var(--primary);color:white;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">${i+1}</div>
-        <div style="font-size:13px;font-weight:600;flex:1">${u.ad||'Kalem '+(i+1)}</div>
+        <div style="font-size:13px;font-weight:600;flex:1">${escapeHtml(u.ad)||'Kalem '+(i+1)}</div>
         <button onclick="SP_SATIRLAR.splice(${i},1);renderSPSatirlar()" style="background:none;border:none;color:var(--gray-400);font-size:16px;cursor:pointer">✕</button>
       </div>
       <div style="position:relative;margin-bottom:8px">
-        <input type="text" id="spa${i}" value="${u.ad}" placeholder="Ürün adı veya LN kodu..."
+        <input type="text" id="spa${i}" value="${escapeHtml(u.ad)}" placeholder="Ürün adı veya LN kodu..."
           autocomplete="off" oninput="filterSPUrun(${i},this.value)"
           style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
         <div id="spdd${i}" class="udd"></div>
@@ -361,7 +361,7 @@ function renderSPSatirlar(){
       </div>
       <div style="position:relative">
         <label style="font-size:11px;font-weight:600;color:var(--gray-600)">FİRMA</label>
-        <input type="text" id="spf${i}" value="${(u.firmaAd||'').replace(/"/g,'&quot;')}" placeholder="Firma ara veya değiştir..."
+        <input type="text" id="spf${i}" value="${escapeHtml(u.firmaAd)}" placeholder="Firma ara veya değiştir..."
           autocomplete="off" oninput="filterSPFirma(${i},this.value)"
           style="width:100%;padding:9px 12px;border:1.5px solid ${u.firmaAd?'var(--success)':'var(--gray-300)'};border-radius:8px;font-size:13px;outline:none;color:${u.firmaAd?'var(--success)':'inherit'};font-weight:${u.firmaAd?'600':'400'}">
         <div id="spfdd${i}" class="udd"></div>
@@ -376,7 +376,7 @@ function filterSPFirma(i,val){
   if(!val||val.length<2){dd.style.display='none';return;}
   const res=(DB.firmalar||[]).filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,12);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(f=>`<div class="uddi" data-i="${i}" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">${f.ad}</div>`).join('');
+  dd.innerHTML=res.map(f=>`<div class="uddi" data-i="${i}" data-id="${escapeHtml(f.id)}" data-ad="${escapeHtml(f.ad)}">${escapeHtml(f.ad)}</div>`).join('');
   dd.querySelectorAll('[data-id]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();
@@ -421,8 +421,8 @@ function filterSPUrun(i,val){
   const urunDB=DB.urunler||(window.URUN_DB||[]);
   const res=urunDB.filter(u=>u.ad?.toLowerCase().includes(val.toLowerCase())||u.kod?.toLowerCase().includes(val.toLowerCase())).slice(0,15);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(u=>`<div class="uddi" data-i="${i}" data-kod="${u.kod}" data-ad="${(u.ad||'').replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}">
-    ${u.ad} <span style="font-size:10px;color:var(--gray-400)">${u.kod}</span>
+  dd.innerHTML=res.map(u=>`<div class="uddi" data-i="${i}" data-kod="${escapeHtml(u.kod)}" data-ad="${escapeHtml(u.ad)}" data-birim="${escapeHtml(u.birim||'KG')}">
+    ${escapeHtml(u.ad)} <span style="font-size:10px;color:var(--gray-400)">${escapeHtml(u.kod)}</span>
   </div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){

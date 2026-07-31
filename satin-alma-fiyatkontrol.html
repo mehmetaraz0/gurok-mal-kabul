@@ -200,11 +200,11 @@ function renderFiyatKontrol(){
             <span style="font-family:monospace;font-weight:800;color:var(--primary);font-size:12px">${f.mkNo||'—'}</span>
             <span style="font-size:11px;font-weight:600;color:${durumRenk}">${durumYazi}</span>
           </div>
-          <div style="font-size:13px;font-weight:700">🏢 ${f.firma||'—'}</div>
+          <div style="font-size:13px;font-weight:700">🏢 ${escapeHtml(f.firma)||'—'}</div>
           <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
             ${f.formTarih||'—'}
-            ${f.irsaliyeNo?' • İrs: <b>'+f.irsaliyeNo+'</b>':''}
-            ${f.faturaNo?' • Fat: <b>'+f.faturaNo+'</b>':''}
+            ${f.irsaliyeNo?' • İrs: <b>'+escapeHtml(f.irsaliyeNo)+'</b>':''}
+            ${f.faturaNo?' • Fat: <b>'+escapeHtml(f.faturaNo)+'</b>':''}
           </div>
           ${f.lnSiparisNo?`<div style="font-size:11px;color:#4a3f68;font-family:monospace;margin-top:2px">${f.lnSiparisNo.split(',')[0]}${f.lnSiparisNo.includes(',')?'...':''}</div>`:''}
         </div>
@@ -241,15 +241,15 @@ function fkDetayAc(formId){
       </div>
       <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px">TEDARİKÇİ</div>
-        <div style="font-weight:700">${f.firma}</div>
+        <div style="font-weight:700">${escapeHtml(f.firma)}</div>
       </div>
       <div style="padding:7px 10px;background:${f.faturaNo?'#d4edda':'#fff3cd'};border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px">FATURA NO</div>
-        <div style="font-weight:700">${f.faturaNo||'—'}</div>
+        <div style="font-weight:700">${escapeHtml(f.faturaNo)||'—'}</div>
       </div>
       <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px">İRSALİYE</div>
-        <div style="font-weight:700">${f.irsaliyeNo||'—'}</div>
+        <div style="font-weight:700">${escapeHtml(f.irsaliyeNo)||'—'}</div>
       </div>
     </div>
 
@@ -264,7 +264,7 @@ function fkDetayAc(formId){
         return`<div style="padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-bottom:8px;${fiyat>0?'border-color:var(--success);background:#f0fdf4':''}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div>
-              <div style="font-size:13px;font-weight:700">${u.ad}</div>
+              <div style="font-size:13px;font-weight:700">${escapeHtml(u.ad)}</div>
               <div style="font-size:11px;color:var(--gray-400)">${u.miktar} ${u.birim}${u.skt?' • SKT: '+u.skt:''}</div>
             </div>
             ${fiyat>0?`<div style="text-align:right">

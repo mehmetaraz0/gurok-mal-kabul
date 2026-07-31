@@ -190,11 +190,11 @@ function renderIadeSatirlar(){
     <div class="usatir">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="background:var(--danger);color:white;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">${i+1}</div>
-        <div style="font-size:13px;font-weight:600;flex:1">${u.ad||'Kalem '+(i+1)}</div>
+        <div style="font-size:13px;font-weight:600;flex:1">${escapeHtml(u.ad)||'Kalem '+(i+1)}</div>
         <button onclick="IADE_SATIRLAR.splice(${i},1);renderIadeSatirlar()" style="background:none;border:none;color:var(--gray-400);font-size:16px;cursor:pointer">✕</button>
       </div>
       <div style="position:relative;margin-bottom:8px">
-        <input type="text" id="ia${i}" value="${(u.ad||'').replace(/"/g,'&quot;')}" placeholder="Ürün adı veya LN kodu..."
+        <input type="text" id="ia${i}" value="${escapeHtml(u.ad)}" placeholder="Ürün adı veya LN kodu..."
           autocomplete="off" oninput="filterIadeUrun(${i},this.value)"
           style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
         <div id="iadd${i}" class="udd"></div>
@@ -217,8 +217,8 @@ function filterIadeUrun(i,val){
   const urunDB=DB.urunler||(window.URUN_DB||[]);
   const res=urunDB.filter(u=>u.ad?.toLowerCase().includes(val.toLowerCase())||u.kod?.toLowerCase().includes(val.toLowerCase())).slice(0,15);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(u=>`<div class="uddi" data-i="${i}" data-kod="${u.kod}" data-ad="${(u.ad||'').replace(/"/g,'&quot;')}" data-birim="${u.birim||''}">
-    ${u.ad} <span style="font-size:10px;color:var(--gray-400)">${u.kod}</span>
+  dd.innerHTML=res.map(u=>`<div class="uddi" data-i="${i}" data-kod="${escapeHtml(u.kod)}" data-ad="${escapeHtml(u.ad)}" data-birim="${escapeHtml(u.birim||'')}">
+    ${escapeHtml(u.ad)} <span style="font-size:10px;color:var(--gray-400)">${escapeHtml(u.kod)}</span>
   </div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
@@ -239,7 +239,7 @@ function filterIadeFirma(val){
   if(!val||val.length<2){dd.style.display='none';return;}
   const res=(DB.firmalar||[]).filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,12);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(f=>`<div class="uddi" data-id="${f.id}" data-ad="${f.ad.replace(/"/g,'&quot;')}">${f.ad}</div>`).join('');
+  dd.innerHTML=res.map(f=>`<div class="uddi" data-id="${escapeHtml(f.id)}" data-ad="${escapeHtml(f.ad)}">${escapeHtml(f.ad)}</div>`).join('');
   dd.querySelectorAll('[data-id]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();
@@ -380,10 +380,10 @@ function renderIadeTakip(){
     <div class="card" style="margin-bottom:8px;border-left:4px solid var(--danger);cursor:pointer" onclick="iadeDetayAc('${s.siparisNo}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div>
-          <div style="font-size:13px;font-weight:700;color:var(--primary)">${s.firma||'—'}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--primary)">${escapeHtml(s.firma)||'—'}</div>
           <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
             <span style="font-family:monospace;font-weight:700;color:#4a3f68">${s.siparisNo}</span>
-            ${s.tarih?' • '+s.tarih:''} ${s.olusturanAd?' • '+s.olusturanAd:''}
+            ${s.tarih?' • '+s.tarih:''} ${s.olusturanAd?' • '+escapeHtml(s.olusturanAd):''}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
@@ -392,7 +392,7 @@ function renderIadeTakip(){
         </div>
       </div>
       <div style="font-size:11px;color:var(--gray-600);margin-bottom:4px">↩️ ${nedenMap[s.donusSekli]||s.donusSekli||'—'}${(s.bagliFaturalar&&s.bagliFaturalar.length)?' • '+s.bagliFaturalar.length+' fatura bağlı':(s.orijinalFaturaNo?' • Orj. No: '+s.orijinalFaturaNo:'')}</div>
-      ${(s.kalemler||[]).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${k.ad} — ${k.miktar} ${k.birim}${k.birimFiyat?' • '+fmt(k.birimFiyat)+' ₺':''}</div>`).join('')}
+      ${(s.kalemler||[]).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${escapeHtml(k.ad)} — ${k.miktar} ${k.birim}${k.birimFiyat?' • '+fmt(k.birimFiyat)+' ₺':''}</div>`).join('')}
       <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${s.fiyatlandirildi?'<span style="background:#dceee1;color:#2c5850;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyatlandırıldı</span>':'<span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyat Bekliyor</span>'}
         ${s.gonderildiMuhasebe?'<span style="background:#e8e5f0;color:#4a3f68;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📤 Muhasebe\'de</span>':''}
@@ -424,7 +424,7 @@ function iadeDetayAc(siparisNo){
       </div>
       <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px">FİRMA</div>
-        <div style="font-weight:700">${s.firma}</div>
+        <div style="font-weight:700">${escapeHtml(s.firma)}</div>
       </div>
       <div style="padding:7px 10px;background:var(--gray-100);border-radius:6px">
         <div style="color:var(--gray-500);font-size:10px">OTEL</div>
@@ -450,7 +450,7 @@ function iadeDetayAc(siparisNo){
         return`<div style="padding:10px;border:1.5px solid var(--gray-200);border-radius:8px;margin-bottom:8px;${fiyat>0?'border-color:var(--success);background:#f0fdf4':''}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div>
-              <div style="font-size:13px;font-weight:700">${k.ad}</div>
+              <div style="font-size:13px;font-weight:700">${escapeHtml(k.ad)}</div>
               <div style="font-size:11px;color:var(--gray-400)">${k.miktar} ${k.birim}</div>
             </div>
             ${fiyat>0?`<div style="text-align:right"><div style="font-size:13px;font-weight:800;color:var(--success)">${fmt(toplam)} ₺</div></div>`:''}
@@ -497,7 +497,7 @@ function renderIadeBagliFaturalar(){
   if(!_iadeBagliFaturalar.length){c.innerHTML=`<div style="font-size:11px;color:var(--gray-400);margin-bottom:8px">Henüz fatura bağlanmadı</div>`;return;}
   c.innerHTML=_iadeBagliFaturalar.map((b,i)=>`
     <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-      <input type="text" value="${(b.no||'').replace(/"/g,'&quot;')}" placeholder="Fatura No" oninput="_iadeBagliFaturalar[${i}].no=this.value"
+      <input type="text" value="${escapeHtml(b.no)}" placeholder="Fatura No" oninput="_iadeBagliFaturalar[${i}].no=this.value"
         style="flex:1.4;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none">
       <input type="date" value="${b.tarih||''}" oninput="_iadeBagliFaturalar[${i}].tarih=this.value"
         style="flex:1;padding:8px 10px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:12px;outline:none">
@@ -636,20 +636,20 @@ function iadeBelgeYazdir(){
   <table>
     <tr><th>FİRMA İSMİ</th><th>İADE SİPARİŞ NUMARASI</th><th>İADE SİPARİŞ TARİHİ</th><th>FATURA NUMARASI</th><th>FATURA TARİHİ</th></tr>
     <tr>
-      <td rowspan="${Math.max(1,s.bagliFaturalar?.length||1)}">${s.firma||'—'}</td>
+      <td rowspan="${Math.max(1,s.bagliFaturalar?.length||1)}">${escapeHtml(s.firma)||'—'}</td>
       <td rowspan="${Math.max(1,s.bagliFaturalar?.length||1)}" class="center">${s.siparisNo}</td>
       <td rowspan="${Math.max(1,s.bagliFaturalar?.length||1)}" class="center">${s.tarih||'—'}</td>
-      <td>${s.bagliFaturalar?.[0]?.no||'—'}</td>
-      <td>${s.bagliFaturalar?.[0]?.tarih||'—'}</td>
+      <td>${escapeHtml(s.bagliFaturalar?.[0]?.no)||'—'}</td>
+      <td>${escapeHtml(s.bagliFaturalar?.[0]?.tarih)||'—'}</td>
     </tr>
-    ${(s.bagliFaturalar||[]).slice(1).map(b=>`<tr><td>${b.no||'—'}</td><td>${b.tarih||'—'}</td></tr>`).join('')}
+    ${(s.bagliFaturalar||[]).slice(1).map(b=>`<tr><td>${escapeHtml(b.no)||'—'}</td><td>${escapeHtml(b.tarih)||'—'}</td></tr>`).join('')}
   </table>
   <table><tr><td class="neden">İADE NEDENİ : ${nedenMap[s.donusSekli]||(s.donusSekli||'—').toUpperCase()}</td></tr></table>
   <table>
     <tr><th>SIRA NO</th><th>İADE EDİLEN MALZEME ADI</th><th>MİKTAR (KG/AD)</th><th>BİRİM FİYAT</th><th>TOPLAM</th></tr>
     ${kalemler.map((k,i)=>`<tr>
       <td class="center">${i+1}</td>
-      <td>${k.kod?k.kod+'<br>':''}${k.ad}</td>
+      <td>${k.kod?escapeHtml(k.kod)+'<br>':''}${escapeHtml(k.ad)}</td>
       <td class="center">${k.miktar}</td>
       <td class="right">${fmt(k.birimFiyat)} TL</td>
       <td class="right">${fmt(k.toplam)} TL</td>
