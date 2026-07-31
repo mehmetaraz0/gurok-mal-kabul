@@ -161,7 +161,7 @@ function render(){
 
 function rolSecenekleriDoldur(seciliId){
   const sel=document.getElementById('k-rol-id');
-  sel.innerHTML=roller.map(r=>`<option value="${r.id}"${r.id===seciliId?' selected':''}>${r.ad}</option>`).join('');
+  sel.innerHTML=roller.map(r=>`<option value="${r.id}"${r.id===seciliId?' selected':''}>${escapeHtml(r.ad)}</option>`).join('');
 }
 
 function openYeniKullanici(){

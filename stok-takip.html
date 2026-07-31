@@ -1269,9 +1269,9 @@ function renderHareketler(){
         return`<div class="har-item">
           <div class="har-icon ${h.tip}">${ikon}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${h.urunAd||urunMap[h.lnKod]||h.lnKod||'—'}</div>
-            <div style="font-size:11px;color:var(--gray-500);">${etiket}</div>
-            <div style="font-size:10px;color:var(--gray-400);">${new Date(h.tarih).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} • ${h.personel||'—'}</div>
+            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(h.urunAd||urunMap[h.lnKod]||h.lnKod)||'—'}</div>
+            <div style="font-size:11px;color:var(--gray-500);">${escapeHtml(etiket)}</div>
+            <div style="font-size:10px;color:var(--gray-400);">${new Date(h.tarih).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} • ${escapeHtml(h.personel)||'—'}</div>
           </div>
           <div style="font-size:13px;font-weight:700;color:${renk};flex-shrink:0;">${miktar_str}</div>
         </div>`;
@@ -1299,8 +1299,8 @@ function filterUrunDD(inputId,ddId,kodId,birimId,val,depoSelectId){
     .slice(0,15);
   if(!results.length){dd.style.display='none';return;}
   dd.innerHTML=results.map(s=>
-    `<div class="urun-dd-item" data-kod="${s.lnKod}" data-ad="${(s.urunAd||'').replace(/"/g,'&quot;')}" data-birim="${s.birim||'KG'}">
-      ${s.urunAd} <span style="font-size:10px;color:var(--gray-500);">${s.miktar} ${s.birim}</span>
+    `<div class="urun-dd-item" data-kod="${s.lnKod}" data-ad="${escapeHtml(s.urunAd||'')}" data-birim="${s.birim||'KG'}">
+      ${escapeHtml(s.urunAd)} <span style="font-size:10px;color:var(--gray-500);">${s.miktar} ${s.birim}</span>
     </div>`
   ).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
@@ -1332,8 +1332,8 @@ function filterIadeUrunDD(inputId,ddId,kodId,birimId,val){
   let results=katalog.filter(u=>u.ad?.toLowerCase().includes(v)||u.kod?.toLowerCase().includes(v)).slice(0,15);
   if(!results.length){dd.style.display='none';return;}
   dd.innerHTML=results.map(u=>
-    `<div class="urun-dd-item" data-kod="${u.kod}" data-ad="${(u.ad||'').replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}">
-      ${u.ad} <span style="font-size:10px;color:var(--gray-500);font-family:monospace;">${u.kod}</span>
+    `<div class="urun-dd-item" data-kod="${u.kod}" data-ad="${escapeHtml(u.ad||'')}" data-birim="${u.birim||'KG'}">
+      ${escapeHtml(u.ad)} <span style="font-size:10px;color:var(--gray-500);font-family:monospace;">${u.kod}</span>
     </div>`
   ).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
@@ -1535,7 +1535,7 @@ async function importLNRapor(event){
       _lnRows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false});
       hideLoading();
       const headers=_lnRows[0]||[];const ornek=_lnRows[1]||[];
-      const opts=headers.map((h,i)=>`<option value="${i}">${h||'Kolon '+(i+1)} — ${String(ornek[i]||'').slice(0,20)}</option>`).join('');
+      const opts=headers.map((h,i)=>`<option value="${i}">${escapeHtml(h||'Kolon '+(i+1))} — ${escapeHtml(String(ornek[i]||'').slice(0,20))}</option>`).join('');
       document.getElementById('lnk-kod').innerHTML=opts;
       document.getElementById('lnk-ad').innerHTML=opts;
       document.getElementById('lnk-miktar').innerHTML=opts;
@@ -1581,7 +1581,7 @@ async function applyLNRapor(){
     <div class="card-title" style="color:var(--danger)">${eksikler.length} Kalemde Stok Yetersizliği</div>
     <div style="font-size:11px;color:var(--gray-600);margin-bottom:8px;">Sistemde görünenden fazla tüketim bildirildi — bu ürünler 0'a sabitlendi. Sayım farkı veya kaydedilmemiş bir giriş olabilir, kontrol edin:</div>
     ${eksikler.map(e=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-200);">
-      <b>${e.ad}</b> (${e.kod}) — istenen: ${e.istenen} ${e.birim}, mevcut: ${e.mevcut} ${e.birim}
+      <b>${escapeHtml(e.ad)}</b> (${escapeHtml(e.kod)}) — istenen: ${e.istenen} ${e.birim}, mevcut: ${e.mevcut} ${e.birim}
     </div>`).join('')}
   </div>`:''}`;
   renderStok();
@@ -1620,7 +1620,7 @@ function buildIadeFirmaSelector(){
   const firmalar=db.cariler||[];
   const siraliFirmalar=[...firmalar].sort((a,b)=>(a.ad||'').localeCompare(b.ad||'','tr'));
   sel.innerHTML='<option value="">— Firma Seçin —</option>'+
-    siraliFirmalar.map(f=>`<option value="${f.id}" data-ad="${(f.ad||'').replace(/"/g,'&quot;')}">${f.ad}</option>`).join('');
+    siraliFirmalar.map(f=>`<option value="${f.id}" data-ad="${escapeHtml(f.ad||'')}">${escapeHtml(f.ad)}</option>`).join('');
 }
 
 function onDepoChange(depoId){
@@ -1753,7 +1753,7 @@ async function iadeSiparisiOlustur(){
     <div class="card-title">İade Siparişi Oluşturuldu</div>
     <div style="font-size:13px;">
       <span class="chip" style="background:#e8e5f0;color:#4a3f68;font-family:monospace;font-weight:700">${siparisNo}</span>
-      &nbsp;${firmaAd}
+      &nbsp;${escapeHtml(firmaAd)}
     </div>
     <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length-basarisizlar.length} kalem, ${depoAd}'dan stoktan düşüldü.${basarisizlar.length?` <span style="color:var(--danger)">(${basarisizlar.length} kalemde stok güncellenemedi)</span>`:''}</div>
     <button class="btn btn-sm btn-gray" style="margin-top:8px;" onclick="iadeBelgeYazdir('${siparisNo}')">İade Belgesini Yazdır</button>

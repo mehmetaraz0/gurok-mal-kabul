@@ -246,7 +246,7 @@ async function loadGecmis(){
       return`<div class="har-item">
         <div class="har-icon">📉</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600">${urunAd}</div>
+          <div style="font-size:12px;font-weight:600">${escapeHtml(urunAd)}</div>
           <div style="font-size:11px;color:var(--gray-500)">${new Date(h.tarih).toLocaleString('tr-TR')}</div>
         </div>
         <div style="font-size:13px;font-weight:700;color:var(--danger)">-${h.miktar} ${DB.urunAdlari?.[h.urun_kodu]?.birim||''}</div>
@@ -280,7 +280,7 @@ function renderUrunler(){
     return`<div class="urow${girisli?' girisli':''}" id="urow-${u.kod}">
       <div class="urow-top">
         <div>
-          <div class="urow-ad">${meta.ad}</div>
+          <div class="urow-ad">${escapeHtml(meta.ad)}</div>
           <div class="urow-stok">Mevcut stok: ${u.miktar} ${meta.birim}${birimDonusumEtiketi(u.kod,u.miktar)?` (${birimDonusumEtiketi(u.kod,u.miktar)})`:''}</div>
         </div>
       </div>
@@ -409,7 +409,7 @@ function renderReceteler(){
     return`<div class="urow" style="border-left-color:${renk};cursor:pointer" onclick="receteDuzenleAc('${r.id}')">
       <div class="urow-top">
         <div>
-          <div class="urow-ad">${RIKSON[r.rol]||''} ${r.ad}</div>
+          <div class="urow-ad">${RIKSON[r.rol]||''} ${escapeHtml(r.ad)}</div>
           <div class="urow-stok">${r.kalemler.length} malzeme${eksik.length?` • ⚠️ ${eksik.length} malzemenin fiyatı yok`:''}</div>
         </div>
         <div style="text-align:right">
@@ -510,7 +510,7 @@ function rkalemAra(i,val){
   const v=val.toLowerCase();
   const kayitlar=Object.entries(DB.urunAdlari||{}).filter(([kod,u])=>u.ad.toLowerCase().includes(v)).slice(0,15);
   if(!kayitlar.length){dd.style.display='none';return;}
-  dd.innerHTML=kayitlar.map(([kod,u])=>`<div data-kod="${kod}" data-ad="${u.ad.replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}" style="padding:8px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--gray-100)">${u.ad} <span style="color:var(--gray-400);font-size:10px">${kod}</span></div>`).join('');
+  dd.innerHTML=kayitlar.map(([kod,u])=>`<div data-kod="${kod}" data-ad="${escapeHtml(u.ad)}" data-birim="${u.birim||'KG'}" style="padding:8px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--gray-100)">${escapeHtml(u.ad)} <span style="color:var(--gray-400);font-size:10px">${kod}</span></div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();
@@ -622,7 +622,7 @@ function tuketDetayAc(id){
   _tuketAktifRecete=id;
   document.getElementById('tuket-detay').innerHTML=`
     <div class="card">
-      <div class="card-title">${r.ad}</div>
+      <div class="card-title">${escapeHtml(r.ad)}</div>
       <div class="field"><label>Kaç Porsiyon Satıldı?</label><input type="number" id="tuket-porsiyon" min="1" step="1" placeholder="örn. 12" oninput="tuketOnizlemeGuncelle()"></div>
       <div id="tuket-onizleme"></div>
       <button class="btn btn-success btn-block" style="margin-top:10px" onclick="tuketKaydet()">Stoktan Düş</button>
