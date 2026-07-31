@@ -138,7 +138,7 @@ async function renderSkt(){
     const gunMetni=isTuketildi?'Tüketildi':isImha?'İmha edildi':(gun<0?Math.abs(gun)+' gün geçti':gun+' gün kaldı');
     return`<div class="mk-kart" style="border-left-color:${renk}">
       <div style="display:flex;justify-content:space-between;gap:6px">
-        <div><div style="font-size:13px;font-weight:700">${urun?.ad||r.urun_kodu||'—'}</div><div style="font-size:11px;color:var(--gray-500)">${r.miktar} adet/kg</div></div>
+        <div><div style="font-size:13px;font-weight:700">${escapeHtml(urun?.ad||r.urun_kodu)||'—'}</div><div style="font-size:11px;color:var(--gray-500)">${r.miktar} adet/kg</div></div>
         <div style="text-align:right">${chip}<div style="font-size:10px;color:var(--gray-400);margin-top:2px">${r.skt_tarihi}</div></div>
       </div>
       <div style="font-size:12px;font-weight:700;color:${renk};margin-top:4px">${gunMetni}</div>

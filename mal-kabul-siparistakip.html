@@ -115,7 +115,7 @@ function renderSiparisTakip(){
     const yuzde=toplam>0?Math.round(tamamlanan/toplam*100):0;
     return`<div class="mk-kart">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div style="font-size:13px;font-weight:700">${s.siparisNo}</div><div style="font-size:11px;color:var(--gray-500)">${s.firma}</div></div>
+        <div><div style="font-size:13px;font-weight:700">${s.siparisNo}</div><div style="font-size:11px;color:var(--gray-500)">${escapeHtml(s.firma)}</div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
           ${durumChip[s.durum]||''}
           <span class="chip ${s.otelId==='811'?'chip-blue':'chip-orange'}">${OTEL_KISA[s.otelId]}</span>
@@ -131,7 +131,7 @@ function renderSiparisTakip(){
         </div>
       </div>
       ${eksik>0?`<div style="font-size:11px;color:var(--gray-600);margin-top:6px">
-        ${kalemler.filter(k=>(k.kalanMiktar||0)>0.01).slice(0,3).map(k=>`• ${k.ad} — Kalan: ${k.kalanMiktar} ${k.birim}`).join('<br>')}
+        ${kalemler.filter(k=>(k.kalanMiktar||0)>0.01).slice(0,3).map(k=>`• ${escapeHtml(k.ad)} — Kalan: ${k.kalanMiktar} ${k.birim}`).join('<br>')}
         ${eksik>3?`<div style="color:var(--gray-400)">+${eksik-3} daha...</div>`:''}
       </div>`:''}
     </div>`;
