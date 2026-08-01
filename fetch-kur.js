@@ -3,7 +3,15 @@
 // CORS engeline takılan TCMB isteği burada sorunsuz çalışır.
 
 const SB_URL = 'https://xwytofysmgqtqjzkplfi.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3eXRvZnlzbWdxdHFqemtwbGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMjg5ODMsImV4cCI6MjA5ODgwNDk4M30.E7cRcOAvCmUFXWs45t4HE-igpmqWmSN2J66dOuvCHjA';
+// Service-role anahtarı GitHub Secret'tan (SUPABASE_SERVICE_ROLE_KEY) gelir — koda
+// ASLA yazılmaz. RLS'i baypas ederek doviz_kurlari'na yazar. (Anon anahtar RLS'e
+// takıldığı için kullanılamaz; anon'un yazamaması güvenlik açısından İSTENEN durum.)
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SERVICE_KEY) {
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY ortam değişkeni yok. GitHub → Settings → '
+    + 'Secrets and variables → Actions → New repository secret ile ekleyin.');
+  process.exit(1);
+}
 const PARA_BIRIMLERI = ['USD', 'EUR', 'GBP'];
 
 function get(block, tag) {
@@ -60,8 +68,8 @@ async function main() {
   const r = await fetch(`${SB_URL}/rest/v1/doviz_kurlari?on_conflict=tarih,para_birimi`, {
     method: 'POST',
     headers: {
-      'apikey': SB_KEY,
-      'Authorization': 'Bearer ' + SB_KEY,
+      'apikey': SERVICE_KEY,
+      'Authorization': 'Bearer ' + SERVICE_KEY,
       'Content-Type': 'application/json',
       'Prefer': 'resolution=merge-duplicates',
     },

@@ -19,3 +19,5 @@ jobs:
 
       - name: TCMB kurunu çek ve Supabase'e yaz
         run: node fetch-kur.js
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
