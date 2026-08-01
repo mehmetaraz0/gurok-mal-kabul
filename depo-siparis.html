@@ -546,11 +546,11 @@ function rUS(){
     <div class="usatir">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <div style="background:var(--primary);color:white;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
-        <div style="font-size:13px;font-weight:600;flex:1">${u.ad||'Ürün '+(i+1)}</div>
+        <div style="font-size:13px;font-weight:600;flex:1">${escapeHtml(u.ad)||'Ürün '+(i+1)}</div>
         <button onclick="delUS(${i})" style="background:none;border:none;color:var(--gray-400);font-size:16px;cursor:pointer">✕</button>
       </div>
       <div style="position:relative;margin-bottom:8px">
-        <input type="text" id="ua${i}" value="${u.ad}" placeholder="2+ harf yazın..." autocomplete="off"
+        <input type="text" id="ua${i}" value="${escapeHtml(u.ad)}" placeholder="2+ harf yazın..." autocomplete="off"
           oninput="fUS(${i},this.value)"
           style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
         <div id="udd${i}" class="udd"></div>
@@ -566,7 +566,7 @@ function rUS(){
             ${['KG','AD','KOL','LT','PKT','TRB','TNK','BOT','GR','ML'].map(b=>`<option${u.birim===b?' selected':''}>${b}</option>`).join('')}
           </select></div>
       </div>
-      <input type="text" value="${u.not||''}" placeholder="Not (opsiyonel)"
+      <input type="text" value="${escapeHtml(u.not||'')}" placeholder="Not (opsiyonel)"
         oninput="US[${i}].not=this.value"
         style="width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:8px;font-size:12px;margin-top:6px;outline:none">
     </div>`).join('');
@@ -589,8 +589,8 @@ function fUS(i,val){
     ...genel.map(u=>({kod:u.kod,ad:u.ad,birim:u.birim,stok:0,v:false}))
   ];
   if(!sonuc.length){dd.style.display='none';return;}
-  dd.innerHTML=sonuc.map(s=>`<div class="uddi" data-i="${i}" data-kod="${s.kod}" data-ad="${(s.ad||'').replace(/"/g,'&quot;')}" data-birim="${s.birim||'KG'}">
-    ${s.ad} <span style="font-size:10px;color:${s.v?'var(--success)':'var(--gray-400)'}">${s.v?'Stok: '+s.stok+' '+s.birim:'—'}</span>
+  dd.innerHTML=sonuc.map(s=>`<div class="uddi" data-i="${i}" data-kod="${s.kod}" data-ad="${escapeHtml(s.ad||'')}" data-birim="${s.birim||'KG'}">
+    ${escapeHtml(s.ad)} <span style="font-size:10px;color:${s.v?'var(--success)':'var(--gray-400)'}">${s.v?'Stok: '+s.stok+' '+s.birim:'—'}</span>
   </div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
@@ -672,9 +672,9 @@ function rTaleplerim(){
     const cm={bekleyen:'<span class="chip chip-warn">Bekliyor</span>',onaylandi:'<span class="chip chip-ok">Onaylandı</span>',reddedildi:'<span class="chip chip-err">Reddedildi</span>'};
     return`<div class="skart ${s.durum}">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">${cm[s.durum]||''}<div style="text-align:right;font-size:11px;color:var(--gray-500)">${s.tarih}</div></div>
-      ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${u.ad||u.urunAd||""} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
+      ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${escapeHtml(u.ad||u.urunAd||"")} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
       ${s.durum==='bekleyen'?`<button class="btn btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="iptalEt('${s.id}')">Talebi İptal Et</button>`:''}
-    ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px">Red: ${s.redNot}</div>`:''}
+    ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px">Red: ${escapeHtml(s.redNot)}</div>`:''}
     </div>`;
   }).join(''));
 }
@@ -695,10 +695,10 @@ function rGelen(){
   </div>`+(liste.length===0?'<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">'+(GF==='bekleyen'?'Bekleyen talep yok':'Kayıt yok')+'</div></div>':
   liste.map(s=>`<div class="skart ${s.durum}" onclick="aOnay('${s.id}')">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div><div style="font-size:13px;font-weight:700">${sipDepartmanGoster(s)}</div><div style="font-size:11px;color:var(--gray-500)">${s.tarih||""} • ${s.personel||""} • ${(s.urunler||s.kalemler||[]).length} ürün</div></div>
+      <div><div style="font-size:13px;font-weight:700">${escapeHtml(sipDepartmanGoster(s))}</div><div style="font-size:11px;color:var(--gray-500)">${s.tarih||""} • ${escapeHtml(s.personel||"")} • ${(s.urunler||s.kalemler||[]).length} ürün</div></div>
       <span class="chip ${s.durum==='bekleyen'?'chip-warn':s.durum==='onaylandi'?'chip-ok':'chip-err'}">${s.durum==='bekleyen'?'Bekliyor':s.durum==='onaylandi'?'Onaylandı':'Reddedildi'}</span>
     </div>
-    <div style="font-size:12px;color:var(--gray-600)">${(s.urunler||s.kalemler||[]).slice(0,3).map(u=>`${u.ad||u.urunAd||''} ${u.miktar||''} ${u.birim||''}`).join(' • ')}${(s.urunler||s.kalemler||[]).length>3?` +${(s.urunler||s.kalemler||[]).length-3} daha`:''}</div>
+    <div style="font-size:12px;color:var(--gray-600)">${(s.urunler||s.kalemler||[]).slice(0,3).map(u=>`${escapeHtml(u.ad||u.urunAd||'')} ${u.miktar||''} ${u.birim||''}`).join(' • ')}${(s.urunler||s.kalemler||[]).length>3?` +${(s.urunler||s.kalemler||[]).length-3} daha`:''}</div>
   </div>`).join(''));
 }
 
@@ -711,13 +711,13 @@ function aOnay(id){
   const otelId=s.otelId||otelFromBareKod(s.departmanId)||'810';
   const merkeziDepoId=tamDepoId(otelId,merkeziDepoKodu(otelId));
   document.getElementById('mOnayIc').innerHTML=`
-    <div style="margin-bottom:12px"><div style="font-size:15px;font-weight:700;color:var(--primary)">${sipDepartmanGoster(s)}</div><div style="font-size:12px;color:var(--gray-500)">${s.tarih} • ${s.personel}</div></div>
+    <div style="margin-bottom:12px"><div style="font-size:15px;font-weight:700;color:var(--primary)">${escapeHtml(sipDepartmanGoster(s))}</div><div style="font-size:12px;color:var(--gray-500)">${s.tarih} • ${escapeHtml(s.personel)}</div></div>
     <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;text-transform:uppercase">Ürünler — Miktarları Düzenleyebilirsiniz</div>
     ${(s.urunler||s.kalemler||[]).map((u,i)=>{
       const stokM=parseFloat((DB.stok[merkeziDepoId]?.[u.kod]||{}).miktar||0);
       const ok=stokM>=u.miktar;
       return`<div style="background:var(--gray-100);border-radius:8px;padding:10px;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:4px">${u.ad}</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">${escapeHtml(u.ad)}</div>
         <div style="font-size:11px;color:var(--gray-500);margin-bottom:6px">Talep: ${u.talepMiktar||u.miktar} ${u.birim} • Merkezi Depo Stok: <span style="color:${ok?'var(--success)':'var(--danger)'}">${stokM} ${u.birim}</span>${!ok?' ⚠️':''}</div>
         <div style="display:flex;align-items:center;gap:8px">
           <label style="font-size:12px;color:var(--gray-600)">Onaylanan:</label>
@@ -726,7 +726,7 @@ function aOnay(id){
         </div>
       </div>`;
     }).join('')}
-    ${s.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${s.not}</div>`:''}
+    ${s.not?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:12px">Not: ${escapeHtml(s.not)}</div>`:''}
     ${s.durum==='bekleyen'?`
       <button class="btn" style="width:100%;background:#e8e5f0;color:#4a3f68;font-weight:700;margin-bottom:8px" onclick="depoQrBaslat('${id}')">Koli Okut (miktarlar otomatik birikir)</button>
       <div id="depo-qr-okuyucu" style="display:none;margin-bottom:8px;border-radius:12px;overflow:hidden"></div>
@@ -848,7 +848,7 @@ function depoQrListeRender(){
   c.innerHTML=`<div style="background:#f0fdf4;border:1px solid var(--success);border-radius:8px;padding:8px 10px;margin-bottom:10px">
     <div style="font-size:11px;font-weight:700;color:#155724;margin-bottom:4px">📦 Okutulan koliler (${_onayKolileri.length})</div>
     ${_onayKolileri.map((k,i)=>`<div style="font-size:11px;color:#155724;display:flex;justify-content:space-between;align-items:center;padding:2px 0">
-      <span>${k.urunAdi} — Koli ${k.koliNo||'?'} — <b>${k.miktar.toFixed(2)} ${k.birim}</b></span>
+      <span>${escapeHtml(k.urunAdi)} — Koli ${k.koliNo||'?'} — <b>${k.miktar.toFixed(2)} ${k.birim}</b></span>
       <button onclick="depoKoliCikar(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px">✕</button>
     </div>`).join('')}
   </div>`;
@@ -1020,9 +1020,9 @@ function rBugun(){
   c.innerHTML=liste.length===0?'<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bugün teslim edilecek sipariş yok</div></div>':
     `<div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase">📅 ${today} — ${liste.length} teslimat</div>`+
     liste.map(s=>`<div class="skart onaylandi">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${sipDepartmanGoster(s)}</div><span class="chip chip-ok">Teslim</span></div>
-      ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0">• ${u.ad||u.urunAd||""} — ${u.onaylananMiktar||u.miktar} ${u.birim}</div>`).join('')}
-      <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Onaylayan: ${s.onaylayanAd||'—'}</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:700">${escapeHtml(sipDepartmanGoster(s))}</div><span class="chip chip-ok">Teslim</span></div>
+      ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0">• ${escapeHtml(u.ad||u.urunAd||"")} — ${u.onaylananMiktar||u.miktar} ${u.birim}</div>`).join('')}
+      <div style="font-size:11px;color:var(--gray-400);margin-top:4px">Onaylayan: ${escapeHtml(s.onaylayanAd)||'—'}</div>
     </div>`).join('');
 }
 
@@ -1104,7 +1104,7 @@ async function onayOzetGoster(id, tip){
         const yeterli=!u.kod||stok>=u.onaylananMiktar;
         return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:${yeterli?'var(--gray-100)':'#fff8f8'};border-radius:6px;margin-bottom:4px;border-left:3px solid ${yeterli?'var(--success)':'var(--danger)'}">
           <div>
-            <div style="font-size:13px;font-weight:600">${u.ad||u.urunAd||'—'}</div>
+            <div style="font-size:13px;font-weight:600">${escapeHtml(u.ad||u.urunAd||'—')}</div>
             <div style="font-size:11px;color:var(--gray-500)">${u.kod?'Stok: '+stok+' '+u.birim:'⚠️ LN kodu yok'}</div>
           </div>
           <div style="text-align:right">
@@ -1122,7 +1122,7 @@ async function onayOzetGoster(id, tip){
     icerik=`
       <div style="background:#fde8e8;border-radius:8px;padding:12px;margin-bottom:12px;">
         <div style="font-size:13px;font-weight:700;color:#9b1c1c;">❌ Talep Reddedilecek</div>
-        <div style="font-size:12px;color:#9b1c1c;margin-top:4px;">${sipDepartmanGoster(s)} • ${s.personel}</div>
+        <div style="font-size:12px;color:#9b1c1c;margin-top:4px;">${escapeHtml(sipDepartmanGoster(s))} • ${escapeHtml(s.personel)}</div>
       </div>
       <div class="field"><label>Red Nedeni</label><input type="text" id="rednot2" placeholder="Neden reddedildi?"></div>
       <div class="brow">

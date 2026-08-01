@@ -320,8 +320,8 @@ function renderUyarilar(){
     <div class="uyari-kart ${u.tip}" onclick="uyariAksiyon(${i})">
       <div class="uyari-ikon">${u.ikon}</div>
       <div style="flex:1;min-width:0">
-        <div class="uyari-baslik">${u.baslik}</div>
-        <div class="uyari-detay">${u.detay}</div>
+        <div class="uyari-baslik">${escapeHtml(u.baslik)}</div>
+        <div class="uyari-detay">${escapeHtml(u.detay)}</div>
         ${u.tutar?`<div class="uyari-tutar" style="color:${u.tip==='kritik'?'var(--danger)':u.tip==='dikkat'?'#8a5c2c':'var(--info)'}">${fmt(u.tutar)} ₺</div>`:''}
       </div>
     </div>`).join('');

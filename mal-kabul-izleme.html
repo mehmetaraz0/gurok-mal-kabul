@@ -314,7 +314,7 @@ function renderEslemeRaporu(){
     const kenar=f._durum==='tam'?'var(--success)':f._durum==='fatura_bek'?'var(--warning)':'var(--danger)';
     return`<div class="mk-kart" style="border-left-color:${kenar};cursor:pointer" onclick="location.href='mal-kabul-liste.html?detay=${f.id}'">
       <div style="font-size:13px;font-weight:700">${f.mkNo}</div>
-      <div style="font-size:11px;color:var(--gray-500)">🏢 ${f.firma} • ${f.tarih}</div>
+      <div style="font-size:11px;color:var(--gray-500)">🏢 ${escapeHtml(f.firma)} • ${f.tarih}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">
         <div style="padding:6px 4px;border-radius:6px;text-align:center;background:${f._siparis?'#d4edda':'var(--gray-100)'}">
           <div style="font-size:10px;font-weight:700;color:${f._siparis?'#155724':'var(--gray-500)'}">${f._siparis?'✅':'—'} SİPARİŞ</div>
@@ -322,11 +322,11 @@ function renderEslemeRaporu(){
         </div>
         <div style="padding:6px 4px;border-radius:6px;text-align:center;background:${f._irsaliye?'#d4edda':'#fde8e8'}">
           <div style="font-size:10px;font-weight:700;color:${f._irsaliye?'#155724':'#9b1c1c'}">${f._irsaliye?'✅':'❌'} İRSALİYE</div>
-          <div style="font-size:9px;color:var(--gray-500);margin-top:1px">${f.irsaliyeNo||'yok'}</div>
+          <div style="font-size:9px;color:var(--gray-500);margin-top:1px">${escapeHtml(f.irsaliyeNo||'yok')}</div>
         </div>
         <div style="padding:6px 4px;border-radius:6px;text-align:center;background:${f._fatura?'#d4edda':'#fff3cd'}">
           <div style="font-size:10px;font-weight:700;color:${f._fatura?'#155724':'#856404'}">${f._fatura?'✅':'⏳'} FATURA</div>
-          <div style="font-size:9px;color:var(--gray-500);margin-top:1px">${f.faturaNo||'bekliyor'}</div>
+          <div style="font-size:9px;color:var(--gray-500);margin-top:1px">${escapeHtml(f.faturaNo||'bekliyor')}</div>
         </div>
       </div>
     </div>`;

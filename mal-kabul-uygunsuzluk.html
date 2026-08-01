@@ -112,7 +112,7 @@ async function renderUygun(){
       :`<div style="margin-top:8px;padding:8px;background:var(--gray-100);border-radius:6px;font-size:11px">
           <div><b>Karar:</b> ${kararEtiket[r.karar]||'—'}</div>
           ${r.faaliyet_aciklama?`<div style="margin-top:2px"><b>Faaliyet:</b> ${escapeHtml(r.faaliyet_aciklama)}</div>`:''}
-          <div style="color:var(--gray-500);margin-top:2px">${r.faaliyet_yapan||''} ${r.faaliyet_tarih?'• '+r.faaliyet_tarih:''}</div>
+          <div style="color:var(--gray-500);margin-top:2px">${escapeHtml(r.faaliyet_yapan)} ${r.faaliyet_tarih?'• '+r.faaliyet_tarih:''}</div>
         </div>
         <button class="btn btn-primary btn-sm btn-block" style="margin-top:6px" onclick="uygunsuzlukYazdir('${r.id}')">Formu Yazdır</button>`}
   </div>`).join('');
@@ -148,7 +148,7 @@ function uygunsuzlukIncele(id){
       </div>
     </div>
     <div class="rfields">
-      <div class="field"><label>Faaliyeti Yapan</label><input type="text" id="uf-faaliyet-yapan" value="${currentUser.ad}"></div>
+      <div class="field"><label>Faaliyeti Yapan</label><input type="text" id="uf-faaliyet-yapan" value="${escapeHtml(currentUser.ad)}"></div>
       <div class="field"><label>Tarih</label><input type="date" id="uf-faaliyet-tarih" value="${new Date().toISOString().split('T')[0]}"></div>
     </div>
   `;
@@ -309,7 +309,7 @@ async function uygunsuzlukYazdir(id){
     </tr>
     <tr>
       <td></td>
-      <td colspan="2"><span class="lbl">Faaliyeti Yapan:</span> ${r.faaliyet_yapan||''}</td>
+      <td colspan="2"><span class="lbl">Faaliyeti Yapan:</span> ${escapeHtml(r.faaliyet_yapan)}</td>
       <td><span class="lbl">İmza</span></td>
       <td><span class="lbl">Tarih:</span> ${fmtTarih(r.faaliyet_tarih)}</td>
     </tr>

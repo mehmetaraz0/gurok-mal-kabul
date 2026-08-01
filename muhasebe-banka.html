@@ -353,7 +353,7 @@ function renderHesaplar(){
     const bakiye=hesapBakiye(h.id);
     return`<div class="hesap-kart ${h.tur}" onclick="openHesapDetay('${h.id}')">
       <div class="hesap-kart-ikon">${h.tur==='banka'?'🏦':'💰'}</div>
-      <div class="hesap-kart-ad">${h.ad}</div>
+      <div class="hesap-kart-ad">${escapeHtml(h.ad)}</div>
       <div class="hesap-kart-no">${h.tur==='banka'?(h.bankaAd||'')+(h.iban?' • '+h.iban.slice(-4):''):h.muhasebeKod||''}</div>
       <div class="hesap-kart-bakiye">${fmt(bakiye)} <span class="hesap-kart-doviz">${h.doviz}</span></div>
     </div>`;
@@ -364,7 +364,7 @@ function renderHesaplar(){
     const sel=document.getElementById(id);
     if(!sel)return;
     const placeholder=sel.options[0]?.outerHTML||'<option value="">Seçin</option>';
-    sel.innerHTML=placeholder+liste.map(h=>`<option value="${h.id}">${h.tur==='banka'?'🏦':'💰'} ${h.ad} (${fmt(hesapBakiye(h.id))} ${h.doviz})</option>`).join('');
+    sel.innerHTML=placeholder+liste.map(h=>`<option value="${h.id}">${h.tur==='banka'?'🏦':'💰'} ${escapeHtml(h.ad)} (${fmt(hesapBakiye(h.id))} ${h.doviz})</option>`).join('');
   });
 }
 
@@ -458,14 +458,14 @@ function openHesapDetay(id){
       <div style="font-size:28px;font-weight:800;color:var(--primary)">${fmt(bakiye)} <span style="font-size:14px;color:var(--gray-400)">${h.doviz}</span></div>
     </div>
     ${h.iban?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:6px">IBAN: <b>${h.iban}</b></div>`:''}
-    ${h.bankaAd?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">${h.bankaAd}${h.sube?' • '+h.sube:''}</div>`:''}
+    ${h.bankaAd?`<div style="font-size:12px;color:var(--gray-600);margin-bottom:10px">${escapeHtml(h.bankaAd)}${h.sube?' • '+h.sube:''}</div>`:''}
     <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:6px">Son Hareketler</div>
     ${harlar.length===0?'<div style="text-align:center;color:var(--gray-400);padding:16px;font-size:13px">Hareket kaydı yok</div>':
       harlar.map(x=>`<div class="har-satir">
         <div class="har-ikon" style="background:${x.tip==='yatirma'?'#d4edda':'#fde8e8'}">${x.tip==='yatirma'?'⬇️':'⬆️'}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600">${x.aciklama||(x.tip==='yatirma'?'Para Yatırma':'Para Çekme')}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${new Date(x.tarih).toLocaleDateString('tr-TR')}${x.belge?' • '+x.belge:''}</div>
+          <div style="font-size:12px;font-weight:600">${escapeHtml(x.aciklama||(x.tip==='yatirma'?'Para Yatırma':'Para Çekme'))}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${new Date(x.tarih).toLocaleDateString('tr-TR')}${x.belge?' • '+escapeHtml(x.belge):''}</div>
         </div>
         <div style="font-size:13px;font-weight:700;color:${x.tip==='yatirma'?'var(--success)':'var(--danger)'}">${x.tip==='yatirma'?'+':'-'}${fmt(x.tutar)} ₺</div>
       </div>`).join('')}
@@ -482,7 +482,7 @@ function openHesapDetay(id){
 // ============================================================
 function openHareket(hesapId){
   const h=hesaplar[hesapId];if(!h)return;
-  document.getElementById('mHareketTitle').innerHTML='➕ Hareket Ekle — '+h.ad+' <button class="mclose" onclick="kModal(\'mHareket\')">✕</button>';
+  document.getElementById('mHareketTitle').innerHTML='➕ Hareket Ekle — '+escapeHtml(h.ad)+' <button class="mclose" onclick="kModal(\'mHareket\')">✕</button>';
   document.getElementById('hr-hesap-id').value=hesapId;
   document.getElementById('hr-hesap-ad').value=h.ad;
   document.getElementById('hr-tip').value='yatirma';
@@ -543,7 +543,7 @@ function renderHareketler(){
         return`<div class="har-satir">
           <div class="har-ikon" style="background:${h.tip==='yatirma'?'#d4edda':'#fde8e8'}">${h.tip==='yatirma'?'⬇️':'⬆️'}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:600">${hesap?.ad||h.hesapId}</div>
+            <div style="font-size:12px;font-weight:600">${escapeHtml(hesap?.ad||h.hesapId)}</div>
             <div style="font-size:11px;color:var(--gray-500)">${h.aciklama||(h.tip==='yatirma'?'Para Yatırma':'Para Çekme')}</div>
           </div>
           <div style="font-size:13px;font-weight:700;color:${h.tip==='yatirma'?'var(--success)':'var(--danger)'}">${h.tip==='yatirma'?'+':'-'}${fmt(h.tutar)} ₺</div>
@@ -599,8 +599,8 @@ function renderVirmanGecmis(){
       const kaynak=hesaplar[v.kaynakId],hedef=hesaplar[v.hedefId];
       return`<div class="har-satir">
         <div style="flex:1">
-          <div style="font-size:12px;font-weight:600">${kaynak?.ad||'?'} → ${hedef?.ad||'?'}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${new Date(v.tarih).toLocaleDateString('tr-TR')} ${v.aciklama?'• '+v.aciklama:''}</div>
+          <div style="font-size:12px;font-weight:600">${escapeHtml(kaynak?.ad||'?')} → ${escapeHtml(hedef?.ad||'?')}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${new Date(v.tarih).toLocaleDateString('tr-TR')} ${v.aciklama?'• '+escapeHtml(v.aciklama):''}</div>
         </div>
         <div style="font-size:13px;font-weight:700;color:var(--primary)">${fmt(v.tutar)} ₺</div>
       </div>`;

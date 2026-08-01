@@ -73,10 +73,10 @@ function renderFirmalar(val){
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Firma bulunamadı</div></div>';return;}
   c.innerHTML=liste.map(f=>`
     <div class="skart bekleyen" style="cursor:default">
-      <div style="font-size:13px;font-weight:700">${f.ad}</div>
+      <div style="font-size:13px;font-weight:700">${escapeHtml(f.ad)}</div>
       <div style="font-size:11px;color:var(--gray-500);margin-top:2px">
-        ${f.mail?`✉️ ${f.mail}`:''}
-        ${f.tel?`📞 ${f.tel}`:''}
+        ${f.mail?`✉️ ${escapeHtml(f.mail)}`:''}
+        ${f.tel?`📞 ${escapeHtml(f.tel)}`:''}
         ${f.urunler?`• ${f.urunler.length} ürün`:''}
       </div>
     </div>`).join('');

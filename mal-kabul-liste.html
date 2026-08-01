@@ -497,7 +497,7 @@ function filterUrunDD(i,val){
   if(!val||val.length<2){dd.style.display='none';return;}
   const res=urunler.filter(u=>u.ad.toLowerCase().includes(val.toLowerCase())).slice(0,12);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(u=>`<div class="uddi" data-kod="${u.kod}" data-ad="${u.ad.replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}" data-kriter="${u.sicaklik_kriter||''}">${u.ad} <span style="color:var(--gray-400);font-size:10px">${u.birim||'KG'}</span></div>`).join('');
+  dd.innerHTML=res.map(u=>`<div class="uddi" data-kod="${escapeHtml(u.kod)}" data-ad="${escapeHtml(u.ad)}" data-birim="${escapeHtml(u.birim||'KG')}" data-kriter="${escapeHtml(u.sicaklik_kriter||'')}">${escapeHtml(u.ad)} <span style="color:var(--gray-400);font-size:10px">${escapeHtml(u.birim||'KG')}</span></div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();
@@ -517,7 +517,7 @@ function filterFirmaDD(val){
   if(!val||val.length<2){dd.style.display='none';return;}
   const res=cariler.filter(c=>c.ad.toLowerCase().includes(val.toLowerCase())).slice(0,15);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(c=>`<div class="uddi" data-id="${c.id}" data-ad="${c.ad.replace(/"/g,'&quot;')}">${c.ad}</div>`).join('');
+  dd.innerHTML=res.map(c=>`<div class="uddi" data-id="${escapeHtml(c.id)}" data-ad="${escapeHtml(c.ad)}">${escapeHtml(c.ad)}</div>`).join('');
   dd.querySelectorAll('[data-id]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();
@@ -538,7 +538,7 @@ function filterSiparisDD(val){
   if(!val||val.length<2){dd.style.display='none';return;}
   const res=Object.values(siparisler).filter(s=>s.otelId===otelId&&s.siparisNo.toLowerCase().includes(val.toLowerCase())&&(s.durum==='bekleyen'||s.durum==='kismi')).slice(0,10);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(s=>`<div class="uddi" data-no="${s.siparisNo}">${s.siparisNo} — ${s.firma}</div>`).join('');
+  dd.innerHTML=res.map(s=>`<div class="uddi" data-no="${s.siparisNo}">${s.siparisNo} — ${escapeHtml(s.firma)}</div>`).join('');
   dd.querySelectorAll('[data-no]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();
@@ -622,10 +622,15 @@ function secListesiFiltrele(val){
 function renderSecListesi(liste){
   const c=document.getElementById('sec-liste');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt bulunamadı</div></div>';return;}
-  c.innerHTML=liste.map(cr=>`<div class="mk-kart" onclick="firmaSecildi('${cr.id}','${cr.ad.replace(/'/g,"\\'")}')">
-    <div style="font-size:14px;font-weight:700">${cr.ad}</div>
+  c.innerHTML=liste.map(cr=>`<div class="mk-kart" data-id="${escapeHtml(cr.id)}" data-ad="${escapeHtml(cr.ad)}">
+    <div style="font-size:14px;font-weight:700">${escapeHtml(cr.ad)}</div>
     ${cr.kod?`<div style="font-size:11px;color:var(--gray-500)">${cr.kod}</div>`:''}
   </div>`).join('');
+  c.querySelectorAll('.mk-kart[data-id]').forEach(el=>{
+    el.addEventListener('click',function(){
+      firmaSecildi(this.dataset.id,this.dataset.ad);
+    });
+  });
 }
 
 // ============================================================
@@ -652,7 +657,7 @@ function renderBSP(){
     <div style="margin-bottom:10px">
       <div style="background:var(--gray-100);padding:7px 10px;border-radius:6px;font-size:12px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <span style="font-family:monospace;color:#4a3f68">${sipNo}</span>
-        <span style="font-weight:400;color:var(--gray-500)">${g.firma}</span>
+        <span style="font-weight:400;color:var(--gray-500)">${escapeHtml(g.firma)}</span>
         ${g.durum==='kismi'?'<span class="chip chip-yellow">Kısmi</span>':''}
         ${g.tarih?`<span style="font-weight:400;color:var(--gray-400);margin-left:auto">${g.tarih}</span>`:''}
       </div>
@@ -661,7 +666,7 @@ function renderBSP(){
         return`<div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-bottom:1px solid var(--gray-100);cursor:pointer;${s.checked?'background:#f0fdf4':''}" onclick="bspToggle(${idx})">
           <input type="checkbox" ${s.checked?'checked':''} onclick="event.stopPropagation();bspToggle(${idx})" style="width:18px;height:18px;flex-shrink:0;accent-color:var(--primary)">
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600">${s.kalemAd}</div>
+            <div style="font-size:13px;font-weight:600">${escapeHtml(s.kalemAd)}</div>
             <div style="font-size:11px;color:var(--gray-400);font-family:monospace">${s.kalemKod}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
@@ -1180,7 +1185,7 @@ function renderKaliteOnay(){
       ${f.urunler.map(u=>{
         const uygunsuz=uygunsuzKodlar.has(u.kod);
         return`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:${uygunsuz?'var(--danger)':'var(--gray-600)'};padding:3px 0;border-bottom:1px solid var(--gray-100);${uygunsuz?'font-weight:700':''}">
-        <span>${uygunsuz?'⚠️ ':''}${u.ad} — ${u.miktar} ${u.birim}</span>
+        <span>${uygunsuz?'⚠️ ':''}${escapeHtml(u.ad)} — ${u.miktar} ${u.birim}</span>
         <button onclick="urunDuzeltAc('${f.id}','${u.id}')" style="padding:2px 8px;background:#e4e9f2;color:#33476b;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-weight:600;flex-shrink:0">Düzelt</button>
       </div>`;
       }).join('')}

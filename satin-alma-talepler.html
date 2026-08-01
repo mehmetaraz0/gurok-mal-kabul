@@ -293,7 +293,7 @@ function renderYTSatirlar(){
   c.innerHTML=YT_SATIRLAR.map((u,i)=>`
     <div style="display:grid;grid-template-columns:1fr 80px 70px 24px;gap:4px;margin-bottom:4px;align-items:center" id="ytrow${i}">
       <div style="position:relative">
-        <input type="text" id="yta${i}" value="${u.ad.replace(/"/g,'&quot;')}"
+        <input type="text" id="yta${i}" value="${escapeHtml(u.ad)}"
           placeholder="Ürün ara..."
           autocomplete="off"
           oninput="filterYTUrun(${i},this.value)"
@@ -336,8 +336,8 @@ function filterYTUrun(i,val){
   const urunDB=DB.urunler||(window.URUN_DB||[]);
   const res=urunDB.filter(u=>u.ad?.toLowerCase().includes(val.toLowerCase())||u.kod?.toLowerCase().includes(val.toLowerCase())).slice(0,12);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(u=>`<div class="uddi" data-i="${i}" data-kod="${u.kod}" data-ad="${(u.ad||'').replace(/"/g,'&quot;')}" data-birim="${u.birim||'KG'}">
-    ${u.ad} <span style="font-size:10px;color:var(--gray-400)">${u.birim||'KG'}</span>
+  dd.innerHTML=res.map(u=>`<div class="uddi" data-i="${i}" data-kod="${escapeHtml(u.kod)}" data-ad="${escapeHtml(u.ad)}" data-birim="${escapeHtml(u.birim||'KG')}">
+    ${escapeHtml(u.ad)} <span style="font-size:10px;color:var(--gray-400)">${u.birim||'KG'}</span>
   </div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
@@ -589,11 +589,11 @@ function renderTalepler(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div>
           <div style="font-size:13px;font-weight:700">${t.departman||'—'} ${t.aciliyet==='acil'?'🔴':''}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${t.tarih} • ${t.personel}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${t.tarih} • ${escapeHtml(t.personel)}</div>
         </div>
         ${chipMap[t.durum]||''}
       </div>
-      <div style="font-size:12px;color:var(--gray-600);white-space:pre-line">${(t.satirlar||[]).slice(0,3).map(u=>`${u.ad} — ${u.miktar} ${u.birim}`).join('\n')}${(t.satirlar||[]).length>3?'\n...':''}</div>
+      <div style="font-size:12px;color:var(--gray-600);white-space:pre-line">${(t.satirlar||[]).slice(0,3).map(u=>`${escapeHtml(u.ad)} — ${u.miktar} ${u.birim}`).join('\n')}${(t.satirlar||[]).length>3?'\n...':''}</div>
     </div>`).join('');
 }
 
@@ -727,7 +727,7 @@ async function openTalepDetay(id){
   const gecmis=await talepGecmisiGetir(id);
   document.getElementById('mTalepDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-      <div><div style="font-size:15px;font-weight:700">${t.departman} ${t.aciliyet==='acil'?'🔴':''}</div><div style="font-size:12px;color:var(--gray-500)">${t.tarih} • ${t.personel}</div></div>
+      <div><div style="font-size:15px;font-weight:700">${t.departman} ${t.aciliyet==='acil'?'🔴':''}</div><div style="font-size:12px;color:var(--gray-500)">${t.tarih} • ${escapeHtml(t.personel)}</div></div>
       ${chipMap[t.durum]||''}
     </div>
     ${t.durum==='bekleyen'?`<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:10px">Aşama: ${ASAMA_ETIKET[t.asama]||t.asama}</div>`:''}
