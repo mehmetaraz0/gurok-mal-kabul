@@ -18,10 +18,14 @@ tüm sayısal hesaplama SQL view'larında yapılır. Hiçbir mevcut tablo/dosya 
 
 ## Alınan Kararlar (kullanıcı onaylı)
 - **AI backend:** OpenAI-uyumlu endpoint soyutlaması. Sağlayıcı 3 Edge Function secret'ı:
-  `AI_API_URL`, `AI_API_KEY`, `AI_MODEL`. **Varsayılan sağlayıcı: NVIDIA API Catalog**
-  (`https://integrate.api.nvidia.com/v1`, model ör. `meta/llama-3.3-70b-instruct`) — bedava
-  API anahtarı, kurulum yok, "NVIDIA destekli" adıyla uyumlu. Tek secret değiştirilerek
-  GLM/LiteLLM/başka sağlayıcıya geçilebilir.
+  `AI_API_URL`, `AI_API_KEY`, `AI_MODEL`. **Varsayılan sağlayıcı: GLM-5 / Z.AI (Zhipu)**
+  (kullanıcı kararı 2026-08-02): `AI_API_URL=https://api.z.ai/api/paas/v4/`, `AI_MODEL=glm-5.2`,
+  `AI_API_KEY`=Z.AI anahtarı ([z.ai](https://z.ai)'dan alınır). NOT: Coding planı ayrı endpoint
+  ister (`/api/coding/paas/v4`); genel plan `/api/paas/v4`. Tek secret değiştirilerek NVIDIA
+  API Catalog (`https://integrate.api.nvidia.com/v1`, `meta/llama-3.3-70b-instruct`) veya başka
+  OpenAI-uyumlu sağlayıcıya geçilebilir — kod değişmez.
+- **UI adlandırma:** Sağlayıcı adı UI'da GEÇMEZ (yarın swap olursa UI'a dokunma). Modül adı
+  yalın: **"Akıllı Veri Analiz Merkezi"** (eski "NVIDIA destekli" ibaresi kaldırıldı).
 - **Soru→veri eşleme:** HİBRİT niyet-sınıflandırma. Model serbest soruyu SABİT bir niyet
   menüsünden birine eşler + parametre çıkarır; Edge Function whitelisted view'ı çalıştırır;
   model sonucu yorumlar. Model ASLA SQL üretmez/çalıştırmaz.
@@ -115,7 +119,7 @@ Scheduling/cron/e-posta · proaktif uyarı · sipariş tahmini · fatura-teklif-
 · tam tool-use (model view/param seçimi) · service_role veri erişimi · yeni tablo/migration.
 
 ## Kurallar (uygulama boyunca)
-- NVIDIA: sadece yorumlar; stok/sipariş/ödeme/mal kabul DEĞİŞTİRMEZ/ONAYLAMAZ. Sayısal her şey SQL'de.
+- AI modeli (GLM-5/Z.AI): sadece yorumlar; stok/sipariş/ödeme/mal kabul DEĞİŞTİRMEZ/ONAYLAMAZ. Sayısal her şey SQL'de.
 - service_role/AI_API_KEY tarayıcıya/koda ASLA — Edge Function secret'ı.
 - Otel/depo izolasyonu korunur (security_invoker view + kullanıcı JWT + auth_otel_erisim).
 - RLS devre dışı bırakılmaz.
@@ -126,7 +130,9 @@ Scheduling/cron/e-posta · proaktif uyarı · sipariş tahmini · fatura-teklif-
 - SQL'ler dosya olarak verilir, kullanıcı SQL Editor'de çalıştırır. EF Dashboard'dan deploy.
 
 ## Bağımlılıklar / Açık İşler (uygulamadan önce)
-- NVIDIA API Catalog anahtarı (build.nvidia.com — kullanıcı alır, EF secret'a girer). Model seçimi teyit.
+- **Z.AI (GLM-5) anahtarı** ([z.ai](https://z.ai) — kullanıcı alır, EF secret'a girer). Plan tipine
+  göre endpoint teyidi: genel `/api/paas/v4` vs Coding `/api/coding/paas/v4`. (Not: doküman içindeki
+  "NVIDIA çağrı-1/2" etiketleri sağlayıcı-nötr "AI çağrı-1/2" olarak okunmalı.)
 - Canlı şema teyidi (şema dökümü bayat — view yazmadan önce ilgili tabloların canlı kolonları doğrulanmalı).
 - S4: sayim/urun_birim_donusum RLS-gated — v1 view'ları bunlara dokunmuyor (kapsam dışı), sorun değil.
 
