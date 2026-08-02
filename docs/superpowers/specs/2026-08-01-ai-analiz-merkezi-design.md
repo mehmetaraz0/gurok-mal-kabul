@@ -63,6 +63,11 @@ Model eşleyemezse: "bu soruyu v1'de yanıtlayamıyorum" (uydurmaz).
 ## Bileşenler
 ### 1) SQL View'lar (5-6, security_invoker, SALT-OKUNUR — yeni .sql dosyası, kullanıcı çalıştırır)
 - `ai_otel_ref` — otel_id→ad (otel-config.js'in SQL yansıması)
+- ~~`ai_urun_grup` — ürün→grup~~ **v1 DIŞI (ertelendi v1.1):** canlıda `urun_siniflandirma`
+  BOŞ + `urunler.grup` yalnızca okunmaz KOD (`YIY01..YIY12`, hepsi yiyecek; okunur isim/
+  eşleme yok). 6 niyetin hiçbiri grup-ismine göre filtrelemediği için v1 yeteneği düşmez.
+  View DB'de kalabilir (0 satır, zararsız); grup-filtreli serbest soru v1.1'e ertelendi
+  (ön koşul: küçük KOD→isim eşleme tablosu veya `urun_siniflandirma`'nın doldurulması).
 - `ai_tuketim_trend` — `stok_hareketleri` tip='cikis', haftalık, urun+otel+depo bazlı
 - `ai_stok_anomali` — window function (son 30 hareket ort/stddev), sapma adayları
 - `ai_skt_risk` — `skt_kayitlari` durum='aktif' + kalan_gun
