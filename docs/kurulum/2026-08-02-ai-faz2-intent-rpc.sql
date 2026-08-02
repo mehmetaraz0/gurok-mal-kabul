@@ -53,6 +53,7 @@ returns jsonb language sql stable security invoker set search_path = public as $
     select otel_id, bekleyen_mal_kabul, kritik_skt_14gun, min_alti_urun
     from public.ai_gunluk_ozet
     where (p_otel is null or otel_id::text = p_otel)
+      and public.auth_otel_erisim(otel_id)   -- Faz 4: tek-otel kullanıcı diğer oteli hiç görmesin
     order by otel_id
   ) t;
 $$;
