@@ -18,7 +18,11 @@ tüm sayısal hesaplama SQL view'larında yapılır. Hiçbir mevcut tablo/dosya 
 
 ## Alınan Kararlar (kullanıcı onaylı)
 - **AI backend:** OpenAI-uyumlu endpoint soyutlaması. Sağlayıcı 3 Edge Function secret'ı:
-  `AI_API_URL`, `AI_API_KEY`, `AI_MODEL`. **Varsayılan sağlayıcı: GLM-5 / Z.AI (Zhipu)**
+  `AI_API_URL`, `AI_API_KEY`, `AI_MODEL`. **CANLI ÇALIŞAN sağlayıcı (2026-08-02): Groq**
+  (`https://api.groq.com/openai/v1`, `llama-3.3-70b-versatile`) — ücretsiz + çok hızlı (~3.6s
+  uçtan uca doğrulandı). NVIDIA free katmanı denendi ama çok yavaştı (0.6 tok/s, 45-96s/çağrı);
+  z.ai/GLM-5.2 anahtarı geçersizdi. Soyutlama sayesinde geçiş sadece secret değişikliğiydi, kod değişmedi.
+  Alternatif (eski tercih): **GLM-5 / Z.AI (Zhipu)**
   (kullanıcı kararı 2026-08-02): `AI_API_URL=https://api.z.ai/api/paas/v4/`, `AI_MODEL=glm-5.2`,
   `AI_API_KEY`=Z.AI anahtarı ([z.ai](https://z.ai)'dan alınır). NOT: Coding planı ayrı endpoint
   ister (`/api/coding/paas/v4`); genel plan `/api/paas/v4`. Tek secret değiştirilerek NVIDIA
