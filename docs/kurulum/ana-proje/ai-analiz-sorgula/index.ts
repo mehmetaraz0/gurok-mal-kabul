@@ -54,6 +54,38 @@ Deno.serve(async (req) => {
     } catch { /* aşağıda yakalanır */ }
     if (!email) return json({ ok: false, mesaj: "Oturum geçersiz — tekrar giriş yapın" }, 401, cors);
 
+    // ---- MUHASEBE ASİSTANI DALI: istemci hazır özet gönderir, tek Groq çağrısı ----
+    // muhasebe-asistan.html veriOzetiUret()'i (RLS-scoped) + soruyu yollar; niyet/RPC yok.
+    if (action === "muhasebe_yorum") {
+      const yetkiM = await rpcCagir(SB_URL, ANON, jwt, "auth_yetki_var",
+        { p_modul_kod: "muhasebe_asistan", p_min_seviye: "goruntule" });
+      if (yetkiM?.hata || yetkiM?.data !== true) {
+        return json({ ok: false, mesaj: "Bu modül için yetkiniz yok" }, 403, cors);
+      }
+      const AI_URL_M = (Deno.env.get("AI_API_URL") || "").replace(/\/+$/, "");
+      const AI_KEY_M = Deno.env.get("AI_API_KEY") || "";
+      const AI_MODEL_M = Deno.env.get("AI_MODEL") || "";
+      if (!AI_URL_M || !AI_KEY_M || !AI_MODEL_M) {
+        return json({ ok: false, mesaj: "AI yapılandırması eksik" }, 500, cors);
+      }
+      const sysM =
+        "Sen Araz Turizm Grubu için çalışan bir muhasebe asistanısın. Aşağıdaki GÜNCEL " +
+        "muhasebe verisine göre soruyu kısa, net ve Türkçe cevapla. Sayısal hesaplamaları SEN " +
+        "YAPMA; veride hazır toplam ve bakiye değerlerini kullan. Veri yetersizse açıkça söyle. " +
+        "Cevabın 2-4 cümle olsun, gereksiz uzatma.\n\nGÜNCEL VERİ (JSON):\n" +
+        JSON.stringify(body.ozet ?? {}).slice(0, 12000);
+      let cevap: string;
+      try {
+        cevap = await glmChat(AI_URL_M, AI_KEY_M, AI_MODEL_M, [
+          { role: "system", content: sysM },
+          { role: "user", content: String(soru).slice(0, 500) },
+        ]);
+      } catch (e) {
+        return json({ ok: false, mesaj: "AI şu an yanıt veremedi, lütfen tekrar deneyin", detay: String(e).slice(0, 200) }, 200, cors);
+      }
+      return json({ ok: true, cevap }, 200, cors);
+    }
+
     // ---- 2) Yetki: auth_yetki_var KULLANICI JWT'siyle (service_role yok) ----
     const yetkiOk = await rpcCagir(SB_URL, ANON, jwt, "auth_yetki_var",
       { p_modul_kod: "ai_analiz_merkezi", p_min_seviye: "goruntule" });
