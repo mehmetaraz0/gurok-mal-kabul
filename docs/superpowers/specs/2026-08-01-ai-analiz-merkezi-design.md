@@ -83,6 +83,12 @@ Model eşleyemezse: "bu soruyu v1'de yanıtlayamıyorum" (uydurmaz).
 - `stok_ekle()` `stok_hareketleri` yazmıyor (JS ayrı yazıyor) → miktar/log sapma riski;
   anomali view'ı bunu "veri" sanabilir, yorumda "olası kayıt sapması" notu düşülebilir.
 - Karışık otel_id tipi (enum vs text) → view'larda tutarlı `::text` yaklaşımı.
+- **`stok_minimumlar` canlıda BOŞ (2026-08-01 teyit)** → `min_alti_stok` niyeti + `ai_gunluk_ozet.min_alti_urun`
+  doğru ama daima 0 döner (min tek burada tutulur; `stok`/`urunler`'de min kolonu yok). View'lar
+  DOĞRU — veri eksik. **EF/UI ZORUNLU:** min sonucu 0 iken "0 eksik" DEĞİL, `stok_minimumlar` boşsa
+  **"henüz minimum tanımlı değil"** göster (yoksa yönetici "eksik yok" sanır). Kullanıcı minimum
+  girince niyet otomatik çalışır. `bekleyen_mal_kabul` de benzer: `bekleyen` enum değeri geçerli,
+  şu an 0 kayıt (gerçek) — view doğru.
 
 ### 2) Edge Function `ai-analiz-sorgula` (yeni index.ts, Dashboard "Via Editor" deploy)
 - Secret: `AI_API_URL`, `AI_API_KEY`, `AI_MODEL` (service_role YOK — v1 veri için gerekmiyor).
