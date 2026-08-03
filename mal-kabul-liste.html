@@ -850,82 +850,53 @@ async function _formKaydetIc(){
 
   sLD();
   try{
-    const r=await fetch(SB_URL+'/rest/v1/mal_kabuller',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify({
+    // Bağlı sipariş(ler)den tahmini fiyatları çek (koli başlangıç fiyatı) — RPC'den ÖNCE,
+    // koli objesine gömülecek. Fiyat Kontrolü'nde gerçek fatura fiyatı gelince üzerine yazılır.
+    let tahminiFiyatMap={};
+    if(siparisNo){
+      const siparisNolar=siparisNo.split(',').map(s=>s.trim()).filter(Boolean);
+      if(siparisNolar.length){
+        try{
+          const filtre=siparisNolar.map(s=>`"${s}"`).join(',');
+          const rTahmini=await fetch(SB_URL+`/rest/v1/siparis_kalemleri?siparis_no=in.(${filtre})&select=urun_kodu,tahmini_fiyat&tahmini_fiyat=not.is.null`,{headers:SB_HEADERS});
+          if(rTahmini.ok){
+            (await rTahmini.json()).forEach(row=>{
+              if(row.urun_kodu&&row.tahmini_fiyat!=null)tahminiFiyatMap[row.urun_kodu]=parseFloat(row.tahmini_fiyat);
+            });
+          }
+        }catch(e){console.warn('Tahmini fiyat çekilemedi:',e);}
+      }
+    }
+
+    // TIER 1 (#6): başlık + kalemler + koli etiketleri TEK atomik RPC.
+    // koli->kalem bağlama RPC İÇİNDE `returning id` ile yapılır (index eşleştirme yok, yarım kayıt yok).
+    const baslik={
       mk_no:mkNo,form_tarihi:document.getElementById('f-tarih').value,firma_ad:firmaAd,
       fatura_no:document.getElementById('f-fatura').value||null,irsaliye_no:irsaliye,
       ln_siparis_no:siparisNo,otel_id:otelId,depo_kodu:depoKodu,
       arac_hijyen:document.getElementById('f-arac-hijyen').checked?'uygun':'uygunsuz',arac_sicaklik:aracSicaklik,
       notlar:document.getElementById('f-notlar').value||null,personel_ad:currentUser.ad,durum:'bekleyen'
-    })});
+    };
+    const kalemler=dolu.map(k=>{
+      const tahmini=k.kod?tahminiFiyatMap[k.kod]:null;
+      return {
+        urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,miktar:parseFloat(k.miktar),
+        seri_no:k.seriNo||null,marka:k.marka||null,sicaklik:k.sicaklik||null,
+        koliler:(k.koliler&&k.koliler.length)?k.koliler.map((kg,j)=>({
+          miktar:parseFloat(kg)||0,koli_no:j+1,skt_tarihi:k.sktTarihi||null,
+          birim_fiyat:tahmini??null,fiyat_kaynagi:tahmini!=null?'tahmini':null
+        })):[]
+      };
+    });
+    const r=await fetch(SB_URL+'/rest/v1/rpc/mal_kabul_kaydet',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({p_baslik:baslik,p_kalemler:kalemler})});
     if(!r.ok){
-      const hataMetni=await r.text();
-      console.error('mal_kabuller INSERT hatası:',hataMetni);
+      const hataMetni=await r.text().catch(()=>'');
+      console.error('mal_kabul_kaydet hatası:',hataMetni);
       hLD();
-      alert('❌ Kaydetme hatası:\n\n'+hataMetni);
+      alert('❌ Kaydetme hatası — HİÇBİR şey yazılmadı (işlem atomik):\n\n'+hataMetni);
       return;
     }
-    const d=await r.json();
-    const mkId=d[0].id;
-
-    const kalemSatirlar=dolu.map(k=>({mk_id:mkId,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,miktar:parseFloat(k.miktar),seri_no:k.seriNo||null,marka:k.marka||null,sicaklik:k.sicaklik||null}));
-    const rUrun=await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(kalemSatirlar)});
-    if(!rUrun.ok){
-      const hataMetni=await rUrun.text();
-      console.error('mal_kabul_urunleri INSERT hatası:',hataMetni);
-      hLD();
-      alert('❌ Ürünler kaydedilirken hata:\n\n'+hataMetni+'\n\n(Not: Ana kayıt '+mkNo+' zaten oluşturuldu, ürünler eksik kalmış olabilir)');
-      return;
-    }
-    // Koli etiketleri — her koliye ayrı kayıt (QR = koli id)
-    try{
-      const urunRows=await rUrun.json();
-
-      // Bağlı sipariş(ler)den tahmini fiyatları çek (varsa) — koli hemen bu fiyatla başlasın,
-      // Fiyat Kontrolü'nde gerçek fatura fiyatı gelince zaten üzerine yazılıyor.
-      let tahminiFiyatMap={};
-      if(siparisNo){
-        const siparisNolar=siparisNo.split(',').map(s=>s.trim()).filter(Boolean);
-        if(siparisNolar.length){
-          try{
-            const filtre=siparisNolar.map(s=>`"${s}"`).join(',');
-            const rTahmini=await fetch(SB_URL+`/rest/v1/siparis_kalemleri?siparis_no=in.(${filtre})&select=urun_kodu,tahmini_fiyat&tahmini_fiyat=not.is.null`,{headers:SB_HEADERS});
-            if(rTahmini.ok){
-              (await rTahmini.json()).forEach(row=>{
-                if(row.urun_kodu&&row.tahmini_fiyat!=null)tahminiFiyatMap[row.urun_kodu]=parseFloat(row.tahmini_fiyat);
-              });
-            }
-          }catch(e){console.warn('Tahmini fiyat çekilemedi:',e);}
-        }
-      }
-
-      const koliSatirlar=[];
-      dolu.forEach((k,di)=>{
-        if(k.koliler&&k.koliler.length){
-          const urunRow=urunRows[di]; // POST sırası korunur
-          const tahmini=k.kod?tahminiFiyatMap[k.kod]:null;
-          k.koliler.forEach((kg,j)=>{
-            koliSatirlar.push({
-              mk_id:mkId,mk_urun_id:urunRow?.id||null,
-              urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
-              miktar:parseFloat(kg)||0,koli_no:j+1,
-              seri_no:k.seriNo||null,marka:k.marka||null,skt_tarihi:k.sktTarihi||null,
-              otel_id:otelId,depo_kodu:depoKodu,durum:'depoda',
-              birim_fiyat:tahmini??null,fiyat_kaynagi:tahmini!=null?'tahmini':null
-            });
-          });
-        }
-      });
-      if(koliSatirlar.length){
-        const rKoli=await fetch(SB_URL+'/rest/v1/koli_etiketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(koliSatirlar)});
-        if(!rKoli.ok){
-          const hataMetni=await rKoli.text();
-          console.error('koli_etiketleri INSERT hatası:',hataMetni);
-          hLD();
-          alert('❌ Koli etiketleri kaydedilemedi:\n\n'+hataMetni+'\n\n(Not: Ana kayıt '+mkNo+' ve ürünler zaten kaydedildi, sadece koli/QR etiketleri eksik kaldı — "Koli Etiketleri" ile daha sonra tekrar deneyin veya sistem yöneticinize bildirin)');
-          return;
-        }
-      }
-    }catch(e){console.warn('Koli etiketi yazılamadı:',e);}
+    const mkId=await r.json(); // RPC uuid döner
 
     // SKT girilen kalemler için kayıt oluştur
     for(const k of dolu){

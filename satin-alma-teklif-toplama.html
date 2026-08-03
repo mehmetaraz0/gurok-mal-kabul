@@ -293,24 +293,18 @@ async function feEkle(){
 async function teklifTalebiOlustur(secilenKalemler, otelId){
   if(!yazabilir()){toast('⚠️ Yetkiniz yok');return null;}
   if(!secilenKalemler.length){toast('⚠️ En az bir kalem seçin');return null;}
-  const tr=await fetch(SB_URL+'/rest/v1/teklif_talepleri',{method:'POST',
-    headers:{...SB_HEADERS,'Prefer':'return=representation'},
-    body:JSON.stringify({olusturan:CU.ad, otel_id:otelId||'810', durum:'acik'})});
-  if(!tr.ok){toast('❌ Teklif talebi oluşturulamadı');return null;}
-  const talep=(await tr.json())[0];
+  // TIER 1 (#12): talep + kalemler tek atomik RPC — kalem yazımı patlarsa yetim başlık kalmaz.
   const kalemler=secilenKalemler.map(k=>({
-    teklif_talebi_id:talep.id, urun_kodu:k.urun_kodu||null, urun_adi:k.urun_adi,
+    urun_kodu:k.urun_kodu||null, urun_adi:k.urun_adi,
     miktar:k.miktar, birim:k.birim||'KG', kaynak_ic_talep_kalemi_id:k.kaynak_ic_talep_kalemi_id||null
   }));
-  const kr=await fetch(SB_URL+'/rest/v1/teklif_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemler)});
-  if(!kr.ok){
-    await fetch(SB_URL+'/rest/v1/teklif_talepleri?id=eq.'+talep.id,{method:'DELETE',headers:SB_HEADERS});
-    toast('❌ Kalemler kaydedilemedi, teklif talebi iptal edildi');
-    return null;
-  }
+  const r=await fetch(SB_URL+'/rest/v1/rpc/teklif_talebi_olustur',{method:'POST',headers:SB_HEADERS,
+    body:JSON.stringify({p_olusturan:CU.ad, p_otel_id:otelId||'810', p_kalemler:kalemler})});
+  if(!r.ok){const t=await r.text().catch(()=>'');console.warn('teklif_talebi_olustur',t);toast('❌ Teklif talebi oluşturulamadı');return null;}
+  const talepId=await r.json(); // RPC uuid döner
   await loadTeklifTalepleri(); renderTeklifTalepleri();
   toast('✅ Teklif talebi oluşturuldu');
-  return talep.id;
+  return talepId;
 }
 
 // ====== MODAL: Yeni Teklif Talebi ======

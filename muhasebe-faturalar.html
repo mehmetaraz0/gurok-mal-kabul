@@ -474,30 +474,23 @@ async function saveFatura(f){
     odeme_tarihi:f.odemeTarih?new Date(f.odemeTarih).toISOString():null,
     odeme_tutari:f.odemeTutar||null,odeme_yontemi:f.odemeYontem||null
   };
+  // TIER 1 (#5): başlık + kalemler tek atomik RPC — kalem yazımı patlarsa başlık da yazılmaz
+  // (eski PATCH+DELETE+INSERT'te kalem hatası faturayı satırsız/eksik bırakabiliyordu).
+  const kalemler=(f.kalemler||[]).map(k=>({
+    urun_kodu:k.kod||null,urun_adi:k.ad,miktar:k.miktar,
+    birim:k.birim,birim_fiyat:k.birimFiyat,iskonto_yuzde:k.iskonto||0,
+    kdv_orani:k.kdvOran,toplam:k.toplam
+  }));
   try{
-    let fisUuid=f.id;
-    if(f.id){
-      await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+f.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
-      await fetch(SB_URL+'/rest/v1/fatura_kalemleri?fatura_id=eq.'+f.id,{method:'DELETE',headers:SB_HEADERS});
-    }else{
-      const r=await fetch(SB_URL+'/rest/v1/faturalar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
-      const d=await r.json();
-      fisUuid=d[0].id;
-      f.id=fisUuid;
+    const r=await fetch(SB_URL+'/rest/v1/rpc/fatura_kaydet',{method:'POST',headers:SB_HEADERS,
+      body:JSON.stringify({p_fatura_id:f.id||null, p_satir:satir, p_kalemler:kalemler})});
+    if(!r.ok){
+      console.error('fatura_kaydet hatası:',await r.text().catch(()=>''));
+      alert('⚠️ Fatura kaydedilemedi — HİÇBİR değişiklik yapılmadı (işlem atomik). Lütfen tekrar deneyin.');
+      return false;
     }
-    if(f.kalemler&&f.kalemler.length){
-      const kalemSatirlar=f.kalemler.map(k=>({
-        fatura_id:fisUuid,urun_kodu:k.kod||null,urun_adi:k.ad,miktar:k.miktar,
-        birim:k.birim,birim_fiyat:k.birimFiyat,iskonto_yuzde:k.iskonto||0,
-        kdv_orani:k.kdvOran,toplam:k.toplam
-      }));
-      const rK=await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
-      if(!rK.ok){
-        console.error('fatura_kalemleri reinsert hatası:',await rK.text());
-        alert('⚠️ DİKKAT: Fatura başlığı güncellendi ama satır kalemleri yazılamadı — bu fatura şu an EKSİK olabilir. Lütfen faturayı tekrar açıp yeniden kaydedin veya bir yetkiliyle iletişime geçin.');
-        return false;
-      }
-    }
+    const yeniId=await r.json(); // RPC uuid döner
+    if(!f.id) f.id=yeniId;
     return true;
   }catch(e){console.warn(e);return false;}
 }
