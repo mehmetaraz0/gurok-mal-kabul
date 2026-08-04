@@ -8,6 +8,7 @@
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
 <script src="ortak-excel.js"></script>
+<script src="filtre.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Araz — Stok Takip</title>
@@ -151,6 +152,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="stats-grid" id="stok-stats"></div>
     <div class="search-bar">
       <input type="text" id="stok-search" placeholder="Ürün adı veya LN kodu ara..." oninput="renderStok()">
+      <button onclick="stokFiltrePaneliAcKapa()" style="margin-top:6px;background:#eef2ff;color:#3730a3;border:1.5px solid #c7d2fe;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">🔎 Gelişmiş Filtre</button>
+      <div id="stok-filtre-panel" style="display:none;background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px;margin-top:8px"></div>
+      <div id="stok-filtre-etiket" style="margin-top:6px"></div>
       <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></span>
     </div>
     <div class="filter-tabs">
@@ -899,6 +903,49 @@ function getStokDurum(lnKod,miktar){
   return'normal';
 }
 
+// ===== Gelişmiş Filtre (filtre.js) — stok-takip pilot =====
+const STOK_FILTRE_ALANLARI = [
+  { field:'urunAd', label:'Ürün Adı', type:'text' },
+  { field:'lnKod', label:'Kalem Kodu (LN)', type:'text' },
+  { field:'miktar', label:'Miktar', type:'number' },
+  { field:'kategori', label:'Kategori', type:'multi_select', getValue:s=>(s.lnKod||'').slice(0,5) },
+  { field:'abc', label:'ABC Sınıfı', type:'multi_select', getValue:s=>db.abcSiniflari[s.lnKod]||'C' },
+  { field:'durum', label:'Stok Durumu', type:'multi_select', getValue:s=>getStokDurum(s.lnKod,s.miktar) },
+];
+let aktifStokFiltreleri = [];
+function stokFiltreYenidenCiz(){
+  const el=document.getElementById('stok-filtre-etiket'); if(!el)return;
+  Filtre.etiketleriCiz(el, aktifStokFiltreleri, STOK_FILTRE_ALANLARI, (i)=>{
+    if(i===-1) aktifStokFiltreleri=[]; else aktifStokFiltreleri.splice(i,1);
+    stokFiltreYenidenCiz(); renderStok();
+  });
+}
+function stokFiltrePaneliAcKapa(){
+  const p=document.getElementById('stok-filtre-panel'); if(!p)return;
+  if(!p.style.display || p.style.display==='none'){
+    p.style.display='block';
+    Filtre.panelOlustur(p, STOK_FILTRE_ALANLARI, aktifStokFiltreleri, ()=>{ stokFiltreYenidenCiz(); renderStok(); });
+    p.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:6px;margin-top:8px">
+      <button onclick="stokFiltreKaydet()" style="flex:1;background:#fff;border:1.5px solid var(--primary);color:var(--primary);border-radius:6px;padding:8px;font-weight:700;cursor:pointer">💾 Kaydet</button>
+      <button onclick="stokFiltreYukle()" style="flex:1;background:#fff;border:1.5px solid var(--gray-300);border-radius:6px;padding:8px;font-weight:700;cursor:pointer">📂 Yükle</button>
+    </div>`);
+  } else { p.style.display='none'; }
+}
+async function stokFiltreKaydet(){
+  if(!aktifStokFiltreleri.length){showToast('Önce filtre ekle');return;}
+  const ad=prompt('Filtre adı:'); if(!ad)return;
+  try{ await Filtre.kayitliKaydet('stok-takip', ad, aktifStokFiltreleri, false); showToast('✅ Filtre kaydedildi'); }
+  catch(e){ console.warn('kayitliKaydet',e); showToast('❌ Kaydedilemedi'); }
+}
+async function stokFiltreYukle(){
+  const liste=await Filtre.kayitliGetir('stok-takip');
+  if(!liste.length){showToast('Kayıtlı filtre yok');return;}
+  const sec=prompt('Yüklenecek filtre:\n'+liste.map((f,i)=>`${i+1}) ${f.ad}${f.paylasimli?' (ortak)':''}`).join('\n')+'\n\nNumara:');
+  const idx=parseInt(sec,10)-1; if(isNaN(idx)||!liste[idx])return;
+  aktifStokFiltreleri = liste[idx].filtreler || [];
+  stokFiltreYenidenCiz(); renderStok(); showToast('✅ Filtre yüklendi');
+}
+
 function renderStok(){
   const depoStok=db.stok[aktifDepoId]||{};
   const items=Object.values(depoStok);
@@ -926,6 +973,7 @@ function renderStok(){
     if(stokFilter==='normal'&&d!=='normal')return false;
     return true;
   });
+  filtered = Filtre.filtreleUygula(filtered, aktifStokFiltreleri, STOK_FILTRE_ALANLARI);
   filtered.sort((a,b)=>{
     const order={kritik:0,uyari:1,normal:2};
     return(order[getStokDurum(a.lnKod,a.miktar)]||2)-(order[getStokDurum(b.lnKod,b.miktar)]||2)||(a.urunAd||'').localeCompare(b.urunAd||'','tr');
