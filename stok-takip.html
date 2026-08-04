@@ -917,9 +917,16 @@ let aktifStokFiltreleri = [];
 // ===== Tablo (grid) görünümü =====
 let stokGorunum = 'kart';                 // 'kart' | 'tablo'
 let siparisMap = {}, talepMap = {}, sonHareketMap = {};
-let stokTabloSir = { key:null, yon:1 };
-// Hesaplanan alanları filtreye de ekle (sütun 🔽 filtresi için)
+// Sütun-altı filtre: kolay operatör sembolleri (filtre.js OPS anahtarlarına eşlenir)
+const SUTUN_OPS = {
+  text:   [['contains','içerir'],['equals','='],['not_equals','≠'],['starts','başlar']],
+  number: [['eq','='],['ne','≠'],['gt','>'],['gte','≥'],['lt','<'],['lte','≤']],
+  date:   [['on','='],['before','<'],['after','>']],
+};
+// Hesaplanan + tablo alanlarını filtreye ekle (sütun-altı filtre getValue'ları)
 STOK_FILTRE_ALANLARI.push(
+  { field:'birim',     label:'Birim',              type:'text',   getValue:s=>s.birim||'' },
+  { field:'min',       label:'Min',                type:'number', getValue:s=>db.minimumlar[s.lnKod]||0 },
   { field:'siparis',   label:'Sipariş (bekleyen)', type:'number', getValue:s=>siparisMap[s.lnKod]||0 },
   { field:'talep',     label:'Talep (bekleyen)',   type:'number', getValue:s=>talepMap[s.lnKod]||0 },
   { field:'sonHareket',label:'Son Hareket',        type:'date',   getValue:s=>sonHareketMap[s.lnKod]||null },
@@ -963,38 +970,72 @@ function _stokHucreBicim(type,v){
   if(type==='number'){ return (Math.round((parseFloat(v)||0)*100)/100).toLocaleString('tr-TR'); }
   return String(v);
 }
-function renderStokTablo(rows){
-  const c=document.getElementById('stok-liste');
-  if(!rows.length){ c.innerHTML=`<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Sonuç bulunamadı</div></div>`; return; }
-  if(stokTabloSir.key){
-    const kol=STOK_TABLO_KOLONLARI.find(k=>k.key===stokTabloSir.key);
-    rows=rows.slice().sort((a,b)=>{
-      let x=kol.get(a), y=kol.get(b);
-      if(kol.type==='number'){ x=parseFloat(x)||0; y=parseFloat(y)||0; return (x-y)*stokTabloSir.yon; }
-      if(kol.type==='date'){ x=x?new Date(x).getTime():0; y=y?new Date(y).getTime():0; return (x-y)*stokTabloSir.yon; }
-      return String(x).localeCompare(String(y),'tr')*stokTabloSir.yon;
-    });
-  }
-  const bas=STOK_TABLO_KOLONLARI.map(k=>{
-    const ok = stokTabloSir.key===k.key ? (stokTabloSir.yon>0?' ▲':' ▼') : '';
-    return `<th style="position:sticky;top:0;background:var(--primary);color:#fff;padding:6px 8px;font-size:11px;white-space:nowrap;cursor:pointer;z-index:1" onclick="stokTabloSirala('${k.key}')">${escapeHtml(k.label)}${ok} <span onclick="event.stopPropagation();stokSutunFiltre('${k.key}')" style="cursor:pointer">🔽</span></th>`;
-  }).join('');
-  const satirlar=rows.map(s=>`<tr onclick="openDetay('${aktifDepoId}','${s.lnKod}')" style="cursor:pointer">`+
+function _stokDurumSira(a,b){
+  const order={kritik:0,uyari:1,normal:2};
+  return (order[getStokDurum(a.lnKod,a.miktar)]||2)-(order[getStokDurum(b.lnKod,b.miktar)]||2)
+    || (a.urunAd||'').localeCompare(b.urunAd||'','tr');
+}
+// Arama + kat/abc/durum sekmeleri + gelişmiş/sütun filtreleri → süzülmüş liste (kart ve tablo ortak)
+function _stokFiltrele(items){
+  const search=(document.getElementById('stok-search')?.value||'').toLowerCase();
+  let filtered=items.filter(s=>{
+    if(search&&!s.urunAd?.toLowerCase().includes(search)&&!s.lnKod?.toLowerCase().includes(search))return false;
+    if(katFilter!=='tumu'&&!s.lnKod?.startsWith(katFilter))return false;
+    if(abcFilter!=='tumu'&&(db.abcSiniflari[s.lnKod]||'C')!==abcFilter)return false;
+    const d=getStokDurum(s.lnKod,s.miktar);
+    if(stokFilter==='kritik'&&d!=='kritik')return false;
+    if(stokFilter==='uyari'&&d!=='uyari')return false;
+    if(stokFilter==='normal'&&d!=='normal')return false;
+    return true;
+  });
+  return Filtre.filtreleUygula(filtered, aktifStokFiltreleri, STOK_FILTRE_ALANLARI);
+}
+function _stokTabloBosSatir(){
+  return `<tr><td colspan="${STOK_TABLO_KOLONLARI.length}" style="padding:20px;text-align:center;color:var(--gray-400)">Sonuç bulunamadı</td></tr>`;
+}
+function _stokTabloTbodyHTML(rows){
+  return rows.map(s=>`<tr onclick="openDetay('${aktifDepoId}','${s.lnKod}')" style="cursor:pointer">`+
     STOK_TABLO_KOLONLARI.map(k=>`<td style="padding:6px 8px;border-top:1px solid var(--gray-200);font-size:11.5px;white-space:nowrap">${escapeHtml(_stokHucreBicim(k.type,k.get(s)))}</td>`).join('')+
     `</tr>`).join('');
-  c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>${bas}</tr></thead><tbody>${satirlar}</tbody></table></div>`;
 }
-function stokTabloSirala(key){
-  if(stokTabloSir.key===key) stokTabloSir.yon*=-1; else stokTabloSir={key,yon:1};
-  renderStok();
+// Başlık altı satır-içi filtre: operatör sembol seçici + değer kutusu (sütun başına)
+function _stokFiltreSatiriHTML(){
+  return STOK_TABLO_KOLONLARI.map(k=>{
+    const ops=SUTUN_OPS[k.type]||SUTUN_OPS.text;
+    const mevcut=aktifStokFiltreleri.find(f=>f.field===k.key);
+    const opsHtml=ops.map(([op,sim])=>`<option value="${op}"${mevcut&&mevcut.operator===op?' selected':''}>${sim}</option>`).join('');
+    const inputType=k.type==='number'?'number':(k.type==='date'?'date':'text');
+    const val=mevcut?escapeHtml(String(mevcut.value??'')):'';
+    return `<th data-fcol="${k.key}" style="background:#eef2ff;padding:4px 6px">
+      <div style="display:flex;gap:3px;align-items:center">
+        <select onchange="stokSutunFiltreDegis('${k.key}','${k.type}')" style="border:1px solid #c7d2fe;border-radius:5px;padding:2px 3px;font-size:12px;font-weight:800;background:#fff;cursor:pointer">${opsHtml}</select>
+        <input type="${inputType}" value="${val}" oninput="stokSutunFiltreDegis('${k.key}','${k.type}')" placeholder="filtre" style="width:100%;min-width:44px;border:1px solid #c7d2fe;border-radius:5px;padding:2px 4px;font-size:11px">
+      </div></th>`;
+  }).join('');
 }
-function stokSutunFiltre(key){
-  const alan=STOK_FILTRE_ALANLARI.find(a=>a.field===key); if(!alan)return;
-  const p=document.getElementById('stok-filtre-panel'); if(!p)return;
-  p.style.display='block';
-  Filtre.panelOlustur(p, STOK_FILTRE_ALANLARI, aktifStokFiltreleri, ()=>{ stokFiltreYenidenCiz(); renderStok(); });
-  const sel=p.querySelector('.f-alan');
-  if(sel){ sel.value=key; sel.dispatchEvent(new Event('change')); }
+function renderStokTablo(rows){
+  const c=document.getElementById('stok-liste');
+  const bas=STOK_TABLO_KOLONLARI.map(k=>`<th style="position:sticky;top:0;background:var(--primary);color:#fff;padding:6px 8px;font-size:11px;white-space:nowrap;z-index:2">${escapeHtml(k.label)}</th>`).join('');
+  const govde = rows.length ? _stokTabloTbodyHTML(rows) : _stokTabloBosSatir();
+  c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">`+
+    `<thead><tr>${bas}</tr><tr>${_stokFiltreSatiriHTML()}</tr></thead><tbody>${govde}</tbody></table></div>`;
+}
+// Sütun filtresi değişince yalnız tbody'yi tazele (thead/inputlar DOM'da kalır → odak kaybı yok)
+function stokTabloTbodyYenile(){
+  const tb=document.querySelector('#stok-liste tbody');
+  if(!tb){ renderStok(); return; }
+  const rows=_stokFiltrele(Object.values(db.stok[aktifDepoId]||{})).sort(_stokDurumSira);
+  tb.innerHTML = rows.length ? _stokTabloTbodyHTML(rows) : _stokTabloBosSatir();
+  stokFiltreYenidenCiz();
+}
+function stokSutunFiltreDegis(field, ftype){
+  const cell=document.querySelector('#stok-liste [data-fcol="'+field+'"]'); if(!cell)return;
+  const op=cell.querySelector('select').value;
+  const inp=cell.querySelector('input');
+  const raw=inp?inp.value:'';
+  aktifStokFiltreleri = aktifStokFiltreleri.filter(f=>f.field!==field);
+  if(raw!==''&&raw!=null) aktifStokFiltreleri.push({ field, type:ftype, operator:op, value:raw });
+  stokTabloTbodyYenile();
 }
 function stokFiltreYenidenCiz(){
   const el=document.getElementById('stok-filtre-etiket'); if(!el)return;
@@ -1045,22 +1086,9 @@ function renderStok(){
     `<button class="filter-tab ${abcFilter==='tumu'?'active':''}" onclick="filterAbc('tumu',this)">Tümü</button>`+
     ['A','B','C'].map(sn=>`<button class="filter-tab ${abcFilter===sn?'active':''}" onclick="filterAbc('${sn}',this)">${sn} Sınıfı</button>`).join('');
 
-  // Filtrele
-  let filtered=items.filter(s=>{
-    if(search&&!s.urunAd?.toLowerCase().includes(search)&&!s.lnKod?.toLowerCase().includes(search))return false;
-    if(katFilter!=='tumu'&&!s.lnKod?.startsWith(katFilter))return false;
-    if(abcFilter!=='tumu'&&(db.abcSiniflari[s.lnKod]||'C')!==abcFilter)return false;
-    const d=getStokDurum(s.lnKod,s.miktar);
-    if(stokFilter==='kritik'&&d!=='kritik')return false;
-    if(stokFilter==='uyari'&&d!=='uyari')return false;
-    if(stokFilter==='normal'&&d!=='normal')return false;
-    return true;
-  });
-  filtered = Filtre.filtreleUygula(filtered, aktifStokFiltreleri, STOK_FILTRE_ALANLARI);
-  filtered.sort((a,b)=>{
-    const order={kritik:0,uyari:1,normal:2};
-    return(order[getStokDurum(a.lnKod,a.miktar)]||2)-(order[getStokDurum(b.lnKod,b.miktar)]||2)||(a.urunAd||'').localeCompare(b.urunAd||'','tr');
-  });
+  // Filtrele (arama + sekmeler + gelişmiş/sütun filtreleri — kart ve tablo ortak)
+  let filtered=_stokFiltrele(items);
+  filtered.sort(_stokDurumSira);
 
   // Stats
   const krit=items.filter(s=>getStokDurum(s.lnKod,s.miktar)==='kritik').length;
