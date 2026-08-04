@@ -56,6 +56,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div class="ftabs">
       <button class="ftab active" id="st-tab-bekleyen" onclick="filterSiparisTakip('bekleyen',this)">Bekleyen</button>
+      <button class="ftab" id="st-tab-gecikmis" onclick="filterSiparisTakip('gecikmis',this)">⏰ Gecikmiş</button>
       <button class="ftab" id="st-tab-kismi" onclick="filterSiparisTakip('kismi',this)">Kısmen Geldi</button>
       <button class="ftab" id="st-tab-tamamlandi" onclick="filterSiparisTakip('tamamlandi',this)">Tamamlandı</button>
       <button class="ftab" id="st-tab-tumu" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
@@ -107,6 +108,32 @@ async function loadSiparisTakip(){
   renderSiparisTakip();
 }
 
+// Termin geçmiş + hâlâ tam gelmemiş = gecikmiş (tamamlanmış/iptal hariç)
+function siparisGecikti(s){
+  if(!s || !s.termin) return false;
+  if(['tamamlandi','iptal'].includes(s.durum)) return false;
+  const bugun=new Date(); bugun.setHours(0,0,0,0);
+  return new Date(s.termin+'T00:00:00') < bugun;
+}
+
+// Geciken siparişi atomik yeniden yönlendir: eski 'iptal' + kalan kalemlerle yeni RFQ (RPC)
+async function siparisYenidenYonlendir(siparisNo){
+  const s=_siparisHavuzuData[siparisNo];
+  if(!s){toast('Sipariş bulunamadı');return;}
+  const kalan=(s.kalemler||[]).filter(k=>k.kalanMiktar>0.001);
+  if(!kalan.length){toast('Gelmeyen kalem yok');return;}
+  if(!confirm(`"${siparisNo}" siparişi İPTAL edilecek ve gelmeyen ${kalan.length} kalem için YENİ teklif talebi açılacak.\n\nDevam edilsin mi?`))return;
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/siparis_yeniden_yonlendir',{method:'POST',headers:SB_HEADERS,
+      body:JSON.stringify({p_siparis_no:siparisNo,p_olusturan:CU.ad})});
+    if(!r.ok){const t=await r.text().catch(()=>'');console.error('siparis_yeniden_yonlendir',t);hLD();toast('❌ Yönlendirilemedi: '+t.slice(0,120));return;}
+    hLD();
+    toast('✅ Sipariş iptal edildi, yeni teklif talebi açıldı');
+    setTimeout(()=>{location.href='satin-alma-teklif-toplama.html';},900);
+  }catch(e){hLD();console.warn(e);toast('❌ Bağlantı hatası');}
+}
+
 function filterSiparisTakip(f,el){
   _stFilter=f;
   document.querySelectorAll('#tab-siparisTakip .ftab').forEach(t=>t.classList.remove('active'));
@@ -121,6 +148,7 @@ function renderSiparisTakip(){
   const bek=tumSiparisler.filter(s=>s.durum==='bekleyen').length;
   const kis=tumSiparisler.filter(s=>s.durum==='kismi').length;
   const tam=tumSiparisler.filter(s=>s.durum==='tamamlandi').length;
+  const gec=tumSiparisler.filter(siparisGecikti).length;
   document.getElementById('st-stats').innerHTML=`
     <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
       <div style="font-size:18px;font-weight:800;color:var(--warning)">${bek}</div>
@@ -133,10 +161,15 @@ function renderSiparisTakip(){
     <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
       <div style="font-size:18px;font-weight:800;color:var(--success)">${tam}</div>
       <div style="font-size:10px;color:var(--gray-500)">TAMAM</div>
+    </div>
+    <div style="background:white;border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.08)">
+      <div style="font-size:18px;font-weight:800;color:var(--danger)">${gec}</div>
+      <div style="font-size:10px;color:var(--gray-500)">GECİKMİŞ</div>
     </div>`;
 
   let liste=tumSiparisler;
-  if(_stFilter!=='tumu')liste=tumSiparisler.filter(s=>s.durum===_stFilter);
+  if(_stFilter==='gecikmis') liste=tumSiparisler.filter(siparisGecikti);
+  else if(_stFilter!=='tumu') liste=tumSiparisler.filter(s=>s.durum===_stFilter);
   liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
 
   const c=document.getElementById('siparis-takip-liste');
@@ -173,7 +206,10 @@ function renderSiparisTakip(){
             ${s.olusturanAd?' • '+escapeHtml(s.olusturanAd):''}
           </div>
         </div>
-        ${durumChip[s.durum]||''}
+        <div style="text-align:right">
+          ${durumChip[s.durum]||''}
+          ${siparisGecikti(s)?`<div style="margin-top:4px"><span style="background:#fde8e8;color:#9b1c1c;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">⏰ ${Math.ceil((Date.now()-new Date(s.termin+'T00:00:00'))/86400000)} gün gecikti</span></div>`:''}
+        </div>
       </div>
       <!-- Progress bar -->
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -187,6 +223,11 @@ function renderSiparisTakip(){
         ${eksikler.slice(0,3).map(k=>`<div style="font-size:11px;color:var(--gray-600)">• ${escapeHtml(k.ad)} — Sipariş: ${k.miktar} ${k.birim}${k.gelenMiktar>0?' | Gelen: '+k.gelenMiktar+' | Kalan: '+k.kalanMiktar:''}</div>`).join('')}
         ${eksikler.length>3?`<div style="font-size:11px;color:var(--gray-400)">+${eksikler.length-3} kalem daha...</div>`:''}
       `:''}
+      ${!['tamamlandi','iptal'].includes(s.durum)?`
+        <button onclick="event.stopPropagation();siparisYenidenYonlendir('${s.siparisNo}')"
+          style="margin-top:8px;width:100%;padding:9px;border:1.5px solid var(--danger);background:#fff5f5;color:var(--danger);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
+          🔄 Yeniden Yönlendir (iptal + yeni teklif)
+        </button>`:''}
     </div>`;
   }).join('');
 }
