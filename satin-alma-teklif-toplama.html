@@ -164,6 +164,16 @@ async function loadOnayliTalepler(){
   ONAYLI_TALEPLER = r.ok ? await r.json() : [];
 }
 
+// Zaten teklife çevrilmiş talep kalemlerini (teklif_kalemleri.kaynak_ic_talep_kalemi_id) dropdown'dan çıkar
+// → aynı onaylı talep defalarca RFQ'ya çevrilemez. TT (teklif_talepleri) yüklendikten SONRA çağrılır.
+function onayliTalepleriFiltrele(){
+  const cevrilen=new Set();
+  Object.values(TT).forEach(t=>(t.teklif_kalemleri||[]).forEach(k=>{ if(k.kaynak_ic_talep_kalemi_id) cevrilen.add(String(k.kaynak_ic_talep_kalemi_id)); }));
+  ONAYLI_TALEPLER = ONAYLI_TALEPLER
+    .map(t=>({...t, satin_alma_talep_kalemleri:(t.satin_alma_talep_kalemleri||[]).filter(k=>!cevrilen.has(String(k.id)))}))
+    .filter(t=>(t.satin_alma_talep_kalemleri||[]).length>0);
+}
+
 // ====== TEKLİF DETAY / KARŞILAŞTIRMA ======
 function enUcuzTeklifId(kalem){
   const f=(kalem.teklif_fiyatlari||[]).slice().sort((a,b)=>a.birim_fiyat-b.birim_fiyat);
@@ -302,7 +312,9 @@ async function teklifTalebiOlustur(secilenKalemler, otelId){
     body:JSON.stringify({p_olusturan:CU.ad, p_otel_id:otelId||'810', p_kalemler:kalemler})});
   if(!r.ok){const t=await r.text().catch(()=>'');console.warn('teklif_talebi_olustur',t);toast('❌ Teklif talebi oluşturulamadı');return null;}
   const talepId=await r.json(); // RPC uuid döner
-  await loadTeklifTalepleri(); renderTeklifTalepleri();
+  await Promise.all([loadTeklifTalepleri(), loadOnayliTalepler()]);
+  onayliTalepleriFiltrele(); // yeni oluşan RFQ'nun kaynak kalemleri dropdown'dan düşsün
+  renderTeklifTalepleri();
   toast('✅ Teklif talebi oluşturuldu');
   return talepId;
 }
@@ -401,6 +413,7 @@ function yenile(){
   (async function(){
     sLD();
     await Promise.all([loadTeklifTalepleri(), loadOnayliTalepler()]);
+    onayliTalepleriFiltrele();
     hLD();
     renderTeklifTalepleri();
   })();
