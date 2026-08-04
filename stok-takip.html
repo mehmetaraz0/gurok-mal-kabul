@@ -153,6 +153,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="search-bar">
       <input type="text" id="stok-search" placeholder="Ürün adı veya LN kodu ara..." oninput="renderStok()">
       <button onclick="stokFiltrePaneliAcKapa()" style="margin-top:6px;background:#eef2ff;color:#3730a3;border:1.5px solid #c7d2fe;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">🔎 Gelişmiş Filtre</button>
+      <button onclick="stokGorunumDegistir()" id="stok-gorunum-btn" style="margin-top:6px;margin-left:6px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
       <div id="stok-filtre-panel" style="display:none;background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px;margin-top:8px"></div>
       <div id="stok-filtre-etiket" style="margin-top:6px"></div>
       <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.35-4.35"/></svg></span>
@@ -913,6 +914,88 @@ const STOK_FILTRE_ALANLARI = [
   { field:'durum', label:'Stok Durumu', type:'multi_select', getValue:s=>getStokDurum(s.lnKod,s.miktar) },
 ];
 let aktifStokFiltreleri = [];
+// ===== Tablo (grid) görünümü =====
+let stokGorunum = 'kart';                 // 'kart' | 'tablo'
+let siparisMap = {}, talepMap = {}, sonHareketMap = {};
+let stokTabloSir = { key:null, yon:1 };
+// Hesaplanan alanları filtreye de ekle (sütun 🔽 filtresi için)
+STOK_FILTRE_ALANLARI.push(
+  { field:'siparis',   label:'Sipariş (bekleyen)', type:'number', getValue:s=>siparisMap[s.lnKod]||0 },
+  { field:'talep',     label:'Talep (bekleyen)',   type:'number', getValue:s=>talepMap[s.lnKod]||0 },
+  { field:'sonHareket',label:'Son Hareket',        type:'date',   getValue:s=>sonHareketMap[s.lnKod]||null },
+);
+const STOK_TABLO_KOLONLARI = [
+  { key:'lnKod',     label:'Kalem Kodu',  type:'text',   get:s=>s.lnKod||'' },
+  { key:'urunAd',    label:'Kalem Adı',   type:'text',   get:s=>s.urunAd||'' },
+  { key:'miktar',    label:'Miktar',      type:'number', get:s=>s.miktar||0 },
+  { key:'birim',     label:'Birim',       type:'text',   get:s=>s.birim||'' },
+  { key:'min',       label:'Min',         type:'number', get:s=>db.minimumlar[s.lnKod]||0 },
+  { key:'kategori',  label:'Kategori',    type:'text',   get:s=>(s.lnKod||'').slice(0,5) },
+  { key:'abc',       label:'ABC',         type:'text',   get:s=>db.abcSiniflari[s.lnKod]||'C' },
+  { key:'durum',     label:'Durum',       type:'text',   get:s=>getStokDurum(s.lnKod,s.miktar) },
+  { key:'siparis',   label:'Sipariş',     type:'number', get:s=>siparisMap[s.lnKod]||0 },
+  { key:'talep',     label:'Talep',       type:'number', get:s=>talepMap[s.lnKod]||0 },
+  { key:'sonHareket',label:'Son Hareket', type:'date',   get:s=>sonHareketMap[s.lnKod]||'' },
+];
+async function stokEkVeriYukle(){
+  const otel = (typeof otelFromDepoId==='function') ? otelFromDepoId(aktifDepoId) : null;
+  siparisMap={}; talepMap={}; sonHareketMap={};
+  try{
+    const [rs,rt,rh]=await Promise.all([
+      fetch(SB_URL+'/rest/v1/stok_acik_siparis?select=otel_id,urun_kodu,bekleyen_miktar',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/stok_acik_talep?select=otel_id,urun_kodu,talep_miktar',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/stok_son_hareket?select=otel_id,urun_kodu,son_tarih',{headers:SB_HEADERS}),
+    ]);
+    if(rs.ok)(await rs.json()).forEach(r=>{ if(!otel||String(r.otel_id)===String(otel)) siparisMap[r.urun_kodu]=(siparisMap[r.urun_kodu]||0)+(parseFloat(r.bekleyen_miktar)||0); });
+    if(rt.ok)(await rt.json()).forEach(r=>{ if(!otel||String(r.otel_id)===String(otel)) talepMap[r.urun_kodu]=(talepMap[r.urun_kodu]||0)+(parseFloat(r.talep_miktar)||0); });
+    if(rh.ok)(await rh.json()).forEach(r=>{ if(!otel||String(r.otel_id)===String(otel)){ if(!sonHareketMap[r.urun_kodu]||r.son_tarih>sonHareketMap[r.urun_kodu]) sonHareketMap[r.urun_kodu]=r.son_tarih; } });
+  }catch(e){ console.warn('stokEkVeriYukle',e); }
+}
+function stokGorunumDegistir(){
+  stokGorunum = stokGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('stok-gorunum-btn');
+  if(b) b.textContent = stokGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  renderStok();
+}
+function _stokHucreBicim(type,v){
+  if(v==null||v==='') return '—';
+  if(type==='date'){ const d=new Date(v); return isNaN(d)?'—':d.toLocaleDateString('tr-TR'); }
+  if(type==='number'){ return (Math.round((parseFloat(v)||0)*100)/100).toLocaleString('tr-TR'); }
+  return String(v);
+}
+function renderStokTablo(rows){
+  const c=document.getElementById('stok-liste');
+  if(!rows.length){ c.innerHTML=`<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">Sonuç bulunamadı</div></div>`; return; }
+  if(stokTabloSir.key){
+    const kol=STOK_TABLO_KOLONLARI.find(k=>k.key===stokTabloSir.key);
+    rows=rows.slice().sort((a,b)=>{
+      let x=kol.get(a), y=kol.get(b);
+      if(kol.type==='number'){ x=parseFloat(x)||0; y=parseFloat(y)||0; return (x-y)*stokTabloSir.yon; }
+      if(kol.type==='date'){ x=x?new Date(x).getTime():0; y=y?new Date(y).getTime():0; return (x-y)*stokTabloSir.yon; }
+      return String(x).localeCompare(String(y),'tr')*stokTabloSir.yon;
+    });
+  }
+  const bas=STOK_TABLO_KOLONLARI.map(k=>{
+    const ok = stokTabloSir.key===k.key ? (stokTabloSir.yon>0?' ▲':' ▼') : '';
+    return `<th style="position:sticky;top:0;background:var(--primary);color:#fff;padding:6px 8px;font-size:11px;white-space:nowrap;cursor:pointer;z-index:1" onclick="stokTabloSirala('${k.key}')">${escapeHtml(k.label)}${ok} <span onclick="event.stopPropagation();stokSutunFiltre('${k.key}')" style="cursor:pointer">🔽</span></th>`;
+  }).join('');
+  const satirlar=rows.map(s=>`<tr onclick="openDetay('${aktifDepoId}','${s.lnKod}')" style="cursor:pointer">`+
+    STOK_TABLO_KOLONLARI.map(k=>`<td style="padding:6px 8px;border-top:1px solid var(--gray-200);font-size:11.5px;white-space:nowrap">${escapeHtml(_stokHucreBicim(k.type,k.get(s)))}</td>`).join('')+
+    `</tr>`).join('');
+  c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>${bas}</tr></thead><tbody>${satirlar}</tbody></table></div>`;
+}
+function stokTabloSirala(key){
+  if(stokTabloSir.key===key) stokTabloSir.yon*=-1; else stokTabloSir={key,yon:1};
+  renderStok();
+}
+function stokSutunFiltre(key){
+  const alan=STOK_FILTRE_ALANLARI.find(a=>a.field===key); if(!alan)return;
+  const p=document.getElementById('stok-filtre-panel'); if(!p)return;
+  p.style.display='block';
+  Filtre.panelOlustur(p, STOK_FILTRE_ALANLARI, aktifStokFiltreleri, ()=>{ stokFiltreYenidenCiz(); renderStok(); });
+  const sel=p.querySelector('.f-alan');
+  if(sel){ sel.value=key; sel.dispatchEvent(new Event('change')); }
+}
 function stokFiltreYenidenCiz(){
   const el=document.getElementById('stok-filtre-etiket'); if(!el)return;
   Filtre.etiketleriCiz(el, aktifStokFiltreleri, STOK_FILTRE_ALANLARI, (i)=>{
@@ -990,6 +1073,8 @@ function renderStok(){
 
   const badge=document.getElementById('kritik-badge');
   if(krit>0){badge.textContent=krit;badge.style.display='block';}else badge.style.display='none';
+
+  if(stokGorunum==='tablo'){ renderStokTablo(filtered); return; }
 
   const container=document.getElementById('stok-liste');
   if(!filtered.length){
@@ -1676,6 +1761,7 @@ function onDepoChange(depoId){
   document.getElementById('header-depo-label').textContent=depoAdi(depoId);
   katFilter='tumu';stokFilter='tumu';
   renderStok();
+  stokEkVeriYukle().then(renderStok);  // yeni depo → otel-bazlı sipariş/talep/son-hareket haritalarını tazele
   sayimSatirlari={};
   if(document.getElementById('tab-sayim')&&document.getElementById('tab-sayim').style.display!=='none'){
     renderSayimYeni();
@@ -2345,6 +2431,7 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   await birimDonusumHaritasiYukle();
   await loadDB();
   await loadFiyatMap();
+  await stokEkVeriYukle();
   hesaplaAbcSiniflari();
   buildIadeFirmaSelector(); // db.cariler loadDB() içinde dolduğu için ondan sonra çağrılmalı
 
