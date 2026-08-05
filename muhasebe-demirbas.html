@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
@@ -101,6 +103,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterDemirbas('aktif',this)">Aktif</button>
       <button class="ftab" onclick="filterDemirbas('elden_cikarildi',this)">Elden Çıkarılan</button>
     </div>
+    <button onclick="dbGorunumDegistir()" id="db-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="db-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="demirbas-liste"></div>
   </div>
 
@@ -403,12 +407,51 @@ function demirbasKaydiSayisi(){return Object.keys(demirbaslar).length;}
 // ============================================================
 // RENDER — LİSTE
 // ============================================================
-function renderDemirbaslar(){
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let dbGorunum='kart';
+let _dbTablo=null;
+function dbListeVerisi(){
   const ara=(document.getElementById('db-ara')?.value||'').toLowerCase();
   let liste=Object.values(demirbaslar).filter(Boolean);
   if(dbFilter!=='tumu')liste=liste.filter(d=>d.durum===dbFilter);
   if(ara)liste=liste.filter(d=>d.ad?.toLowerCase().includes(ara)||d.kod?.toLowerCase().includes(ara)||d.zimmet?.toLowerCase().includes(ara));
-  liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+  return liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+}
+function dbTabloGetir(){
+  if(_dbTablo)return _dbTablo;
+  _dbTablo=Tablo.olustur({
+    container:'demirbas-liste',
+    etiketKapsayici:'db-filtre-etiket',
+    bosMesaj:'Demirbaş bulunamadı',
+    veri:dbListeVerisi,
+    satirTikla:d=>openDetay(d.id),
+    kolonlar:[
+      {key:'kod',      label:'Kod',        type:'text',   get:d=>d.kod||''},
+      {key:'ad',       label:'Demirbaş',   type:'text',   get:d=>d.ad||''},
+      {key:'kategori', label:'Kategori',   type:'text',   get:d=>(KATEGORILER[d.kategori]&&KATEGORILER[d.kategori].ad)||d.kategori||''},
+      {key:'alimTarihi',label:'Alım Tarihi',type:'date',  get:d=>d.alimTarihi||''},
+      {key:'alimTutari',label:'Alım (₺)',  type:'number', get:d=>d.alimTutari||0},
+      {key:'birikmis', label:'Birikmiş Amort.',type:'number',get:d=>d.birikmisAmortisman||0},
+      {key:'net',      label:'Net Değer',  type:'number', get:d=>netDefterDegeri(d)||0},
+      {key:'oran',     label:'Oran (%)',   type:'number', get:d=>d.oran||0},
+      {key:'zimmet',   label:'Zimmet',     type:'text',   get:d=>d.zimmet||''},
+      {key:'durum',    label:'Durum',      type:'text',   get:d=>d.durum||''},
+      {key:'otel',     label:'Otel',       type:'text',   get:d=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[d.otelId])||d.otelId||''},
+    ],
+  });
+  return _dbTablo;
+}
+function dbGorunumDegistir(){
+  dbGorunum = dbGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('db-gorunum-btn');
+  if(b) b.textContent = dbGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('db-filtre-etiket');
+  if(et && dbGorunum==='kart') et.innerHTML='';
+  renderDemirbaslar();
+}
+
+function renderDemirbaslar(){
+  let liste=dbListeVerisi();
 
   const toplamMaliyet=liste.reduce((t,d)=>t+(parseFloat(d.alimTutari)||0),0);
   const toplamBirikmis=liste.reduce((t,d)=>t+(parseFloat(d.birikmisAmortisman)||0),0);
@@ -418,8 +461,10 @@ function renderDemirbaslar(){
     <div class="stat-kart"><div class="stat-num" style="color:var(--gray-600)">${fmt(toplamMaliyet)}</div><div class="stat-lbl">Alım Maliyeti</div></div>
     <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamNet)}</div><div class="stat-lbl">Net Defter Değeri</div></div>`;
 
+  if(dbGorunum==='tablo'){ dbTabloGetir().ciz(); return; }
+
   const c=document.getElementById('demirbas-liste');
-  if(!liste.length){c.innerHTml='';c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Demirbaş bulunamadı</div></div>';return;}
+  if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Demirbaş bulunamadı</div></div>';return;}
 
   c.innerHTML=liste.map(d=>{
     const kat=KATEGORILER[d.kategori]||{};

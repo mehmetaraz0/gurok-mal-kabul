@@ -6,6 +6,8 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -111,6 +113,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <div class="field"><label>Bitiş</label><input type="date" id="har-bit" onchange="renderHareketler()"></div>
       </div>
     </div>
+    <button onclick="harGorunumDegistir()" id="har-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="har-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="hareketler-liste"></div>
   </div>
 
@@ -519,7 +523,10 @@ async function hareketKaydet(){
 // ============================================================
 // HAREKETLER LİSTESİ
 // ============================================================
-function renderHareketler(){
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let harGorunum='kart';
+let _harTablo=null;
+function harListeVerisi(){
   const hesapId=document.getElementById('har-hesap').value;
   const bas=document.getElementById('har-bas').value;
   const bit=document.getElementById('har-bit').value;
@@ -527,7 +534,40 @@ function renderHareketler(){
   const bitTs=bit?new Date(bit+'T23:59:59').getTime():Date.now()+86400000;
   let liste=Object.values(hareketler).filter(h=>h&&h.tarih>=basTs&&h.tarih<=bitTs);
   if(hesapId)liste=liste.filter(h=>h.hesapId===hesapId);
-  liste.sort((a,b)=>b.tarih-a.tarih);
+  return liste.sort((a,b)=>b.tarih-a.tarih);
+}
+function harTabloGetir(){
+  if(_harTablo)return _harTablo;
+  _harTablo=Tablo.olustur({
+    container:'hareketler-liste',
+    etiketKapsayici:'har-filtre-etiket',
+    bosMesaj:'Hareket bulunamadı',
+    veri:harListeVerisi,
+    kolonlar:[
+      {key:'tarih',   label:'Tarih',      type:'date',   get:h=>h.tarihStr||(h.tarih?new Date(h.tarih).toISOString().slice(0,10):'')},
+      {key:'hesap',   label:'Hesap',      type:'text',   get:h=>(hesaplar[h.hesapId]&&hesaplar[h.hesapId].ad)||''},
+      {key:'tip',     label:'Tip',        type:'text',   get:h=>h.tip==='yatirma'?'Yatırma':'Çekme'},
+      {key:'belge',   label:'Belge',      type:'text',   get:h=>h.belge||''},
+      {key:'aciklama',label:'Açıklama',   type:'text',   get:h=>h.aciklama||''},
+      {key:'tutar',   label:'Tutar (₺)',  type:'number', get:h=>h.tutar||0},
+      {key:'otel',    label:'Otel',       type:'text',   get:h=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[h.otelId])||h.otelId||''},
+    ],
+  });
+  return _harTablo;
+}
+function harGorunumDegistir(){
+  harGorunum = harGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('har-gorunum-btn');
+  if(b) b.textContent = harGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('har-filtre-etiket');
+  if(et && harGorunum==='kart') et.innerHTML='';
+  renderHareketler();
+}
+
+function renderHareketler(){
+  const liste=harListeVerisi();
+
+  if(harGorunum==='tablo'){ harTabloGetir().ciz(); return; }
 
   const c=document.getElementById('hareketler-liste');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Hareket bulunamadı</div></div>';return;}
