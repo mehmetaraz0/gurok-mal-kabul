@@ -555,6 +555,15 @@ async function checkPin() {
   currentUser = sonuc.kullanici;
   oturumKaydet(currentUser, sonuc.access_token);
   sbHeaderlarYenile(sonuc.access_token);
+  // Başarılı giriş kaydı (yönetici giris-kayitlari.html ekranı). Kullanıcı JWT'den
+  // türetilir (giris_kaydi_ekle RPC). Hata girişi ASLA engellemez.
+  try {
+    await fetch(SB_URL + '/rest/v1/rpc/giris_kaydi_ekle', {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + sonuc.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_giris_tipi: 'pin' })
+    });
+  } catch (e) { /* giriş kaydı hatası yutulur */ }
   const params = new URLSearchParams(location.search);
   const returnTo = params.get('returnTo');
   if (returnTo && /^[a-z0-9_-]+\.html(\?[^#]*)?(#.*)?$/i.test(returnTo)) {
