@@ -151,6 +151,18 @@ Deno.serve(async (req) => {
       return json(fail("Sunucu hatası", "verifyOtp", debug, "session/access_token yok", verifyData), 200, cors);
     }
 
+    // Başarılı giriş kaydı (yönetici görüntüleme ekranı: giris-kayitlari.html).
+    // service_role RLS'i bypass eder. Log yazımı ASLA girişi engellemez.
+    try {
+      await admin.from("giris_kayitlari").insert({
+        kullanici_id: kullanici.id,
+        ad: kullanici.ad ?? null,
+        otel_id: kullanici.otel_id ?? null,
+        giris_tipi: "pin",
+        ip_hash: ipHash,
+      });
+    } catch (_) { /* log hatası yutulur */ }
+
     // index.html'deki mevcut kullanıcı nesnesiyle (rol/depoId/otelId normalizasyonu
     // dahil) AYNI şekli koru -- checkPin() bunu değişiklik yapmadan kullanabilsin.
     // auth_user_id'yi BİLEREK üzerine yazıyoruz: pin_dogrula'dan gelen satır
