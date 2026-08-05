@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="onay-motoru.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <script src="ortak-excel.js"></script>
 <script src="araz_veritabani.js"></script>
 <link rel="stylesheet" href="theme.css">
@@ -104,6 +106,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="btn btn-sm btn-gray" id="talep-excel-yukle-btn" onclick="document.getElementById('talep-excel-input').click()" disabled>Excel'den Yükle</button>
       <input type="file" id="talep-excel-input" accept=".xlsx,.xls" style="display:none" onchange="talepExcelYukle(event)">
     </div>
+    <button onclick="talepGorunumDegistir()" id="talep-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="talep-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="talepler-liste"></div>
   </div>
 </div>
@@ -567,8 +571,54 @@ function filterTalep(f,el){
   renderTalepler();
 }
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+const TALEP_DURUM_AD={bekleyen:'Bekliyor',onaylandi:'Onaylandı',siparis:'Siparişe Dönüştü',reddedildi:'Reddedildi'};
+let talepGorunum='kart';
+let _talepTablo=null;
+function talepTabloGetir(){
+  if(_talepTablo)return _talepTablo;
+  _talepTablo=Tablo.olustur({
+    container:'talepler-liste',
+    etiketKapsayici:'talep-filtre-etiket',
+    bosMesaj:'Talep bulunamadı',
+    veri:talepListeVerisi,
+    satirTikla:t=>openTalepDetay(t.id),
+    kolonlar:[
+      {key:'departman',label:'Departman', type:'text',   get:t=>t.departman||''},
+      {key:'tarih',    label:'Tarih',     type:'date',   get:t=>t.tarih||''},
+      {key:'personel', label:'İsteyen',   type:'text',   get:t=>t.personel||''},
+      {key:'aciliyet', label:'Aciliyet',  type:'text',   get:t=>t.aciliyet||''},
+      {key:'durum',    label:'Durum',     type:'text',   get:t=>TALEP_DURUM_AD[t.durum]||t.durum||''},
+      {key:'asama',    label:'Aşama',     type:'text',   get:t=>t.asama||''},
+      {key:'kalem',    label:'Kalem',     type:'number', get:t=>(t.satirlar||[]).length},
+      {key:'otel',     label:'Otel',      type:'text',   get:t=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[t.otelId])||t.otelId||''},
+      {key:'urunler',  label:'Ürünler',   type:'text',   get:t=>(t.satirlar||[]).map(u=>u.ad||'').join(', ')},
+    ],
+  });
+  return _talepTablo;
+}
+function talepGorunumDegistir(){
+  talepGorunum = talepGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('talep-gorunum-btn');
+  if(b) b.textContent = talepGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('talep-filtre-etiket');
+  if(et && talepGorunum==='kart') et.innerHTML='';
+  renderTalepler();
+}
+function talepListeVerisi(){
+  let liste=Object.values(DB.talepler||{}).filter(Boolean);
+  if(talepFilter!=='tumu')liste=liste.filter(t=>t.durum===talepFilter);
+  liste=liste.filter(t=>t.durum!=='bekleyen'||_yetkiliAsamalar.has(t.asama)||t.personel===CU.ad);
+  return liste.sort((a,b)=>{
+    const ao=a.aciliyet==='acil'?0:a.aciliyet==='normal'?1:2;
+    const bo=b.aciliyet==='acil'?0:b.aciliyet==='normal'?1:2;
+    return ao-bo||(b.olusturmaTarih-a.olusturmaTarih);
+  });
+}
+
 function renderTalepler(){
   const c=document.getElementById('talepler-liste');if(!c)return;
+  if(talepGorunum==='tablo'){ talepTabloGetir().ciz(); return; }
   let liste=Object.values(DB.talepler||{}).filter(Boolean);
   if(talepFilter!=='tumu')liste=liste.filter(t=>t.durum===talepFilter);
   // Bekleyen talepler CU'nun o anki asamada yetkili olduğu satırları VEYA kendi

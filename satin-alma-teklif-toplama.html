@@ -6,6 +6,8 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <script src="araz_veritabani.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -72,6 +74,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow" style="margin-bottom:10px">
       <button class="btn btn-primary btn-block" onclick="yeniTeklifTalebiModalAc()">➕ Yeni Teklif Talebi</button>
     </div>
+    <button onclick="ttGorunumDegistir()" id="tt-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="tt-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="liste"></div>
   </div>
 </div>
@@ -388,8 +392,40 @@ async function yttOlustur(){
   }
 }
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let ttGorunum='kart';
+let _ttTablo=null;
+function ttListeVerisi(){ return Object.values(TT); }
+function ttTabloGetir(){
+  if(_ttTablo)return _ttTablo;
+  _ttTablo=Tablo.olustur({
+    container:'liste',
+    etiketKapsayici:'tt-filtre-etiket',
+    bosMesaj:'Teklif talebi bulunamadı',
+    veri:ttListeVerisi,
+    satirTikla:t=>openTeklifDetay(t.id),
+    kolonlar:[
+      {key:'olusturan',label:'Oluşturan', type:'text',   get:t=>t.olusturan||''},
+      {key:'tarih',    label:'Tarih',     type:'date',   get:t=>t.olusturma_tarihi?String(t.olusturma_tarihi).slice(0,10):''},
+      {key:'durum',    label:'Durum',     type:'text',   get:t=>t.durum==='acik'?'Açık':(t.durum==='tamamlandi'?'Tamamlandı':(t.durum||''))},
+      {key:'kalem',    label:'Kalem',     type:'number', get:t=>(t.teklif_kalemleri||[]).length},
+      {key:'otel',     label:'Otel',      type:'text',   get:t=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[t.otel_id])||t.otel_id||''},
+    ],
+  });
+  return _ttTablo;
+}
+function ttGorunumDegistir(){
+  ttGorunum = ttGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('tt-gorunum-btn');
+  if(b) b.textContent = ttGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('tt-filtre-etiket');
+  if(et && ttGorunum==='kart') et.innerHTML='';
+  renderTeklifTalepleri();
+}
+
 function renderTeklifTalepleri(){
   const c=document.getElementById('liste');if(!c)return;
+  if(ttGorunum==='tablo'){ ttTabloGetir().ciz(); return; }
   const liste=Object.values(TT);
   if(!liste.length){
     c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Henüz teklif talebi yok</div></div>';

@@ -7,6 +7,8 @@
 <script src="otel-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <script src="araz_veritabani.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
@@ -123,6 +125,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" id="it-tab-bekleyen" onclick="filterIadeTakip('bekleyen',this)">Bekleyen</button>
       <button class="ftab" id="it-tab-tamamlandi" onclick="filterIadeTakip('tamamlandi',this)">Tamamlandı</button>
     </div>
+    <button onclick="iadeGorunumDegistir()" id="iade-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="iade-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="iade-takip-liste"></div>
   </div>
 </div>
@@ -350,12 +354,51 @@ function filterIadeTakip(f,el){
   renderIadeTakip();
 }
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+const IADE_DURUM_AD={bekleyen:'Bekliyor',kismi:'Kısmen',tamamlandi:'Tamamlandı'};
+const IADE_NEDEN_AD={depozito:'Depozito İadesi',bozuk:'Bozuk/Hasarlı',skt:'SKT',fazla:'Fazla Sipariş',diger:'Diğer'};
+let iadeGorunum='kart';
+let _iadeTablo=null;
+function iadeListeVerisi(){
+  let liste=Object.values(_iadeHavuzuData).filter(s=>s&&!s.rezerve&&s.tip==='iade');
+  if(_itFilter!=='tumu')liste=liste.filter(s=>s.durum===_itFilter);
+  return liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+}
+function iadeTabloGetir(){
+  if(_iadeTablo)return _iadeTablo;
+  _iadeTablo=Tablo.olustur({
+    container:'iade-takip-liste',
+    etiketKapsayici:'iade-filtre-etiket',
+    bosMesaj:'İade siparişi yok',
+    veri:iadeListeVerisi,
+    kolonlar:[
+      {key:'siparisNo',label:'İade No',   type:'text',   get:s=>s.siparisNo||''},
+      {key:'firma',    label:'Firma',     type:'text',   get:s=>s.firma||''},
+      {key:'tarih',    label:'Tarih',     type:'date',   get:s=>s.tarih||''},
+      {key:'durum',    label:'Durum',     type:'text',   get:s=>IADE_DURUM_AD[s.durum]||s.durum||''},
+      {key:'neden',    label:'Neden',     type:'text',   get:s=>IADE_NEDEN_AD[s.iadeNedeni]||s.iadeNedeni||''},
+      {key:'kaynak',   label:'Kaynak',    type:'text',   get:s=>s.kaynak==='depo'?'Depo':'Satın Alma'},
+      {key:'kalem',    label:'Kalem',     type:'number', get:s=>(s.kalemler||[]).length},
+      {key:'fatura',   label:'Orij. Fatura',type:'text', get:s=>s.orijinalFaturaNo||''},
+      {key:'otel',     label:'Otel',      type:'text',   get:s=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[s.otelId])||s.otelId||''},
+    ],
+  });
+  return _iadeTablo;
+}
+function iadeGorunumDegistir(){
+  iadeGorunum = iadeGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('iade-gorunum-btn');
+  if(b) b.textContent = iadeGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('iade-filtre-etiket');
+  if(et && iadeGorunum==='kart') et.innerHTML='';
+  renderIadeTakip();
+}
+
 function renderIadeTakip(){
   const c=document.getElementById('iade-takip-liste');
   if(!c)return;
-  let liste=Object.values(_iadeHavuzuData).filter(s=>s&&!s.rezerve&&s.tip==='iade');
-  if(_itFilter!=='tumu')liste=liste.filter(s=>s.durum===_itFilter);
-  liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+  if(iadeGorunum==='tablo'){ iadeTabloGetir().ciz(); return; }
+  let liste=iadeListeVerisi();
 
   if(!liste.length){
     c.innerHTML=`<div style="text-align:center;padding:40px 20px;color:var(--gray-400)">

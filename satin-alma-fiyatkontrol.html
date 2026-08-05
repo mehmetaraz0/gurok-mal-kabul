@@ -6,6 +6,8 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let CU = requireLogin();
@@ -78,6 +80,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" id="fk-tab-muhasebe" onclick="filterFiyatKontrol('muhasebe',this)">Muhasebe'ye Gönderildi</button>
       <button class="ftab" id="fk-tab-tumu" onclick="filterFiyatKontrol('tumu',this)">Tümü</button>
     </div>
+    <button onclick="fkGorunumDegistir()" id="fk-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="fk-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="fiyat-kontrol-liste"></div>
   </div>
 </div>
@@ -147,6 +151,48 @@ function filterFiyatKontrol(f,el){
   renderFiyatKontrol();
 }
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+const FK_DURUM_AD={kontrol:'Kontrol Edildi',muhasebe:"Muhasebe'de"};
+let fkGorunum='kart';
+let _fkTablo=null;
+function fkListeVerisi(){
+  const onaylilar=_fkFormlar.filter(f=>f&&f.durum==='onaylandi'&&f.faturaNo);
+  let liste=onaylilar;
+  if(_fkFilter==='bekleyen')liste=onaylilar.filter(f=>!f.fiyatKontrolDurum);
+  else if(_fkFilter==='kontrol')liste=onaylilar.filter(f=>f.fiyatKontrolDurum==='kontrol');
+  else if(_fkFilter==='muhasebe')liste=onaylilar.filter(f=>f.fiyatKontrolDurum==='muhasebe');
+  return liste.slice().sort((a,b)=>(b.tarih||0)-(a.tarih||0));
+}
+function fkTabloGetir(){
+  if(_fkTablo)return _fkTablo;
+  _fkTablo=Tablo.olustur({
+    container:'fiyat-kontrol-liste',
+    etiketKapsayici:'fk-filtre-etiket',
+    bosMesaj:'Kayıt bulunamadı',
+    veri:fkListeVerisi,
+    kolonlar:[
+      {key:'mkNo',    label:'MK No',      type:'text',   get:f=>f.mkNo||''},
+      {key:'faturaNo',label:'Fatura No',  type:'text',   get:f=>f.faturaNo||''},
+      {key:'firma',   label:'Firma',      type:'text',   get:f=>f.firma||''},
+      {key:'formTarih',label:'Tarih',     type:'date',   get:f=>f.formTarih||''},
+      {key:'kalem',   label:'Kalem',      type:'number', get:f=>(f.urunler||[]).length},
+      {key:'tutar',   label:'Tutar (₺)',  type:'number', get:f=>(f.urunler||[]).reduce((t,u)=>t+((parseFloat(u.miktar)||0)*(parseFloat(u.birimFiyat)||0)),0)},
+      {key:'fkDurum', label:'Kontrol',    type:'text',   get:f=>FK_DURUM_AD[f.fiyatKontrolDurum]||'Bekliyor'},
+      {key:'irsaliye',label:'İrsaliye',   type:'text',   get:f=>f.irsaliyeNo||''},
+      {key:'otel',    label:'Otel',       type:'text',   get:f=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[f.otelId])||f.otelId||''},
+    ],
+  });
+  return _fkTablo;
+}
+function fkGorunumDegistir(){
+  fkGorunum = fkGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('fk-gorunum-btn');
+  if(b) b.textContent = fkGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('fk-filtre-etiket');
+  if(et && fkGorunum==='kart') et.innerHTML='';
+  renderFiyatKontrol();
+}
+
 function renderFiyatKontrol(){
   // Sadece onaylı ve fatura no girilmiş formlar
   const onaylilar=_fkFormlar.filter(f=>f&&f.durum==='onaylandi'&&f.faturaNo);
@@ -171,11 +217,9 @@ function renderFiyatKontrol(){
       <div style="font-size:10px;color:var(--gray-500)">MUHASEBE'DE</div>
     </div>`;
 
-  let liste=onaylilar;
-  if(_fkFilter==='bekleyen')liste=bekleyen;
-  else if(_fkFilter==='kontrol')liste=kontrol;
-  else if(_fkFilter==='muhasebe')liste=muhasebe;
-  liste=liste.sort((a,b)=>(b.tarih||0)-(a.tarih||0));
+  let liste=fkListeVerisi();
+
+  if(fkGorunum==='tablo'){ fkTabloGetir().ciz(); return; }
 
   const c=document.getElementById('fiyat-kontrol-liste');
   if(!liste.length){
