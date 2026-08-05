@@ -153,15 +153,19 @@ Deno.serve(async (req) => {
 
     // Başarılı giriş kaydı (yönetici görüntüleme ekranı: giris-kayitlari.html).
     // service_role RLS'i bypass eder. Log yazımı ASLA girişi engellemez.
+    // NOT: supabase-js .insert() hata FIRLATMAZ, {error} döndürür — bu yüzden
+    // dönen error'u açıkça console'a yazıyoruz (EF Logs'ta görünür).
     try {
-      await admin.from("giris_kayitlari").insert({
+      const { error: logErr } = await admin.from("giris_kayitlari").insert({
         kullanici_id: kullanici.id,
         ad: kullanici.ad ?? null,
         otel_id: kullanici.otel_id ?? null,
         giris_tipi: "pin",
         ip_hash: ipHash,
       });
-    } catch (_) { /* log hatası yutulur */ }
+      if (logErr) console.error("giris_kayitlari insert HATASI:", logErr.message, logErr);
+      else console.log("giris_kayitlari insert OK:", kullanici.id, kullanici.ad);
+    } catch (e) { console.error("giris_kayitlari insert exception:", String(e)); }
 
     // index.html'deki mevcut kullanıcı nesnesiyle (rol/depoId/otelId normalizasyonu
     // dahil) AYNI şekli koru -- checkPin() bunu değişiklik yapmadan kullanabilsin.
