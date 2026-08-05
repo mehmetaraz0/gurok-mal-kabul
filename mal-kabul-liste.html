@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let currentUser = requireLogin();
@@ -175,6 +177,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <button class="ftab" onclick="filterListe('onaylandi',this)">Onaylı</button>
         <button class="ftab" onclick="filterListe('iptal',this)">İptal</button>
       </div>
+      <button onclick="mkGorunumDegistir()" id="mk-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+      <div id="mk-filtre-etiket" style="margin-bottom:6px"></div>
       <div id="liste-icerik"></div>
     </div>
   </div>
@@ -944,10 +948,49 @@ async function _formKaydetIc(){
 // ============================================================
 // LİSTE
 // ============================================================
-function renderListe(){
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let mkGorunum='kart';
+let _mkTablo=null;
+const MK_DURUM_AD={bekleyen:'Bekliyor',onaylandi:'Onaylı',iptal:'İptal',arsivlendi:'Arşiv'};
+function mkListeVerisi(){
   let liste=Object.values(malKabuller);
   if(listeFilter!=='tumu')liste=liste.filter(f=>f.durum===listeFilter);
-  liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+  return liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+}
+function mkTabloGetir(){
+  if(_mkTablo)return _mkTablo;
+  _mkTablo=Tablo.olustur({
+    container:'liste-icerik',
+    etiketKapsayici:'mk-filtre-etiket',
+    bosMesaj:'Kayıt bulunamadı',
+    veri:mkListeVerisi,
+    satirTikla:f=>openDetay(f.id),
+    kolonlar:[
+      {key:'mkNo',    label:'MK No',     type:'text',   get:f=>f.mkNo||''},
+      {key:'firma',   label:'Firma',     type:'text',   get:f=>f.firma||''},
+      {key:'tarih',   label:'Tarih',     type:'date',   get:f=>f.tarih||''},
+      {key:'otel',    label:'Otel',      type:'text',   get:f=>OTEL_KISA[f.otelId]||f.otelId||''},
+      {key:'durum',   label:'Durum',     type:'text',   get:f=>MK_DURUM_AD[f.durum]||f.durum||''},
+      {key:'kalem',   label:'Kalem',     type:'number', get:f=>(f.urunler||[]).length},
+      {key:'fatura',  label:'Fatura No', type:'text',   get:f=>f.faturaNo||''},
+      {key:'irsaliye',label:'İrsaliye',  type:'text',   get:f=>f.irsaliyeNo||''},
+      {key:'siparis', label:'Sipariş No',type:'text',   get:f=>f.lnSiparisNo||''},
+      {key:'personel',label:'Personel',  type:'text',   get:f=>f.personel||''},
+    ],
+  });
+  return _mkTablo;
+}
+function mkGorunumDegistir(){
+  mkGorunum = mkGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('mk-gorunum-btn');
+  if(b) b.textContent = mkGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('mk-filtre-etiket');
+  if(et && mkGorunum==='kart') et.innerHTML='';
+  renderListe();
+}
+
+function renderListe(){
+  let liste=mkListeVerisi();
 
   const bekleyen=Object.values(malKabuller).filter(f=>f.durum==='bekleyen').length;
   const onayli=Object.values(malKabuller).filter(f=>f.durum==='onaylandi').length;
@@ -957,6 +1000,8 @@ function renderListe(){
     <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${onayli}</div><div class="stat-lbl">Onaylı</div></div>`;
   document.getElementById('bkalite').textContent=bekleyen;
   document.getElementById('bkalite').style.display=bekleyen>0?'inline-block':'none';
+
+  if(mkGorunum==='tablo'){ mkTabloGetir().ciz(); return; }
 
   const c=document.getElementById('liste-icerik');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt yok</div></div>';return;}

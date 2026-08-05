@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
 <script src="ortak-excel.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -111,6 +113,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterCari('borc',this)">Borçlular</button>
       <button class="ftab" onclick="filterCari('alacak',this)">Alacaklılar</button>
     </div>
+    <button onclick="cariGorunumDegistir()" id="cari-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="cari-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="cariler-liste"></div>
   </div>
 
@@ -479,18 +483,53 @@ function cariBakiye(cariId){
 // ============================================================
 // RENDER CARİLER
 // ============================================================
-function renderCariler(){
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+const CARI_TIP_AD={tedarikci:'Tedarikçi',musteri:'Müşteri',her_ikisi:'Her İkisi'};
+let cariGorunum='kart';
+let _cariTablo=null;
+function cariListeVerisi(){
   const ara=(document.getElementById('cari-ara')?.value||'').toLowerCase();
   let liste=Object.values(cariler).filter(Boolean);
-
   if(cariFilter==='tedarikci')liste=liste.filter(c=>c.tip==='tedarikci'||c.tip==='her_ikisi');
   else if(cariFilter==='musteri')liste=liste.filter(c=>c.tip==='musteri'||c.tip==='her_ikisi');
   else if(cariFilter==='borc')liste=liste.filter(c=>cariBakiye(c.id).net>0);
   else if(cariFilter==='alacak')liste=liste.filter(c=>cariBakiye(c.id).net<0);
-
   if(ara)liste=liste.filter(c=>c.ad?.toLowerCase().includes(ara)||c.kod?.toLowerCase().includes(ara)||c.vkn?.includes(ara));
+  return liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+}
+function cariTabloGetir(){
+  if(_cariTablo)return _cariTablo;
+  _cariTablo=Tablo.olustur({
+    container:'cariler-liste',
+    etiketKapsayici:'cari-filtre-etiket',
+    bosMesaj:'Cari bulunamadı',
+    veri:cariListeVerisi,
+    satirTikla:c=>openCariDetay(c.id),
+    kolonlar:[
+      {key:'kod',    label:'Kod',        type:'text',   get:c=>c.kod||''},
+      {key:'ad',     label:'Ünvan',      type:'text',   get:c=>c.ad||''},
+      {key:'tip',    label:'Tip',        type:'text',   get:c=>CARI_TIP_AD[c.tip]||c.tip||''},
+      {key:'vkn',    label:'VKN/TCKN',   type:'text',   get:c=>c.vkn||''},
+      {key:'bakiye', label:'Bakiye (₺)', type:'number', get:c=>cariBakiye(c.id).net||0},
+      {key:'vade',   label:'Vade (gün)', type:'number', get:c=>c.vade||0},
+      {key:'limit',  label:'Risk Limiti',type:'number', get:c=>c.limit||0},
+      {key:'tel',    label:'Telefon',    type:'text',   get:c=>c.tel||''},
+      {key:'efatura',label:'e-Fatura',   type:'text',   get:c=>c.efatura==='evet'?'Evet':'Hayır'},
+    ],
+  });
+  return _cariTablo;
+}
+function cariGorunumDegistir(){
+  cariGorunum = cariGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('cari-gorunum-btn');
+  if(b) b.textContent = cariGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('cari-filtre-etiket');
+  if(et && cariGorunum==='kart') et.innerHTML='';
+  renderCariler();
+}
 
-  liste.sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+function renderCariler(){
+  let liste=cariListeVerisi();
 
   // Stats
   const toplamBorc=liste.reduce((t,c)=>{const b=cariBakiye(c.id).net;return b>0?t+b:t;},0);
@@ -499,6 +538,8 @@ function renderCariler(){
     <div class="stat-kart"><div class="stat-num">${liste.length}</div><div class="stat-lbl">Toplam Cari</div></div>
     <div class="stat-kart"><div class="stat-num" style="color:var(--danger)">${fmt(toplamBorc)}</div><div class="stat-lbl">🔴 Borç</div></div>
     <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamAlacak)}</div><div class="stat-lbl">🟢 Alacak</div></div>`;
+
+  if(cariGorunum==='tablo'){ cariTabloGetir().ciz(); return; }
 
   const c=document.getElementById('cariler-liste');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Cari bulunamadı</div></div>';return;}
