@@ -6,6 +6,9 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="otel-config.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -439,11 +442,41 @@ document.addEventListener('pointerdown',e=>{
   if(dd&&inp&&!dd.contains(e.target)&&e.target!==inp)dd.style.display='none';
 });
 
+// ===== Ekstre tablo görünümü (tablo.js + filtre.js) =====
+// NOT: bakiye yürüyen (kümülatif) bir değerdir — sütun filtresi satırları
+// gizler ama her satırın bakiyesi kendi anındaki gerçek değeri gösterir.
+let ekstreGorunum='klasik';
+let _ekstreTablo=null;
+let _ekstreSatirlar=[];
+function ekstreTabloGetir(){
+  if(_ekstreTablo)return _ekstreTablo;
+  _ekstreTablo=Tablo.olustur({
+    container:'ekstre-tablo-ic',
+    etiketKapsayici:'ekstre-filtre-etiket',
+    bosMesaj:'Hareket bulunamadı',
+    veri:()=>_ekstreSatirlar,
+    kolonlar:[
+      {key:'tarih',   label:'Tarih',      type:'date',   get:h=>h.tarih?new Date(h.tarih).toISOString().slice(0,10):''},
+      {key:'belge',   label:'Belge',      type:'text',   get:h=>h.belge||''},
+      {key:'aciklama',label:'Açıklama',   type:'text',   get:h=>h.aciklama||''},
+      {key:'otel',    label:'Otel',       type:'text',   get:h=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[h.otelId])||h.otelId||''},
+      {key:'borc',    label:'Borç (₺)',   type:'number', get:h=>h.tip==='borc'?(parseFloat(h.tutar)||0):0},
+      {key:'alacak',  label:'Alacak (₺)', type:'number', get:h=>h.tip!=='borc'?(parseFloat(h.tutar)||0):0},
+      {key:'bakiye',  label:'Bakiye (₺)', type:'number', get:h=>h.bakiye||0},
+    ],
+  });
+  return _ekstreTablo;
+}
+function ekstreGorunumDegistir(){
+  ekstreGorunum = ekstreGorunum==='klasik' ? 'tablo' : 'klasik';
+  renderEkstre();
+}
+
 function renderEkstre(){
   const cariId=document.getElementById('ek-cari-id').value;
   const c=cariler[cariId];
   const c1=document.getElementById('ekstre-icerik');
-  if(!c){c1.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Önce bir cari seçin</div></div>';return;}
+  if(!c){_ekstreSatirlar=[];c1.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Önce bir cari seçin</div></div>';return;}
 
   const bas=document.getElementById('ek-bas').value;
   const bit=document.getElementById('ek-bit').value;
@@ -457,6 +490,26 @@ function renderEkstre(){
     if(h.tip==='borc')bakiye+=tutar;else bakiye-=tutar;
     return{...h,bakiye};
   });
+  _ekstreSatirlar=satirlar;
+
+  if(ekstreGorunum==='tablo'){
+    c1.innerHTML=`
+    <div class="card">
+      <div style="font-size:15px;font-weight:800">${escapeHtml(c.ad)}</div>
+      <div style="font-size:11px;color:var(--gray-500)">${c.kod||''} ${c.vkn?'• VKN: '+c.vkn:''} ${c.tel?'• '+c.tel:''}</div>
+      <div style="font-size:11px;color:var(--gray-500)">Dönem: ${bas||'başlangıç'} — ${bit||'bugün'}</div>
+    </div>
+    <button class="no-print" onclick="ekstreGorunumDegistir()" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">🗂️ Klasik Görünüm</button>
+    <div id="ekstre-filtre-etiket" style="margin-bottom:6px"></div>
+    <div class="card" style="padding:0;overflow:hidden"><div id="ekstre-tablo-ic"></div></div>
+    <div class="card" style="text-align:center;padding:16px">
+      <div style="font-size:11px;color:var(--gray-500)">DÖNEM SONU BAKİYE</div>
+      <div style="font-size:22px;font-weight:800;color:${bakiye>0?'var(--danger)':bakiye<0?'var(--success)':'var(--gray-400)'}">${fmt(Math.abs(bakiye))} ₺ ${bakiye>0?'(Borçlu)':bakiye<0?'(Alacaklı)':''}</div>
+    </div>
+    <button class="btn btn-primary btn-block no-print" style="margin-top:8px" onclick="window.print()">Yazdır</button>`;
+    ekstreTabloGetir().ciz();
+    return;
+  }
 
   c1.innerHTML=`
     <div class="card">
@@ -464,6 +517,7 @@ function renderEkstre(){
       <div style="font-size:11px;color:var(--gray-500)">${c.kod||''} ${c.vkn?'• VKN: '+c.vkn:''} ${c.tel?'• '+c.tel:''}</div>
       <div style="font-size:11px;color:var(--gray-500)">Dönem: ${bas||'başlangıç'} — ${bit||'bugün'}</div>
     </div>
+    <button class="no-print" onclick="ekstreGorunumDegistir()" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü (filtreli)</button>
     ${satirlar.length?`<div class="card" style="padding:0;overflow:hidden">
       <div style="display:grid;grid-template-columns:70px 1fr 70px 70px 80px;padding:8px 10px;background:var(--gray-100);font-size:10px;font-weight:700;color:var(--gray-600)">
         <span>TARİH</span><span>BELGE</span><span style="text-align:right">BORÇ</span><span style="text-align:right">ALACAK</span><span style="text-align:right">BAKİYE</span>
