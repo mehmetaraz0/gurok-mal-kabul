@@ -6,6 +6,7 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let CU = requireLogin();
@@ -61,6 +62,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" id="st-tab-tamamlandi" onclick="filterSiparisTakip('tamamlandi',this)">Tamamlandı</button>
       <button class="ftab" id="st-tab-tumu" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
     </div>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+      <button onclick="stGorunumDegistir()" id="st-gorunum-btn" style="background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    </div>
+    <div id="st-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="siparis-takip-liste"></div>
   </div>
 </div>
@@ -141,6 +146,105 @@ function filterSiparisTakip(f,el){
   renderSiparisTakip();
 }
 
+// ===== Tablo (grid) görünümü + sütun-altı filtre (filtre.js) =====
+let stGorunum='kart';                 // 'kart' | 'tablo'
+let aktifStFiltreleri=[];
+const SUTUN_OPS={
+  text:   [['contains','içerir'],['equals','='],['not_equals','≠'],['starts','başlar']],
+  number: [['eq','='],['ne','≠'],['gt','>'],['gte','≥'],['lt','<'],['lte','≤']],
+  date:   [['on','='],['before','<'],['after','>']],
+};
+const ST_DURUM_ETIKET={bekleyen:'Bekliyor',kismi:'Kısmen Geldi',tamamlandi:'Tamamlandı',iptal:'İptal'};
+function _stIlerleme(s){ const k=s.kalemler||[]; const t=k.length; if(!t)return 0; const g=k.filter(x=>x.kalanMiktar<=0.01).length; return Math.round(g/t*100); }
+function _stGecikmeGun(s){ if(!siparisGecikti(s))return 0; return Math.ceil((Date.now()-new Date(s.termin+'T00:00:00'))/86400000); }
+const ST_TABLO_KOLONLARI=[
+  { key:'siparisNo', label:'Sipariş No', type:'text',   get:s=>s.siparisNo||'' },
+  { key:'firma',     label:'Firma',      type:'text',   get:s=>s.firma||'' },
+  { key:'tarih',     label:'Tarih',      type:'date',   get:s=>s.tarih||'' },
+  { key:'termin',    label:'Termin',     type:'date',   get:s=>s.termin||'' },
+  { key:'durum',     label:'Durum',      type:'text',   get:s=>ST_DURUM_ETIKET[s.durum]||s.durum||'' },
+  { key:'ilerleme',  label:'İlerleme %', type:'number', get:s=>_stIlerleme(s) },
+  { key:'gecikme',   label:'Gecikme (gün)', type:'number', get:s=>_stGecikmeGun(s) },
+  { key:'olusturan', label:'Oluşturan',  type:'text',   get:s=>s.olusturanAd||'' },
+];
+const ST_FILTRE_ALANLARI=ST_TABLO_KOLONLARI.map(k=>({ field:k.key, label:k.label, type:k.type, getValue:k.get }));
+
+function stGorunumDegistir(){
+  stGorunum = stGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('st-gorunum-btn');
+  if(b) b.textContent = stGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  renderSiparisTakip();
+}
+// Sekme (bekleyen/gecikmiş/kısmi/tamam/tümü) ön-süzmesi — kart ve tablo ortak
+function _stTabListe(){
+  const tum=Object.values(_siparisHavuzuData).filter(s=>s&&!s.rezerve);
+  if(_stFilter==='gecikmis') return tum.filter(siparisGecikti);
+  if(_stFilter!=='tumu') return tum.filter(s=>s.durum===_stFilter);
+  return tum;
+}
+function _stFiltreliListe(){
+  const liste=Filtre.filtreleUygula(_stTabListe(), aktifStFiltreleri, ST_FILTRE_ALANLARI);
+  return liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+}
+function _stHucreBicim(type,v){
+  if(v==null||v==='') return '—';
+  if(type==='date'){ const d=new Date(v); return isNaN(d)?'—':d.toLocaleDateString('tr-TR'); }
+  if(type==='number'){ return (Math.round((parseFloat(v)||0)*100)/100).toLocaleString('tr-TR'); }
+  return String(v);
+}
+function _stBosSatir(){ return `<tr><td colspan="${ST_TABLO_KOLONLARI.length}" style="padding:20px;text-align:center;color:var(--gray-400)">Kayıt bulunamadı</td></tr>`; }
+function _stTbodyHTML(rows){
+  return rows.map(s=>`<tr onclick="stDetayAc('${s.siparisNo}')" style="cursor:pointer">`+
+    ST_TABLO_KOLONLARI.map(k=>`<td style="padding:6px 8px;border-top:1px solid var(--gray-200);font-size:11.5px;white-space:nowrap">${escapeHtml(_stHucreBicim(k.type,k.get(s)))}</td>`).join('')+
+    `</tr>`).join('');
+}
+function _stFiltreSatiriHTML(){
+  return ST_TABLO_KOLONLARI.map(k=>{
+    const ops=SUTUN_OPS[k.type]||SUTUN_OPS.text;
+    const mevcut=aktifStFiltreleri.find(f=>f.field===k.key);
+    const opsHtml=ops.map(([op,sim])=>`<option value="${op}"${mevcut&&mevcut.operator===op?' selected':''}>${sim}</option>`).join('');
+    const inputType=k.type==='number'?'number':(k.type==='date'?'date':'text');
+    const val=mevcut?escapeHtml(String(mevcut.value??'')):'';
+    return `<th data-fcol="${k.key}" style="background:#eef2ff;padding:4px 6px">
+      <div style="display:flex;gap:3px;align-items:center">
+        <select onchange="stSutunFiltreDegis('${k.key}','${k.type}')" style="border:1px solid #c7d2fe;border-radius:5px;padding:2px 3px;font-size:12px;font-weight:800;background:#fff;cursor:pointer">${opsHtml}</select>
+        <input type="${inputType}" value="${val}" oninput="stSutunFiltreDegis('${k.key}','${k.type}')" placeholder="filtre" style="width:100%;min-width:44px;border:1px solid #c7d2fe;border-radius:5px;padding:2px 4px;font-size:11px">
+      </div></th>`;
+  }).join('');
+}
+function stEtiketleriCiz(){
+  const el=document.getElementById('st-filtre-etiket'); if(!el)return;
+  Filtre.etiketleriCiz(el, aktifStFiltreleri, ST_FILTRE_ALANLARI, (i)=>{
+    if(i===-1) aktifStFiltreleri=[]; else aktifStFiltreleri.splice(i,1);
+    renderSiparisTakip();
+  });
+}
+function renderStTablo(rows){
+  const c=document.getElementById('siparis-takip-liste');
+  const bas=ST_TABLO_KOLONLARI.map(k=>`<th style="position:sticky;top:0;background:var(--primary);color:#fff;padding:6px 8px;font-size:11px;white-space:nowrap;z-index:2">${escapeHtml(k.label)}</th>`).join('');
+  const govde = rows.length ? _stTbodyHTML(rows) : _stBosSatir();
+  c.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">`+
+    `<thead><tr>${bas}</tr><tr>${_stFiltreSatiriHTML()}</tr></thead><tbody>${govde}</tbody></table></div>`;
+  stEtiketleriCiz();
+}
+// Sütun filtresi değişince yalnız tbody'yi tazele (thead/inputlar DOM'da kalır → odak kaybı yok)
+function stTbodyYenile(){
+  const tb=document.querySelector('#siparis-takip-liste tbody');
+  if(!tb){ renderSiparisTakip(); return; }
+  const rows=_stFiltreliListe();
+  tb.innerHTML = rows.length ? _stTbodyHTML(rows) : _stBosSatir();
+  stEtiketleriCiz();
+}
+function stSutunFiltreDegis(field, ftype){
+  const cell=document.querySelector('#siparis-takip-liste [data-fcol="'+field+'"]'); if(!cell)return;
+  const op=cell.querySelector('select').value;
+  const inp=cell.querySelector('input');
+  const raw=inp?inp.value:'';
+  aktifStFiltreleri = aktifStFiltreleri.filter(f=>f.field!==field);
+  if(raw!==''&&raw!=null) aktifStFiltreleri.push({ field, type:ftype, operator:op, value:raw });
+  stTbodyYenile();
+}
+
 function renderSiparisTakip(){
   const tumSiparisler=Object.values(_siparisHavuzuData).filter(s=>s&&!s.rezerve);
 
@@ -167,10 +271,9 @@ function renderSiparisTakip(){
       <div style="font-size:10px;color:var(--gray-500)">GECİKMİŞ</div>
     </div>`;
 
-  let liste=tumSiparisler;
-  if(_stFilter==='gecikmis') liste=tumSiparisler.filter(siparisGecikti);
-  else if(_stFilter!=='tumu') liste=tumSiparisler.filter(s=>s.durum===_stFilter);
-  liste.sort((a,b)=>(b.olusturmaTarih||0)-(a.olusturmaTarih||0));
+  let liste=_stFiltreliListe();
+
+  if(stGorunum==='tablo'){ renderStTablo(liste); return; }
 
   const c=document.getElementById('siparis-takip-liste');
   if(!liste.length){
