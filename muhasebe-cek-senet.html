@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
@@ -103,6 +105,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterKayit('alinan','tamamlandi',this)">Tahsil Edildi</button>
       <button class="ftab" onclick="filterKayit('alinan','karsiliksiz',this)">Karşılıksız</button>
     </div>
+    <button onclick="csGorunumDegistir('alinan')" id="alinan-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="alinan-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="alinan-liste"></div>
   </div>
 
@@ -116,6 +120,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterKayit('verilen','tamamlandi',this)">Ödendi</button>
       <button class="ftab" onclick="filterKayit('verilen','karsiliksiz',this)">Karşılıksız</button>
     </div>
+    <button onclick="csGorunumDegistir('verilen')" id="verilen-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="verilen-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="verilen-liste"></div>
   </div>
 
@@ -389,11 +395,49 @@ async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,ot
 // ============================================================
 // RENDER
 // ============================================================
-function renderListe(yon){
+// ===== Tablo görünümü (tablo.js + filtre.js) — alınan/verilen ayrı örnek =====
+const CS_DURUM_AD={portfoyde:'Portföyde',tahsilde:'Tahsilde',tamamlandi:'Tamamlandı',karsiliksiz:'Karşılıksız'};
+let csGorunum={alinan:'kart',verilen:'kart'};
+const _csTablolar={};
+function csListeVerisi(yon){
   const filter=yon==='alinan'?alinanFilter:verilenFilter;
   let liste=Object.values(kayitlar).filter(k=>k&&k.yon===yon);
   if(filter!=='tumu')liste=liste.filter(k=>k.durum===filter);
-  liste.sort((a,b)=>new Date(a.vade)-new Date(b.vade));
+  return liste.sort((a,b)=>new Date(a.vade)-new Date(b.vade));
+}
+function csTabloGetir(yon){
+  if(_csTablolar[yon])return _csTablolar[yon];
+  _csTablolar[yon]=Tablo.olustur({
+    container:yon+'-liste',
+    etiketKapsayici:yon+'-filtre-etiket',
+    bosMesaj:'Kayıt bulunamadı',
+    veri:()=>csListeVerisi(yon),
+    satirTikla:k=>openDetay(k.id),
+    kolonlar:[
+      {key:'no',      label:'No',        type:'text',   get:k=>k.no||''},
+      {key:'tur',     label:'Tür',       type:'text',   get:k=>k.tur==='cek'?'Çek':'Senet'},
+      {key:'cariAd',  label:'Cari',      type:'text',   get:k=>k.cariAd||''},
+      {key:'banka',   label:'Banka',     type:'text',   get:k=>k.banka||''},
+      {key:'duzenleme',label:'Düzenleme',type:'date',   get:k=>k.duzenleme||''},
+      {key:'vade',    label:'Vade',      type:'date',   get:k=>k.vade||''},
+      {key:'tutar',   label:'Tutar (₺)', type:'number', get:k=>k.tutar||0},
+      {key:'durum',   label:'Durum',     type:'text',   get:k=>CS_DURUM_AD[k.durum]||k.durum||''},
+      {key:'otel',    label:'Otel',      type:'text',   get:k=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[k.otelId])||k.otelId||''},
+    ],
+  });
+  return _csTablolar[yon];
+}
+function csGorunumDegistir(yon){
+  csGorunum[yon] = csGorunum[yon]==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById(yon+'-gorunum-btn');
+  if(b) b.textContent = csGorunum[yon]==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById(yon+'-filtre-etiket');
+  if(et && csGorunum[yon]==='kart') et.innerHTML='';
+  renderListe(yon);
+}
+
+function renderListe(yon){
+  let liste=csListeVerisi(yon);
 
   const toplamPortfoy=liste.filter(k=>k.durum==='portfoyde').reduce((t,k)=>t+(parseFloat(k.tutar)||0),0);
   const toplamTahsilde=liste.filter(k=>k.durum==='tahsilde').reduce((t,k)=>t+(parseFloat(k.tutar)||0),0);
@@ -403,6 +447,8 @@ function renderListe(yon){
     <div class="stat-kart"><div class="stat-num" style="color:var(--info)">${fmt(toplamPortfoy)}</div><div class="stat-lbl">${yon==='alinan'?'💼 Portföyde':'💼 Elde'}</div></div>
     <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${fmt(toplamTahsilde)}</div><div class="stat-lbl">${yon==='alinan'?'⏳ Tahsilde':'⏳ Verildi'}</div></div>
     <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${fmt(toplamTamamlandi)}</div><div class="stat-lbl">${yon==='alinan'?'✅ Tahsil':'✅ Ödendi'}</div></div>`;
+
+  if(csGorunum[yon]==='tablo'){ csTabloGetir(yon).ciz(); return; }
 
   const c=document.getElementById(yon+'-liste');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt bulunamadı</div></div>';return;}

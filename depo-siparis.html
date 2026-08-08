@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Araz — Depo Siparişleri</title>
@@ -680,26 +682,67 @@ function rTaleplerim(){
 }
 
 // ====== GELEN TALEPLER ======
+// Tablo görünümü (tablo.js + filtre.js) — kart görünümü korunur, toggle ile geçilir
+let gelenGorunum='kart';
+let _gelenTablo=null;
+const GELEN_DURUM_AD={bekleyen:'Bekliyor',onaylandi:'Onaylandı',reddedildi:'Reddedildi'};
+function gelenListeVerisi(){
+  let liste=Object.values(DB.siparisler||{}).filter(s=>s&&s.id&&(s.urunler||s.kalemler));
+  if(GF!=='tumu')liste=liste.filter(s=>s.durum===GF);
+  return liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+}
+function gelenTabloGetir(){
+  if(_gelenTablo)return _gelenTablo;
+  _gelenTablo=Tablo.olustur({
+    container:'gelen-liste-ic',
+    etiketKapsayici:'gelen-filtre-etiket',
+    bosMesaj:'Talep bulunamadı',
+    veri:gelenListeVerisi,
+    satirTikla:s=>aOnay(s.id),
+    kolonlar:[
+      {key:'departman',label:'Departman',type:'text',   get:s=>sipDepartmanGoster(s)||''},
+      {key:'tarih',    label:'Tarih',    type:'date',   get:s=>s.tarih||''},
+      {key:'personel', label:'İsteyen',  type:'text',   get:s=>s.personel||''},
+      {key:'durum',    label:'Durum',    type:'text',   get:s=>GELEN_DURUM_AD[s.durum]||s.durum||''},
+      {key:'kalem',    label:'Kalem',    type:'number', get:s=>(s.urunler||s.kalemler||[]).length},
+      {key:'otel',     label:'Otel',     type:'text',   get:s=>OTEL_KISA[s.otelId]||s.otelId||''},
+      {key:'onaylayan',label:'Onaylayan',type:'text',   get:s=>s.onaylayanAd||''},
+      {key:'urunler',  label:'Ürünler',  type:'text',   get:s=>(s.urunler||s.kalemler||[]).map(u=>u.ad||u.urunAd||'').join(', ')},
+    ],
+  });
+  return _gelenTablo;
+}
+function gelenGorunumDegistir(){
+  gelenGorunum = gelenGorunum==='kart' ? 'tablo' : 'kart';
+  rGelen();
+}
 function rGelen(){
   const c=document.getElementById('tGelen');if(!c)return;
-  let liste=Object.values(DB.siparisler||{}).filter(s=>s&&s.id&&(s.urunler||s.kalemler));
-  const bek=liste.filter(s=>s.durum==='bekleyen').length;
+  const tumu=Object.values(DB.siparisler||{}).filter(s=>s&&s.id&&(s.urunler||s.kalemler));
+  const bek=tumu.filter(s=>s.durum==='bekleyen').length;
   const b=document.getElementById('gbadge');if(b){b.textContent=bek;b.style.display=bek>0?'block':'none';}
-  if(GF!=='tumu')liste=liste.filter(s=>s.durum===GF);
-  liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+  const liste=gelenListeVerisi();
   c.innerHTML=`<div class="ftabs">
     <button class="ftab ${GF==='bekleyen'?'active':''}" onclick="GF='bekleyen';rGelen()">Bekleyen</button>
     <button class="ftab ${GF==='onaylandi'?'active':''}" onclick="GF='onaylandi';rGelen()">Onaylanan</button>
     <button class="ftab ${GF==='reddedildi'?'active':''}" onclick="GF='reddedildi';rGelen()">Reddedilen</button>
     <button class="ftab ${GF==='tumu'?'active':''}" onclick="GF='tumu';rGelen()">Tümü</button>
-  </div>`+(liste.length===0?'<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">'+(GF==='bekleyen'?'Bekleyen talep yok':'Kayıt yok')+'</div></div>':
-  liste.map(s=>`<div class="skart ${s.durum}" onclick="aOnay('${s.id}')">
+  </div>
+  <button onclick="gelenGorunumDegistir()" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">${gelenGorunum==='kart'?'📊 Tablo Görünümü':'🗂️ Kart Görünümü'}</button>
+  <div id="gelen-filtre-etiket" style="margin-bottom:6px"></div>
+  <div id="gelen-liste-ic"></div>`;
+
+  if(gelenGorunum==='tablo'){ gelenTabloGetir().ciz(); return; }
+
+  document.getElementById('gelen-liste-ic').innerHTML = liste.length===0
+    ? '<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">'+(GF==='bekleyen'?'Bekleyen talep yok':'Kayıt yok')+'</div></div>'
+    : liste.map(s=>`<div class="skart ${s.durum}" onclick="aOnay('${s.id}')">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div><div style="font-size:13px;font-weight:700">${escapeHtml(sipDepartmanGoster(s))}</div><div style="font-size:11px;color:var(--gray-500)">${s.tarih||""} • ${escapeHtml(s.personel||"")} • ${(s.urunler||s.kalemler||[]).length} ürün</div></div>
       <span class="chip ${s.durum==='bekleyen'?'chip-warn':s.durum==='onaylandi'?'chip-ok':'chip-err'}">${s.durum==='bekleyen'?'Bekliyor':s.durum==='onaylandi'?'Onaylandı':'Reddedildi'}</span>
     </div>
     <div style="font-size:12px;color:var(--gray-600)">${(s.urunler||s.kalemler||[]).slice(0,3).map(u=>`${escapeHtml(u.ad||u.urunAd||'')} ${u.miktar||''} ${u.birim||''}`).join(' • ')}${(s.urunler||s.kalemler||[]).length>3?` +${(s.urunler||s.kalemler||[]).length-3} daha`:''}</div>
-  </div>`).join(''));
+  </div>`).join('');
 }
 
 // ====== ONAY MODALI ======

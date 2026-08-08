@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script src="efatura-adapter.js"></script>
 <script>
@@ -109,6 +111,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterF('alis','onaylandi',this)">Onaylı</button>
       <button class="ftab" onclick="filterF('alis','odendi',this)">Ödendi</button>
     </div>
+    <button onclick="fatGorunumDegistir('alis')" id="alis-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="alis-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="alis-liste"></div>
   </div>
 
@@ -125,6 +129,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterF('satis','onaylandi',this)">Onaylı</button>
       <button class="ftab" onclick="filterF('satis','odendi',this)">Ödendi</button>
     </div>
+    <button onclick="fatGorunumDegistir('satis')" id="satis-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="satis-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="satis-liste"></div>
   </div>
 
@@ -474,30 +480,23 @@ async function saveFatura(f){
     odeme_tarihi:f.odemeTarih?new Date(f.odemeTarih).toISOString():null,
     odeme_tutari:f.odemeTutar||null,odeme_yontemi:f.odemeYontem||null
   };
+  // TIER 1 (#5): başlık + kalemler tek atomik RPC — kalem yazımı patlarsa başlık da yazılmaz
+  // (eski PATCH+DELETE+INSERT'te kalem hatası faturayı satırsız/eksik bırakabiliyordu).
+  const kalemler=(f.kalemler||[]).map(k=>({
+    urun_kodu:k.kod||null,urun_adi:k.ad,miktar:k.miktar,
+    birim:k.birim,birim_fiyat:k.birimFiyat,iskonto_yuzde:k.iskonto||0,
+    kdv_orani:k.kdvOran,toplam:k.toplam
+  }));
   try{
-    let fisUuid=f.id;
-    if(f.id){
-      await fetch(SB_URL+'/rest/v1/faturalar?id=eq.'+f.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
-      await fetch(SB_URL+'/rest/v1/fatura_kalemleri?fatura_id=eq.'+f.id,{method:'DELETE',headers:SB_HEADERS});
-    }else{
-      const r=await fetch(SB_URL+'/rest/v1/faturalar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
-      const d=await r.json();
-      fisUuid=d[0].id;
-      f.id=fisUuid;
+    const r=await fetch(SB_URL+'/rest/v1/rpc/fatura_kaydet',{method:'POST',headers:SB_HEADERS,
+      body:JSON.stringify({p_fatura_id:f.id||null, p_satir:satir, p_kalemler:kalemler})});
+    if(!r.ok){
+      console.error('fatura_kaydet hatası:',await r.text().catch(()=>''));
+      alert('⚠️ Fatura kaydedilemedi — HİÇBİR değişiklik yapılmadı (işlem atomik). Lütfen tekrar deneyin.');
+      return false;
     }
-    if(f.kalemler&&f.kalemler.length){
-      const kalemSatirlar=f.kalemler.map(k=>({
-        fatura_id:fisUuid,urun_kodu:k.kod||null,urun_adi:k.ad,miktar:k.miktar,
-        birim:k.birim,birim_fiyat:k.birimFiyat,iskonto_yuzde:k.iskonto||0,
-        kdv_orani:k.kdvOran,toplam:k.toplam
-      }));
-      const rK=await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
-      if(!rK.ok){
-        console.error('fatura_kalemleri reinsert hatası:',await rK.text());
-        alert('⚠️ DİKKAT: Fatura başlığı güncellendi ama satır kalemleri yazılamadı — bu fatura şu an EKSİK olabilir. Lütfen faturayı tekrar açıp yeniden kaydedin veya bir yetkiliyle iletişime geçin.');
-        return false;
-      }
-    }
+    const yeniId=await r.json(); // RPC uuid döner
+    if(!f.id) f.id=yeniId;
     return true;
   }catch(e){console.warn(e);return false;}
 }
@@ -516,13 +515,51 @@ function yeniFaturaNo(tur){
 // ============================================================
 // RENDER FATURALAR
 // ============================================================
-function renderFaturalar(tur){
+// ===== Tablo görünümü (tablo.js + filtre.js) — alış/satış ayrı örnek =====
+const FAT_DURUM_AD={taslak:'Taslak',bekliyor:'Bekliyor',onaylandi:'Onaylı',kismi_odendi:'Kısmi Ödendi',odendi:'Ödendi',iptal:'İptal'};
+let fatGorunum={alis:'kart',satis:'kart'};
+const _fatTablolar={};
+function fatListeVerisi(tur){
   const ara=(document.getElementById(tur+'-ara')?.value||'').toLowerCase();
   const filter=tur==='alis'?alisFilter:satisFilter;
   let liste=Object.values(faturalar).filter(f=>f&&f.tur===tur);
   if(filter!=='tumu')liste=liste.filter(f=>f.durum===filter);
   if(ara)liste=liste.filter(f=>f.no?.toLowerCase().includes(ara)||f.cariAd?.toLowerCase().includes(ara)||String(f.genelToplam).includes(ara));
-  liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+  return liste.sort((a,b)=>b.olusturmaTarih-a.olusturmaTarih);
+}
+function fatTabloGetir(tur){
+  if(_fatTablolar[tur])return _fatTablolar[tur];
+  _fatTablolar[tur]=Tablo.olustur({
+    container:tur+'-liste',
+    etiketKapsayici:tur+'-filtre-etiket',
+    bosMesaj:'Fatura bulunamadı',
+    veri:()=>fatListeVerisi(tur),
+    satirTikla:f=>openFaturaDetay(f.id),
+    kolonlar:[
+      {key:'no',      label:'Fatura No', type:'text',   get:f=>f.no||''},
+      {key:'cariAd',  label:tur==='alis'?'Tedarikçi':'Müşteri', type:'text', get:f=>f.cariAd||''},
+      {key:'tarih',   label:'Tarih',     type:'date',   get:f=>f.tarih||''},
+      {key:'vade',    label:'Vade',      type:'date',   get:f=>f.vade||''},
+      {key:'toplam',  label:'Tutar (₺)', type:'number', get:f=>f.genelToplam||0},
+      {key:'kdv',     label:'KDV (₺)',   type:'number', get:f=>f.kdvToplam||0},
+      {key:'durum',   label:'Durum',     type:'text',   get:f=>FAT_DURUM_AD[f.durum]||f.durum||''},
+      {key:'otel',    label:'Otel',      type:'text',   get:f=>OTEL_KISA[f.otelId]||f.otelId||''},
+      {key:'siparis', label:'Sipariş No',type:'text',   get:f=>f.siparisNo||''},
+    ],
+  });
+  return _fatTablolar[tur];
+}
+function fatGorunumDegistir(tur){
+  fatGorunum[tur] = fatGorunum[tur]==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById(tur+'-gorunum-btn');
+  if(b) b.textContent = fatGorunum[tur]==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById(tur+'-filtre-etiket');
+  if(et && fatGorunum[tur]==='kart') et.innerHTML='';
+  renderFaturalar(tur);
+}
+
+function renderFaturalar(tur){
+  let liste=fatListeVerisi(tur);
 
   // Stats
   const toplam=liste.reduce((t,f)=>t+(parseFloat(f.genelToplam)||0),0);
@@ -533,6 +570,8 @@ function renderFaturalar(tur){
     <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${fmt(bekliyor)} ₺</div><div class="stat-lbl">⏳ Bekliyor</div></div>
     <div class="stat-kart" style="display:none"></div>
     <div class="stat-kart"><div class="stat-num" style="color:var(--primary)">${fmt(toplam)} ₺</div><div class="stat-lbl">Toplam Tutar</div></div>`;
+
+  if(fatGorunum[tur]==='tablo'){ fatTabloGetir(tur).ciz(); return; }
 
   const c=document.getElementById(tur+'-liste');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Fatura bulunamadı</div></div>';return;}

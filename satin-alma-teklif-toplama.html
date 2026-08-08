@@ -6,6 +6,8 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <script src="araz_veritabani.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -72,6 +74,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <div class="brow" style="margin-bottom:10px">
       <button class="btn btn-primary btn-block" onclick="yeniTeklifTalebiModalAc()">➕ Yeni Teklif Talebi</button>
     </div>
+    <button onclick="ttGorunumDegistir()" id="tt-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="tt-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="liste"></div>
   </div>
 </div>
@@ -162,6 +166,16 @@ async function loadTeklifTalepleri(){
 async function loadOnayliTalepler(){
   const r=await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?durum=eq.onaylandi&select=id,departman,otel_id,satin_alma_talep_kalemleri(id,urun_adi,urun_kodu,miktar,birim)&order=olusturma_tarihi.desc',{headers:SB_HEADERS});
   ONAYLI_TALEPLER = r.ok ? await r.json() : [];
+}
+
+// Zaten teklife çevrilmiş talep kalemlerini (teklif_kalemleri.kaynak_ic_talep_kalemi_id) dropdown'dan çıkar
+// → aynı onaylı talep defalarca RFQ'ya çevrilemez. TT (teklif_talepleri) yüklendikten SONRA çağrılır.
+function onayliTalepleriFiltrele(){
+  const cevrilen=new Set();
+  Object.values(TT).forEach(t=>(t.teklif_kalemleri||[]).forEach(k=>{ if(k.kaynak_ic_talep_kalemi_id) cevrilen.add(String(k.kaynak_ic_talep_kalemi_id)); }));
+  ONAYLI_TALEPLER = ONAYLI_TALEPLER
+    .map(t=>({...t, satin_alma_talep_kalemleri:(t.satin_alma_talep_kalemleri||[]).filter(k=>!cevrilen.has(String(k.id)))}))
+    .filter(t=>(t.satin_alma_talep_kalemleri||[]).length>0);
 }
 
 // ====== TEKLİF DETAY / KARŞILAŞTIRMA ======
@@ -293,24 +307,20 @@ async function feEkle(){
 async function teklifTalebiOlustur(secilenKalemler, otelId){
   if(!yazabilir()){toast('⚠️ Yetkiniz yok');return null;}
   if(!secilenKalemler.length){toast('⚠️ En az bir kalem seçin');return null;}
-  const tr=await fetch(SB_URL+'/rest/v1/teklif_talepleri',{method:'POST',
-    headers:{...SB_HEADERS,'Prefer':'return=representation'},
-    body:JSON.stringify({olusturan:CU.ad, otel_id:otelId||'810', durum:'acik'})});
-  if(!tr.ok){toast('❌ Teklif talebi oluşturulamadı');return null;}
-  const talep=(await tr.json())[0];
+  // TIER 1 (#12): talep + kalemler tek atomik RPC — kalem yazımı patlarsa yetim başlık kalmaz.
   const kalemler=secilenKalemler.map(k=>({
-    teklif_talebi_id:talep.id, urun_kodu:k.urun_kodu||null, urun_adi:k.urun_adi,
+    urun_kodu:k.urun_kodu||null, urun_adi:k.urun_adi,
     miktar:k.miktar, birim:k.birim||'KG', kaynak_ic_talep_kalemi_id:k.kaynak_ic_talep_kalemi_id||null
   }));
-  const kr=await fetch(SB_URL+'/rest/v1/teklif_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemler)});
-  if(!kr.ok){
-    await fetch(SB_URL+'/rest/v1/teklif_talepleri?id=eq.'+talep.id,{method:'DELETE',headers:SB_HEADERS});
-    toast('❌ Kalemler kaydedilemedi, teklif talebi iptal edildi');
-    return null;
-  }
-  await loadTeklifTalepleri(); renderTeklifTalepleri();
+  const r=await fetch(SB_URL+'/rest/v1/rpc/teklif_talebi_olustur',{method:'POST',headers:SB_HEADERS,
+    body:JSON.stringify({p_olusturan:CU.ad, p_otel_id:otelId||'810', p_kalemler:kalemler})});
+  if(!r.ok){const t=await r.text().catch(()=>'');console.warn('teklif_talebi_olustur',t);toast('❌ Teklif talebi oluşturulamadı');return null;}
+  const talepId=await r.json(); // RPC uuid döner
+  await Promise.all([loadTeklifTalepleri(), loadOnayliTalepler()]);
+  onayliTalepleriFiltrele(); // yeni oluşan RFQ'nun kaynak kalemleri dropdown'dan düşsün
+  renderTeklifTalepleri();
   toast('✅ Teklif talebi oluşturuldu');
-  return talep.id;
+  return talepId;
 }
 
 // ====== MODAL: Yeni Teklif Talebi ======
@@ -382,8 +392,40 @@ async function yttOlustur(){
   }
 }
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let ttGorunum='kart';
+let _ttTablo=null;
+function ttListeVerisi(){ return Object.values(TT); }
+function ttTabloGetir(){
+  if(_ttTablo)return _ttTablo;
+  _ttTablo=Tablo.olustur({
+    container:'liste',
+    etiketKapsayici:'tt-filtre-etiket',
+    bosMesaj:'Teklif talebi bulunamadı',
+    veri:ttListeVerisi,
+    satirTikla:t=>openTeklifDetay(t.id),
+    kolonlar:[
+      {key:'olusturan',label:'Oluşturan', type:'text',   get:t=>t.olusturan||''},
+      {key:'tarih',    label:'Tarih',     type:'date',   get:t=>t.olusturma_tarihi?String(t.olusturma_tarihi).slice(0,10):''},
+      {key:'durum',    label:'Durum',     type:'text',   get:t=>t.durum==='acik'?'Açık':(t.durum==='tamamlandi'?'Tamamlandı':(t.durum||''))},
+      {key:'kalem',    label:'Kalem',     type:'number', get:t=>(t.teklif_kalemleri||[]).length},
+      {key:'otel',     label:'Otel',      type:'text',   get:t=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[t.otel_id])||t.otel_id||''},
+    ],
+  });
+  return _ttTablo;
+}
+function ttGorunumDegistir(){
+  ttGorunum = ttGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('tt-gorunum-btn');
+  if(b) b.textContent = ttGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('tt-filtre-etiket');
+  if(et && ttGorunum==='kart') et.innerHTML='';
+  renderTeklifTalepleri();
+}
+
 function renderTeklifTalepleri(){
   const c=document.getElementById('liste');if(!c)return;
+  if(ttGorunum==='tablo'){ ttTabloGetir().ciz(); return; }
   const liste=Object.values(TT);
   if(!liste.length){
     c.innerHTML='<div class="es"><div class="ei">📋</div><div class="et">Henüz teklif talebi yok</div></div>';
@@ -407,6 +449,7 @@ function yenile(){
   (async function(){
     sLD();
     await Promise.all([loadTeklifTalepleri(), loadOnayliTalepler()]);
+    onayliTalepleriFiltrele();
     hLD();
     renderTeklifTalepleri();
   })();

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="ortak.js"></script>
+<script src="otel-config.js"></script>
+<script src="filtre.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+// Bu sayfa MENÜDE/sistemde bilinçli olarak YOK. Yalnızca doğrudan URL'yi bilen
+// yönetici (IT) açabilir. Çift koruma: (1) burada rol denetimi, (2) tabloda RLS
+// (giris_kayitlari sadece kullanici_yonetimi görüntüleme yetkisiyle okunur).
+let CU = requireLogin();
+if (CU) requireRole(CU, ['yonetici']);
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Araz — Giriş Kayıtları</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.sc::-webkit-scrollbar{display:none}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.btn{padding:8px 14px;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer}
+.btn-primary{background:var(--primary);color:white}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <button class="hbtn" onclick="location.href='index.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+    <div style="flex:1"><h1>🔐 Giriş Kayıtları</h1><span class="sub" id="hsub"></span></div>
+    <button class="hbtn" onclick="loadGirisKayitlari()" title="Yenile">⟳</button>
+  </div>
+
+  <div class="sc">
+    <div class="card">
+      <div class="card-title">Başarılı Girişler
+        <span id="gk-ozet" style="margin-left:auto;font-size:11px;color:var(--gray-500);font-weight:500"></span>
+      </div>
+      <div style="font-size:11px;color:var(--gray-500);line-height:1.5">
+        Yalnızca <b>başarılı</b> girişler kullanıcıya bağlı tutulur. Başarısız denemeler
+        kimliksizdir (IP hash bazlı, ayrı tablo). Bu ekran yalnızca yöneticiye görünür.
+      </div>
+    </div>
+    <div id="gk-filtre-etiket" style="margin-bottom:6px"></div>
+    <div id="gk-liste"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// escapeHtml/showToast -> ortak.js
+let _gkVeri = [];
+let aktifGkFiltreleri = [];
+
+const SUTUN_OPS = {
+  text:   [['contains','içerir'],['equals','='],['not_equals','≠'],['starts','başlar']],
+  date:   [['on','='],['before','<'],['after','>']],
+};
+function _otelAd(o){ if(!o) return '—'; return (typeof OTEL_KISA!=='undefined' && OTEL_KISA[o]) ? (OTEL_KISA[o]+' ('+o+')') : String(o); }
+const GK_TABLO_KOLONLARI = [
+  { key:'ad',        label:'Kullanıcı',   type:'text', get:r=>r.ad||'—' },
+  { key:'otel',      label:'Otel',        type:'text', get:r=>_otelAd(r.otel_id) },
+  { key:'giris_tipi',label:'Tip',         type:'text', get:r=>r.giris_tipi||'pin' },
+  { key:'ip_hash',   label:'IP (hash)',   type:'text', get:r=>r.ip_hash?String(r.ip_hash).slice(0,12)+'…':'—' },
+  { key:'created_at',label:'Tarih / Saat',type:'date', get:r=>r.created_at||'' },
+];
+const GK_FILTRE_ALANLARI = GK_TABLO_KOLONLARI.map(k=>({ field:k.key, label:k.label, type:k.type, getValue:k.get }));
+
+async function loadGirisKayitlari(){
+  const c=document.getElementById('gk-liste');
+  c.innerHTML=`<div style="text-align:center;padding:30px;color:var(--gray-400)">Yükleniyor…</div>`;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/giris_kayitlari?select=*&order=created_at.desc&limit=2000',{headers:SB_HEADERS});
+    if(!r.ok){
+      const t=await r.text().catch(()=> '');
+      c.innerHTML=`<div style="text-align:center;padding:30px;color:var(--danger)">Kayıtlar okunamadı${r.status===401||r.status===403?' — yetkiniz yok':''}.<br><span style="font-size:11px;color:var(--gray-400)">${escapeHtml(t.slice(0,140))}</span></div>`;
+      return;
+    }
+    _gkVeri = await r.json();
+  }catch(e){
+    c.innerHTML=`<div style="text-align:center;padding:30px;color:var(--danger)">Bağlantı hatası.</div>`;
+    return;
+  }
+  renderGk();
+}
+
+function _gkHucreBicim(type,v){
+  if(v==null||v==='') return '—';
+  if(type==='date'){ const d=new Date(v); return isNaN(d)?'—':d.toLocaleString('tr-TR'); }
+  return String(v);
+}
+function _gkFiltreli(){
+  return Filtre.filtreleUygula(_gkVeri, aktifGkFiltreleri, GK_FILTRE_ALANLARI);
+}
+function _gkBosSatir(){ return `<tr><td colspan="${GK_TABLO_KOLONLARI.length}" style="padding:24px;text-align:center;color:var(--gray-400)">Kayıt bulunamadı</td></tr>`; }
+function _gkTbodyHTML(rows){
+  return rows.map(r=>`<tr>`+
+    GK_TABLO_KOLONLARI.map(k=>`<td style="padding:6px 8px;border-top:1px solid var(--gray-200);font-size:11.5px;white-space:nowrap">${escapeHtml(_gkHucreBicim(k.type,k.get(r)))}</td>`).join('')+
+    `</tr>`).join('');
+}
+function _gkFiltreSatiriHTML(){
+  return GK_TABLO_KOLONLARI.map(k=>{
+    const ops=SUTUN_OPS[k.type]||SUTUN_OPS.text;
+    const mevcut=aktifGkFiltreleri.find(f=>f.field===k.key);
+    const opsHtml=ops.map(([op,sim])=>`<option value="${op}"${mevcut&&mevcut.operator===op?' selected':''}>${sim}</option>`).join('');
+    const inputType=k.type==='date'?'date':'text';
+    const val=mevcut?escapeHtml(String(mevcut.value??'')):'';
+    return `<th data-fcol="${k.key}" style="background:#eef2ff;padding:4px 6px">
+      <div style="display:flex;gap:3px;align-items:center">
+        <select onchange="gkSutunFiltreDegis('${k.key}','${k.type}')" style="border:1px solid #c7d2fe;border-radius:5px;padding:2px 3px;font-size:12px;font-weight:800;background:#fff;cursor:pointer">${opsHtml}</select>
+        <input type="${inputType}" value="${val}" oninput="gkSutunFiltreDegis('${k.key}','${k.type}')" placeholder="filtre" style="width:100%;min-width:44px;border:1px solid #c7d2fe;border-radius:5px;padding:2px 4px;font-size:11px">
+      </div></th>`;
+  }).join('');
+}
+function gkEtiketleriCiz(){
+  const el=document.getElementById('gk-filtre-etiket'); if(!el)return;
+  Filtre.etiketleriCiz(el, aktifGkFiltreleri, GK_FILTRE_ALANLARI, (i)=>{
+    if(i===-1) aktifGkFiltreleri=[]; else aktifGkFiltreleri.splice(i,1);
+    renderGk();
+  });
+}
+function renderGk(){
+  const rows=_gkFiltreli();
+  document.getElementById('gk-ozet').textContent = `${rows.length} / ${_gkVeri.length} kayıt`;
+  const c=document.getElementById('gk-liste');
+  const bas=GK_TABLO_KOLONLARI.map(k=>`<th style="position:sticky;top:0;background:var(--primary);color:#fff;padding:6px 8px;font-size:11px;white-space:nowrap;z-index:2">${escapeHtml(k.label)}</th>`).join('');
+  const govde = rows.length ? _gkTbodyHTML(rows) : _gkBosSatir();
+  c.innerHTML=`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse">`+
+    `<thead><tr>${bas}</tr><tr>${_gkFiltreSatiriHTML()}</tr></thead><tbody>${govde}</tbody></table></div>`;
+  gkEtiketleriCiz();
+}
+function gkTbodyYenile(){
+  const tb=document.querySelector('#gk-liste tbody');
+  if(!tb){ renderGk(); return; }
+  const rows=_gkFiltreli();
+  tb.innerHTML = rows.length ? _gkTbodyHTML(rows) : _gkBosSatir();
+  document.getElementById('gk-ozet').textContent = `${rows.length} / ${_gkVeri.length} kayıt`;
+  gkEtiketleriCiz();
+}
+function gkSutunFiltreDegis(field, ftype){
+  const cell=document.querySelector('#gk-liste [data-fcol="'+field+'"]'); if(!cell)return;
+  const op=cell.querySelector('select').value;
+  const inp=cell.querySelector('input');
+  const raw=inp?inp.value:'';
+  aktifGkFiltreleri = aktifGkFiltreleri.filter(f=>f.field!==field);
+  if(raw!==''&&raw!=null) aktifGkFiltreleri.push({ field, type:ftype, operator:op, value:raw });
+  gkTbodyYenile();
+}
+
+// ====== INIT ======
+(function(){
+  if(!CU) return;
+  document.getElementById('hsub').textContent = CU.ad;
+  loadGirisKayitlari();
+})();
+</script>
+</body>
+</html>

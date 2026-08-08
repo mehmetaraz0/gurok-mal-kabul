@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <script src="ortak-excel.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
@@ -110,6 +112,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="btn btn-gray btn-sm" id="butce-excel-yukle-btn" style="flex:1" onclick="document.getElementById('butce-excel-input').click()" disabled>Toplu Düzenle — Yükle</button>
     </div>
     <input type="file" id="butce-excel-input" accept=".xlsx,.xls" style="display:none" onchange="butceExcelYukle(event)">
+    <button onclick="butceGorunumDegistir()" id="butce-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="butce-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="butce-liste"></div>
   </div>
 </div>
@@ -359,8 +363,43 @@ function renderRapor(){
 // ============================================================
 // RENDER — BÜTÇE GİRİŞLERİ LİSTESİ
 // ============================================================
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let butceGorunum='kart';
+let _butceTablo=null;
+function butceListeVerisi(){
+  return Object.values(butceler).sort((a,b)=>b.yil-a.yil||a.hesapKodu.localeCompare(b.hesapKodu));
+}
+function butceTabloGetir(){
+  if(_butceTablo)return _butceTablo;
+  _butceTablo=Tablo.olustur({
+    container:'butce-liste',
+    etiketKapsayici:'butce-filtre-etiket',
+    bosMesaj:'Henüz bütçe girişi yok',
+    veri:butceListeVerisi,
+    satirTikla:b=>openDuzenleButce(b.id),
+    kolonlar:[
+      {key:'yil',      label:'Yıl',        type:'number', get:b=>b.yil||0},
+      {key:'hesapKodu',label:'Hesap Kodu', type:'text',   get:b=>b.hesapKodu||''},
+      {key:'hesapAd',  label:'Hesap Adı',  type:'text',   get:b=>b.hesapAd||''},
+      {key:'otel',     label:'Otel',       type:'text',   get:b=>OTEL_KISA[b.otelId]||b.otelId||''},
+      {key:'yillik',   label:'Yıllık (₺)', type:'number', get:b=>(b.aylar||[]).reduce((t,v)=>t+(parseFloat(v)||0),0)},
+      {key:'aylikOrt', label:'Aylık Ort.', type:'number', get:b=>((b.aylar||[]).reduce((t,v)=>t+(parseFloat(v)||0),0))/12},
+    ],
+  });
+  return _butceTablo;
+}
+function butceGorunumDegistir(){
+  butceGorunum = butceGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('butce-gorunum-btn');
+  if(b) b.textContent = butceGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('butce-filtre-etiket');
+  if(et && butceGorunum==='kart') et.innerHTML='';
+  renderButceListesi();
+}
+
 function renderButceListesi(){
-  const liste=Object.values(butceler).sort((a,b)=>b.yil-a.yil||a.hesapKodu.localeCompare(b.hesapKodu));
+  const liste=butceListeVerisi();
+  if(butceGorunum==='tablo'){ butceTabloGetir().ciz(); return; }
   const c=document.getElementById('butce-liste');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Henüz bütçe girişi yok</div></div>';return;}
   c.innerHTML=liste.map(b=>{

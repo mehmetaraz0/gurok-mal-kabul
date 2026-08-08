@@ -37,6 +37,12 @@ const ND_MODULLER = [
     eslesir: f => f === 'mal-kabul-izleme.html'
   },
   {
+    id: 'analizMerkezi', ad: 'Akıllı Analiz', url: 'analiz-merkezi.html',
+    moduller: ['ai_analiz_merkezi'], durum: 'aktif',
+    svg: '<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M18 14l.7 1.8L20.5 16.5l-1.8.7L18 19l-.7-1.8L15.5 16.5l1.8-.7z"/>',
+    eslesir: f => f === 'analiz-merkezi.html'
+  },
+  {
     id: 'yonetim', ad: 'Yönetim', url: 'kullanici-yonetimi.html',
     moduller: ['kullanici_yonetimi'], durum: 'aktif',
     svg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09A1.7 1.7 0 008 19.4a1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.55-1H3a2 2 0 010-4h.09A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06A1.7 1.7 0 008 4.6a1.7 1.7 0 001-1.55V3a2 2 0 014 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06A1.7 1.7 0 0019.4 9c.14.36.55 1 1.55 1H21a2 2 0 010 4h-.09a1.7 1.7 0 00-1.51 1z"/>',

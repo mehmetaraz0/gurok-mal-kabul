@@ -390,14 +390,22 @@ async function soruSorInput(){
 GÜNCEL VERİ (JSON):
 ${JSON.stringify(ozet)}`;
 
-    // NOT: Bu çağrı kasıtlı olarak devre dışı bırakıldı. api.anthropic.com'u tarayıcıdan
-    // doğrudan çağırmak bir API anahtarı gerektirir — o anahtar client-side kodda durursa
-    // sayfa kaynağını görebilen herkes çalabilir (Supabase anon key'in aksine, bu özel/faturalı
-    // bir kimlik bilgisidir). Bunu güvenli çalıştırmak için anahtarı SUNUCU tarafında tutan bir
-    // proxy (örn. bir Supabase Edge Function) gerekiyor — bu, ayrı bir kurulum kararı.
-    throw new Error('AI sohbet özelliği için sunucu taraflı bir proxy kurulmadı — bkz. kod yorumu.');
+    // AI cevabı SUNUCU tarafında (ai-analiz-sorgula Edge Function -> Groq) üretilir.
+    // API anahtarı EF secret'ında; tarayıcıya asla düşmez. EF, JWT'yi + muhasebe_asistan
+    // yetkisini doğrular, sistem promptunu SUNUCUDA kurar ve bu özeti Groq'a yorumlatır.
+    const jwt = oturumAccessTokenGetir();
+    const r = await fetch(SB_URL + '/functions/v1/ai-analiz-sorgula', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'muhasebe_yorum', soru, ozet, jwt })
+    });
+    const j = await r.json();
+    if (j && j.ok && j.cevap) {
+      document.getElementById(loadingId).innerHTML = `<div class="msg-asistan">${escapeHtml(j.cevap)}</div>`;
+    } else {
+      document.getElementById(loadingId).innerHTML = `<div class="msg-asistan" style="color:var(--danger)">⚠️ ${escapeHtml((j && j.mesaj) || 'AI şu an yanıt veremedi, lütfen tekrar dene.')}</div>`;
+    }
   }catch(e){
-    document.getElementById(loadingId).innerHTML=`<div class="msg-asistan" style="color:var(--danger)">⚠️ AI sohbet özelliği henüz aktif değil — bunu çalıştırmak için Anthropic API anahtarını güvenle saklayacak bir sunucu tarafı bağlantı (proxy) kurulması gerekiyor. Yukarıdaki uyarı kartları (vadesi geçen faturalar, risk limiti vb.) canlı veriyle çalışıyor, bu sohbet kutusu değil.</div>`;
+    document.getElementById(loadingId).innerHTML=`<div class="msg-asistan" style="color:var(--danger)">⚠️ Bağlantı hatası — lütfen tekrar dene.</div>`;
   }
   sohbet.scrollTop=sohbet.scrollHeight;
 }

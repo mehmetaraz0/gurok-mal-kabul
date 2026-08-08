@@ -72,7 +72,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <select id="k-rol-id"></select>
     </div>
     <div class="rfields">
-      <div class="field"><label>PIN (6 hane) *</label><input type="text" id="k-pin" placeholder="123456" maxlength="6" inputmode="numeric"></div>
+      <div class="field"><label>PIN (6 hane)</label><input type="text" id="k-pin" placeholder="123456" maxlength="6" inputmode="numeric"></div>
       <div class="field"><label>Otel</label>
         <select id="k-otel">
           <option value="">Her İkisi (Grup rolü)</option>
@@ -129,7 +129,7 @@ async function loadDB(){
     if(kR.ok){
       (await kR.json()).forEach(r=>{
         kullanicilar[r.id]={
-          id:r.id,ad:r.ad,pin:r.pin||'',departman:r.departman||'',otelId:r.otel_id||'',
+          id:r.id,ad:r.ad,departman:r.departman||'',otelId:r.otel_id||'',
           aktif:r.aktif!==false,rolId:r.rol_id||'',rolAd:r.roller?.ad||r.rol||'—',rolSeviye:r.roller?.seviye||''
         };
       });
@@ -154,7 +154,7 @@ function render(){
           ${!u.aktif?'<span class="chip chip-red">Pasif</span>':''}
         </div>
       </div>
-      <div style="font-size:11px;color:var(--gray-400);font-family:monospace">PIN ••${u.pin.slice(-2)}</div>
+      <div style="font-size:11px;color:var(--gray-400);font-family:monospace">PIN ••••••</div>
     </div>`;
   }).join('');
 }
@@ -168,6 +168,7 @@ function openYeniKullanici(){
   document.getElementById('mKullaniciTitle').innerHTML='➕ Yeni Kullanıcı <button class="mclose" onclick="kModal()">✕</button>';
   document.getElementById('k-id').value='';
   document.getElementById('k-ad').value='';
+  document.getElementById('k-pin').placeholder='123456';
   document.getElementById('k-pin').value='';
   document.getElementById('k-otel').value='';
   document.getElementById('k-departman').value='';
@@ -182,7 +183,7 @@ function openDuzenleKullanici(id){
   document.getElementById('mKullaniciTitle').innerHTML='✏️ Kullanıcı Düzenle <button class="mclose" onclick="kModal()">✕</button>';
   document.getElementById('k-id').value=id;
   document.getElementById('k-ad').value=u.ad;
-  document.getElementById('k-pin').value=u.pin;
+  const _pinEl=document.getElementById('k-pin');_pinEl.value='';_pinEl.placeholder='Değiştirmek için yeni PIN (boş = aynı kalır)';
   document.getElementById('k-otel').value=u.otelId||'';
   document.getElementById('k-departman').value=u.departman||'';
   document.getElementById('k-aktif').checked=u.aktif;
@@ -195,31 +196,38 @@ async function kullaniciKaydet(){
   const ad=document.getElementById('k-ad').value.trim();
   const pin=document.getElementById('k-pin').value.trim();
   const rolId=document.getElementById('k-rol-id').value;
-  if(!ad||!pin||pin.length!==6||!/^\d{6}$/.test(pin)){toast('⚠️ Ad ve 6 haneli sayısal PIN girin');return;}
+  const editId=document.getElementById('k-id').value;
+  if(!ad){toast('⚠️ Ad girin');return;}
+  // PIN artık düz metin saklanmaz: pin_ayarla RPC'siyle sunucuda hash'lenir (pin_hash).
+  // Yeni kullanıcıda PIN zorunlu; düzenlemede BOŞ = PIN değişmez. Girildiyse 6 hane olmalı.
+  if(pin && (pin.length!==6||!/^\d{6}$/.test(pin))){toast('⚠️ PIN 6 haneli sayısal olmalı');return;}
+  if(!editId && !pin){toast('⚠️ Yeni kullanıcı için 6 haneli PIN girin');return;}
   const rol=roller.find(r=>r.id===rolId);
   if(!rol){toast('⚠️ Rol listesi yüklenemedi veya geçersiz — kaydedilmedi. Sayfayı yenileyip tekrar deneyin.',4000);return;}
   const eskiEnum=ROL_KODU_ESKI_ENUM[rol.kod]||'depo';
 
-  // Aynı PIN başka bir kullanıcıda var mı kontrol et (çakışma = iki kişi aynı PIN ile giremez)
-  const editId=document.getElementById('k-id').value;
-  const cakisan=Object.values(kullanicilar).find(u=>u.pin===pin&&u.id!==editId);
-  if(cakisan){toast(`⚠️ Bu PIN zaten "${cakisan.ad}" kullanıcısında kayıtlı`,3500);return;}
-
   const satir={
-    ad,pin,rol_id:rolId,rol:eskiEnum,
+    ad,rol_id:rolId,rol:eskiEnum,
     otel_id:document.getElementById('k-otel').value||null,
     departman:document.getElementById('k-departman').value||null,
     aktif:document.getElementById('k-aktif').checked
   };
   sLD();
   try{
+    let hedefId=editId;
     if(editId){
       await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+editId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
       await auditLogYaz('update','kullanici',editId,`Kullanıcı güncellendi: ${ad} (${rol?.ad||''})`);
     }else{
       const r=await fetch(SB_URL+'/rest/v1/kullanicilar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
       const d=await r.json();
-      await auditLogYaz('create','kullanici',d[0]?.id,`Kullanıcı oluşturuldu: ${ad} (${rol?.ad||''})`);
+      hedefId=d[0]?.id;
+      await auditLogYaz('create','kullanici',hedefId,`Kullanıcı oluşturuldu: ${ad} (${rol?.ad||''})`);
+    }
+    // PIN girildiyse hash'le (pin_ayarla RPC — düz PIN sunucuda pin_hash'e çevrilir, sütunda tutulmaz)
+    if(pin && hedefId){
+      const pr=await fetch(SB_URL+'/rest/v1/rpc/pin_ayarla',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({p_kullanici_id:hedefId,p_pin:pin})});
+      if(!pr.ok){console.warn('pin_ayarla',await pr.text());toast('⚠️ Kullanıcı kaydedildi ama PIN ayarlanamadı');hLD();kModal();await loadDB();render();return;}
     }
   }catch(e){console.warn(e);toast('⚠️ Kaydedilemedi');hLD();return;}
   hLD();
