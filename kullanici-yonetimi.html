@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Araz — Kullanıcı Yönetimi</title>
@@ -58,6 +60,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
   </div>
   <div class="sc">
     <div class="uyari">🔒 Bu ekrana yalnızca yönetici rolüyle giriş yapmış kullanıcılar erişebilir (istemci taraflı kontrol — sunucu tarafında Supabase RLS ile de desteklenmesi önerilir). Rol listesi (19 rol) <b>yetki-yonetimi.html</b> ekranındaki Excel matrisiyle aynı kaynaktan gelir.</div>
+    <button onclick="kulGorunumDegistir()" id="kul-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="kul-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="kullanici-liste"></div>
   </div>
 </div>
@@ -138,8 +142,44 @@ async function loadDB(){
   hLD();
 }
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let kulGorunum='kart';
+let _kulTablo=null;
+function kulListeVerisi(){
+  return Object.values(kullanicilar).sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+}
+function kulTabloGetir(){
+  if(_kulTablo)return _kulTablo;
+  _kulTablo=Tablo.olustur({
+    container:'kullanici-liste',
+    etiketKapsayici:'kul-filtre-etiket',
+    bosMesaj:'Kullanıcı bulunamadı',
+    veri:kulListeVerisi,
+    satirTikla:u=>openDuzenleKullanici(u.id),
+    kolonlar:[
+      {key:'ad',       label:'Ad Soyad',  type:'text', get:u=>u.ad||''},
+      {key:'rol',      label:'Rol',       type:'text', get:u=>u.rolAd||''},
+      {key:'departman',label:'Departman', type:'text', get:u=>u.departman||''},
+      {key:'otel',     label:'Otel',      type:'text', get:u=>u.otelId?(OTEL_ISIMLERI[u.otelId]||u.otelId):'Grup'},
+      {key:'eposta',   label:'E-posta',   type:'text', get:u=>u.eposta||''},
+      {key:'depo',     label:'Depo',      type:'text', get:u=>u.depoId||''},
+      {key:'aktif',    label:'Durum',     type:'text', get:u=>u.aktif?'Aktif':'Pasif'},
+    ],
+  });
+  return _kulTablo;
+}
+function kulGorunumDegistir(){
+  kulGorunum = kulGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('kul-gorunum-btn');
+  if(b) b.textContent = kulGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('kul-filtre-etiket');
+  if(et && kulGorunum==='kart') et.innerHTML='';
+  render();
+}
+
 function render(){
-  const liste=Object.values(kullanicilar).sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+  const liste=kulListeVerisi();
+  if(kulGorunum==='tablo'){ kulTabloGetir().ciz(); return; }
   const c=document.getElementById('kullanici-liste');
   if(!liste.length){c.innerHTML='<div class="es"><div style="font-size:40px;margin-bottom:10px">👥</div><div>Kullanıcı bulunamadı</div></div>';return;}
   c.innerHTML=liste.map(u=>{

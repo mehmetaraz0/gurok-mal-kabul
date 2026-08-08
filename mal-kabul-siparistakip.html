@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let currentUser = requireLogin();
@@ -59,6 +61,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterSiparisTakip('tamamlandi',this)">Tamamlandı</button>
       <button class="ftab" onclick="filterSiparisTakip('tumu',this)">Tümü</button>
     </div>
+    <button onclick="mkstGorunumDegistir()" id="mkst-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="mkst-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="siparis-icerik"></div>
   </div>
 </div>
@@ -91,6 +95,44 @@ async function loadSiparisler(){
   renderSiparisTakip();
 }
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+const MKST_DURUM_AD={bekleyen:'Bekliyor',kismi:'Kısmen Geldi',tamamlandi:'Tamamlandı',iptal:'İptal'};
+let mkstGorunum='kart';
+let _mkstTablo=null;
+function mkstListeVerisi(){
+  const tum=Object.values(siparisler);
+  const liste=siparisFilter==='tumu'?tum:tum.filter(s=>s.durum===siparisFilter);
+  return liste.slice().sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
+}
+function mkstTabloGetir(){
+  if(_mkstTablo)return _mkstTablo;
+  _mkstTablo=Tablo.olustur({
+    container:'siparis-icerik',
+    etiketKapsayici:'mkst-filtre-etiket',
+    bosMesaj:'Kayıt yok',
+    veri:mkstListeVerisi,
+    kolonlar:[
+      {key:'siparisNo',label:'Sipariş No', type:'text',  get:s=>s.siparisNo||''},
+      {key:'firma',    label:'Firma',      type:'text',  get:s=>s.firma||''},
+      {key:'tarih',    label:'Tarih',      type:'date',  get:s=>s.tarih?String(s.tarih).slice(0,10):''},
+      {key:'durum',    label:'Durum',      type:'text',  get:s=>MKST_DURUM_AD[s.durum]||s.durum||''},
+      {key:'kalem',    label:'Kalem',      type:'number',get:s=>(s.kalemler||[]).length},
+      {key:'eksik',    label:'Eksik Kalem',type:'number',get:s=>(s.kalemler||[]).filter(k=>(k.kalanMiktar||0)>0.01).length},
+      {key:'yuzde',    label:'Tamamlanma %',type:'number',get:s=>{const k=s.kalemler||[];return k.length?Math.round(k.filter(x=>(x.kalanMiktar||0)<=0.01).length/k.length*100):0;}},
+      {key:'otel',     label:'Otel',       type:'text',  get:s=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[s.otelId])||s.otelId||''},
+    ],
+  });
+  return _mkstTablo;
+}
+function mkstGorunumDegistir(){
+  mkstGorunum = mkstGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('mkst-gorunum-btn');
+  if(b) b.textContent = mkstGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('mkst-filtre-etiket');
+  if(et && mkstGorunum==='kart') et.innerHTML='';
+  renderSiparisTakip();
+}
+
 function renderSiparisTakip(){
   const tumSiparisler=Object.values(siparisler);
   const bek=tumSiparisler.filter(s=>s.durum==='bekleyen').length;
@@ -101,8 +143,9 @@ function renderSiparisTakip(){
     <div class="stat-kart"><div class="stat-num" style="color:var(--warning)">${kis}</div><div class="stat-lbl">🔶 Kısmi</div></div>
     <div class="stat-kart"><div class="stat-num" style="color:var(--success)">${tam}</div><div class="stat-lbl">✅ Tamam</div></div>`;
 
-  let liste=siparisFilter==='tumu'?tumSiparisler:tumSiparisler.filter(s=>s.durum===siparisFilter);
-  liste=liste.sort((a,b)=>a.siparisNo.localeCompare(b.siparisNo));
+  let liste=mkstListeVerisi();
+
+  if(mkstGorunum==='tablo'){ mkstTabloGetir().ciz(); return; }
 
   const c=document.getElementById('siparis-icerik');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt yok</div></div>';return;}

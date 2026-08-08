@@ -6,6 +6,8 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let CU = requireLogin();
@@ -79,6 +81,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterLN('tamamlandi',this)">Tamamlandı</button>
       <button class="ftab" onclick="filterLN('tumu',this)">Tümü</button>
     </div>
+    <button onclick="lnGorunumDegistir()" id="ln-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="ln-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="ln-liste"></div>
   </div>
 </div>
@@ -163,11 +167,47 @@ function filterLN(f,el){
   renderLN();
 }
 
-function renderLN(){
-  const c=document.getElementById('ln-liste');if(!c)return;
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let lnGorunum='kart';
+let _lnTablo=null;
+function lnListeVerisi(){
   let liste=Object.values(DB.lnSiparisler||{}).filter(Boolean);
   if(lnFilter!=='tumu')liste=liste.filter(s=>s.durum===lnFilter||(!s.durum&&lnFilter==='bekleyen'));
-  liste.sort((a,b)=>(b.yuklenmeTarih||0)-(a.yuklenmeTarih||0));
+  return liste.sort((a,b)=>(b.yuklenmeTarih||0)-(a.yuklenmeTarih||0));
+}
+function lnTabloGetir(){
+  if(_lnTablo)return _lnTablo;
+  _lnTablo=Tablo.olustur({
+    container:'ln-liste',
+    etiketKapsayici:'ln-filtre-etiket',
+    bosMesaj:'Kayıt yok',
+    veri:lnListeVerisi,
+    satirTikla:s=>openLNDetay(s.siparisNo||s.id),
+    kolonlar:[
+      {key:'siparisNo',label:'Sipariş No', type:'text',  get:s=>s.siparisNo||s.id||''},
+      {key:'firma',    label:'Firma',      type:'text',  get:s=>s.firma||''},
+      {key:'tarih',    label:'Tarih',      type:'date',  get:s=>s.tarih?String(s.tarih).slice(0,10):''},
+      {key:'durum',    label:'Durum',      type:'text',  get:s=>s.durum||'bekleyen'},
+      {key:'kalem',    label:'Kalem',      type:'number',get:s=>(s.kalemler||[]).length},
+      {key:'gelen',    label:'Gelen Kalem',type:'number',get:s=>(s.kalemler||[]).filter(k=>k.geldi).length},
+      {key:'yuzde',    label:'Tamamlanma %',type:'number',get:s=>{const k=s.kalemler||[];return k.length?Math.round(k.filter(x=>x.geldi).length/k.length*100):0;}},
+    ],
+  });
+  return _lnTablo;
+}
+function lnGorunumDegistir(){
+  lnGorunum = lnGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('ln-gorunum-btn');
+  if(b) b.textContent = lnGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('ln-filtre-etiket');
+  if(et && lnGorunum==='kart') et.innerHTML='';
+  renderLN();
+}
+
+function renderLN(){
+  const c=document.getElementById('ln-liste');if(!c)return;
+  if(lnGorunum==='tablo'){ lnTabloGetir().ciz(); return; }
+  let liste=lnListeVerisi();
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">'+(lnFilter==='bekleyen'?'Bekleyen sipariş yok':'Kayıt yok')+'</div></div>';return;}
   c.innerHTML=liste.map(s=>{
     const kalemler=s.kalemler||[];
