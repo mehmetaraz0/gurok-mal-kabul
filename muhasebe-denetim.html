@@ -6,6 +6,8 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let OTURUM_KULLANICI = requireLogin();
@@ -94,6 +96,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterLog('approve',this)">Onay</button>
       <button class="ftab" onclick="filterLog('period',this)">Dönem</button>
     </div>
+    <button onclick="logGorunumDegistir()" id="log-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="log-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="log-liste"></div>
   </div>
 
@@ -192,13 +196,48 @@ const actionIkon={create:'➕',update:'✏️',delete:'🗑️',approve:'✅',pe
 const actionRenk={create:'#d4edda',update:'#e4e9f2',delete:'#fde8e8',approve:'#d4edda',period:'#fef9c3',payment:'#e4eef2'};
 const entityAd={hesap:'Hesap Planı',cari:'Cari Hesap',fatura:'Fatura',yevmiye:'Yevmiye',banka:'Banka/Kasa',virman:'Virman',donem:'Mali Dönem'};
 
-function renderLog(){
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let logGorunum='kart';
+let _logTablo=null;
+function logListeVerisi(){
   const ara=(document.getElementById('log-ara').value||'').toLowerCase();
   let liste=Object.values(auditLogs).filter(Boolean);
   if(logFilter!=='tumu')liste=liste.filter(l=>l.action===logFilter);
   if(ara)liste=liste.filter(l=>(l.userName||'').toLowerCase().includes(ara)||(l.detail||'').toLowerCase().includes(ara)||(l.entityType||'').toLowerCase().includes(ara));
   liste.sort((a,b)=>b.timestamp-a.timestamp);
-  liste=liste.slice(0,200); // performans için son 200
+  return liste.slice(0,200); // performans için son 200
+}
+function logTabloGetir(){
+  if(_logTablo)return _logTablo;
+  _logTablo=Tablo.olustur({
+    container:'log-liste',
+    etiketKapsayici:'log-filtre-etiket',
+    bosMesaj:'Kayıt bulunamadı',
+    veri:logListeVerisi,
+    kolonlar:[
+      {key:'zaman',  label:'Zaman',    type:'date', get:l=>l.timestamp?new Date(l.timestamp).toISOString().slice(0,10):''},
+      {key:'saat',   label:'Saat',     type:'text', get:l=>l.timestamp?new Date(l.timestamp).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):''},
+      {key:'user',   label:'Kullanıcı',type:'text', get:l=>l.userName||''},
+      {key:'action', label:'İşlem',    type:'text', get:l=>l.action||''},
+      {key:'entity', label:'Kayıt Tipi',type:'text',get:l=>l.entityType||''},
+      {key:'detail', label:'Detay',    type:'text', get:l=>l.detail||''},
+    ],
+  });
+  return _logTablo;
+}
+function logGorunumDegistir(){
+  logGorunum = logGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('log-gorunum-btn');
+  if(b) b.textContent = logGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('log-filtre-etiket');
+  if(et && logGorunum==='kart') et.innerHTML='';
+  renderLog();
+}
+
+function renderLog(){
+  let liste=logListeVerisi();
+
+  if(logGorunum==='tablo'){ logTabloGetir().ciz(); return; }
 
   const c=document.getElementById('log-liste');
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt bulunamadı</div></div>';return;}
