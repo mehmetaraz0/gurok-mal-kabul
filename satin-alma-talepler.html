@@ -9,6 +9,7 @@
 <script src="ortak.js"></script>
 <script src="ortak-excel.js"></script>
 <script src="araz_veritabani.js"></script>
+<script src="otel-config.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Araz — İç Talepler</title>
@@ -120,8 +121,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
           <option value="PARK_MUTFAK">Park Mutfak</option>
           <option value="AQUA_MUTFAK">Aqua Mutfak</option>
           <option value="SAHIL_MUTFAK">Sahil Mutfak</option>
-          <option value="BAR">Bar</option>
           <option value="DEPO">Depo</option>
+          <!-- Bar/Restoran outlet seçenekleri, kullanıcının oteline göre otomatik eklenir — bkz. ytDepartmanListesiDoldur() -->
         </select>
       </div>
       <div class="field">
@@ -550,6 +551,26 @@ async function ytKaydet(){
   renderTalepler();
 }
 
+// "Departman" listesine, kullanıcının oteline ait gerçek Bar/Restoran outlet'lerini
+// ekler (otel-config.js'deki BAR_DEPOLARI'den) — Mutfak/Depo seçenekleri sabit kalır,
+// onların ayrı bir depo kodu yok. CU.otelId değişmediği için sayfa başına bir kez yeterli.
+function ytDepartmanListesiDoldur(){
+  const sel=document.getElementById('yt-dept');
+  if(!sel||typeof BAR_DEPOLARI==='undefined')return;
+  Array.from(sel.querySelectorAll('option[data-outlet]')).forEach(o=>o.remove());
+  const otelId=CU.otelId||'810';
+  Object.entries(BAR_DEPOLARI)
+    .filter(([,d])=>d.otel===otelId)
+    .sort((a,b)=>a[1].tip.localeCompare(b[1].tip,'tr')||a[1].ad.localeCompare(b[1].ad,'tr'))
+    .forEach(([kod,d])=>{
+      const opt=document.createElement('option');
+      opt.value=kod;
+      opt.dataset.outlet='1';
+      opt.textContent=`${d.ad} (${d.tip})`;
+      sel.appendChild(opt);
+    });
+}
+
 // Modal açılınca ilk satırı ekle
 function openYeniTalep(){
   YT_SATIRLAR=[];
@@ -965,6 +986,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   document.getElementById('talep-excel-yukle-btn').disabled = !icTalepYaziYetkisi;
   document.getElementById('yt-kaydet-btn').disabled = !icTalepYaziYetkisi;
   document.getElementById('yeniden-siparis-btn').disabled = !icTalepYaziYetkisi;
+  ytDepartmanListesiDoldur();
   await loadDB();
   await hesaplaYetkiliAsamalar();
   basla();
