@@ -121,12 +121,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div class="field">
         <label>Departman</label>
         <select id="yt-dept">
-          <option value="ANA_MUTFAK">Ana Mutfak</option>
-          <option value="PARK_MUTFAK">Park Mutfak</option>
-          <option value="AQUA_MUTFAK">Aqua Mutfak</option>
-          <option value="SAHIL_MUTFAK">Sahil Mutfak</option>
-          <option value="DEPO">Depo</option>
-          <!-- Bar/Restoran outlet seçenekleri, kullanıcının oteline göre otomatik eklenir — bkz. ytDepartmanListesiDoldur() -->
+          <!-- Kullanıcının oteline ait TÜM depo/departmanlar (ana depo dahil) açılışta
+               otomatik dolar — bkz. ytDepartmanListesiDoldur(), kaynak: otel-config.js DEPOLAR_810/811 -->
         </select>
       </div>
       <div class="field">
@@ -555,24 +551,21 @@ async function ytKaydet(){
   renderTalepler();
 }
 
-// "Departman" listesine, kullanıcının oteline ait gerçek Bar/Restoran outlet'lerini
-// ekler (otel-config.js'deki BAR_DEPOLARI'den) — Mutfak/Depo seçenekleri sabit kalır,
-// onların ayrı bir depo kodu yok. CU.otelId değişmediği için sayfa başına bir kez yeterli.
+// "Departman" listesini, kullanıcının oteline ait TÜM gerçek depo/departmanlarla
+// doldurur (otel-config.js'deki DEPOLAR_810/811'den — ana depo, teknik depo, mutfak
+// müdürlükleri, idari birimler, F&B outlet'leri dahil hepsi; Stok Takip'in kendi depo
+// seçicisiyle aynı kaynak). CU.otelId değişmediği için sayfa başına bir kez yeterli.
 function ytDepartmanListesiDoldur(){
   const sel=document.getElementById('yt-dept');
-  if(!sel||typeof BAR_DEPOLARI==='undefined')return;
-  Array.from(sel.querySelectorAll('option[data-outlet]')).forEach(o=>o.remove());
+  if(!sel||typeof depolarForOtel==='undefined')return;
+  sel.innerHTML='';
   const otelId=CU.otelId||'810';
-  Object.entries(BAR_DEPOLARI)
-    .filter(([,d])=>d.otel===otelId)
-    .sort((a,b)=>a[1].tip.localeCompare(b[1].tip,'tr')||a[1].ad.localeCompare(b[1].ad,'tr'))
-    .forEach(([kod,d])=>{
-      const opt=document.createElement('option');
-      opt.value=kod;
-      opt.dataset.outlet='1';
-      opt.textContent=`${d.ad} (${d.tip})`;
-      sel.appendChild(opt);
-    });
+  depolarForOtel(otelId).forEach(d=>{
+    const opt=document.createElement('option');
+    opt.value=d.id;
+    opt.textContent=`${d.ikon||''} ${d.ad}`.trim();
+    sel.appendChild(opt);
+  });
 }
 
 // Modal açılınca ilk satırı ekle
