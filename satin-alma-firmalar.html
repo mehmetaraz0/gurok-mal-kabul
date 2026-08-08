@@ -6,6 +6,8 @@
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script src="araz_veritabani.js"></script>
 <script>
@@ -52,6 +54,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <div class="card-title">Firma Ara</div>
       <input type="text" id="firma-ara" placeholder="Firma adı..." oninput="renderFirmalar(this.value)" style="width:100%;padding:10px 12px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none">
     </div>
+    <button onclick="firmaGorunumDegistir()" id="firma-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="firma-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="firmalar-liste"></div>
   </div>
 </div>
@@ -66,10 +70,44 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 const DB={firmalar: typeof FIRMA_DB !== 'undefined' ? FIRMA_DB : []};
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+let firmaGorunum='kart';
+let _firmaTablo=null;
+let _firmaAra='';
+function firmaListeVerisi(){
+  const firmalar=DB.firmalar||[];
+  return _firmaAra?firmalar.filter(f=>f.ad.toLowerCase().includes(_firmaAra.toLowerCase())).slice(0,50):firmalar.slice(0,50);
+}
+function firmaTabloGetir(){
+  if(_firmaTablo)return _firmaTablo;
+  _firmaTablo=Tablo.olustur({
+    container:'firmalar-liste',
+    etiketKapsayici:'firma-filtre-etiket',
+    bosMesaj:'Firma bulunamadı',
+    veri:firmaListeVerisi,
+    kolonlar:[
+      {key:'ad',     label:'Firma',     type:'text',   get:f=>f.ad||''},
+      {key:'mail',   label:'E-posta',   type:'text',   get:f=>f.mail||''},
+      {key:'tel',    label:'Telefon',   type:'text',   get:f=>f.tel||''},
+      {key:'urun',   label:'Ürün Sayısı',type:'number',get:f=>(f.urunler||[]).length},
+    ],
+  });
+  return _firmaTablo;
+}
+function firmaGorunumDegistir(){
+  firmaGorunum = firmaGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('firma-gorunum-btn');
+  if(b) b.textContent = firmaGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('firma-filtre-etiket');
+  if(et && firmaGorunum==='kart') et.innerHTML='';
+  renderFirmalar(_firmaAra);
+}
+
 function renderFirmalar(val){
   const c=document.getElementById('firmalar-liste');if(!c)return;
-  const firmalar=DB.firmalar||[];
-  const liste=val?firmalar.filter(f=>f.ad.toLowerCase().includes(val.toLowerCase())).slice(0,50):firmalar.slice(0,50);
+  _firmaAra=val||'';
+  const liste=firmaListeVerisi();
+  if(firmaGorunum==='tablo'){ firmaTabloGetir().ciz(); return; }
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Firma bulunamadı</div></div>';return;}
   c.innerHTML=liste.map(f=>`
     <div class="skart bekleyen" style="cursor:default">

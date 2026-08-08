@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let currentUser = requireLogin();
@@ -64,6 +66,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab" onclick="filterSkt('tuketildi',this)">Tüketildi</button>
       <button class="ftab" onclick="filterSkt('imha_edildi',this)">İmha Edildi</button>
     </div>
+    <button onclick="sktGorunumDegistir()" id="skt-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="skt-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="skt-icerik"></div>
   </div>
 </div>
@@ -81,6 +85,40 @@ let urunler=[];
 async function auditLogYaz(action,entityType,entityId,detail){
   const log={action,entity_type:entityType,entity_id:String(entityId||''),detail:detail||'',kullanici_ad:currentUser?.ad||'Bilinmeyen'};
   try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){console.warn('audit_log yazılamadı (denetim izi eksik kalabilir):',e);}
+}
+
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+const SKT_DURUM_AD={aktif:'Aktif',tuketildi:'Tüketildi',imha_edildi:'İmha Edildi'};
+let sktGorunum='kart';
+let _sktTablo=null;
+let _sktSonListe=[];
+function sktTabloGetir(){
+  if(_sktTablo)return _sktTablo;
+  _sktTablo=Tablo.olustur({
+    container:'skt-icerik',
+    etiketKapsayici:'skt-filtre-etiket',
+    bosMesaj:'Kayıt yok',
+    veri:()=>_sktSonListe,
+    kolonlar:[
+      {key:'urunKod', label:'Ürün Kodu',  type:'text',   get:r=>r.urun_kodu||''},
+      {key:'urunAd',  label:'Ürün',       type:'text',   get:r=>{const u=(urunler||[]).find(x=>x.kod===r.urun_kodu);return (u&&u.ad)||r.urun_adi||'';}},
+      {key:'skt',     label:'SKT',        type:'date',   get:r=>r.skt_tarihi||''},
+      {key:'gun',     label:'Kalan Gün',  type:'number', get:r=>r._gun||0},
+      {key:'miktar',  label:'Miktar',     type:'number', get:r=>parseFloat(r.miktar)||0},
+      {key:'depo',    label:'Depo',       type:'text',   get:r=>r.depo_kodu||''},
+      {key:'durum',   label:'Durum',      type:'text',   get:r=>SKT_DURUM_AD[r.durum]||r.durum||''},
+      {key:'belge',   label:'Belge/Koli', type:'text',   get:r=>r.koli_no||r.belge_no||''},
+    ],
+  });
+  return _sktTablo;
+}
+function sktGorunumDegistir(){
+  sktGorunum = sktGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('skt-gorunum-btn');
+  if(b) b.textContent = sktGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('skt-filtre-etiket');
+  if(et && sktGorunum==='kart') et.innerHTML='';
+  if(sktGorunum==='tablo') sktTabloGetir().ciz(); else renderSkt();
 }
 
 async function renderSkt(){
@@ -121,6 +159,10 @@ async function renderSkt(){
   else list=aktif; // tumu = tüm aktifler
 
   list=[...list].sort((a,b)=>a._gun-b._gun);
+
+  _sktSonListe=list;
+
+  if(sktGorunum==='tablo'){ sktTabloGetir().ciz(); return; }
 
   const c=document.getElementById('skt-icerik');
   if(!list.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt yok</div></div>';return;}

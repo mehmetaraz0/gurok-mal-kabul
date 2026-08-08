@@ -7,6 +7,8 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="filtre.js"></script>
+<script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let currentUser = requireLogin();
@@ -64,6 +66,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
       <button class="ftab active" onclick="filterUygun('acik',this)">Açık</button>
       <button class="ftab" onclick="filterUygun('kapatildi',this)">Kapatıldı</button>
     </div>
+    <button onclick="uygunGorunumDegistir()" id="uygun-gorunum-btn" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü</button>
+    <div id="uygun-filtre-etiket" style="margin-bottom:6px"></div>
     <div id="uygun-icerik"></div>
   </div>
 </div>
@@ -92,6 +96,39 @@ async function auditLogYaz(action,entityType,entityId,detail){
   try{await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});}catch(e){console.warn('audit_log yazılamadı (denetim izi eksik kalabilir):',e);}
 }
 
+// ===== Tablo görünümü (tablo.js + filtre.js) =====
+const UYG_KARAR_AD={iade:'İade',sartli:'Şartlı Kullanım',imha:'İmha',duzeltme:'Düzeltme/Tekrar İşleme'};
+let uygunGorunum='kart';
+let _uygunTablo=null;
+function uygunTabloGetir(){
+  if(_uygunTablo)return _uygunTablo;
+  _uygunTablo=Tablo.olustur({
+    container:'uygun-icerik',
+    etiketKapsayici:'uygun-filtre-etiket',
+    bosMesaj:'Kayıt yok',
+    veri:()=>Object.values(uygunCache||{}),
+    kolonlar:[
+      {key:'tarih',    label:'Tarih',     type:'date', get:r=>r.olusturma_tarihi?String(r.olusturma_tarihi).slice(0,10):''},
+      {key:'urun',     label:'Ürün Kodu', type:'text', get:r=>r.urun_kodu||''},
+      {key:'aciklama', label:'Açıklama',  type:'text', get:r=>r.aciklama||''},
+      {key:'bildiren', label:'Bildiren',  type:'text', get:r=>r.bildiren_ad||''},
+      {key:'durum',    label:'Durum',     type:'text', get:r=>r.durum==='acik'?'Açık':'Kapalı'},
+      {key:'karar',    label:'Karar',     type:'text', get:r=>UYG_KARAR_AD[r.karar]||r.karar||''},
+      {key:'faaliyet', label:'Faaliyet',  type:'text', get:r=>r.faaliyet_aciklama||''},
+      {key:'yapan',    label:'Yapan',     type:'text', get:r=>r.faaliyet_yapan||''},
+    ],
+  });
+  return _uygunTablo;
+}
+function uygunGorunumDegistir(){
+  uygunGorunum = uygunGorunum==='kart' ? 'tablo' : 'kart';
+  const b=document.getElementById('uygun-gorunum-btn');
+  if(b) b.textContent = uygunGorunum==='kart' ? '📊 Tablo Görünümü' : '🗂️ Kart Görünümü';
+  const et=document.getElementById('uygun-filtre-etiket');
+  if(et && uygunGorunum==='kart') et.innerHTML='';
+  if(uygunGorunum==='tablo') uygunTabloGetir().ciz(); else renderUygun();
+}
+
 async function renderUygun(){
   sLD();
   let rows=[];
@@ -101,6 +138,9 @@ async function renderUygun(){
   }catch(e){}
   hLD();
   uygunCache={};rows.forEach(r=>uygunCache[r.id]=r);
+
+  if(uygunGorunum==='tablo'){ uygunTabloGetir().ciz(); return; }
+
   const c=document.getElementById('uygun-icerik');
   if(!rows.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt yok</div></div>';return;}
   const kararEtiket={iade:'İade',sartli:'Şartlı Kullanım',imha:'İmha',duzeltme:'Düzeltme/Tekrar İşleme'};
