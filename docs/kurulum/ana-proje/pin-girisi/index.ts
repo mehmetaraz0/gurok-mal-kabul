@@ -47,13 +47,25 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const DAHILI_EMAIL_DOMAIN = "gurok.internal";
 
+// Bu fonksiyonun ÇALIŞAN sürümü. Kaynağı her değiştirdiğinde BUNU DA değiştir.
+// Neden var: 2026-08-05'te Dashboard "deploy başarılı" dediği halde çalışan kod
+// iki kez ESKİ sürümde kaldı ve bunu ancak beklenen davranış gelmeyince fark
+// ettik. Artık deploy sonrası GET ile sürüm sorulabiliyor (aşağıya bak).
+const SURUM = "2026-08-09-xff-en-sag";
+
 Deno.serve(async (req) => {
   const cors = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+
+  // DEPLOY DOĞRULAMA UCU — kimlik doğrulaması gerektirmez, veritabanına
+  // DOKUNMAZ, başarısız giriş denemesi ÜRETMEZ (yani throttle'ı tetiklemez).
+  // Sadece hangi kaynak sürümünün çalıştığını söyler.
+  if (req.method === "GET") return json({ ok: true, surum: SURUM }, 200, cors);
+
   if (req.method !== "POST") return json({ ok: false, mesaj: "POST bekleniyor" }, 405, cors);
 
   try {
