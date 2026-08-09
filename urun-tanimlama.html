@@ -119,8 +119,13 @@ function renderUrunler(){
     <div style="background:#fff;border:1px solid #e4e7ec;border-radius:8px;padding:10px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
       <div style="flex:1"><b>${escapeHtml(u.ad)}</b> <span style="color:#8992a3;font-size:11px">${escapeHtml(u.kod)} · ${escapeHtml(u.birim||'')}</span>
         <div style="font-size:12px">Sistem fiyatı: <b>${u.sistem_fiyat!=null?parseFloat(u.sistem_fiyat).toFixed(2)+' ₺':'—'}</b></div></div>
-      ${yazabilir()?`<button class="btn btn-sm btn-warning" onclick="fiyatDuzenle('${escapeHtml(u.kod)}')">Fiyat Düzenle</button>`:''}
+      ${yazabilir()?`<button class="btn btn-sm btn-warning urun-fiyat-btn" data-kod="${escapeHtml(u.kod)}">Fiyat Düzenle</button>`:''}
     </div>`).join('') || '<div class="es"><div class="ei">📦</div><div class="et">Ürün yok</div></div>';
+  // GÜVENLİK: kod inline onclick'e (JS string bağlamı) GÖMÜLMEZ — escapeHtml orada
+  // koruma sağlamaz. data-kod ile taşınır, olay burada bağlanır.
+  document.getElementById('urun-liste').querySelectorAll('.urun-fiyat-btn').forEach(b=>{
+    b.onclick=()=>fiyatDuzenle(b.dataset.kod);
+  });
 }
 
 async function urunEkle(kod, ad, birim, grup, fiyat){

@@ -169,7 +169,7 @@ async function menuYayinla(){
   try{
     const r=await fetch(CUSTOMER_SB_URL+YAYIN_FN,{
       method:'POST',
-      headers:{apikey:CUSTOMER_ANON_KEY, Authorization:'Bearer '+CUSTOMER_ANON_KEY, 'Content-Type':'application/json'},
+      headers:{apikey:CUSTOMER_ANON_KEY, Authorization:'Bearer '+CUSTOMER_ANON_KEY, 'Content-Type':'application/json', 'x-staff-token': (oturumAccessTokenGetir()||'')},
       body:'{}'
     });
     const d=await r.json(); hLD();

@@ -496,7 +496,7 @@ function renderEkstre(){
     c1.innerHTML=`
     <div class="card">
       <div style="font-size:15px;font-weight:800">${escapeHtml(c.ad)}</div>
-      <div style="font-size:11px;color:var(--gray-500)">${c.kod||''} ${c.vkn?'• VKN: '+c.vkn:''} ${c.tel?'• '+c.tel:''}</div>
+      <div style="font-size:11px;color:var(--gray-500)">${escapeHtml(c.kod||'')} ${c.vkn?'• VKN: '+escapeHtml(c.vkn):''} ${c.tel?'• '+escapeHtml(c.tel):''}</div>
       <div style="font-size:11px;color:var(--gray-500)">Dönem: ${bas||'başlangıç'} — ${bit||'bugün'}</div>
     </div>
     <button class="no-print" onclick="ekstreGorunumDegistir()" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">🗂️ Klasik Görünüm</button>
@@ -514,7 +514,7 @@ function renderEkstre(){
   c1.innerHTML=`
     <div class="card">
       <div style="font-size:15px;font-weight:800">${escapeHtml(c.ad)}</div>
-      <div style="font-size:11px;color:var(--gray-500)">${c.kod||''} ${c.vkn?'• VKN: '+c.vkn:''} ${c.tel?'• '+c.tel:''}</div>
+      <div style="font-size:11px;color:var(--gray-500)">${escapeHtml(c.kod||'')} ${c.vkn?'• VKN: '+escapeHtml(c.vkn):''} ${c.tel?'• '+escapeHtml(c.tel):''}</div>
       <div style="font-size:11px;color:var(--gray-500)">Dönem: ${bas||'başlangıç'} — ${bit||'bugün'}</div>
     </div>
     <button class="no-print" onclick="ekstreGorunumDegistir()" style="margin-bottom:8px;background:#fff;border:1.5px solid var(--gray-300);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Tablo Görünümü (filtreli)</button>

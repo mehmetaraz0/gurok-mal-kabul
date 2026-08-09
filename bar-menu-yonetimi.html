@@ -123,7 +123,12 @@ function stokAra(){
       const r=await fetch(url,{headers:JH()});
       const rows=r.ok?await r.json():[];
       if(!rows.length){ oner.innerHTML='<div style="color:var(--gray-400)">Eşleşen stok yok</div>'; oner.style.display='block'; return; }
-      oner.innerHTML=rows.map(x=>`<div onclick="stokSec('${escapeHtml(x.kod)}','${escapeHtml((x.ad||'').replace(/'/g,""))}')">${escapeHtml(x.kod)} — ${escapeHtml(x.ad||'')}</div>`).join('');
+      // GÜVENLİK: değerler inline onclick'e (JS string bağlamı) GÖMÜLMEZ — escapeHtml
+      // orada koruma sağlamaz. data-* ile taşınır, olay JS tarafında bağlanır.
+      oner.innerHTML=rows.map(x=>`<div class="stok-oner-satir" data-kod="${escapeHtml(x.kod)}" data-ad="${escapeHtml(x.ad||'')}">${escapeHtml(x.kod)} — ${escapeHtml(x.ad||'')}</div>`).join('');
+      oner.querySelectorAll('.stok-oner-satir').forEach(el=>{
+        el.onclick=()=>stokSec(el.dataset.kod, el.dataset.ad);
+      });
       oner.style.display='block';
     }catch(e){ oner.style.display='none'; }
   },300);
@@ -209,7 +214,7 @@ async function yayinla(){
   sLD();
   try{
     const r=await fetch(CUSTOMER_SB_URL+YAYIN_FN,{method:'POST',
-      headers:{apikey:CUSTOMER_ANON_KEY,Authorization:'Bearer '+CUSTOMER_ANON_KEY,'Content-Type':'application/json'},body:'{}'});
+      headers:{apikey:CUSTOMER_ANON_KEY,Authorization:'Bearer '+CUSTOMER_ANON_KEY,'Content-Type':'application/json', 'x-staff-token': (oturumAccessTokenGetir()||'')},body:'{}'});
     const d=await r.json(); hLD();
     if(d.ok) toast('✅ '+d.sayi+' ürün yayınlandı'); else toast('❌ '+(d.mesaj||'Yayın hatası'));
   }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }

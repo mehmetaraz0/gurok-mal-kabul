@@ -564,6 +564,7 @@ async function checkPin() {
       body: JSON.stringify({ p_giris_tipi: 'pin' })
     });
   } catch (e) { /* giriş kaydı hatası yutulur */ }
+  await loadUsers();   // artık authenticated JWT var (anon'a kapalı — pentest [2])
   const params = new URLSearchParams(location.search);
   const returnTo = params.get('returnTo');
   if (returnTo && /^[a-z0-9_-]+\.html(\?[^#]*)?(#.*)?$/i.test(returnTo)) {
@@ -804,14 +805,16 @@ function showToast(msg, dur=2500) {
 // INIT
 // ============================================================
 (async function init() {
-  document.getElementById('loading').classList.add('show');
-  await loadUsers();
-  document.getElementById('loading').classList.remove('show');
-
+  // GÜVENLİK (pentest [2]): kullanıcı dizini artık ANON'a kapalı. loadUsers()
+  // giriş ÖNCESİ çağrılmaz — PIN doğrulaması zaten sunucuda (pin-girisi EF)
+  // yapılıyor, istemcinin giriş öncesi kullanıcı listesine ihtiyacı yok.
   // Session kontrolü — paylaşılan auth-guard.js üzerinden
   const user = oturumGetir();
   if (user) {
     currentUser = user;
+    document.getElementById('loading').classList.add('show');
+    await loadUsers();               // oturum var → authenticated JWT ile okunur
+    document.getElementById('loading').classList.remove('show');
     await showPortal();
   }
 })();
