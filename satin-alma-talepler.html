@@ -908,9 +908,19 @@ async function talepSipariseDonustur(id){
   kModal('mTalepDetay');
   const satirlar=(t.satirlar||[]).map(u=>({ad:u.ad,kod:u.kod||'',miktar:u.miktar||'',birim:u.birim||'KG',not:''}));
   sessionStorage.setItem('sp_devir_satirlar',JSON.stringify(satirlar));
-  // Talebi siparişe dönüştü olarak işaretle
+  // GÜVENLİK (pentest-2 [2]): durum ARTIK istemciden yazılmıyor. Önceki hal
+  // doğrudan PATCH {durum:'siparis'} yapıyordu → onay zinciri tamamlanmamış bir
+  // talep bile siparişe çevrilebiliyordu (aşama atlama) ve hata da yutuluyordu.
+  // Sunucu doğruluyor: yetki + durum='onaylandi' + atomik geçiş.
+  const rpcSonuc = await talepSiparisRpc(id);
+  if(!rpcSonuc || rpcSonuc.ok !== true){
+    const neden = rpcSonuc && rpcSonuc.hata === 'onaylanmamis'
+      ? 'Bu talep henüz onay zincirini tamamlamamış'
+      : (rpcSonuc && rpcSonuc.hata === 'yetkisiz' ? 'Sipariş oluşturma yetkiniz yok' : 'Siparişe dönüştürülemedi');
+    toast('❌ '+neden);
+    return;   // sipariş sayfasına GEÇME — durum değişmedi
+  }
   t.durum='siparis';t.donusturmaTarih=Date.now();t.donusturanAd=CU.ad;
-  try{await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'siparis'})});}catch(e){console.warn(e);}
   location.href='satin-alma-siparisolustur.html';
 }
 

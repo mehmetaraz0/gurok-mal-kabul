@@ -25,8 +25,9 @@ function tutaraGoreKatmanSec(tutar){
   return 'ust_yonetim';
 }
 
-// mevcutAsama + (varsa) tutar verildiğinde bir sonraki asamayı döner.
-// null dönerse: süreç biter, durum='onaylandi' yazılır.
+// ⚠️ ARTIK KARAR VERMEZ — pentest-2 [2] sonrası sonraki aşamayı SUNUCU belirler
+// (talep_karar_ver RPC'si). Bu fonksiyon yalnız arayüzde önizleme/etiket amaçlı
+// kalmıştır; buradan dönen değere göre HİÇBİR yazma yapılmamalıdır.
 function sonrakiAsamaBelirle(mevcutAsama, tutar){
   if (mevcutAsama === 'depo') return 'cost';
   if (mevcutAsama === 'cost') return tutaraGoreKatmanSec(tutar);
@@ -67,6 +68,15 @@ async function kullaniciAsamaYetkiliMi(kullanici, asama){
 // deseni: iki kişinin aynı talebi aynı anda farklı kararlarla ilerletmesini önler.
 let _talepAsamaIsleniyor = false;
 
+// GÜVENLİK (pentest-2 bulgu [2] — 2026-08-09): kararın TAMAMI artık sunucuda.
+// ÖNCEKİ HAL: yetki kontrolü burada (JS'te) yapılıyor, onay geçmişi istemci
+// POST'uyla yazılıyor, durum/asama istemci PATCH'iyle değiştiriliyordu. Üç açık:
+//   • aşama atlama (doğrudan durum yazılabiliyordu)
+//   • sahte onay geçmişi kaydı
+//   • "canlı oku → PATCH" arası atomik değil → bayat yazma / yarış
+// ŞİMDİ: talep_karar_ver RPC'si çağıranı JWT'den çözer, satırı FOR UPDATE ile
+// kilitler, durumu+yetkiyi doğrular, geçmişi kendi yazar — hepsi tek transaction.
+// Buradaki _talepAsamaIsleniyor yalnız ÇİFT TIKLAMA içindir; güvenlik değil.
 async function talepAsamaIlerlet(talepId, kullanici, karar, opts){
   opts = opts || {};
   const tutar = opts.tutar;
@@ -74,50 +84,48 @@ async function talepAsamaIlerlet(talepId, kullanici, karar, opts){
   if (_talepAsamaIsleniyor) return {ok:false, hata:'islemde'};
   _talepAsamaIsleniyor = true;
   try{
-    const guncelR = await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId+'&select=asama,durum', {headers: SB_HEADERS});
-    if (!guncelR.ok) return {ok:false, hata:'canli_okuma_basarisiz'};
-    const guncelListe = await guncelR.json();
-    const guncel = guncelListe[0];
-    if (!guncel || guncel.durum !== 'bekleyen') return {ok:false, hata:'zaten_karar_verilmis'};
-
-    const asama = guncel.asama;
-    if (!(await kullaniciAsamaYetkiliMi(kullanici, asama))) return {ok:false, hata:'yetkisiz'};
-
-    if (karar === 'red'){
-      const gecmisR = await fetch(SB_URL+'/rest/v1/talep_onay_gecmisi', {method:'POST', headers: SB_HEADERS,
-        body: JSON.stringify({talep_id: talepId, asama, rol_kodu: kullanici.rol, kullanici_ad: kullanici.ad, karar: 'red', not_metni: not || null})});
-      if (!gecmisR.ok) console.error('talep_onay_gecmisi yazılamadı (red) — denetim izi eksik kalabilir:', await gecmisR.text());
-      await sbYaz(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId, {method:'PATCH', headers: SB_HEADERS,
-        body: JSON.stringify({durum:'reddedildi', onaylayan_ad: kullanici.ad, onay_tarihi: new Date().toISOString()})});
-      return {ok:true, sonuc:'reddedildi', gecmisYazildi: gecmisR.ok};
+    // Tutar ön-kontrolü ÇAĞIRAN sayfada yapılır (cost aşamasını orada biliyor);
+    // sunucu da bağımsızca doğrular ve gerekirse {hata:'tutar_gerekli'} döner.
+    const r = await fetch(SB_URL+'/rest/v1/rpc/talep_karar_ver', {
+      method:'POST', headers: SB_HEADERS,
+      body: JSON.stringify({
+        p_talep_id: talepId,
+        p_karar: karar,
+        p_not: not || null,
+        p_tutar: (tutar === undefined || tutar === null || tutar === '') ? null : parseFloat(tutar)
+      })
+    });
+    if (!r.ok){
+      const govde = await r.text().catch(()=> '');
+      console.error('talep_karar_ver başarısız:', r.status, govde);
+      return {ok:false, hata:'sunucu_hatasi'};
     }
-
-    // Cost aşamasında tutar zorunlu — sonraki katman bu değere göre belirlenir.
-    if (asama === 'cost' && (tutar === undefined || tutar === null || isNaN(parseFloat(tutar)))) {
-      return {ok:false, hata:'tutar_gerekli'};
-    }
-
-    const gecmisR = await fetch(SB_URL+'/rest/v1/talep_onay_gecmisi', {method:'POST', headers: SB_HEADERS,
-      body: JSON.stringify({talep_id: talepId, asama, rol_kodu: kullanici.rol, kullanici_ad: kullanici.ad, karar: 'onay', not_metni: not || null})});
-    if (!gecmisR.ok) console.error('talep_onay_gecmisi yazılamadı (onay, asama='+asama+') — denetim izi eksik kalabilir:', await gecmisR.text());
-
-    const sonrakiAsama = sonrakiAsamaBelirle(asama, tutar);
-    const patchBody = {};
-    if (asama === 'cost') patchBody.tutar = parseFloat(tutar);
-
-    if (sonrakiAsama){
-      patchBody.asama = sonrakiAsama;
-    } else {
-      patchBody.durum = 'onaylandi';
-      patchBody.onaylayan_ad = kullanici.ad;
-      patchBody.onay_tarihi = new Date().toISOString();
-    }
-    await sbYaz(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId, {method:'PATCH', headers: SB_HEADERS, body: JSON.stringify(patchBody)});
-    return {ok:true, sonuc: sonrakiAsama || 'onaylandi', gecmisYazildi: gecmisR.ok};
+    const sonuc = await r.json();   // {ok, sonuc} | {ok:false, hata}
+    return sonuc || {ok:false, hata:'bos_yanit'};
   } catch(e) {
     console.warn(e);
     return {ok:false, hata:'istisna'};
   } finally {
     _talepAsamaIsleniyor = false;
+  }
+}
+
+// Onaylı talebi siparişe dönüştür — istemci PATCH'inin yerine (sunucu doğrular:
+// yetki + durum='onaylandi' + atomik geçiş).
+async function talepSiparisRpc(talepId){
+  try{
+    const r = await fetch(SB_URL+'/rest/v1/rpc/talep_siparise_donustur', {
+      method:'POST', headers: SB_HEADERS,
+      body: JSON.stringify({p_talep_id: talepId})
+    });
+    if (!r.ok){
+      const govde = await r.text().catch(()=> '');
+      console.error('talep_siparise_donustur başarısız:', r.status, govde);
+      return {ok:false, hata:'sunucu_hatasi'};
+    }
+    return (await r.json()) || {ok:false, hata:'bos_yanit'};
+  }catch(e){
+    console.warn(e);
+    return {ok:false, hata:'istisna'};
   }
 }
