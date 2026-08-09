@@ -207,9 +207,22 @@ async function mevcutAuthUserIdEmailIle(SB_URL: string, SERVICE_KEY: string, ema
   return null;
 }
 
+// GÜVENLİK (pentest-2 bulgu [4]): rate-limit kimliği İSTEMCİDEN türetilmemeli.
+// ÖNCEKİ HALİ x-forwarded-for'un EN SOLDAKİ değerini alıyordu — o değeri saldırgan
+// kendi isteğine yazar; her denemede farklı IP hash'i üretip 15dk/10 deneme
+// limitini tamamen atlatıyordu.
+//
+// DOĞRUSU: zincirin EN SAĞINDAKİ değer, güvendiğimiz son proxy (Supabase edge)
+// tarafından eklenir; saldırgan kendi eklediği değerleri ancak SOLA yazabilir.
+// Supabase'in kendi başlığı (x-real-ip / cf-connecting-ip) varsa o tercih edilir.
 function clientIp(req: Request): string {
+  const guvenilir = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip");
+  if (guvenilir) return guvenilir.trim();
   const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
+  if (fwd) {
+    const parcalar = fwd.split(",").map((x) => x.trim()).filter(Boolean);
+    if (parcalar.length) return parcalar[parcalar.length - 1];   // ★ EN SAĞDAKİ
+  }
   return "bilinmeyen-ip";
 }
 

@@ -652,7 +652,7 @@ function renderTalepler(){
     <div class="skart ${t.durum}" onclick="openTalepDetay('${t.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div>
-          <div style="font-size:13px;font-weight:700">${t.departman||'—'} ${t.aciliyet==='acil'?'🔴':''}</div>
+          <div style="font-size:13px;font-weight:700">${escapeHtml(t.departman||'—')} ${t.aciliyet==='acil'?'🔴':''}</div>
           <div style="font-size:11px;color:var(--gray-500)">${t.tarih} • ${escapeHtml(t.personel)}</div>
         </div>
         ${chipMap[t.durum]||''}
@@ -791,7 +791,7 @@ async function openTalepDetay(id){
   const gecmis=await talepGecmisiGetir(id);
   document.getElementById('mTalepDetayIc').innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-      <div><div style="font-size:15px;font-weight:700">${t.departman} ${t.aciliyet==='acil'?'🔴':''}</div><div style="font-size:12px;color:var(--gray-500)">${t.tarih} • ${escapeHtml(t.personel)}</div></div>
+      <div><div style="font-size:15px;font-weight:700">${escapeHtml(t.departman)} ${t.aciliyet==='acil'?'🔴':''}</div><div style="font-size:12px;color:var(--gray-500)">${t.tarih} • ${escapeHtml(t.personel)}</div></div>
       ${chipMap[t.durum]||''}
     </div>
     ${t.durum==='bekleyen'?`<div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:10px">Aşama: ${ASAMA_ETIKET[t.asama]||t.asama}</div>`:''}
