@@ -7,10 +7,12 @@
 // istemciye dağıtılan HERKESE AÇIK anon token'dı → internetteki herkes bu
 // ayrıcalıklı (service_role destekli) menü yayın akışını tetikleyebiliyordu.
 //
-// ŞİMDİ: Authorization başlığındaki token, ANA projede gerçek bir kullanıcı
-// oturumu olarak doğrulanır (auth.getUser) ve o kullanıcının ANA projedeki
-// 'bar_menu_yonetimi' modülünde en az 'kayit' yetkisi olduğu kontrol edilir.
-// anon token ile çağrı artık 401 döner.
+// ŞİMDİ: personel JWT'si AYRI bir başlıkta (x-staff-token) gelir; ANA projede
+// gerçek kullanıcı oturumu olarak doğrulanır (auth.getUser) ve o kullanıcının
+// 'bar_siparis_yonetimi' modülünde en az 'kayit' yetkisi olduğu kontrol edilir.
+// Authorization başlığı müşteri projesinin platform JWT kapısı için müşteri anon
+// key'ini taşımaya devam eder (ANA proje JWT'sini o kapı kabul etmez).
+// Sadece anon key ile çağrı artık 401 döner.
 //
 // Deploy: Dashboard → Edge Functions → "smooth-service" → Via Editor.
 // "Enforce JWT Verification" AÇIK kalabilir; asıl kontrol aşağıdadır.
