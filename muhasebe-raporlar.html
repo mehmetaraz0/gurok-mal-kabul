@@ -306,7 +306,7 @@ function renderBilanco(){
     detaylar.sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
     return{
       html:`<div class="grup-baslik">${sinif.ad}</div>
-        ${detaylar.map(d=>`<div class="hesap-satir"><span>${d.kod} — ${d.ad}</span><span style="font-weight:700">${fmt(d.tutar)} ₺</span></div>`).join('')}
+        ${detaylar.map(d=>`<div class="hesap-satir"><span>${escapeHtml(d.kod)} — ${escapeHtml(d.ad)}</span><span style="font-weight:700">${fmt(d.tutar)} ₺</span></div>`).join('')}
         <div class="toplam-satir"><span>${sinif.ad} TOPLAM</span><span>${fmt(toplam)} ₺</span></div>`,
       toplam
     };

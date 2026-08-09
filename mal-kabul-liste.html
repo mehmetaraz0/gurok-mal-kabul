@@ -628,7 +628,7 @@ function renderSecListesi(liste){
   if(!liste.length){c.innerHTML='<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Kayıt bulunamadı</div></div>';return;}
   c.innerHTML=liste.map(cr=>`<div class="mk-kart" data-id="${escapeHtml(cr.id)}" data-ad="${escapeHtml(cr.ad)}">
     <div style="font-size:14px;font-weight:700">${escapeHtml(cr.ad)}</div>
-    ${cr.kod?`<div style="font-size:11px;color:var(--gray-500)">${cr.kod}</div>`:''}
+    ${cr.kod?`<div style="font-size:11px;color:var(--gray-500)">${escapeHtml(cr.kod)}</div>`:''}
   </div>`).join('');
   c.querySelectorAll('.mk-kart[data-id]').forEach(el=>{
     el.addEventListener('click',function(){
@@ -1506,13 +1506,13 @@ async function koliEtiketYazdir(mkId){
       <div class="etiket">
         <div class="qr" id="qr${i}"></div>
         <div class="bilgi">
-          <div class="urun">${k.urun_adi}</div>
-          <div class="kg">${parseFloat(k.miktar).toFixed(2)} ${k.birim}</div>
+          <div class="urun">${escapeHtml(k.urun_adi)}</div>
+          <div class="kg">${parseFloat(k.miktar).toFixed(2)} ${escapeHtml(k.birim)}</div>
           <div class="detay">
-            Koli ${k.koli_no||i+1}${k.seri_no?' • Lot: '+k.seri_no:''}<br>
+            Koli ${k.koli_no||i+1}${k.seri_no?' • Lot: '+escapeHtml(k.seri_no):''}<br>
             Giriş: ${k.olusturma_tarihi?new Date(k.olusturma_tarihi).toLocaleDateString('tr-TR'):'—'}${k.skt_tarihi?' • SKT: '+new Date(k.skt_tarihi).toLocaleDateString('tr-TR'):''}
           </div>
-          <div class="mkno">${f?.mkNo||''} • ${f?.firma||''}</div>
+          <div class="mkno">${f?.mkNo||''} • ${escapeHtml(f?.firma||'')}</div>
         </div>
       </div>`).join('')}
   </div>

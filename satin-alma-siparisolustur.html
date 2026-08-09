@@ -277,21 +277,21 @@ function spPDF(gi){
     <div><label>Sipariş No</label><span>${g.siparisNo||'—'}</span></div>
     <div><label>Tedarikçi Firma</label><span>${escapeHtml(g.firmaAd)}</span></div>
     <div><label>Sipariş Tarihi</label><span>${tarih}</span></div>
-    <div><label>Hazırlayan</label><span>${CU.ad}</span></div>
+    <div><label>Hazırlayan</label><span>${escapeHtml(CU.ad)}</span></div>
     ${termin?`<div><label>Termin Tarihi</label><span>${termin}</span></div>`:''}
   </div>
   <table>
     <thead><tr><th>#</th><th>Ürün Adı</th><th>LN Kodu</th><th>Miktar</th><th>Birim</th><th>Teklif Fiyatı</th></tr></thead>
     <tbody>${g.kalemler.map((k,i)=>`<tr>
       <td>${i+1}</td><td><b>${escapeHtml(k.ad)}</b></td>
-      <td style="font-family:monospace;font-size:10px">${k.kod||'—'}</td>
+      <td style="font-family:monospace;font-size:10px">${escapeHtml(k.kod||'—')}</td>
       <td style="text-align:center;font-weight:bold">${k.miktar}</td>
-      <td>${k.birim}</td>
+      <td>${escapeHtml(k.birim)}</td>
       <td style="color:#aaa">...............</td>
     </tr>`).join('')}</tbody>
   </table>
   <div style="margin-top:30px;border-top:1px solid #ccc;padding-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:40px">
-    <div><div style="font-size:11px;font-weight:bold;margin-bottom:30px">Satın Alma Sorumlusu</div><div style="border-bottom:1px solid #000;margin-bottom:6px"></div><div style="font-size:10px">${CU.ad}</div></div>
+    <div><div style="font-size:11px;font-weight:bold;margin-bottom:30px">Satın Alma Sorumlusu</div><div style="border-bottom:1px solid #000;margin-bottom:6px"></div><div style="font-size:10px">${escapeHtml(CU.ad)}</div></div>
     <div><div style="font-size:11px;font-weight:bold;margin-bottom:30px">Tedarikçi Yetkilisi</div><div style="border-bottom:1px solid #000;margin-bottom:6px"></div><div style="font-size:10px">İmza / Tarih</div></div>
   </div>
   <div class="footer">Araz Turizm Grubu — Satın Alma Sistemi • ${new Date().toLocaleString('tr-TR')}</div>

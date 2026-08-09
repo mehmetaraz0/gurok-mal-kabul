@@ -362,7 +362,7 @@ function stDetayAc(siparisNo){
         const tamam=(k.kalanMiktar||0)<=0.01;
         return`<tr>
           <td>${i+1}</td>
-          <td><b>${escapeHtml(k.ad)}</b><br><span style="font-family:monospace;font-size:10px;color:#6c757d">${k.kod||''}</span></td>
+          <td><b>${escapeHtml(k.ad)}</b><br><span style="font-family:monospace;font-size:10px;color:#6c757d">${escapeHtml(k.kod||'')}</span></td>
           <td>${k.miktar} ${k.birim}</td>
           <td class="${(k.gelenMiktar||0)>0?'ok':''}">${k.gelenMiktar||0} ${k.birim}</td>
           <td class="${tamam?'ok':'warn'}">${k.kalanMiktar||k.miktar} ${k.birim}</td>

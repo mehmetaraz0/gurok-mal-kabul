@@ -474,7 +474,7 @@ function renderDemirbaslar(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div>
           <div style="font-size:13px;font-weight:700">${escapeHtml(d.ad)}</div>
-          <div style="font-size:11px;color:var(--gray-500)">${d.kod||'—'} • ${kat.ad||d.kategori}${d.zimmet?' • 👤 '+escapeHtml(d.zimmet):''}</div>
+          <div style="font-size:11px;color:var(--gray-500)">${escapeHtml(d.kod||'—')} • ${escapeHtml(kat.ad||d.kategori)}${d.zimmet?' • 👤 '+escapeHtml(d.zimmet):''}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:14px;font-weight:800;color:var(--primary)">${fmt(net)} ₺</div>

@@ -422,7 +422,7 @@ function renderButceListesi(){
 function ayHucreleriOlustur(degerler){
   document.getElementById('b-aylar').innerHTML=AY_ADLARI.map((ad,i)=>`
     <div class="ay-hucre">
-      <label>${ad}</label>
+      <label>${escapeHtml(ad)}</label>
       <input type="number" id="b-ay-${i}" value="${degerler?.[i]||''}" placeholder="0.00" min="0" step="0.01">
     </div>`).join('');
 }
@@ -493,7 +493,7 @@ function filterHesapDD(val){
   if(!val||val.length<1){dd.style.display='none';return;}
   const res=Object.values(hesaplar).filter(h=>h&&(h.tip==='Gelir Tablosu'||h.tip==='Maliyet')&&(h.kod.includes(val)||h.ad?.toLowerCase().includes(val.toLowerCase()))).slice(0,15);
   if(!res.length){dd.style.display='none';return;}
-  dd.innerHTML=res.map(h=>`<div class="uddi" data-kod="${h.kod}" data-ad="${(h.ad||'').replace(/"/g,'&quot;')}">${h.kod} — ${h.ad}</div>`).join('');
+  dd.innerHTML=res.map(h=>`<div class="uddi" data-kod="${h.kod}" data-ad="${(h.ad||'').replace(/"/g,'&quot;')}">${escapeHtml(h.kod)} — ${escapeHtml(h.ad)}</div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();

@@ -1294,8 +1294,8 @@ function filterIadeUrunDD(inputId,ddId,kodId,birimId,val){
   let results=katalog.filter(u=>u.ad?.toLowerCase().includes(v)||u.kod?.toLowerCase().includes(v)).slice(0,15);
   if(!results.length){dd.style.display='none';return;}
   dd.innerHTML=results.map(u=>
-    `<div class="urun-dd-item" data-kod="${u.kod}" data-ad="${escapeHtml(u.ad||'')}" data-birim="${u.birim||'KG'}">
-      ${escapeHtml(u.ad)} <span style="font-size:10px;color:var(--gray-500);font-family:monospace;">${u.kod}</span>
+    `<div class="urun-dd-item" data-kod="${escapeHtml(u.kod)}" data-ad="${escapeHtml(u.ad||'')}" data-birim="${u.birim||'KG'}">
+      ${escapeHtml(u.ad)} <span style="font-size:10px;color:var(--gray-500);font-family:monospace;">${escapeHtml(u.kod)}</span>
     </div>`
   ).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
@@ -1614,11 +1614,11 @@ function renderIadeKalemler(){
             oninput="filterIadeUrunDD('iade-urun-inp-${i}','iade-urun-dd-${i}','iade-urun-kod-${i}','iade-birim-${i}',this.value);iadeKalemGuncelle(${i})">
           <div id="iade-urun-dd-${i}" class="urun-dd"></div>
         </div>
-        <input type="hidden" id="iade-urun-kod-${i}" value="${k.kod||''}">
+        <input type="hidden" id="iade-urun-kod-${i}" value="${escapeHtml(k.kod||'')}">
       </div>
       <div class="row-fields">
         <div class="field"><label>Miktar *</label><input type="number" id="iade-miktar-${i}" value="${k.miktar||''}" placeholder="0" min="0" step="0.01" onchange="iadeKalemGuncelle(${i})"></div>
-        <div class="field"><label>Birim</label><input type="text" id="iade-birim-${i}" value="${k.birim||''}" placeholder="—" onchange="iadeKalemGuncelle(${i})"></div>
+        <div class="field"><label>Birim</label><input type="text" id="iade-birim-${i}" value="${escapeHtml(k.birim||'')}" placeholder="—" onchange="iadeKalemGuncelle(${i})"></div>
       </div>
       ${IADE_KALEMLER.length>1?`<button class="btn btn-sm btn-danger" style="position:absolute;top:8px;right:8px;" onclick="iadeKalemSil(${i})">✕</button>`:''}
     </div>`).join('');
@@ -1748,13 +1748,13 @@ function iadeBelgeYazdir(siparisNo){
   <h1>İade Siparişi Belgesi</h1>
   <div class="meta"><b>Sipariş No:</b> ${s.siparisNo}</div>
   <div class="meta"><b>Otel:</b> ${otelAd}</div>
-  <div class="meta"><b>Firma:</b> ${s.firma}</div>
+  <div class="meta"><b>Firma:</b> ${escapeHtml(s.firma)}</div>
   <div class="meta"><b>Dönüş Şekli:</b> ${nedenMap[s.donusSekli]||s.donusSekli}</div>
   ${s.orijinalFaturaNo?`<div class="meta"><b>Orijinal Fatura/İrsaliye No:</b> ${s.orijinalFaturaNo}</div>`:''}
   <div class="meta"><b>Tarih:</b> ${s.tarih}</div>
   <div class="meta"><b>Oluşturan:</b> ${s.olusturanAd}</div>
   <table><tr><th>#</th><th>Ürün</th><th>Miktar</th><th>Birim</th></tr>
-  ${s.kalemler.map((k,i)=>`<tr><td>${i+1}</td><td>${k.ad}</td><td>${k.miktar}</td><td>${k.birim}</td></tr>`).join('')}
+  ${s.kalemler.map((k,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(k.ad)}</td><td>${k.miktar}</td><td>${escapeHtml(k.birim)}</td></tr>`).join('')}
   </table>
   <p style="margin-top:24px;font-size:11px;color:#888;">Araz ERP — Stok Takip modülünden otomatik oluşturulmuştur.</p>
   </body></html>`);

@@ -193,7 +193,7 @@ async function loadStok(){
       const sel=document.getElementById('yon-nokta-sec');
       if(!sel.options.length||sel.options.length===1){
         sel.innerHTML='<option value="">— Nokta seçin —</option>'+
-          YONETICI_NOKTA_SECENEKLERI.map((n,i)=>`<option value="${i}">${n.ad}</option>`).join('');
+          YONETICI_NOKTA_SECENEKLERI.map((n,i)=>`<option value="${i}">${escapeHtml(n.ad)}</option>`).join('');
       }
     }else{
       document.getElementById('depoUyariMetin').textContent='Hesabınıza henüz bir depo/departman kodu atanmamış. Yöneticinizden Supabase\'deki kullanicilar tablosunda hesabınıza bir depo ataması yapmasını isteyin.';
@@ -277,7 +277,7 @@ function renderUrunler(){
   c.innerHTML=urunler.map(u=>{
     const meta=DB.urunAdlari?.[u.kod]||{ad:u.kod,birim:'KG'};
     const girisli=u.giris&&parseFloat(u.giris)>0;
-    return`<div class="urow${girisli?' girisli':''}" id="urow-${u.kod}">
+    return`<div class="urow${girisli?' girisli':''}" id="urow-${escapeHtml(u.kod)}">
       <div class="urow-top">
         <div>
           <div class="urow-ad">${escapeHtml(meta.ad)}</div>
@@ -495,7 +495,7 @@ function renderRKalemler(){
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="number" value="${k.miktar}" placeholder="Miktar" min="0" step="0.001" oninput="RKALEMLER[${i}].miktar=this.value;rkalemMaliyetGuncelle()" style="flex:1;padding:8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px">
-        <input type="text" value="${k.birim}" placeholder="Birim" oninput="RKALEMLER[${i}].birim=this.value" style="width:64px;padding:8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px">
+        <input type="text" value="${escapeHtml(k.birim)}" placeholder="Birim" oninput="RKALEMLER[${i}].birim=this.value" style="width:64px;padding:8px;border:1.5px solid var(--gray-300);border-radius:6px;font-size:13px">
         ${RKALEMLER.length>1?`<button onclick="RKALEMLER.splice(${i},1);renderRKalemler()" style="background:none;border:none;color:var(--danger);font-size:16px;cursor:pointer">✕</button>`:''}
       </div>
       <div style="font-size:10px;color:var(--gray-500);margin-top:3px">⚠️ Miktarı satın alma birimiyle aynı cinsten gir (örn. 150g için 0.15 KG)</div>
@@ -645,7 +645,7 @@ function tuketOnizlemeGuncelle(){
   el.innerHTML=`
     ${satirlar.map(s=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-100)">
       <span>${escapeHtml(s.ad)}</span>
-      <span style="color:${s.yeterli?'var(--gray-600)':'var(--danger)'};font-weight:${s.yeterli?400:700}">${s.gerekli.toFixed(3)} ${s.birim}${!s.yeterli?' ⚠️ yetersiz ('+s.mevcut.toFixed(2)+' var)':''}</span>
+      <span style="color:${s.yeterli?'var(--gray-600)':'var(--danger)'};font-weight:${s.yeterli?400:700}">${s.gerekli.toFixed(3)} ${escapeHtml(s.birim)}${!s.yeterli?' ⚠️ yetersiz ('+s.mevcut.toFixed(2)+' var)':''}</span>
     </div>`).join('')}
     <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;font-weight:800;color:var(--primary)">
       <span>Toplam Maliyet</span><span>${toplam.toFixed(2)} ₺</span>

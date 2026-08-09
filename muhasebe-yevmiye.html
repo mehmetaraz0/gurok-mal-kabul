@@ -556,7 +556,7 @@ function filterHesapDD(val,ddId,kodFieldId,kalemIdx){
   const res=Object.values(hesapPlani).filter(h=>h&&(h.kod?.includes(val)||h.ad?.toLowerCase().includes(val.toLowerCase()))).slice(0,12);
   if(!res.length){if(dd)dd.style.display='none';return;}
   dd.innerHTML=res.map(h=>`<div class="uddi" data-kod="${h.kod}" data-ad="${(h.ad||'').replace(/"/g,'&quot;')}" data-idx="${kalemIdx!==undefined?kalemIdx:''}">
-    <span style="font-family:monospace;font-weight:700">${h.kod}</span> ${h.ad}
+    <span style="font-family:monospace;font-weight:700">${escapeHtml(h.kod)}</span> ${escapeHtml(h.ad)}
   </div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
     el.addEventListener('pointerdown',function(e){
@@ -674,7 +674,7 @@ function renderKebir(){
 
   document.getElementById('kebir-sonuc').innerHTML=`
     <div class="card">
-      <div class="card-title">${kod} — ${hesap?.ad||kod}</div>
+      <div class="card-title">${escapeHtml(kod)} — ${escapeHtml(hesap?.ad||kod)}</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <tr style="background:var(--gray-100)">
           <th style="text-align:left;padding:6px">Tarih</th>
@@ -752,8 +752,8 @@ function renderMizan(){
       ${satirlar.map(h=>{
         const bak=h.borc-h.alacak;
         return`<div style="display:grid;grid-template-columns:80px 1fr 90px 90px 90px;padding:7px 12px;border-bottom:1px solid var(--gray-100);font-size:12px">
-          <span style="font-family:monospace;font-weight:700">${h.kod}</span>
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.ad}</span>
+          <span style="font-family:monospace;font-weight:700">${escapeHtml(h.kod)}</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(h.ad)}</span>
           <span style="text-align:right;color:var(--danger)">${fmt(h.borc)}</span>
           <span style="text-align:right;color:var(--success)">${fmt(h.alacak)}</span>
           <span style="text-align:right;font-weight:700;color:${bak>=0?'var(--danger)':'var(--success)'}">${fmt(Math.abs(bak))}</span>
@@ -818,7 +818,7 @@ function renderMasrafMerkezi(){
       const oran=genelToplam>0?(d.borc/genelToplam*100):0;
       return`<div style="padding:8px 12px;border-bottom:1px solid var(--gray-100)">
         <div style="display:grid;grid-template-columns:1fr 100px 40px;font-size:13px;align-items:center">
-          <span style="font-weight:600">🏢 ${d.ad}</span>
+          <span style="font-weight:600">🏢 ${escapeHtml(d.ad)}</span>
           <span style="text-align:right;font-weight:700;color:var(--danger)">${fmt(d.borc)}</span>
           <span style="text-align:right;color:var(--gray-500);font-size:11px">%${oran.toFixed(0)}</span>
         </div>

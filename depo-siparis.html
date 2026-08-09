@@ -299,7 +299,7 @@ function basla(){
       document.getElementById('tVer').innerHTML=`
         <div class="card" style="border-left:4px solid var(--danger)">
           <div class="card-title" style="color:var(--danger)">Depo Atanmamış</div>
-          <p style="font-size:13px;color:var(--gray-600)">Hesabınıza (${CU.ad}) henüz bir depo/departman kodu atanmamış. Talep açabilmeniz için yöneticinizin Kullanıcı Yönetimi'nden hesabınıza bir depo (örn. CMM201, CSM301) ataması gerekiyor.</p>
+          <p style="font-size:13px;color:var(--gray-600)">Hesabınıza (${escapeHtml(CU.ad)}) henüz bir depo/departman kodu atanmamış. Talep açabilmeniz için yöneticinizin Kullanıcı Yönetimi'nden hesabınıza bir depo (örn. CMM201, CSM301) ataması gerekiyor.</p>
         </div>`;
       gTab('ver');
       return;
@@ -396,7 +396,7 @@ function fUS(i,val){
     ...genel.map(u=>({kod:u.kod,ad:u.ad,birim:u.birim,stok:0,v:false}))
   ];
   if(!sonuc.length){dd.style.display='none';return;}
-  dd.innerHTML=sonuc.map(s=>`<div class="uddi" data-i="${i}" data-kod="${s.kod}" data-ad="${escapeHtml(s.ad||'')}" data-birim="${s.birim||'KG'}">
+  dd.innerHTML=sonuc.map(s=>`<div class="uddi" data-i="${i}" data-kod="${escapeHtml(s.kod)}" data-ad="${escapeHtml(s.ad||'')}" data-birim="${escapeHtml(s.birim||'KG')}">
     ${escapeHtml(s.ad)} <span style="font-size:10px;color:${s.v?'var(--success)':'var(--gray-400)'}">${s.v?'Stok: '+s.stok+' '+s.birim:'—'}</span>
   </div>`).join('');
   dd.querySelectorAll('[data-kod]').forEach(el=>{
@@ -479,7 +479,7 @@ function rTaleplerim(){
     const cm={bekleyen:'<span class="chip chip-warn">Bekliyor</span>',onaylandi:'<span class="chip chip-ok">Onaylandı</span>',reddedildi:'<span class="chip chip-err">Reddedildi</span>'};
     return`<div class="skart ${s.durum}">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">${cm[s.durum]||''}<div style="text-align:right;font-size:11px;color:var(--gray-500)">${s.tarih}</div></div>
-      ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${escapeHtml(u.ad||u.urunAd||"")} — <b>${u.miktar} ${u.birim}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
+      ${(s.urunler||s.kalemler||[]).map(u=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--gray-100)">• ${escapeHtml(u.ad||u.urunAd||"")} — <b>${u.miktar} ${escapeHtml(u.birim)}</b>${s.durum==='onaylandi'&&u.onaylananMiktar!==undefined&&u.onaylananMiktar!==u.talepMiktar?` <span style="color:var(--warning)">(Onaylanan: ${u.onaylananMiktar})</span>`:''}</div>`).join('')}
       ${s.durum==='bekleyen'?`<button class="btn btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="iptalEt('${s.id}')">Talebi İptal Et</button>`:''}
     ${s.redNot?`<div style="font-size:11px;color:var(--danger);margin-top:4px">Red: ${escapeHtml(s.redNot)}</div>`:''}
     </div>`;
@@ -570,7 +570,7 @@ function aOnay(id){
         <div style="display:flex;align-items:center;gap:8px">
           <label style="font-size:12px;color:var(--gray-600)">Onaylanan:</label>
           <input type="number" class="omiktar" id="om${i}" value="${u.onaylananMiktar!==undefined?u.onaylananMiktar:u.miktar}" min="0" step="0.01">
-          <span style="font-size:13px;color:var(--gray-600)">${u.birim}</span>
+          <span style="font-size:13px;color:var(--gray-600)">${escapeHtml(u.birim)}</span>
         </div>
       </div>`;
     }).join('')}
@@ -696,7 +696,7 @@ function depoQrListeRender(){
   c.innerHTML=`<div style="background:#f0fdf4;border:1px solid var(--success);border-radius:8px;padding:8px 10px;margin-bottom:10px">
     <div style="font-size:11px;font-weight:700;color:#155724;margin-bottom:4px">📦 Okutulan koliler (${_onayKolileri.length})</div>
     ${_onayKolileri.map((k,i)=>`<div style="font-size:11px;color:#155724;display:flex;justify-content:space-between;align-items:center;padding:2px 0">
-      <span>${escapeHtml(k.urunAdi)} — Koli ${k.koliNo||'?'} — <b>${k.miktar.toFixed(2)} ${k.birim}</b></span>
+      <span>${escapeHtml(k.urunAdi)} — Koli ${k.koliNo||'?'} — <b>${k.miktar.toFixed(2)} ${escapeHtml(k.birim)}</b></span>
       <button onclick="depoKoliCikar(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px">✕</button>
     </div>`).join('')}
   </div>`;
@@ -956,7 +956,7 @@ async function onayOzetGoster(id, tip){
             <div style="font-size:11px;color:var(--gray-500)">${u.kod?'Stok: '+stok+' '+u.birim:'⚠️ LN kodu yok'}</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:15px;font-weight:800;color:${yeterli?'var(--success)':'var(--danger)'}">${u.onaylananMiktar} ${u.birim}</div>
+            <div style="font-size:15px;font-weight:800;color:${yeterli?'var(--success)':'var(--danger)'}">${u.onaylananMiktar} ${escapeHtml(u.birim)}</div>
             ${!yeterli&&u.kod?'<div style="font-size:10px;color:var(--danger)">⚠️ Yetersiz</div>':''}
           </div>
         </div>`;
@@ -1018,15 +1018,15 @@ function pdfCikti(id){
   <table>
     <thead><tr><th>#</th><th>Ürün Adı</th><th>LN Kodu</th><th>Talep</th><th>Onaylanan</th><th>Birim</th><th>Not</th></tr></thead>
     <tbody>${urunler.map((u,i)=>`<tr>
-      <td>${i+1}</td><td><b>${u.ad||u.urunAd||'—'}</b></td>
-      <td style="font-family:monospace;font-size:10px">${u.kod||'—'}</td>
+      <td>${i+1}</td><td><b>${escapeHtml(u.ad||u.urunAd||'—')}</b></td>
+      <td style="font-family:monospace;font-size:10px">${escapeHtml(u.kod||'—')}</td>
       <td style="text-align:center">${u.talepMiktar||u.miktar||0}</td>
       <td style="text-align:center;font-weight:bold">${u.onaylananMiktar!==undefined?u.onaylananMiktar:u.miktar||0}</td>
-      <td style="text-align:center">${u.birim||'KG'}</td>
-      <td style="font-size:10px;color:#555">${u.not||''}</td>
+      <td style="text-align:center">${escapeHtml(u.birim||'KG')}</td>
+      <td style="font-size:10px;color:#555">${escapeHtml(u.not||'')}</td>
     </tr>`).join('')}</tbody>
   </table>
-  ${s.not?`<div style="background:#f9f9f9;border:1px solid #eee;padding:8px;margin-bottom:12px"><b>Not:</b> ${s.not}</div>`:''}
+  ${s.not?`<div style="background:#f9f9f9;border:1px solid #eee;padding:8px;margin-bottom:12px"><b>Not:</b> ${escapeHtml(s.not)}</div>`:''}
   <div class="imza-grid">
     <div class="imza-box">
       <div class="imza-title">TESLİM EDEN</div>

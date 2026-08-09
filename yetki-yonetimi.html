@@ -100,7 +100,7 @@ function render(){
     thead1+=`<th colspan="${say}" class="kat-${k}">${KAT_ADLARI[k]||k}</th>`;
   });
   thead1+='</tr><tr>';
-  moduller.forEach(m=>{thead1+=`<th class="kat-${m.kategori} modul-th${m.aktif===false?' modul-pasif':''}" onclick="modulAktifDegistir('${m.id}')" title="Tıkla: modülü aktif/pasif yap">${m.aktif===false?'🔒 ':''}${escapeHtml(m.ad)}</th>`;});
+  moduller.forEach(m=>{thead1+=`<th class="kat-${escapeHtml(m.kategori)} modul-th${m.aktif===false?' modul-pasif':''}" onclick="modulAktifDegistir('${m.id}')" title="Tıkla: modülü aktif/pasif yap">${m.aktif===false?'🔒 ':''}${escapeHtml(m.ad)}</th>`;});
   thead1+='</tr>';
 
   let gövde='';
