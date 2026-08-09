@@ -74,7 +74,19 @@ function requireLogin() {
 // erişimi reddeder ve body'yi bir "kapalı" mesajıyla değiştirir.
 function requireRole(user, izinliRoller) {
   if (izinliRoller.includes(user.rol)) return true;
-  document.body.innerHTML = `
+  // Bu dosya <head> içinde senkron yüklendiği için çağrıldığı anda document.body
+  // HENÜZ OLMAYABİLİR. Öyleyse doğrudan yazmak "Cannot set properties of null"
+  // fırlatır: erişim yine reddedilir (istisna sayfa init'ini durdurur) ama
+  // kullanıcı "kapalı" mesajı yerine bozuk bir sayfa görür. body hazır değilse
+  // DOMContentLoaded'a ertele.
+  const kapaliEkraniBas = () => { document.body.innerHTML = KAPALI_EKRAN_HTML(user); };
+  if (document.body) kapaliEkraniBas();
+  else document.addEventListener('DOMContentLoaded', kapaliEkraniBas, { once: true });
+  return false;
+}
+
+function KAPALI_EKRAN_HTML(user) {
+  return `
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f1f3f5;font-family:-apple-system,'Segoe UI',sans-serif;padding:20px">
       <div style="background:white;border-radius:16px;padding:32px 28px;max-width:340px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.15)">
         <div style="font-size:40px;margin-bottom:12px">🔒</div>
@@ -83,7 +95,6 @@ function requireRole(user, izinliRoller) {
         <a href="index.html" style="display:inline-block;background:#1a2744;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">Portala Dön</a>
       </div>
     </div>`;
-  return false;
 }
 
 // PIN deneme sınırlaması — 5 hatalı denemeden sonra artan sürelerle (30sn, 60sn,
