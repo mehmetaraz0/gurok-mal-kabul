@@ -721,7 +721,7 @@ async function saveHesap(h){
     silindi:false
   };
   try{
-    await fetch(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
+    await sbYaz(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
       method:'POST',
       headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify(satir)

@@ -256,7 +256,7 @@ async function kullaniciKaydet(){
   try{
     let hedefId=editId;
     if(editId){
-      await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+editId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+      await sbYaz(SB_URL+'/rest/v1/kullanicilar?id=eq.'+editId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
       await auditLogYaz('update','kullanici',editId,`Kullanıcı güncellendi: ${ad} (${rol?.ad||''})`);
     }else{
       const r=await fetch(SB_URL+'/rest/v1/kullanicilar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
@@ -283,7 +283,7 @@ async function kullaniciSil(){
   if(!confirm(`"${u.ad}" tamamen silinsin mi?\n\n(Silmek yerine "Aktif kullanıcı" kutusunu kapatıp kaydetmen önerilir — geçmiş işlemlerdeki adı/izleri bozmaz, sadece girişini engeller.)`))return;
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/kullanicilar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({aktif:false})});
+    await sbYaz(SB_URL+'/rest/v1/kullanicilar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({aktif:false})});
     await auditLogYaz('delete','kullanici',id,`Kullanıcı silindi: ${u.ad}`);
   }catch(e){console.warn(e);}
   hLD();

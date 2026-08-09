@@ -187,7 +187,7 @@ async function spGrupla(){
   for(const g of grupListesi){
     g.siparisNo = await yeniSiparisNoUret(sipPrefix);
     try{
-      await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      await sbYaz(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         siparis_no:g.siparisNo,firma_ad:g.firmaAd||'',otel_id:otelId,tarih:tarih||bugunTarih(),durum:'bekleyen'
       })});
     }catch(e){console.warn(e);}
@@ -233,7 +233,7 @@ async function spGrupla(){
     const kalemler=g.kalemler.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
       gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0,tahminiFiyat:k.tahminiFiyat?parseFloat(k.tahminiFiyat):null}));
     try{
-      await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+g.siparisNo,{
+      await sbYaz(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+g.siparisNo,{
         method:'PATCH',headers:SB_HEADERS,
         body:JSON.stringify({firma_ad:g.firmaAd,termin_tarihi:termin||null,olusturan_ad:CU.ad})
       });
@@ -241,7 +241,7 @@ async function spGrupla(){
         siparis_no:g.siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
         miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar,tahmini_fiyat:k.tahminiFiyat
       }));
-      await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+      await sbYaz(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
       DB.siparisler[g.siparisNo]={siparisNo:g.siparisNo,firma:g.firmaAd,firmaId:g.firmaId,tarih,termin,otelId,kalemler,durum:'bekleyen',olusturanAd:CU.ad,olusturmaTarih:Date.now()};
     }catch(e){console.warn(e);}
   }

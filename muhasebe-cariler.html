@@ -369,7 +369,7 @@ async function saveCari(c){
   };
   try{
     if(c.id){
-      await fetch(SB_URL+'/rest/v1/cariler?id=eq.'+c.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+      await sbYaz(SB_URL+'/rest/v1/cariler?id=eq.'+c.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
     }else{
       const r=await fetch(SB_URL+'/rest/v1/cariler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
       const d=await r.json();

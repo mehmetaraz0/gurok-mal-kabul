@@ -134,16 +134,19 @@ async function hucreDegistir(rolId,modulId){
 
   try{
     if(mevcut?.id){
-      await fetch(SB_URL+'/rest/v1/yetki_matrisi?id=eq.'+mevcut.id,{
+      const r=await fetch(SB_URL+'/rest/v1/yetki_matrisi?id=eq.'+mevcut.id,{
         method:'PATCH',headers:SB_HEADERS,
         body:JSON.stringify({yetki:yeniYetki,guncelleme_tarihi:new Date().toISOString()})
       });
+      // Sessiz hata koruması: RLS reddi/4xx durumunda catch'e düş, "kaydedildi" DEME
+      if(!r.ok) throw new Error('HTTP '+r.status+' — '+await r.text().catch(()=>''));
       matris[key]={id:mevcut.id,yetki:yeniYetki};
     }else{
       const r=await fetch(SB_URL+'/rest/v1/yetki_matrisi',{
         method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},
         body:JSON.stringify({rol_id:rolId,modul_id:modulId,yetki:yeniYetki})
       });
+      if(!r.ok) throw new Error('HTTP '+r.status+' — '+await r.text().catch(()=>''));
       const d=await r.json();
       matris[key]={id:d[0].id,yetki:yeniYetki};
     }
@@ -159,10 +162,12 @@ async function modulAktifDegistir(modulId){
   if(!m)return;
   const yeniDeger=m.aktif===false?true:false;
   try{
-    await fetch(SB_URL+'/rest/v1/moduller?id=eq.'+modulId,{
+    const r=await fetch(SB_URL+'/rest/v1/moduller?id=eq.'+modulId,{
       method:'PATCH',headers:SB_HEADERS,
       body:JSON.stringify({aktif:yeniDeger})
     });
+    // Sessiz hata koruması: yazma reddedilirse UI'yi "başarılı" göstermeden catch'e düş
+    if(!r.ok) throw new Error('HTTP '+r.status+' — '+await r.text().catch(()=>''));
     m.aktif=yeniDeger;
     render();
     toast(yeniDeger?'✅ Modül aktif edildi':'✅ Modül pasif edildi');

@@ -288,8 +288,8 @@ async function saveYevmiye(y){
   try{
     let fisUuid=y.id;
     if(y.id){
-      await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+y.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
-      await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri?fis_id=eq.'+y.id,{method:'DELETE',headers:SB_HEADERS});
+      await sbYaz(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+y.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+      await sbYaz(SB_URL+'/rest/v1/yevmiye_kalemleri?fis_id=eq.'+y.id,{method:'DELETE',headers:SB_HEADERS});
     }else{
       const r=await fetch(SB_URL+'/rest/v1/yevmiye_fisler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
       const d=await r.json();

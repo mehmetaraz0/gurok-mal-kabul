@@ -39,6 +39,62 @@ function jsAttrStr(v){
 }
 function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
 
+// ============================================================
+// SUNUCUYA YAZMA — SESSİZ HATA BIRAKMAZ
+// ============================================================
+// SORUN: kod tabanında 60+ yerde `await fetch(..., {method:'POST'})` sonucu HİÇ
+// kontrol edilmiyordu. RLS reddi / ağ hatası / 4xx durumunda kayıt gitmiyor ama
+// akış devam edip "✅ kaydedildi" diyordu → SESSİZ VERİ KAYBI.
+//
+// sbYaz() aynı imzayla fetch'in yerine geçer (url, opts) ve yanıtı döndürür —
+// akışı DEĞİŞTİRMEZ (throw etmez, mevcut mantık bozulmaz). Başarısızlıkta
+// konsola yazar + KALICI kırmızı şerit gösterir. Şerit kalıcıdır çünkü toast
+// tek elemanlıdır ve arkadan gelen "✅ kaydedildi" mesajı onu EZER.
+async function sbYaz(url, opts, aciklama){
+  let r;
+  try{
+    r = await fetch(url, opts);
+  }catch(e){
+    console.error('YAZMA HATASI (ağ):', url, e);
+    yazmaHatasiGoster(aciklama || 'Kayıt', 'Sunucuya ulaşılamadı: ' + (e && e.message || e));
+    throw e;   // ağ hatası zaten mevcut try/catch'lere düşüyordu — davranış korunur
+  }
+  if(!r.ok){
+    const govde = await r.clone().text().catch(()=>'');
+    console.error('YAZMA HATASI:', url, r.status, govde);
+    yazmaHatasiGoster(aciklama || 'Kayıt', 'HTTP ' + r.status + (govde ? ' — ' + govde.slice(0,200) : ''));
+  }
+  return r;
+}
+
+// Kalıcı hata şeridi — kullanıcı kapatana kadar durur (toast gibi kaybolmaz).
+function yazmaHatasiGoster(baslik, detay){
+  let el = document.getElementById('yazma-hata-serit');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'yazma-hata-serit';
+    el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:10000;background:#9b1c1c;color:#fff;'+
+      'padding:10px 44px 10px 14px;font-size:13px;line-height:1.45;box-shadow:0 2px 10px rgba(0,0,0,.3);'+
+      'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif';
+    const kapat = document.createElement('button');
+    kapat.textContent = '✕';
+    kapat.setAttribute('aria-label','Kapat');
+    kapat.style.cssText = 'position:absolute;right:8px;top:6px;background:none;border:none;color:#fff;'+
+      'font-size:18px;cursor:pointer;line-height:1';
+    kapat.onclick = () => el.remove();
+    el.appendChild(kapat);
+    const ic = document.createElement('div');
+    ic.id = 'yazma-hata-icerik';
+    el.appendChild(ic);
+    document.body.appendChild(el);
+  }
+  const ic = document.getElementById('yazma-hata-icerik');
+  const satir = document.createElement('div');
+  // textContent → XSS yok (sunucu hata gövdesi buraya basılıyor)
+  satir.textContent = '⚠️ ' + baslik + ' KAYDEDİLEMEDİ — ' + detay;
+  ic.appendChild(satir);
+}
+
 // TARİH — YEREL GÜN (Türkiye UTC+3).
 // HATA: new Date().toISOString().split('T')[0] UTC gününü verir; saat 00:00–03:00
 // arasında girilen kayıt BİR ÖNCEKİ güne yazılıyordu (gece vardiyası/bar kapanışı).

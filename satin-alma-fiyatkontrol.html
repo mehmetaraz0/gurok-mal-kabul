@@ -440,24 +440,24 @@ async function muhasebeGonder(){
       birim:u.birim,birim_fiyat:fiyatlar[i],iskonto_yuzde:0,kdv_orani:0,
       toplam:round2(fiyatlar[i]*(parseFloat(u.miktar)||0))
     }));
-    await fetch(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    await sbYaz(SB_URL+'/rest/v1/fatura_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
     f.muhasebeFaturaId=faturaId;
 
     // Her mal kabul kaleminin birim fiyatını Supabase'e yaz
     for(let i=0;i<urunler.length;i++){
       const u=urunler[i];
       if(u.id){
-        await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri?id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i]})});
+        await sbYaz(SB_URL+'/rest/v1/mal_kabul_urunleri?id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i]})});
         // Bu kaleme ait koliler varsa (Koli Bazlı Giriş kullanılmışsa) onların da gerçek fiyatını yaz —
         // Günlük Tüketim'deki reçete maliyeti buradan FIFO (en eski/depodaki koli fiyatı) çekiyor.
         if(fiyatlar[i]>0){
-          await fetch(SB_URL+'/rest/v1/koli_etiketleri?mk_urun_id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i],fiyat_kaynagi:'fatura'})});
+          await sbYaz(SB_URL+'/rest/v1/koli_etiketleri?mk_urun_id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({birim_fiyat:fiyatlar[i],fiyat_kaynagi:'fatura'})});
         }
       }
     }
 
     // Mal kabul kaydını güncelle (fiyat kontrolü durumu + muhasebe fatura bağlantısı)
-    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+f.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+    await sbYaz(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+f.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
       fiyat_kontrol_durum:'muhasebe',
       fiyat_kontrol_notu:f.fiyatKontrolNotu||null,
       fiyat_kontrol_tarihi:new Date().toISOString(),
@@ -484,7 +484,7 @@ async function muhasebeGonder(){
 async function grIrTahakkukFisiKes(f,araToplam){
   try{
     // 320.90 hesabı hesap planında yoksa oluştur
-    await fetch(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
+    await sbYaz(SB_URL+'/rest/v1/hesap_plani?on_conflict=kod',{
       method:'POST',headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify({kod:'320.90',ad:'Faturası Beklenen Alımlar (GR/IR)',tip:'Bilanço',ust_kod:'320',silindi:false})
     });
@@ -506,7 +506,7 @@ async function grIrTahakkukFisiKes(f,araToplam){
     });
     if(!fisR.ok){console.warn('Tahakkuk fişi oluşturulamadı:',await fisR.text());return;}
     const fis=(await fisR.json())[0];
-    await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri',{
+    await sbYaz(SB_URL+'/rest/v1/yevmiye_kalemleri',{
       method:'POST',headers:SB_HEADERS,
       body:JSON.stringify([
         {fis_id:fis.id,hesap_kodu:'770',aciklama:`Mal kabul: ${f.mkNo} — ${f.firma}`,borc:tutar,alacak:0},

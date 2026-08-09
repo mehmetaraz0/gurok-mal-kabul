@@ -151,7 +151,7 @@ async function saveLnSiparisler(sipObjList){
     kalemler:s.kalemler||[],durum:s.durum||'bekleyen'
   }));
   try{
-    await fetch(SB_URL+'/rest/v1/ln_siparisler?on_conflict=siparis_no',{
+    await sbYaz(SB_URL+'/rest/v1/ln_siparisler?on_conflict=siparis_no',{
       method:'POST',
       headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify(satirlar)

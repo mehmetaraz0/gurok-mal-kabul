@@ -743,7 +743,7 @@ async function talepExcelUygula(rows){
       const yeniMiktar=parseFloat(satir['Miktar']);
       if(!isNaN(yeniMiktar)&&yeniMiktar!==parseFloat(kalem.miktar)){
         try{
-          await fetch(SB_URL+'/rest/v1/satin_alma_talep_kalemleri?id=eq.'+kalemId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({miktar:yeniMiktar})});
+          await sbYaz(SB_URL+'/rest/v1/satin_alma_talep_kalemleri?id=eq.'+kalemId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({miktar:yeniMiktar})});
           miktarGuncellenen++;
         }catch(e){}
       }

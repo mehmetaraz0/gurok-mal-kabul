@@ -208,7 +208,7 @@ async function uygunsuzlukKaydet(id){
   if(!faaliyet){toast('⚠️ Faaliyet açıklaması girin');return;}
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/uygunsuzluklar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+    await sbYaz(SB_URL+'/rest/v1/uygunsuzluklar?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
       durum:'kapatildi',kapanma_tarihi:new Date().toISOString(),
       karar,faaliyet_aciklama:faaliyet,faaliyet_yapan:yapan||null,faaliyet_tarih:tarih||null
     })});

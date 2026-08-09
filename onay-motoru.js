@@ -87,7 +87,7 @@ async function talepAsamaIlerlet(talepId, kullanici, karar, opts){
       const gecmisR = await fetch(SB_URL+'/rest/v1/talep_onay_gecmisi', {method:'POST', headers: SB_HEADERS,
         body: JSON.stringify({talep_id: talepId, asama, rol_kodu: kullanici.rol, kullanici_ad: kullanici.ad, karar: 'red', not_metni: not || null})});
       if (!gecmisR.ok) console.error('talep_onay_gecmisi yazılamadı (red) — denetim izi eksik kalabilir:', await gecmisR.text());
-      await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId, {method:'PATCH', headers: SB_HEADERS,
+      await sbYaz(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId, {method:'PATCH', headers: SB_HEADERS,
         body: JSON.stringify({durum:'reddedildi', onaylayan_ad: kullanici.ad, onay_tarihi: new Date().toISOString()})});
       return {ok:true, sonuc:'reddedildi', gecmisYazildi: gecmisR.ok};
     }
@@ -112,7 +112,7 @@ async function talepAsamaIlerlet(talepId, kullanici, karar, opts){
       patchBody.onaylayan_ad = kullanici.ad;
       patchBody.onay_tarihi = new Date().toISOString();
     }
-    await fetch(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId, {method:'PATCH', headers: SB_HEADERS, body: JSON.stringify(patchBody)});
+    await sbYaz(SB_URL+'/rest/v1/satin_alma_talepleri?id=eq.'+talepId, {method:'PATCH', headers: SB_HEADERS, body: JSON.stringify(patchBody)});
     return {ok:true, sonuc: sonrakiAsama || 'onaylandi', gecmisYazildi: gecmisR.ok};
   } catch(e) {
     console.warn(e);

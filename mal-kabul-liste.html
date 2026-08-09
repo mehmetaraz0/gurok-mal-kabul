@@ -905,13 +905,13 @@ async function _formKaydetIc(){
     // SKT girilen kalemler için kayıt oluştur
     for(const k of dolu){
       if(k.sktTarihi){
-        await fetch(SB_URL+'/rest/v1/skt_kayitlari',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+        await sbYaz(SB_URL+'/rest/v1/skt_kayitlari',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
           urun_kodu:k.kod||null,mk_id:mkId,otel_id:otelId,depo_kodu:depoKodu,miktar:parseFloat(k.miktar),
           skt_tarihi:k.sktTarihi,durum:'aktif'
         })});
       }
       if(k.uygunsuz){
-        await fetch(SB_URL+'/rest/v1/uygunsuzluklar',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+        await sbYaz(SB_URL+'/rest/v1/uygunsuzluklar',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
           mk_id:mkId,urun_kodu:k.kod||null,otel_id:otelId,
           aciklama:`${k.ad} — mal kabulde uygunsuz/hasarlı olarak işaretlendi${k.uygunsuzNot?': '+k.uygunsuzNot:''}`,
           durum:'acik',bildiren_ad:currentUser.ad
@@ -1104,7 +1104,7 @@ async function duzeltmeModuAc(id){
     // geçiliyor, yani buraya düşen her kayıt zaten stoğa işlenmiştir.)
     const geriAlindi=await stoktanGeriAl(f);
     if(!geriAlindi){hLD();return;} // stoktanGeriAl zaten alert gösterdi — durum PATCH'lenmeden dur, aksi halde stok iki kez düşer/eklenir
-    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'bekleyen',notlar:yeniNotlar,stok_islendi:false})});
+    await sbYaz(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'bekleyen',notlar:yeniNotlar,stok_islendi:false})});
     await auditLogYaz('duzelt','mal_kabul',id,`Onaylı kayıt düzeltme moduna alındı: ${f.mkNo}`);
   }catch(e){console.warn(e);toast('⚠️ İşlem başarısız');hLD();return;}
   hLD();
@@ -1169,7 +1169,7 @@ async function siparisMiktarUygula(f,yon){
       if(sk){
         const yeniGelen=Math.max(0,(sk.gelenMiktar||0)+yon*u.miktar);
         const yeniKalan=Math.max(0,(sk.miktar||0)-yeniGelen);
-        await fetch(SB_URL+`/rest/v1/siparis_kalemleri?siparis_no=eq.${siparisNo}&urun_kodu=eq.${encodeURIComponent(u.kod||'')}`,{
+        await sbYaz(SB_URL+`/rest/v1/siparis_kalemleri?siparis_no=eq.${siparisNo}&urun_kodu=eq.${encodeURIComponent(u.kod||'')}`,{
           method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({gelen_miktar:yeniGelen,kalan_miktar:yeniKalan})
         });
         sk.gelenMiktar=yeniGelen;sk.kalanMiktar=yeniKalan;
@@ -1178,7 +1178,7 @@ async function siparisMiktarUygula(f,yon){
     const tumuTamam=sip.kalemler.every(sk=>(sk.kalanMiktar||0)<=0.01);
     const herhangiGeldi=sip.kalemler.some(sk=>(sk.gelenMiktar||0)>0.01);
     const yeniDurum=tumuTamam?'tamamlandi':(herhangiGeldi?'kismi':'bekleyen');
-    await fetch(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+siparisNo,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:yeniDurum})});
+    await sbYaz(SB_URL+'/rest/v1/siparisler?siparis_no=eq.'+siparisNo,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:yeniDurum})});
   }
 }
 
@@ -1294,7 +1294,7 @@ async function kaliteReddet(id){
   if(neden===null)return;
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'iptal'})});
+    await sbYaz(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({durum:'iptal'})});
 
     const mevcutUygunsuzlar=uygunsuzluklarAcik[id]||[];
     if(mevcutUygunsuzlar.length){
@@ -1304,7 +1304,7 @@ async function kaliteReddet(id){
       if(r.ok){
         const kayitlar=await r.json();
         for(const k of kayitlar){
-          await fetch(SB_URL+'/rest/v1/uygunsuzluklar?id=eq.'+k.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+          await sbYaz(SB_URL+'/rest/v1/uygunsuzluklar?id=eq.'+k.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
             aciklama:`${k.aciklama}\n— Mal kabul reddedildi: ${neden}`
           })});
         }
@@ -1312,7 +1312,7 @@ async function kaliteReddet(id){
     }else{
       // Bu kayıtta üründen kaynaklanan bir uygunsuzluk yoktu (örn. yanlış ürün geldi, miktar tutmadı vb.)
       // — reddetme sebebinin kendisi tek uygunsuzluk kaydı olur.
-      await fetch(SB_URL+'/rest/v1/uygunsuzluklar',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      await sbYaz(SB_URL+'/rest/v1/uygunsuzluklar',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         mk_id:id,otel_id:f.otelId,aciklama:`Mal kabul reddedildi: ${neden}`,durum:'acik',bildiren_ad:currentUser.ad
       })});
     }
@@ -1366,7 +1366,7 @@ async function urunDuzeltKaydet(mkId,urunId){
   if(!miktar||miktar<=0){toast('⚠️ Geçerli bir miktar girin');return;}
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/mal_kabul_urunleri?id=eq.'+urunId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({urun_adi:ad,birim,miktar,seri_no:seriNo||null,marka:marka||null})});
+    await sbYaz(SB_URL+'/rest/v1/mal_kabul_urunleri?id=eq.'+urunId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({urun_adi:ad,birim,miktar,seri_no:seriNo||null,marka:marka||null})});
     await auditLogYaz('update','mal_kabul_urunu',urunId,`Ürün düzeltildi: ${ad} — ${miktar} ${birim} (${currentUser.ad})`);
   }catch(e){console.warn(e);toast('⚠️ Kaydetme hatası');hLD();return;}
   hLD();

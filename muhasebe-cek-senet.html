@@ -251,7 +251,7 @@ async function saveKayit(k){
   };
   try{
     if(k.id){
-      await fetch(SB_URL+'/rest/v1/cek_senetler?id=eq.'+k.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+      await sbYaz(SB_URL+'/rest/v1/cek_senetler?id=eq.'+k.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
     }else{
       const r=await fetch(SB_URL+'/rest/v1/cek_senetler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
       const d=await r.json();
@@ -372,8 +372,8 @@ async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,ot
   try{
     let fisUuid=mevcutId;
     if(mevcutId){
-      await fetch(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+mevcutId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(yevSatir)});
-      await fetch(SB_URL+'/rest/v1/yevmiye_kalemleri?fis_id=eq.'+mevcutId,{method:'DELETE',headers:SB_HEADERS});
+      await sbYaz(SB_URL+'/rest/v1/yevmiye_fisler?id=eq.'+mevcutId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(yevSatir)});
+      await sbYaz(SB_URL+'/rest/v1/yevmiye_kalemleri?fis_id=eq.'+mevcutId,{method:'DELETE',headers:SB_HEADERS});
     }else{
       const r=await fetch(SB_URL+'/rest/v1/yevmiye_fisler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(yevSatir)});
       const d=await r.json();

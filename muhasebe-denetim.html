@@ -162,7 +162,7 @@ window.arazAuditLog = async function(action, entityType, entityId, detail, userN
     kullanici_ad:userName||OTURUM_KULLANICI?.ad||'Bilinmeyen'
   };
   try{
-    await fetch(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});
+    await sbYaz(SB_URL+'/rest/v1/audit_log',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(log)});
   }catch(e){console.warn('Audit log kaydedilemedi:',e);}
   return log;
 };

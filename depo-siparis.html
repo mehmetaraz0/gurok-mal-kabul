@@ -235,19 +235,19 @@ async function saveSipYeni(s){
     const d=await r.json();
     const talepId=d[0].id;
     const kalemler=s.urunler.map(u=>({talep_id:talepId,urun_kodu:u.kod||null,urun_adi:u.ad,talep_miktar:u.miktar,birim:u.birim,not_alani:u.not||null}));
-    await fetch(SB_URL+'/rest/v1/ic_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemler)});
+    await sbYaz(SB_URL+'/rest/v1/ic_talep_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemler)});
     return talepId;
   }catch(e){console.warn(e);return null;}
 }
 async function saveSipDurum(s){
   try{
-    await fetch(SB_URL+'/rest/v1/ic_talepler?id=eq.'+s.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+    await sbYaz(SB_URL+'/rest/v1/ic_talepler?id=eq.'+s.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
       durum:s.durum,onaylayan_ad:s.onaylayanAd||null,
       onay_tarihi:s.onayTarih?new Date(s.onayTarih).toISOString():null,red_notu:s.redNot||null
     })});
     for(const u of s.urunler){
       if(u.id&&u.onaylananMiktar!==undefined){
-        await fetch(SB_URL+'/rest/v1/ic_talep_kalemleri?id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({onaylanan_miktar:u.onaylananMiktar})});
+        await sbYaz(SB_URL+'/rest/v1/ic_talep_kalemleri?id=eq.'+u.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({onaylanan_miktar:u.onaylananMiktar})});
       }
     }
   }catch(e){console.warn(e);}
@@ -255,7 +255,7 @@ async function saveSipDurum(s){
 async function saveHar(h){
   try{
     if(h.tip==='transfer'){
-      await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      await sbYaz(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:h.lnKod,depo_kodu:h.hedefDepoId,otel_id:otelFromDepoId(h.hedefDepoId),
         tip:'transfer',miktar:h.miktar,belge_no:h.siparisId||null,
         kaynak_depo_kodu:h.kaynakDepoId||null,
@@ -819,7 +819,7 @@ async function onayla(id){
   if(_onayKolileri.length){
     for(const k of _onayKolileri){
       try{
-        await fetch(SB_URL+'/rest/v1/koli_etiketleri?id=eq.'+k.id,{
+        await sbYaz(SB_URL+'/rest/v1/koli_etiketleri?id=eq.'+k.id,{
           method:'PATCH',headers:SB_HEADERS,
           body:JSON.stringify({depo_kodu:hedefDepoId})
         });

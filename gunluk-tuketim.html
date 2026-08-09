@@ -328,7 +328,7 @@ async function tuketimKaydet(){
         continue; // stok düşmediyse hareket kaydı da atma, tutarsız olur; giris alanını da temizleme
       }
       const yeniMiktar=parseFloat(await rStok.json())||0;
-      await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      await sbYaz(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:u.kod,depo_kodu:depoId,otel_id:otelId,tip:'cikis',miktar:miktar,
         aciklama:`gunluk_tuketim — ${CU.ad}`
       })});
@@ -564,7 +564,7 @@ async function receteKaydet(){
     if(receteId){
       const rPatch=await fetch(SB_URL+'/rest/v1/receteler?id=eq.'+receteId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(govde)});
       if(!rPatch.ok)throw new Error('Reçete güncellenemedi: '+(await rPatch.text()));
-      await fetch(SB_URL+'/rest/v1/recete_kalemleri?recete_id=eq.'+receteId,{method:'DELETE',headers:SB_HEADERS});
+      await sbYaz(SB_URL+'/rest/v1/recete_kalemleri?recete_id=eq.'+receteId,{method:'DELETE',headers:SB_HEADERS});
     }else{
       const r=await fetch(SB_URL+'/rest/v1/receteler',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(govde)});
       if(!r.ok)throw new Error('Reçete oluşturulamadı: '+(await r.text()));
@@ -593,7 +593,7 @@ async function receteSil(id){
   if(!confirm(`"${r.ad}" silinsin mi?`))return;
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/receteler?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({aktif:false})});
+    await sbYaz(SB_URL+'/rest/v1/receteler?id=eq.'+id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({aktif:false})});
     delete DB.receteler[id];
   }catch(e){}
   hLD();
@@ -677,7 +677,7 @@ async function tuketKaydet(){
         continue; // stok düşmediyse hareket kaydı da atma, tutarsız olur
       }
       const yeniMiktar=parseFloat(await rStok.json())||0;
-      await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+      await sbYaz(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         urun_kodu:k.kod,depo_kodu:depoId,otel_id:otelId,tip:'cikis',miktar:gerekli,
         aciklama:`recete_tuketim — ${r.ad} x${porsiyon} — ${CU.ad}`
       })});
@@ -687,7 +687,7 @@ async function tuketKaydet(){
     const birimMaliyet=toplam;
     const toplamMaliyet=Math.round(birimMaliyet*porsiyon*100)/100;
     const fc=r.satisFiyati?Math.round(birimMaliyet/r.satisFiyati*1000)/10:null;
-    await fetch(SB_URL+'/rest/v1/recete_tuketimleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+    await sbYaz(SB_URL+'/rest/v1/recete_tuketimleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
       recete_id:r.id,recete_ad:r.ad,porsiyon_sayisi:porsiyon,
       birim_maliyet:birimMaliyet,toplam_maliyet:toplamMaliyet,
       satis_fiyati:r.satisFiyati,food_cost_yuzde:fc,

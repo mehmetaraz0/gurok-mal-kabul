@@ -280,7 +280,7 @@ async function bugunuSifirla(){
 
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/doviz_kurlari?tarih=eq.'+tarihKey,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});
+    await sbYaz(SB_URL+'/rest/v1/doviz_kurlari?tarih=eq.'+tarihKey,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({silindi:true})});
   }catch(e){console.warn(e);}
   hLD();
   await loadDB();
@@ -343,7 +343,7 @@ async function manuelKurKaydet(){
 
   sLD();
   try{
-    await fetch(SB_URL+'/rest/v1/doviz_kurlari?on_conflict=tarih,para_birimi',{
+    await sbYaz(SB_URL+'/rest/v1/doviz_kurlari?on_conflict=tarih,para_birimi',{
       method:'POST',
       headers:{...SB_HEADERS,'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify({tarih:tarihKey,para_birimi:kod,doviz_alis:alis,doviz_satis:satis,kaynak:'Manuel',silindi:false})

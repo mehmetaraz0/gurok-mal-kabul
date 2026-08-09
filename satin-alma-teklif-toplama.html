@@ -185,7 +185,7 @@ function enUcuzTeklifId(kalem){
 }
 
 async function secimGuncelle(teklifKalemiId, teklifFiyatiId){
-  await fetch(SB_URL+'/rest/v1/teklif_kalemleri?id=eq.'+teklifKalemiId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({secilen_teklif_id:teklifFiyatiId})});
+  await sbYaz(SB_URL+'/rest/v1/teklif_kalemleri?id=eq.'+teklifKalemiId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({secilen_teklif_id:teklifFiyatiId})});
   await loadTeklifTalepleri();
   openTeklifDetay(_acikTeklifId); // modalı tazele
 }
@@ -193,7 +193,7 @@ async function secimGuncelle(teklifKalemiId, teklifFiyatiId){
 async function teklifFiyatiEkle(teklifKalemiId, firmaId, firmaAd, fiyat, notu){
   if(!yazabilir()){toast('⚠️ Yetkiniz yok');return;}
   if(!firmaAd || !(parseFloat(fiyat)>=0)){toast('⚠️ Firma ve geçerli fiyat gerekli');return;}
-  await fetch(SB_URL+'/rest/v1/teklif_fiyatlari',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+  await sbYaz(SB_URL+'/rest/v1/teklif_fiyatlari',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
     teklif_kalemi_id:teklifKalemiId, firma_id:firmaId||null, firma_ad:firmaAd,
     birim_fiyat:parseFloat(fiyat), giren_kullanici:CU.ad, not_alani:notu||null
   })});

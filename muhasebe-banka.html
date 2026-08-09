@@ -295,7 +295,7 @@ async function saveHesap(h){
   };
   try{
     if(h.id){
-      await fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari?id=eq.'+h.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
+      await sbYaz(SB_URL+'/rest/v1/banka_kasa_hesaplari?id=eq.'+h.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(satir)});
     }else{
       const r=await fetch(SB_URL+'/rest/v1/banka_kasa_hesaplari',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
       const d=await r.json();

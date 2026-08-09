@@ -618,7 +618,7 @@ async function saveStok(harekets){
 }
 async function saveHareket(h){
   try{
-    await fetch(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+    await sbYaz(SB_URL+'/rest/v1/stok_hareketleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
       urun_kodu:h.lnKod,depo_kodu:h.depoId,otel_id:otelFromDepoId(h.depoId),
       tip:h.tip,miktar:h.miktar,belge_no:h.belge||null,aciklama:h.aciklama||null,
       kaynak_depo_kodu:h.kaynakDepoId||null
@@ -1429,7 +1429,7 @@ async function saveCikis(){
   // QR ile okutulmuş koli varsa 'cikti' olarak işaretle (aynı etiket ikinci kez kullanılamaz)
   if(_okunanKoli&&_okunanKoli.urun_kodu===kod){
     try{
-      await fetch(SB_URL+'/rest/v1/koli_etiketleri?id=eq.'+_okunanKoli.id,{
+      await sbYaz(SB_URL+'/rest/v1/koli_etiketleri?id=eq.'+_okunanKoli.id,{
         method:'PATCH',headers:SB_HEADERS,
         body:JSON.stringify({durum:'cikti',cikis_depo:depoId,cikis_tarihi:new Date().toISOString()})
       });
@@ -1689,7 +1689,7 @@ async function iadeSiparisiOlustur(){
     gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));
 
   try{
-    await fetch(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
+    await sbYaz(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
       siparis_no:siparisNo,firma_ad:firmaAd,otel_id:otelId,tarih:bugunTarih(),
       durum:'bekleyen',tip:'iade',iade_nedeni:neden,orijinal_fatura_no:faturaNo||null,
       not_alani:not||null,kaynak:'depo',depo_kodu:depoId,olusturan_ad:currentUser?.ad||'—'
@@ -1698,7 +1698,7 @@ async function iadeSiparisiOlustur(){
       siparis_no:siparisNo,urun_kodu:k.kod||null,urun_adi:k.ad,birim:k.birim,
       miktar:k.miktar,gelen_miktar:0,kalan_miktar:k.miktar
     }));
-    await fetch(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
+    await sbYaz(SB_URL+'/rest/v1/siparis_kalemleri',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(kalemSatirlar)});
   }catch(e){console.warn(e);}
 
   // Stoktan anında düş
@@ -2152,7 +2152,7 @@ async function sayimOnayla(oturumId){
       const basarisizListesi=[...new Set([...atlananUrunler,...dogrulanamayanUrunler])].join(', ');
       showToast(`❌ Onay tamamlanamadı — doğrulanamayan ürünler: ${basarisizListesi}. Tekrar deneyin.`,4000);
     }else{
-      await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+      await sbYaz(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
         durum:'onaylandi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString()
       })});
       showToast(`✅ Sayım onaylandı — ${hareketler.length} üründe stok güncellendi`);
@@ -2217,7 +2217,7 @@ async function sayimReddet(oturumId){
       hideLoading();
       return;
     }
-    await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
+    await sbYaz(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
       durum:'reddedildi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString(),red_nedeni:nedenGirdi||null
     })});
     showToast('❌ Sayım reddedildi, stok değişmedi');
@@ -2336,7 +2336,7 @@ async function malKabulOnayKontrolEt(){
       // stok_islendi SADECE bu kaydın tüm satırları gerçekten yazıldıysa true olur —
       // aksi halde bu güvenlik ağı bir daha hiç denemez ve stok kalıcı olarak eksik kalır.
       if(rowBasarili){
-        await fetch(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+row.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({stok_islendi:true})});
+        await sbYaz(SB_URL+'/rest/v1/mal_kabuller?id=eq.'+row.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({stok_islendi:true})});
         basariliSayisi++;
       }
     }
