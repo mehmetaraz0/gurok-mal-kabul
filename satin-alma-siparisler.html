@@ -213,7 +213,7 @@ function renderLN(){
     const kalemler=s.kalemler||[];
     const geldi=kalemler.filter(k=>k.geldi).length;
     const pct=kalemler.length>0?Math.round(geldi/kalemler.length*100):0;
-    return`<div class="skart ${s.durum||'bekleyen'}" onclick="openLNDetay('${s.siparisNo||s.id}')">
+    return`<div class="skart ${s.durum||'bekleyen'}" onclick="openLNDetay('${jsAttrStr(s.siparisNo||s.id)}')">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
         <div><div style="font-size:13px;font-weight:700">${escapeHtml(s.firma)||'—'}</div><div style="font-size:11px;color:var(--gray-500)">${s.siparisNo} • ${s.tarih?new Date(s.tarih).toLocaleDateString('tr-TR'):''}</div></div>
         <span class="chip ${s.durum==='tamamlandi'?'chip-ok':s.durum==='kismi'?'chip-warn':'chip-gray'}">${kalemler.length} kalem</span>
@@ -246,7 +246,7 @@ function openLNDetay(siparisNo){
     ${gelenler.map(k=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray-100)"><div style="font-size:13px">${escapeHtml(k.urunAd)}</div><span style="font-size:13px;color:var(--success)">${k.miktar} ${k.birim}</span></div>`).join('')}`:''}
     <div class="brow" style="margin-top:12px">
       <button class="btn btn-gray" onclick="kModal('mLNDetay')">Kapat</button>
-      ${eksikler.length?`<button class="btn btn-primary" onclick="kModal('mLNDetay');lnEksikleriAktar('${siparisNo}')">Mal Kabule Aktar</button>`:''}
+      ${eksikler.length?`<button class="btn btn-primary" onclick="kModal('mLNDetay');lnEksikleriAktar('${jsAttrStr(siparisNo)}')">Mal Kabule Aktar</button>`:''}
     </div>`;
   aModal('mLNDetay');
 }

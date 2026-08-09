@@ -795,7 +795,7 @@ function _stokTabloBosSatir(){
   return `<tr><td colspan="${STOK_TABLO_KOLONLARI.length}" style="padding:20px;text-align:center;color:var(--gray-400)">Sonuç bulunamadı</td></tr>`;
 }
 function _stokTabloTbodyHTML(rows){
-  return rows.map(s=>`<tr onclick="openDetay('${aktifDepoId}','${s.lnKod}')" style="cursor:pointer">`+
+  return rows.map(s=>`<tr onclick="openDetay('${aktifDepoId}','${jsAttrStr(s.lnKod)}')" style="cursor:pointer">`+
     STOK_TABLO_KOLONLARI.map(k=>`<td style="padding:6px 8px;border-top:1px solid var(--gray-200);font-size:11.5px;white-space:nowrap">${escapeHtml(_stokHucreBicim(k.type,k.get(s)))}</td>`).join('')+
     `</tr>`).join('');
 }
@@ -914,7 +914,7 @@ function renderStok(){
     const d=getStokDurum(s.lnKod,s.miktar);
     const min=db.minimumlar[s.lnKod]||0;
     const pct=min>0?Math.min(100,Math.round((s.miktar/min)*100)):100;
-    return`<div class="stok-item ${d}" onclick="openDetay('${aktifDepoId}','${s.lnKod}')">
+    return`<div class="stok-item ${d}" onclick="openDetay('${aktifDepoId}','${jsAttrStr(s.lnKod)}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;color:var(--primary);">${escapeHtml(s.urunAd||'—')}</div>
@@ -990,7 +990,7 @@ function openDetay(depoId,lnKod){
     <div style="background:var(--gray-100);border-radius:8px;padding:12px;margin-bottom:12px;">
       <div style="font-size:11px;color:var(--gray-500);">${lnKod} • ${depoAd}</div>
       <div style="font-size:28px;font-weight:800;color:${d==='kritik'?'var(--danger)':d==='uyari'?'var(--warning)':'var(--success)'};">${s.miktar||0} ${s.birim||''}</div>
-      <div style="font-size:11px;color:var(--gray-500);cursor:pointer" onclick="minimumDuzenle('${lnKod}','${escapeHtml((s.urunAd||'').replace(/'/g,"\\'"))}')">
+      <div style="font-size:11px;color:var(--gray-500);cursor:pointer" onclick="minimumDuzenle('${jsAttrStr(lnKod)}','${jsAttrStr(s.urunAd)}')">
         ${min>0?`Minimum: ${min} ${s.birim||''}`:'Minimum belirlenmemiş'} <span style="color:var(--primary);font-weight:600">✏️ Düzenle</span>
       </div>
     </div>
@@ -1016,8 +1016,8 @@ function openDetay(depoId,lnKod){
       }).join('')}
     <div class="btn-row" style="margin-top:12px;">
       <button class="btn btn-gray btn-sm" onclick="closeModal('modal-detay')">Kapat</button>
-      <button class="btn btn-info btn-sm" onclick="closeModal('modal-detay');prefillTransfer('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">Transfer</button>
-      <button class="btn btn-danger btn-sm" onclick="closeModal('modal-detay');prefillCikis('${lnKod}','${s.urunAd?.replace(/'/g,"\\'")}','${s.birim||'KG'}','${depoId}')">Çıkış</button>
+      <button class="btn btn-info btn-sm" onclick="closeModal('modal-detay');prefillTransfer('${jsAttrStr(lnKod)}','${jsAttrStr(s.urunAd)}','${s.birim||'KG'}','${depoId}')">Transfer</button>
+      <button class="btn btn-danger btn-sm" onclick="closeModal('modal-detay');prefillCikis('${jsAttrStr(lnKod)}','${jsAttrStr(s.urunAd)}','${s.birim||'KG'}','${depoId}')">Çıkış</button>
     </div>`;
   openModal('modal-detay');
 }
@@ -1719,7 +1719,7 @@ async function iadeSiparisiOlustur(){
       &nbsp;${escapeHtml(firmaAd)}
     </div>
     <div style="font-size:12px;color:var(--gray-500);margin-top:6px;">${dolu.length-basarisizlar.length} kalem, ${depoAd}'dan stoktan düşüldü.${basarisizlar.length?` <span style="color:var(--danger)">(${basarisizlar.length} kalemde stok güncellenemedi)</span>`:''}</div>
-    <button class="btn btn-sm btn-gray" style="margin-top:8px;" onclick="iadeBelgeYazdir('${siparisNo}')">İade Belgesini Yazdır</button>
+    <button class="btn btn-sm btn-gray" style="margin-top:8px;" onclick="iadeBelgeYazdir('${jsAttrStr(siparisNo)}')">İade Belgesini Yazdır</button>
   </div>`;
   window._sonIadeSiparis={
     siparisNo,otelId,firma:firmaAd,donusSekli:neden,orijinalFaturaNo:faturaNo||'',
@@ -1851,7 +1851,7 @@ function renderSayimYeni(){
     <div class="card" style="padding:10px 14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
         <div><div style="font-weight:700;font-size:13px">${escapeHtml(s.urunAd)}</div><div style="font-size:10px;color:var(--gray-400)">${escapeHtml(s.lnKod)} • Sistem: ${s.miktar} ${escapeHtml(s.birim||'')}</div></div>
-        <input type="number" step="any" id="sayim-inp-${s.lnKod}" placeholder="Sayılan" style="width:90px;padding:8px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm)" value="${baslangicDeger}" oninput="sayimElleGuncelle('${s.lnKod}',this.value)">
+        <input type="number" step="any" id="sayim-inp-${s.lnKod}" placeholder="Sayılan" style="width:90px;padding:8px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm)" value="${baslangicDeger}" oninput="sayimElleGuncelle('${jsAttrStr(s.lnKod)}',this.value)">
       </div>
       <div id="sayim-fark-${s.lnKod}"></div>
       <div id="sayim-aciklama-alan-${s.lnKod}"></div>
@@ -1958,8 +1958,8 @@ function sayimFarkGuncelle(lnKod,val){
     ?`<span style="color:${renk};font-size:12px">Fark yok</span>`
     :`<span style="color:${renk};font-weight:700;font-size:12px">${fark>0?'+':''}${fark} (${fark>0?'+':''}${farkYuzde}%)</span>`;
   if(aciklamaEl)aciklamaEl.innerHTML=buyukFark
-    ?`<input type="text" placeholder="⚠️ Açıklama (zorunlu)" style="width:100%;margin-top:6px;padding:8px;border:1.5px solid var(--danger);border-radius:var(--radius-sm)" oninput="sayimAciklamaGuncelle('${lnKod}',this.value)" value="${escapeHtml(oncekiAciklama)}">`
-    :(fark!==0?`<input type="text" placeholder="Açıklama (isteğe bağlı)" style="width:100%;margin-top:6px;padding:8px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm)" oninput="sayimAciklamaGuncelle('${lnKod}',this.value)" value="${escapeHtml(oncekiAciklama)}">`:'');
+    ?`<input type="text" placeholder="⚠️ Açıklama (zorunlu)" style="width:100%;margin-top:6px;padding:8px;border:1.5px solid var(--danger);border-radius:var(--radius-sm)" oninput="sayimAciklamaGuncelle('${jsAttrStr(lnKod)}',this.value)" value="${escapeHtml(oncekiAciklama)}">`
+    :(fark!==0?`<input type="text" placeholder="Açıklama (isteğe bağlı)" style="width:100%;margin-top:6px;padding:8px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm)" oninput="sayimAciklamaGuncelle('${jsAttrStr(lnKod)}',this.value)" value="${escapeHtml(oncekiAciklama)}">`:'');
 }
 
 function sayimAciklamaGuncelle(lnKod,val){

@@ -158,7 +158,7 @@ function render(){
     const rozet=u.ucretli?`<span class="rozet ucretli">${u.fiyat} ₺</span>`:'<span class="rozet dahil">Dahil</span>';
     const pasifRoz=u.aktif?'':' <span class="rozet pasif">Pasif</span>';
     const btnPasif=yzb?(u.aktif?`<button class="btn btn-warn btn-sm" onclick="durumDegis('${u.id}',false)">Pasif</button>`:`<button class="btn btn-ok btn-sm" onclick="durumDegis('${u.id}',true)">Aktif</button>`):'';
-    const btnSil=yzb?`<button class="btn btn-danger btn-sm" onclick="urunSil('${u.id}','${escapeHtml((u.ad||'').replace(/'/g,""))}')">Sil</button>`:'';
+    const btnSil=yzb?`<button class="btn btn-danger btn-sm" onclick="urunSil('${u.id}','${jsAttrStr(u.ad)}')">Sil</button>`:'';
     html+=`<div class="urun">
       <div class="urun-ad">${escapeHtml(u.ad)} ${rozet}${pasifRoz}
         <span class="urun-alt">Otel ${escapeHtml(u.otel_id)} · Stok: ${escapeHtml(u.stok_kodu||'—')}${u.miktar_per_porsiyon?(' ×'+u.miktar_per_porsiyon):''}</span></div>

@@ -387,9 +387,9 @@ function aramaYap(){
       <div class="urow-fields">
         <input type="text" id="bb-${escapeHtml(u.kod)}" placeholder="Büyük Birim" value="${escapeHtml(mevcut.buyuk_birim||'')}" ${kayitliMi?'':'disabled'}>
         <input type="number" min="0.01" step="0.01" id="cp-${escapeHtml(u.kod)}" placeholder="Çarpan" value="${mevcut.carpan||''}" ${kayitliMi?'':'disabled'}>
-        <button onclick="donusumKaydet('${escapeHtml(u.kod).replace(/'/g,"\\'")}')" ${kayitliMi?'':'disabled'}>Kaydet</button>
+        <button onclick="donusumKaydet('${jsAttrStr(u.kod)}')" ${kayitliMi?'':'disabled'}>Kaydet</button>
         ${altGrupSecici}
-        <button onclick="altGrupAta('${escapeHtml(u.kod).replace(/'/g,"\\'")}')" ${kayitliMi&&uyanAltGruplar.length?'':'disabled'}>Ata</button>
+        <button onclick="altGrupAta('${jsAttrStr(u.kod)}')" ${kayitliMi&&uyanAltGruplar.length?'':'disabled'}>Ata</button>
       </div>
     </div>`;
   }).join('');

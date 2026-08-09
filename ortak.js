@@ -26,6 +26,17 @@ function toast(msg,d=2500){
   setTimeout(()=>t.classList.remove('show'),d);
 }
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// GÜVENLİK (pentest 2026-08-09, bulgu [6]): inline olay işleyicisi içindeki
+// TEK TIRNAKLI JS string'i İKİ katmanlı bir bağlamdır:
+//   onclick="fn('BURASI')"  →  önce HTML attribute çözülür, SONRA JS parse edilir.
+// Bu yüzden escapeHtml() TEK BAŞINA YETMEZ (&#39; HTML çözülünce ' olur ve
+// string'den çıkılır); ".replace(/'/g,"\\'")" de yetmez (ters bölü enjeksiyonu).
+// Doğru sıra: ÖNCE JS-kaçışı (\ ve '), SONRA HTML-kaçışı.
+// Kullanım:  onclick="sil('${jsAttrStr(u.kod)}')"
+function jsAttrStr(v){
+  return escapeHtml(String(v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+}
 function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 function aModal(id){document.getElementById(id).classList.add('open');}

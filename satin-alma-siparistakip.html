@@ -194,7 +194,7 @@ function _stHucreBicim(type,v){
 }
 function _stBosSatir(){ return `<tr><td colspan="${ST_TABLO_KOLONLARI.length}" style="padding:20px;text-align:center;color:var(--gray-400)">Kayıt bulunamadı</td></tr>`; }
 function _stTbodyHTML(rows){
-  return rows.map(s=>`<tr onclick="stDetayAc('${s.siparisNo}')" style="cursor:pointer">`+
+  return rows.map(s=>`<tr onclick="stDetayAc('${jsAttrStr(s.siparisNo)}')" style="cursor:pointer">`+
     ST_TABLO_KOLONLARI.map(k=>`<td style="padding:6px 8px;border-top:1px solid var(--gray-200);font-size:11.5px;white-space:nowrap">${escapeHtml(_stHucreBicim(k.type,k.get(s)))}</td>`).join('')+
     `</tr>`).join('');
 }
@@ -299,7 +299,7 @@ function renderSiparisTakip(){
     const yuzde=toplamKalem>0?Math.round(gelenKalem/toplamKalem*100):0;
     const eksikler=kalemler.filter(k=>k.kalanMiktar>0.01);
 
-    return`<div class="card" style="margin-bottom:8px;border-left:4px solid ${s.durum==='tamamlandi'?'var(--success)':s.durum==='kismi'?'var(--warning)':'var(--danger)'};cursor:pointer" onclick="stDetayAc('${s.siparisNo}')">
+    return`<div class="card" style="margin-bottom:8px;border-left:4px solid ${s.durum==='tamamlandi'?'var(--success)':s.durum==='kismi'?'var(--warning)':'var(--danger)'};cursor:pointer" onclick="stDetayAc('${jsAttrStr(s.siparisNo)}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--primary)">${escapeHtml(s.firma)||'—'}</div>
@@ -327,7 +327,7 @@ function renderSiparisTakip(){
         ${eksikler.length>3?`<div style="font-size:11px;color:var(--gray-400)">+${eksikler.length-3} kalem daha...</div>`:''}
       `:''}
       ${!['tamamlandi','iptal'].includes(s.durum)?`
-        <button onclick="event.stopPropagation();siparisYenidenYonlendir('${s.siparisNo}')"
+        <button onclick="event.stopPropagation();siparisYenidenYonlendir('${jsAttrStr(s.siparisNo)}')"
           style="margin-top:8px;width:100%;padding:9px;border:1.5px solid var(--danger);background:#fff5f5;color:var(--danger);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
           🔄 Yeniden Yönlendir (iptal + yeni teklif)
         </button>`:''}

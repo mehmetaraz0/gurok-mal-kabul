@@ -286,7 +286,7 @@ function renderUrunler(){
       </div>
       <div class="urow-inputs">
         <input type="number" min="0" step="0.01" placeholder="0" value="${u.giris||''}"
-          oninput="DB.stok['${u.kod}'].giris=this.value;this.closest('.urow').classList.toggle('girisli',parseFloat(this.value)>0)">
+          oninput="DB.stok['${jsAttrStr(u.kod)}'].giris=this.value;this.closest('.urow').classList.toggle('girisli',parseFloat(this.value)>0)">
         <span class="urow-birim">${meta.birim}</span>
       </div>
     </div>`;

@@ -420,7 +420,7 @@ function renderIadeTakip(){
   const nedenMap={depozito:'Depozito İadesi',bozuk:'Bozuk/Hasarlı',skt:'SKT',fazla:'Fazla Sipariş',diger:'Diğer'};
 
   c.innerHTML=liste.map(s=>`
-    <div class="card" style="margin-bottom:8px;border-left:4px solid var(--danger);cursor:pointer" onclick="iadeDetayAc('${s.siparisNo}')">
+    <div class="card" style="margin-bottom:8px;border-left:4px solid var(--danger);cursor:pointer" onclick="iadeDetayAc('${jsAttrStr(s.siparisNo)}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--primary)">${escapeHtml(s.firma)||'—'}</div>
@@ -439,7 +439,7 @@ function renderIadeTakip(){
       <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${s.fiyatlandirildi?'<span style="background:#dceee1;color:#2c5850;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyatlandırıldı</span>':'<span style="background:#fff3cd;color:#856404;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">💰 Fiyat Bekliyor</span>'}
         ${s.gonderildiMuhasebe?'<span style="background:#e8e5f0;color:#4a3f68;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">📤 Muhasebe\'de</span>':''}
-        <button class="btn btn-sm btn-primary" style="margin-left:auto;padding:5px 12px;min-height:26px" onclick="event.stopPropagation();iadeDetayAc('${s.siparisNo}')">Detay / Fiyatlandır →</button>
+        <button class="btn btn-sm btn-primary" style="margin-left:auto;padding:5px 12px;min-height:26px" onclick="event.stopPropagation();iadeDetayAc('${jsAttrStr(s.siparisNo)}')">Detay / Fiyatlandır →</button>
       </div>
     </div>`).join('');
 }
