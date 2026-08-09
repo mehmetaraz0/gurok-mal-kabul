@@ -189,7 +189,7 @@ function uygunsuzlukIncele(id){
     </div>
     <div class="rfields">
       <div class="field"><label>Faaliyeti Yapan</label><input type="text" id="uf-faaliyet-yapan" value="${escapeHtml(currentUser.ad)}"></div>
-      <div class="field"><label>Tarih</label><input type="date" id="uf-faaliyet-tarih" value="${new Date().toISOString().split('T')[0]}"></div>
+      <div class="field"><label>Tarih</label><input type="date" id="uf-faaliyet-tarih" value="${bugunYerelStr()}"></div>
     </div>
   `;
   document.getElementById('mUygunDetayActions').innerHTML=`

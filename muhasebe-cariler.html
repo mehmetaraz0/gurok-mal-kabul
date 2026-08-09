@@ -406,7 +406,7 @@ const cariExcelSpec = [
 
 async function cariExcelAktar(){
   const veriler=Object.values(cariler).filter(Boolean).map(c=>({...c,efatura:c.efatura,acente:c.acente?'evet':'hayir'}));
-  await excelSablonIndir(cariExcelSpec, veriler, 'cariler-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  await excelSablonIndir(cariExcelSpec, veriler, 'cariler-'+bugunYerelStr()+'.xlsx');
 }
 
 async function cariExcelYukle(event){
@@ -753,7 +753,7 @@ function openHareket(cariId,prefillTip){
   document.getElementById('h-cari-id').value=cariId;
   document.getElementById('h-cari-ad').value=c.ad;
   document.getElementById('h-tip').value=prefillTip||'borc';
-  document.getElementById('h-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('h-tarih').value=bugunYerelStr();
   document.getElementById('h-belge').value='';
   document.getElementById('h-tutar').value='';
   document.getElementById('h-kdv').value='';
@@ -1079,7 +1079,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
 // ============================================================
 (async function(){
   await loadDB();
-  const today=new Date().toISOString().split('T')[0];
+  const today=bugunYerelStr();
   const ayBasi=new Date();ayBasi.setDate(1);
   document.getElementById('har-bas').value=ayBasi.toISOString().split('T')[0];
   document.getElementById('har-bit').value=today;

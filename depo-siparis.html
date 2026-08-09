@@ -308,7 +308,7 @@ function basla(){
       <div class="card">
         <div class="card-title">Malzeme Talebi</div>
         <div class="field"><label>Departman</label><input id="vDept" value="${dept}" readonly style="background:var(--gray-100)"></div>
-        <div class="field"><label>Tarih</label><input type="date" id="vTarih" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div class="field"><label>Tarih</label><input type="date" id="vTarih" value="${bugunYerelStr()}"></div>
         <div class="field"><label>Not</label><input type="text" id="vNot" placeholder="Opsiyonel..."></div>
       </div>
       <div class="card">
@@ -320,7 +320,7 @@ function basla(){
     gTab('ver');
   } else {
     document.getElementById('hbtnYeni').style.display='flex';
-    document.getElementById('yTarih').value=new Date().toISOString().split('T')[0];
+    document.getElementById('yTarih').value=bugunYerelStr();
     bnav.innerHTML=`
       <button class="nbtn active" id="nb-gel" onclick="gTab('gelen')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></span><span class="nl">Gelen Talepler</span><span class="nbadge" id="gbadge"></span></button>
       <button class="nbtn" id="nb-bug" onclick="gTab('bugun')"><span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></span><span class="nl">Bugün Teslim</span></button>`;
@@ -434,7 +434,7 @@ async function gondер(){
   if(!US.length){toast('⚠️ En az bir ürün ekleyin');return;}
   if(US.find(u=>!u.ad)){toast('⚠️ Tüm ürün adlarını doldurun');return;}
   if(US.find(u=>!u.miktar||parseFloat(u.miktar)<=0)){toast('⚠️ Miktar girin');return;}
-  const tarih=document.getElementById('vTarih')?.value||new Date().toISOString().split('T')[0];
+  const tarih=document.getElementById('vTarih')?.value||bugunYerelStr();
   const not=document.getElementById('vNot')?.value||'';
   const dept=CU.departman||RADLAR[CU.rol]||CU.rol;
   const deptId=CU.depoId;
@@ -863,7 +863,7 @@ async function reddet(id){
 // ====== BUGÜN ======
 function rBugun(){
   const c=document.getElementById('tBugun');if(!c)return;
-  const today=new Date().toISOString().split('T')[0];
+  const today=bugunYerelStr();
   const liste=Object.values(DB.siparisler||{}).filter(Boolean).filter(s=>s.durum==='onaylandi'&&s.tarih===today).sort((a,b)=>b.onayTarih-a.onayTarih);
   c.innerHTML=liste.length===0?'<div class="es"><div class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:44px;height:44px"><path d="M4 12h4l2 3h4l2-3h4"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-6z"/></svg></div><div class="et">Bugün teslim edilecek sipariş yok</div></div>':
     `<div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:8px;text-transform:uppercase">📅 ${today} — ${liste.length} teslimat</div>`+

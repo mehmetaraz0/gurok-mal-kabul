@@ -278,7 +278,7 @@ const cekSenetExcelSpec=[
 ];
 async function cekSenetExcelAktar(){
   const veriler=Object.values(kayitlar).filter(Boolean);
-  await excelSablonIndir(cekSenetExcelSpec, veriler, 'cek-senetler-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  await excelSablonIndir(cekSenetExcelSpec, veriler, 'cek-senetler-'+bugunYerelStr()+'.xlsx');
 }
 async function cekSenetExcelYukle(event){
   const file=event.target.files[0];if(!file)return;event.target.value='';
@@ -527,7 +527,7 @@ function openYeniKayit(){
   document.getElementById('k-cari-id').value='';
   document.getElementById('k-no').value='';
   document.getElementById('k-banka').value='';
-  document.getElementById('k-duzenleme').value=new Date().toISOString().split('T')[0];
+  document.getElementById('k-duzenleme').value=bugunYerelStr();
   document.getElementById('k-vade').value='';
   document.getElementById('k-tutar').value='';
   document.getElementById('k-otel').value='810';
@@ -734,7 +734,7 @@ function gTab(tab,el){
 function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 // Yerel takvim gününe göre bugünün tarihi — new Date() ile doğrudan karşılaştırma UTC+3'te
 // gece 00:00-03:00 arası vadesi bugün olan bir kaydı bir gün erken "geçti" gösteriyordu.
-function bugunYerelStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+// bugunYerelStr() -> ortak.js (tek kaynak; yerel gün, UTC değil)
 // sLD/hLD/toast/escapeHtml/round2/kModal/aModal -> ortak.js
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 

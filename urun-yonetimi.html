@@ -169,7 +169,7 @@ async function urunSiniflandirmaExcelAktar(){
     alt_grup_kod:URUN_ALT_GRUP_ATANMIS[u.kod]||'',
     alt_grup_adi:altGrupHarita[URUN_ALT_GRUP_ATANMIS[u.kod]]||''
   }));
-  await excelSablonIndir(urunSiniflandirmaExcelSpec, veriler, 'urun-siniflandirma-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  await excelSablonIndir(urunSiniflandirmaExcelSpec, veriler, 'urun-siniflandirma-'+bugunYerelStr()+'.xlsx');
 }
 
 async function urunSiniflandirmaExcelYukle(event){

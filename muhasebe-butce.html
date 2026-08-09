@@ -238,7 +238,7 @@ function _butceMevcutKayitlar(){
 
 async function butceExcelAktar(){
   const veriler=_butceMevcutKayitlar().sort((a,b)=>b.yil-a.yil||a.hesapKodu.localeCompare(b.hesapKodu));
-  await excelSablonIndir(butceExcelSpec, veriler, 'butce-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  await excelSablonIndir(butceExcelSpec, veriler, 'butce-'+bugunYerelStr()+'.xlsx');
 }
 
 async function butceExcelYukle(event){

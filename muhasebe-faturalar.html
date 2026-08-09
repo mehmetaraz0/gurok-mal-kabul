@@ -776,7 +776,7 @@ function openYeniFatura(tur){
   document.getElementById('f-id').value='';
   document.getElementById('f-tur').value=tur;
   document.getElementById('f-no').value=yeniFaturaNo(tur);
-  document.getElementById('f-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('f-tarih').value=bugunYerelStr();
   document.getElementById('f-cari-inp').value='';
   document.getElementById('f-cari-id').value='';
   document.getElementById('f-siparis').value='';
@@ -1070,7 +1070,7 @@ function openOdeme(id){
   const f=faturalar[id];if(!f)return;
   document.getElementById('od-fatura-id').value=id;
   document.getElementById('od-fatura-no').value=f.no+' — '+fmt(f.genelToplam)+' ₺';
-  document.getElementById('od-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('od-tarih').value=bugunYerelStr();
   const kalanTutar=Math.max(0,round2((parseFloat(f.genelToplam)||0)-(parseFloat(f.odemeTutar)||0)));
   document.getElementById('od-tutar').value=kalanTutar.toFixed(2);
   document.getElementById('od-aciklama').value='';

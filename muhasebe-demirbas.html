@@ -288,7 +288,7 @@ const demirbasExcelSpec=[
 ];
 async function demirbasExcelAktar(){
   const veriler=Object.values(demirbaslar).filter(Boolean);
-  await excelSablonIndir(demirbasExcelSpec, veriler, 'demirbaslar-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  await excelSablonIndir(demirbasExcelSpec, veriler, 'demirbaslar-'+bugunYerelStr()+'.xlsx');
 }
 async function demirbasExcelYukle(event){
   const file=event.target.files[0];if(!file)return;event.target.value='';
@@ -518,7 +518,7 @@ function openYeniDemirbas(){
   document.getElementById('d-ad').value='';
   document.getElementById('d-kod').value='';
   document.getElementById('d-seri').value='';
-  document.getElementById('d-alim-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('d-alim-tarih').value=bugunYerelStr();
   document.getElementById('d-alim-tutar').value='';
   document.getElementById('d-oran').value='20';
   document.getElementById('d-otel').value='810';

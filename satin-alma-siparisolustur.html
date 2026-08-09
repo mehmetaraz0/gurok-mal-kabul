@@ -459,7 +459,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   YETKI_HARITASI = await kullaniciYetkileriGetir();
   document.getElementById('sp-grupla-btn').disabled = !['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur']);
 
-  document.getElementById('sp-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('sp-tarih').value=bugunYerelStr();
   document.getElementById('sp-termin').value='';
 
   // Bridge A alıcı tarafı — İç Talepler'den "Siparişe Dönüştür" ile geldiyse

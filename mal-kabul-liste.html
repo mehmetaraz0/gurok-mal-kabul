@@ -763,7 +763,7 @@ function openYeniForm(){
   formOtelId=currentUser.otelId||'810';
   previewMkNo=yeniMkNoUret();
   document.getElementById('f-mkno-badge').textContent='Kabul: '+previewMkNo;
-  document.getElementById('f-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('f-tarih').value=bugunYerelStr();
   document.getElementById('f-siparis-inp').value='';
   document.getElementById('f-siparis-no').value='';
   document.getElementById('f-firma-inp').value='';

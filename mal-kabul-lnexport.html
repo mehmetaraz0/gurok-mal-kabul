@@ -293,7 +293,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
 (function(){
   if(!currentUser) return;
   document.getElementById('hdrOtel').textContent=currentUser.otelId?('🏨 '+OTEL_KISA[currentUser.otelId]):'';
-  const today=new Date().toISOString().split('T')[0];
+  const today=bugunYerelStr();
   document.getElementById('exp-bas').value=today;
   document.getElementById('exp-bit').value=today;
 })();

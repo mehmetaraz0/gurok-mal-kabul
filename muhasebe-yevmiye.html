@@ -455,7 +455,7 @@ function openYeniYevmiye(){
   document.getElementById('y-id').value='';
   document.getElementById('y-no').value='';
   document.getElementById('y-no').placeholder='(kaydedince otomatik atanır)';
-  document.getElementById('y-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('y-tarih').value=bugunYerelStr();
   document.getElementById('y-tip').value='fatura';
   document.getElementById('y-belge').value='';
   document.getElementById('y-aciklama').value='';
@@ -841,7 +841,7 @@ function gTab(tab,el){
     if(!document.getElementById('mm-bas').value){
       const ayBasi=new Date();ayBasi.setDate(1);
       document.getElementById('mm-bas').value=ayBasi.toISOString().split('T')[0];
-      document.getElementById('mm-bit').value=new Date().toISOString().split('T')[0];
+      document.getElementById('mm-bit').value=bugunYerelStr();
     }
     renderMasrafMerkezi();
   }
@@ -855,7 +855,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
 // ============================================================
 (async function(){
   await loadDB();
-  const today=new Date().toISOString().split('T')[0];
+  const today=bugunYerelStr();
   const ayBasi=new Date();ayBasi.setDate(1);
   const ayBasiStr=ayBasi.toISOString().split('T')[0];
   document.getElementById('yev-bas').value=ayBasiStr;

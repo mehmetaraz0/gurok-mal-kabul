@@ -52,7 +52,7 @@ async function eFaturaGelenleriCek(sonCekimTarihi) {
         gibFaturaNo: _efaturaSahteNo('SIM'),
         gonderenVkn: String(Math.floor(1000000000 + Math.random() * 8999999999)),
         gonderenAd: 'Simülasyon Tedarikçi ' + (i + 1),
-        tarih: new Date().toISOString().split('T')[0],
+        tarih: bugunYerelStr(),
         kalemler: [{
           kod: '', ad: 'Simüle Ürün ' + (i + 1), miktar, birim: 'Adet',
           birimFiyat, kdvOran, toplam: araToplam + kdvToplam

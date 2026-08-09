@@ -38,6 +38,22 @@ function jsAttrStr(v){
   return escapeHtml(String(v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 }
 function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/100;}
+
+// TARİH — YEREL GÜN (Türkiye UTC+3).
+// HATA: new Date().toISOString().split('T')[0] UTC gününü verir; saat 00:00–03:00
+// arasında girilen kayıt BİR ÖNCEKİ güne yazılıyordu (gece vardiyası/bar kapanışı).
+// bugunYerelStr() yerel takvim gününü döndürür. Tarih girişi/varsayılanı, "bugün"
+// karşılaştırmaları ve gün damgaları için BUNU kullan.
+function bugunYerelStr(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// Belirli bir Date/parse-edilebilir değeri yerel YYYY-MM-DD'ye çevirir.
+function yerelTarihStr(t){
+  const d=(t instanceof Date)?t:new Date(t);
+  if(isNaN(d)) return '';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function kModal(id){document.getElementById(id).classList.remove('open');}
 function aModal(id){document.getElementById(id).classList.add('open');}
 

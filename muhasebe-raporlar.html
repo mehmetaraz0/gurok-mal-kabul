@@ -559,7 +559,7 @@ function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFraction
 // ============================================================
 (async function(){
   await loadDB();
-  const today=new Date().toISOString().split('T')[0];
+  const today=bugunYerelStr();
   const ayBasi=new Date();ayBasi.setDate(1);
   document.getElementById('bl-tarih').value=today;
   document.getElementById('gt-bas').value=ayBasi.toISOString().split('T')[0];

@@ -490,7 +490,7 @@ function openHareket(hesapId){
   document.getElementById('hr-hesap-id').value=hesapId;
   document.getElementById('hr-hesap-ad').value=h.ad;
   document.getElementById('hr-tip').value='yatirma';
-  document.getElementById('hr-tarih').value=new Date().toISOString().split('T')[0];
+  document.getElementById('hr-tarih').value=bugunYerelStr();
   document.getElementById('hr-tutar').value='';
   document.getElementById('hr-belge').value='';
   document.getElementById('hr-aciklama').value='';
@@ -692,7 +692,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
 // ============================================================
 (async function(){
   await loadDB();
-  const today=new Date().toISOString().split('T')[0];
+  const today=bugunYerelStr();
   const ayBasi=new Date();ayBasi.setDate(1);
   document.getElementById('har-bas').value=ayBasi.toISOString().split('T')[0];
   document.getElementById('har-bit').value=today;

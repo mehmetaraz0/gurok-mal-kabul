@@ -957,7 +957,7 @@ async function stokExcelAktar(){
   const ws=XLSX.utils.json_to_sheet(satirlar);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Stok');
-  XLSX.writeFile(wb,'stok-'+depoAdi(aktifDepoId).replace(/[^a-zA-Z0-9]+/g,'-')+'-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  XLSX.writeFile(wb,'stok-'+depoAdi(aktifDepoId).replace(/[^a-zA-Z0-9]+/g,'-')+'-'+bugunYerelStr()+'.xlsx');
   showToast(`✅ ${satirlar.length} ürün Excel'e aktarıldı`);
 }
 
@@ -1061,7 +1061,7 @@ async function stokMinimumExcelAktar(){
   const veriler=Object.entries(db.minimumlar||{}).map(([kod,miktar])=>({
     urun_kodu:kod, urun_adi:katalogMap[kod]||'', min_miktar:miktar
   }));
-  await excelSablonIndir(stokMinimumExcelSpec, veriler, 'minimum-stok-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  await excelSablonIndir(stokMinimumExcelSpec, veriler, 'minimum-stok-'+bugunYerelStr()+'.xlsx');
 }
 
 async function stokMinimumExcelYukle(event){
@@ -2264,7 +2264,7 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   hesaplaAbcSiniflari();
   buildIadeFirmaSelector(); // db.cariler loadDB() içinde dolduğu için ondan sonra çağrılmalı
 
-  const today=new Date().toISOString().split('T')[0];
+  const today=bugunYerelStr();
   const weekAgo=new Date(Date.now()-7*86400000).toISOString().split('T')[0];
   document.getElementById('har-start').value=weekAgo;
   document.getElementById('har-end').value=today;

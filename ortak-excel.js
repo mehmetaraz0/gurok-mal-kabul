@@ -354,7 +354,7 @@ function _oeUygulaTikla(){
 function _oeHataRaporuIndir(){
   const hatalilar = (_oeSiniflandirma || []).filter(s => ['hata', 'bulunamadi', 'mukerrer'].includes(s.sinif));
   if (!hatalilar.length) { toast('✅ Hatalı satır yok'); return; }
-  excelHataRaporuIndir(_oeSpec, hatalilar, _oeDosyaAdiOnek + '-hatalar-' + new Date().toISOString().split('T')[0] + '.xlsx');
+  excelHataRaporuIndir(_oeSpec, hatalilar, _oeDosyaAdiOnek + '-hatalar-' + bugunYerelStr() + '.xlsx');
 }
 
 // ============================================================
@@ -440,5 +440,5 @@ async function excelImportGecmisiYaz(bilgi, satirlar){
 async function excelHataRaporuIndir(spec, hatalilar, dosyaAdi){
   const hataSpec = [..._excelGorunurAlanlar(spec), { alan: '_hata', baslik: 'Hata Açıklaması', tip: 'text' }];
   const veriler = (hatalilar || []).map(s => ({ ...s.alanlar, _hata: (s.hatalar || []).join('; ') }));
-  await excelSablonIndir(hataSpec, veriler, dosyaAdi || ('hata-raporu-' + new Date().toISOString().split('T')[0] + '.xlsx'));
+  await excelSablonIndir(hataSpec, veriler, dosyaAdi || ('hata-raporu-' + bugunYerelStr() + '.xlsx'));
 }

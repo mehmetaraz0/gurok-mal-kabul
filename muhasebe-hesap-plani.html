@@ -749,7 +749,7 @@ const hesapPlaniExcelSpec = [
 
 async function hesapPlaniExcelAktar(){
   const veriler=Object.values(hesaplar).filter(Boolean).sort((a,b)=>a.kod.localeCompare(b.kod,'tr',{numeric:true}));
-  await excelSablonIndir(hesapPlaniExcelSpec, veriler, 'hesap-plani-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  await excelSablonIndir(hesapPlaniExcelSpec, veriler, 'hesap-plani-'+bugunYerelStr()+'.xlsx');
 }
 
 async function hesapPlaniExcelYukle(event){

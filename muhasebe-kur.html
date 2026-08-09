@@ -381,7 +381,7 @@ function _dovizKuruMevcutKayitlar(){
 
 async function dovizKuruExcelAktar(){
   const veriler=_dovizKuruMevcutKayitlar().sort((a,b)=>a.tarih.localeCompare(b.tarih)||a.paraBirimi.localeCompare(b.paraBirimi));
-  await excelSablonIndir(dovizKuruExcelSpec, veriler, 'doviz-kurlari-'+new Date().toISOString().split('T')[0]+'.xlsx');
+  await excelSablonIndir(dovizKuruExcelSpec, veriler, 'doviz-kurlari-'+bugunYerelStr()+'.xlsx');
 }
 
 async function dovizKuruExcelYukle(event){
