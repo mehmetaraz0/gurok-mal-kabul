@@ -535,6 +535,13 @@ function updateDots() {
   }
 }
 
+document.addEventListener('keydown', e => {
+  const loginScreen = document.getElementById('screen-login');
+  if (!loginScreen || loginScreen.classList.contains('hidden')) return;
+  if (e.key >= '0' && e.key <= '9') { pinInput(e.key); }
+  else if (e.key === 'Backspace') { pinDelete(); }
+});
+
 async function checkPin() {
   const girilenPin = pinValue;
   const sonuc = await pinGirisiDogrula(girilenPin);
