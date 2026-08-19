@@ -128,11 +128,11 @@ async function ndKur() {
   drawer.id = 'nd-drawer';
   drawer.innerHTML = `
     <div class="nd-brand">
-      <div class="nd-brand-mark"><img src="icon-mark.png" alt="Araz" style="width:75%;height:75%;object-fit:contain"></div>
-      <div class="nd-brand-txt"><div class="nd-brand-name">ARAZ</div><div class="nd-brand-sub">Depo Yönetimi</div></div>
+      <div class="nd-brand-mark"><img src="icon-mark.svg" alt="Dornevi" style="width:75%;height:75%;object-fit:contain"></div>
+      <div class="nd-brand-txt"><div class="nd-brand-name">DORNEVİ</div><div class="nd-brand-sub">Depo Yönetimi</div></div>
     </div>
     <nav class="nd-nav" id="nd-nav"></nav>
-    <div class="nd-footer">v1.0 · Araz Turizm Grubu</div>`;
+    <div class="nd-footer">v1.0 · Dornevi</div>`;
 
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
