@@ -5,8 +5,8 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
-<script src="ortak.js"></script>
 <script src="otel-config.js"></script>
+<script src="ortak.js"></script>
 <script src="filtre.js"></script>
 <script src="tablo.js"></script>
 <link rel="stylesheet" href="theme.css">
@@ -456,7 +456,7 @@ function ekstreTabloGetir(){
     bosMesaj:'Hareket bulunamadı',
     veri:()=>_ekstreSatirlar,
     kolonlar:[
-      {key:'tarih',   label:'Tarih',      type:'date',   get:h=>h.tarih?new Date(h.tarih).toISOString().slice(0,10):''},
+      {key:'tarih',   label:'Tarih',      type:'date',   get:h=>yerelTarihStr(h.tarih)},
       {key:'belge',   label:'Belge',      type:'text',   get:h=>h.belge||''},
       {key:'aciklama',label:'Açıklama',   type:'text',   get:h=>h.aciklama||''},
       {key:'otel',    label:'Otel',       type:'text',   get:h=>(typeof OTEL_KISA!=='undefined'&&OTEL_KISA[h.otelId])||h.otelId||''},
@@ -562,11 +562,11 @@ function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFraction
   const today=bugunYerelStr();
   const ayBasi=new Date();ayBasi.setDate(1);
   document.getElementById('bl-tarih').value=today;
-  document.getElementById('gt-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('gt-bas').value=yerelTarihStr(ayBasi);
   document.getElementById('gt-bit').value=today;
-  document.getElementById('kdv-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('kdv-bas').value=yerelTarihStr(ayBasi);
   document.getElementById('kdv-bit').value=today;
-  document.getElementById('ek-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('ek-bas').value=yerelTarihStr(ayBasi);
   document.getElementById('ek-bit').value=today;
   renderOzet();
 })();

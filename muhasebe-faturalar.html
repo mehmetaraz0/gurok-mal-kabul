@@ -364,7 +364,7 @@ async function yevmiyeFisiPostla(fisId,kalemler,tip,belge,aciklama,tarihMs,otelI
   if(!no)no=await yeniFisNo();
 
   const yevSatir={
-    no,tarih:new Date(tarihMs).toISOString().split('T')[0],tip,belge_no:belge,aciklama,
+    no,tarih:yerelTarihStr(new Date(tarihMs)),tip,belge_no:belge,aciklama,
     otel_id:otelId||'810',toplam_borc:round2(topBorc),toplam_alacak:round2(topAlacak),
     onaylandi:true,otomatik:true
   };
@@ -788,7 +788,7 @@ function openYeniFatura(tur){
   document.getElementById('f-cari-label').textContent=tur==='alis'?'Tedarikçi *':'Müşteri *';
   // Vade = bugün + 30
   const vade=new Date();vade.setDate(vade.getDate()+30);
-  document.getElementById('f-vade').value=vade.toISOString().split('T')[0];
+  document.getElementById('f-vade').value=yerelTarihStr(vade);
   document.getElementById('f-sil-btn').style.display='none';
   addKalem();
   renderKalemler();

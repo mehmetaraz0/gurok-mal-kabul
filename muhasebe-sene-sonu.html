@@ -155,7 +155,7 @@ async function yevmiyeFisiPostla(fisId,yevKalemler,tip,belge,aciklama,tarihMs,ot
   if(!no)no=await yeniFisNo();
 
   const yevSatir={
-    no,tarih:new Date(tarihMs).toISOString().split('T')[0],tip,belge_no:belge,aciklama,
+    no,tarih:yerelTarihStr(new Date(tarihMs)),tip,belge_no:belge,aciklama,
     otel_id:otelId||'810',toplam_borc:round2(topBorc),toplam_alacak:round2(topAlacak),
     onaylandi:true,otomatik:true
   };

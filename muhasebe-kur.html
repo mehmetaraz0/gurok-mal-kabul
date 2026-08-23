@@ -269,7 +269,7 @@ function render(){
 async function bugunuSifirla(){
   if(!['kayit','tam'].includes(YETKI_HARITASI['doviz_manuel'])){toast('⚠️ Bu işlem için yetkiniz yok');return;}
   const today=new Date();
-  const tarihKey=today.toISOString().split('T')[0];
+  const tarihKey=yerelTarihStr(today);
   const oncekiTarihler=Object.keys(gunlukKurlar).filter(t=>t!==tarihKey).sort();
   const yerineGecenTarih=oncekiTarihler[oncekiTarihler.length-1];
   const yerineGecen=yerineGecenTarih?gunlukKurlar[yerineGecenTarih]:null;
@@ -302,7 +302,7 @@ function manuelToggle(){
 function mkKodDegisti(){
   const kod=document.getElementById('mk-kod').value;
   const today=new Date();
-  const tarihKey=today.toISOString().split('T')[0].split('-').join('-');
+  const tarihKey=yerelTarihStr(today);
   const mevcutGun=gunlukKurlar[tarihKey];
   const mevcutKur=mevcutGun?.kurlar?.[kod];
   const uyariEl=document.getElementById('mk-tcmb-uyari');
@@ -332,7 +332,7 @@ async function manuelKurKaydet(){
   document.getElementById('mk-satis').style.borderColor='';
 
   const today=new Date();
-  const tarihKey=today.toISOString().split('T')[0];
+  const tarihKey=yerelTarihStr(today);
 
   const eskiKur=gunlukKurlar[tarihKey]?.kurlar?.[kod];
   if(eskiKur){

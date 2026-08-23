@@ -215,7 +215,7 @@ function logTabloGetir(){
     bosMesaj:'Kayıt bulunamadı',
     veri:logListeVerisi,
     kolonlar:[
-      {key:'zaman',  label:'Zaman',    type:'date', get:l=>l.timestamp?new Date(l.timestamp).toISOString().slice(0,10):''},
+      {key:'zaman',  label:'Zaman',    type:'date', get:l=>yerelTarihStr(l.timestamp)},
       {key:'saat',   label:'Saat',     type:'text', get:l=>l.timestamp?new Date(l.timestamp).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):''},
       {key:'user',   label:'Kullanıcı',type:'text', get:l=>l.userName||''},
       {key:'action', label:'İşlem',    type:'text', get:l=>l.action||''},

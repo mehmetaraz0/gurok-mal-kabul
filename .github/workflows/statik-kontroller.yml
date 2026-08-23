@@ -1,0 +1,21 @@
+name: Statik Kontroller
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  statik-kontrol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Framework'süz doğrulama: sözdizimi (node --check), paylaşılan script
+      # yükleme sırası, UTC tarih tuzağı regülasyonu, bar sabit tek kaynağı.
+      - name: scripts/check.mjs
+        run: node scripts/check.mjs

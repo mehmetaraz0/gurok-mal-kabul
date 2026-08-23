@@ -455,7 +455,7 @@ async function cariExcelUygula(mod,yazilacaklar){
 
 async function saveHareket(h){
   const satir={
-    cari_id:h.cariId,tip:h.tip,tarih:h.tarihStr||new Date(h.tarih).toISOString().split('T')[0],
+    cari_id:h.cariId,tip:h.tip,tarih:h.tarihStr||yerelTarihStr(h.tarih),
     belge_no:h.belge||null,vade_tarihi:h.vade||null,tutar:h.tutar,kdv:h.kdv||0,
     otel_id:h.otelId||null,aciklama:h.aciklama||null
   };
@@ -762,7 +762,7 @@ function openHareket(cariId,prefillTip){
   // Vade hesapla
   const vade=c.vade||30;
   const vadeDate=new Date();vadeDate.setDate(vadeDate.getDate()+vade);
-  document.getElementById('h-vade').value=vadeDate.toISOString().split('T')[0];
+  document.getElementById('h-vade').value=yerelTarihStr(vadeDate);
   aModal('mHareket');
 }
 
@@ -1081,9 +1081,9 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   await loadDB();
   const today=bugunYerelStr();
   const ayBasi=new Date();ayBasi.setDate(1);
-  document.getElementById('har-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('har-bas').value=yerelTarihStr(ayBasi);
   document.getElementById('har-bit').value=today;
-  document.getElementById('mut-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('mut-bas').value=yerelTarihStr(ayBasi);
   document.getElementById('mut-bit').value=today;
   renderCariler();
   YETKI_HARITASI = await kullaniciYetkileriGetir();

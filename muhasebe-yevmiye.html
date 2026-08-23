@@ -280,7 +280,7 @@ async function loadDB(){
 // y: camelCase yevmiye fişi. Yeni ise (id yoksa) POST ile ekler, gerçek UUID'yi y.id'ye yazar.
 async function saveYevmiye(y){
   const satir={
-    no:y.no,tarih:y.tarihStr||new Date(y.tarih).toISOString().split('T')[0],
+    no:y.no,tarih:y.tarihStr||yerelTarihStr(y.tarih),
     tip:y.tip,belge_no:y.belge||null,aciklama:y.aciklama||null,otel_id:y.otelId||'810',
     toplam_borc:y.toplamBorc,toplam_alacak:y.toplamAlacak,
     onaylandi:y.onaylandi!==false,otomatik:!!y.otomatik
@@ -472,7 +472,7 @@ function openDuzenleYevmiye(id){
   document.getElementById('mYevmiyeTitle').innerHTML='✏️ Yevmiye Düzenle <button class="mclose" onclick="kModal(\'mYevmiye\')">✕</button>';
   document.getElementById('y-id').value=id;
   document.getElementById('y-no').value=y.no;
-  document.getElementById('y-tarih').value=new Date(y.tarih).toISOString().split('T')[0];
+  document.getElementById('y-tarih').value=yerelTarihStr(y.tarih);
   document.getElementById('y-tip').value=y.tip;
   document.getElementById('y-belge').value=y.belge||'';
   document.getElementById('y-aciklama').value=y.aciklama||'';
@@ -840,7 +840,7 @@ function gTab(tab,el){
   if(tab==='masrafmerkezi'){
     if(!document.getElementById('mm-bas').value){
       const ayBasi=new Date();ayBasi.setDate(1);
-      document.getElementById('mm-bas').value=ayBasi.toISOString().split('T')[0];
+      document.getElementById('mm-bas').value=yerelTarihStr(ayBasi);
       document.getElementById('mm-bit').value=bugunYerelStr();
     }
     renderMasrafMerkezi();
@@ -857,7 +857,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   await loadDB();
   const today=bugunYerelStr();
   const ayBasi=new Date();ayBasi.setDate(1);
-  const ayBasiStr=ayBasi.toISOString().split('T')[0];
+  const ayBasiStr=yerelTarihStr(ayBasi);
   document.getElementById('yev-bas').value=ayBasiStr;
   document.getElementById('yev-bit').value=today;
   document.getElementById('kebir-bas').value=ayBasiStr;

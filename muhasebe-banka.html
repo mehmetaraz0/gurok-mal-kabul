@@ -305,7 +305,7 @@ async function saveHesap(h){
 }
 async function saveHareket(h){
   const satir={
-    hesap_id:h.hesapId,tip:h.tip,tarih:h.tarihStr||new Date(h.tarih).toISOString().split('T')[0],
+    hesap_id:h.hesapId,tip:h.tip,tarih:h.tarihStr||yerelTarihStr(h.tarih),
     tutar:h.tutar,belge_no:h.belge||null,otel_id:h.otelId||null,aciklama:h.aciklama||null
   };
   try{
@@ -317,7 +317,7 @@ async function saveHareket(h){
 async function saveVirman(v){
   const satir={
     kaynak_hesap_id:v.kaynakId,hedef_hesap_id:v.hedefId,tutar:v.tutar,
-    tarih:v.tarihStr||new Date(v.tarih).toISOString().split('T')[0],aciklama:v.aciklama||null
+    tarih:v.tarihStr||yerelTarihStr(v.tarih),aciklama:v.aciklama||null
   };
   try{
     const r=await fetch(SB_URL+'/rest/v1/virmanlar',{method:'POST',headers:{...SB_HEADERS,'Prefer':'return=representation'},body:JSON.stringify(satir)});
@@ -544,7 +544,7 @@ function harTabloGetir(){
     bosMesaj:'Hareket bulunamadı',
     veri:harListeVerisi,
     kolonlar:[
-      {key:'tarih',   label:'Tarih',      type:'date',   get:h=>h.tarihStr||(h.tarih?new Date(h.tarih).toISOString().slice(0,10):'')},
+      {key:'tarih',   label:'Tarih',      type:'date',   get:h=>h.tarihStr||yerelTarihStr(h.tarih)},
       {key:'hesap',   label:'Hesap',      type:'text',   get:h=>(hesaplar[h.hesapId]&&hesaplar[h.hesapId].ad)||''},
       {key:'tip',     label:'Tip',        type:'text',   get:h=>h.tip==='yatirma'?'Yatırma':'Çekme'},
       {key:'belge',   label:'Belge',      type:'text',   get:h=>h.belge||''},
@@ -694,7 +694,7 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   await loadDB();
   const today=bugunYerelStr();
   const ayBasi=new Date();ayBasi.setDate(1);
-  document.getElementById('har-bas').value=ayBasi.toISOString().split('T')[0];
+  document.getElementById('har-bas').value=yerelTarihStr(ayBasi);
   document.getElementById('har-bit').value=today;
   document.getElementById('vir-tarih').value=today;
   renderHesaplar();

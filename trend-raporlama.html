@@ -114,7 +114,7 @@ async function renderStokTrend(){
 
   const gunler=[];
   for(let i=aralikGun-1;i>=0;i--){
-    gunler.push(new Date(Date.now()-i*24*60*60*1000).toISOString().slice(0,10));
+    gunler.push(yerelTarihStr(new Date(Date.now()-i*24*60*60*1000)));
   }
   let kumulatif=0;
   const veri=gunler.map(g=>{kumulatif+=(gunlukNet[g]||0);return kumulatif;});
@@ -167,7 +167,7 @@ async function renderTuketimTrend(){
 
   const gunler=[];
   for(let i=aralikGun-1;i>=0;i--){
-    gunler.push(new Date(Date.now()-i*24*60*60*1000).toISOString().slice(0,10));
+    gunler.push(yerelTarihStr(new Date(Date.now()-i*24*60*60*1000)));
   }
   const veri=gunler.map(g=>gunlukToplam[g]||0);
   const toplamTuketim=veri.reduce((a,b)=>a+b,0);
@@ -187,7 +187,7 @@ async function renderFoodCostTrend(){
     <div class="card-title">Food-Cost Trendi (tüm oteller)</div>
     <div style="position:relative;height:220px"><canvas id="foodcost-trend-canvas"></canvas></div>`;
 
-  const baslangicTarih=new Date(Date.now()-aralikGun*24*60*60*1000).toISOString().slice(0,10);
+  const baslangicTarih=yerelTarihStr(new Date(Date.now()-aralikGun*24*60*60*1000));
   let kayitlar=[];
   try{
     const r=await fetch(SB_URL+'/rest/v1/recete_tuketimleri?tarih=gte.'+encodeURIComponent(baslangicTarih)+'&select=tarih,food_cost_yuzde&order=tarih.asc',{headers:SB_HEADERS});
@@ -209,7 +209,7 @@ async function renderFoodCostTrend(){
 
   const gunler=[];
   for(let i=aralikGun-1;i>=0;i--){
-    gunler.push(new Date(Date.now()-i*24*60*60*1000).toISOString().slice(0,10));
+    gunler.push(yerelTarihStr(new Date(Date.now()-i*24*60*60*1000)));
   }
   const veri=gunler.map(g=>gunlukSayi[g]?Math.round((gunlukToplam[g]/gunlukSayi[g])*10)/10:null);
 

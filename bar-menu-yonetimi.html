@@ -7,6 +7,7 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="bar-config.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dornevi — Menü Yönetimi</title>
@@ -102,8 +103,7 @@ html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI
 <script>
 // SB_URL/SB_KEY -> supabase-config.js ; toast/escapeHtml/sLD/hLD -> ortak.js
 // oturumAccessTokenGetir/requireLogin/requireRole/kullaniciYetkileriGetir -> auth-guard.js
-const CUSTOMER_SB_URL='https://udjpcsjifgdzvfflezaa.supabase.co';
-const CUSTOMER_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkanBjc2ppZmdkenZmZmxlemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTkzOTksImV4cCI6MjEwMDQ3NTM5OX0.cT-TZ5EImk2MEDuOzMuTpogYeoj8u7ovfO4C5EBM7bc';
+
 const YAYIN_FN='/functions/v1/smooth-service';
 let CU=null, YETKI_HARITASI={}, MENU=[], seciliStok=null, _araTimer=null;
 

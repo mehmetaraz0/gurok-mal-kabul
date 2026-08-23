@@ -2265,7 +2265,7 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   buildIadeFirmaSelector(); // db.cariler loadDB() içinde dolduğu için ondan sonra çağrılmalı
 
   const today=bugunYerelStr();
-  const weekAgo=new Date(Date.now()-7*86400000).toISOString().split('T')[0];
+  const weekAgo=yerelTarihStr(new Date(Date.now()-7*86400000));
   document.getElementById('har-start').value=weekAgo;
   document.getElementById('har-end').value=today;
 

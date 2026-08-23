@@ -5,13 +5,13 @@
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
 <script src="onay-motoru.js"></script>
 <script src="ortak.js"></script>
 <script src="filtre.js"></script>
 <script src="tablo.js"></script>
 <script src="ortak-excel.js"></script>
 <script src="araz_veritabani.js"></script>
-<script src="otel-config.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Dornevi — İç Talepler</title>
@@ -243,7 +243,7 @@ async function loadDB(){
     if(tR.ok){
       (await tR.json()).forEach(r=>{
         DB.talepler[r.id]={
-          id:r.id,tarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).toISOString().split('T')[0]:'',
+          id:r.id,tarih:yerelTarihStr(r.olusturma_tarihi),
           olusturmaTarih:r.olusturma_tarihi?new Date(r.olusturma_tarihi).getTime():Date.now(),
           departman:r.departman,personel:r.talep_eden||'',aciliyet:r.aciliyet,not:r.not_alani||'',otelId:r.otel_id||'810',
           durum:r.durum,asama:r.asama||'depo',tutar:r.tutar,onaylayanAd:r.onaylayan_ad||'',onayTarih:r.onay_tarihi||null,

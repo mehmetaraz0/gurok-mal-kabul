@@ -147,7 +147,8 @@ function birimDonusumEtiketi(urunKodu,miktar){
 // UTC tuzağı: new Date().toISOString().split('T')[0] Türkiye saatinde 00:00-03:00
 // arasında DÜNÜN tarihini döndürür (ISO string UTC'dir). DB'ye yazılan işlem
 // tarihleri için her zaman bu YEREL tarih yardımcısını kullan.
+// bugunTarih, bugunYerelStr ile birebir aynıydı — ikileme kaldırıldı; eski adı
+// kullanan sayfalar kırılmasın diye takma ad olarak korunuyor.
 function bugunTarih(){
-  const d=new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return bugunYerelStr();
 }
