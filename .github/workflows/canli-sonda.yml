@@ -1,0 +1,24 @@
+name: Canlı Güvenlik Sondası
+
+# Her push'ta DEĞİL: bu iş canlı üretim veritabanına istek atıyor.
+# Haftalık + elle tetiklenebilir yeterli — amaç sürekli izleme değil,
+# sessiz gerilemeyi (drift) makul bir gecikmeyle yakalamak.
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # her Pazartesi 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sonda:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # SIR GEREKTİRMEZ: sonda anon anahtarını supabase-config.js'ten okur;
+      # o anahtar tasarım gereği publictir (her tarayıcıya gönderiliyor).
+      # Güvenlik anahtarın gizliliğine değil RLS'e dayanır.
+      - name: scripts/canli-sonda.mjs
+        run: node scripts/canli-sonda.mjs
