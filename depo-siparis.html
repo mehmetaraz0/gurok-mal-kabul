@@ -307,7 +307,7 @@ function basla(){
     document.getElementById('tVer').innerHTML=`
       <div class="card">
         <div class="card-title">Malzeme Talebi</div>
-        <div class="field"><label>Departman</label><input id="vDept" value="${dept}" readonly style="background:var(--gray-100)"></div>
+        <div class="field"><label>Departman</label><input id="vDept" value="${escapeHtml(dept)}" readonly style="background:var(--gray-100)"></div>
         <div class="field"><label>Tarih</label><input type="date" id="vTarih" value="${bugunYerelStr()}"></div>
         <div class="field"><label>Not</label><input type="text" id="vNot" placeholder="Opsiyonel..."></div>
       </div>
@@ -944,7 +944,7 @@ async function onayOzetGoster(id, tip){
     icerik=`
       <div style="background:#d4edda;border-radius:8px;padding:12px;margin-bottom:12px;">
         <div style="font-size:13px;font-weight:700;color:#155724;margin-bottom:4px;">✅ Onaylanacak Transfer</div>
-        <div style="font-size:12px;color:#155724;">Ana Depo → ${dept}</div>
+        <div style="font-size:12px;color:#155724;">Ana Depo → ${escapeHtml(dept)}</div>
       </div>
       <div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;">Gönderilecek Ürünler:</div>
       ${onaylananlar.map(u=>{
@@ -1010,9 +1010,9 @@ function pdfCikti(id){
   <h2>Araz Turizm Grubu</h2>
   <div class="sub">Depo Transfer / Talep Formu</div>
   <div class="info-grid">
-    <div class="info-item"><label>Form No</label><span>${id}</span></div>
-    <div class="info-item"><label>Tarih</label><span>${tarih}</span></div>
-    <div class="info-item"><label>Talep Eden</label><span>${dept}</span></div>
+    <div class="info-item"><label>Form No</label><span>${escapeHtml(id)}</span></div>
+    <div class="info-item"><label>Tarih</label><span>${escapeHtml(tarih)}</span></div>
+    <div class="info-item"><label>Talep Eden</label><span>${escapeHtml(dept)}</span></div>
     <div class="info-item"><label>Kaynak Depo</label><span>Ana Depo</span></div>
   </div>
   <table>

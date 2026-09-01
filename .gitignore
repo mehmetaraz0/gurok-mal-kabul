@@ -1,0 +1,19 @@
+# Sırlar ve yerel yapılandırma — ASLA commit edilmemeli.
+# Bu depo PUBLIC; buraya düşen bir service_role anahtarı git geçmişinde kalır
+# ve dosyayı sonradan silmek onu geçmişten KALDIRMAZ.
+.env
+.env.*
+*.local.json
+*.local.md
+*.local.*
+.claude/settings.local.json
+
+# Araç/oturum kalıntıları
+.superpowers/
+node_modules/
+.obsidian/
+
+# Yedek ve geçici dosyalar
+*.bak
+*~
+*.tmp

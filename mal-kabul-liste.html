@@ -459,7 +459,7 @@ function renderKalemler(){
         <div class="field" style="flex:1;margin-bottom:8px">
           <label>Ürün Adı *</label>
           <div style="position:relative">
-            <input type="text" id="k-ad-${i}" value="${(k.ad||'').replace(/"/g,'&quot;')}" placeholder="Ürün ara..." oninput="filterUrunDD(${i},this.value)">
+            <input type="text" id="k-ad-${i}" value="${escapeHtml(k.ad||'')}" placeholder="Ürün ara..." oninput="filterUrunDD(${i},this.value)">
             <div id="k-dd-${i}" class="udd"></div>
           </div>
         </div>
@@ -478,8 +478,8 @@ function renderKalemler(){
         <div class="field"><label>Sıcaklık (°C)${kriter?` <span style="font-weight:400;text-transform:none;color:var(--gray-400)">(Kriter: ${kriter})</span>`:''}</label><input type="number" step="0.1" value="${k.sicaklik||''}" placeholder="Ölçülen" onchange="formKalemleri[${i}].sicaklik=this.value"></div>
       </div>
       <div class="rfields">
-        <div class="field"><label>Seri / Lot No</label><input type="text" value="${(k.seriNo||'').replace(/"/g,'&quot;')}" onchange="formKalemleri[${i}].seriNo=this.value"></div>
-        <div class="field"><label>Marka</label><input type="text" value="${(k.marka||'').replace(/"/g,'&quot;')}" placeholder="Opsiyonel" onchange="formKalemleri[${i}].marka=this.value"></div>
+        <div class="field"><label>Seri / Lot No</label><input type="text" value="${escapeHtml(k.seriNo||'')}" onchange="formKalemleri[${i}].seriNo=this.value"></div>
+        <div class="field"><label>Marka</label><input type="text" value="${escapeHtml(k.marka||'')}" placeholder="Opsiyonel" onchange="formKalemleri[${i}].marka=this.value"></div>
       </div>
       <div class="field" style="margin-bottom:0">
         <label>Uygunluk</label>
@@ -490,7 +490,7 @@ function renderKalemler(){
       </div>
       ${k.uygunsuz?`<div class="field" style="margin-top:8px;margin-bottom:0">
         <label>Uygunsuzluk Açıklaması</label>
-        <input type="text" value="${(k.uygunsuzNot||'').replace(/"/g,'&quot;')}" placeholder="Örn: Ambalajı ezik, SKT'ye yakın vb." onchange="formKalemleri[${i}].uygunsuzNot=this.value">
+        <input type="text" value="${escapeHtml(k.uygunsuzNot||'')}" placeholder="Örn: Ambalajı ezik, SKT'ye yakın vb." onchange="formKalemleri[${i}].uygunsuzNot=this.value">
       </div>`:''}
     </div>`;
   }).join('');

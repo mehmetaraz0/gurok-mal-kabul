@@ -85,13 +85,20 @@ function requireRole(user, izinliRoller) {
   return false;
 }
 
+// Yerel HTML kaçışı. ortak.js'teki escapeHtml KULLANILMAZ: auth-guard.js
+// sayfalarda ortak.js'ten ÖNCE yükleniyor (bkz. herhangi bir sayfanın <head>'i),
+// dolayısıyla ona bağlanmak yükleme sırasına bağımlı kırılgan bir varsayım olurdu.
+function agEsc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function KAPALI_EKRAN_HTML(user) {
   return `
     <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f1f3f5;font-family:-apple-system,'Segoe UI',sans-serif;padding:20px">
       <div style="background:white;border-radius:16px;padding:32px 28px;max-width:340px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.15)">
         <div style="font-size:40px;margin-bottom:12px">🔒</div>
         <div style="font-weight:700;color:#1a2744;margin-bottom:8px">Bu modül sana kapalı</div>
-        <div style="font-size:13px;color:#6c757d;margin-bottom:20px">Hesabının rolü (${user.rol}) bu sayfayı açmaya yetmiyor.</div>
+        <div style="font-size:13px;color:#6c757d;margin-bottom:20px">Hesabının rolü (${agEsc(user.rol)}) bu sayfayı açmaya yetmiyor.</div>
         <a href="index.html" style="display:inline-block;background:#1a2744;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">Portala Dön</a>
       </div>
     </div>`;
