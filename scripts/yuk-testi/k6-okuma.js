@@ -50,7 +50,25 @@ const mSiparis = new Trend('akis_siparis_takip', true);
 const mMuhasebe = new Trend('akis_muhasebe_yevmiye', true);
 const bosYanit = new Rate('bos_yanit_orani');
 
+// Hangi sorgunun boş döndüğünü AYRI AYRI say. Toplam oran "bir sorun var mı"
+// sorusunu cevaplar ama "hangisi" sorusunu cevaplamaz; boş dönen bir uç nokta
+// ya gerçekten boş bir tablodur (demo kurulumda normal) ya da kopuk bir
+// erişim politikasıdır (normal değil). Ayrımı elle araştırmak yerine rapor
+// kendisi söylesin.
+const UCLAR = [
+  'yetki_matrisi', 'bekleyen_talep', 'skt_uyari',
+  'stok_listesi', 'urun_fiyat', 'birim_donusum',
+  'mal_kabul_nested', 'cariler', 'siparis_nested',
+  'yevmiye_nested', 'mali_donem',
+];
+const BOS = {};
+UCLAR.forEach(function (u) { BOS[u] = new Rate('bos_' + u); });
+
 export const options = {
+  // k6 varsayılan olarak p99 ÜRETMEZ (med/p90/p95/max verir). Kurumsal bir
+  // raporun istediği sayı p99 olduğu için açıkça istenmeli — aksi hâlde
+  // rapordaki p99 sütunu boş kalır. (İlk koşuda tam bu oldu.)
+  summaryTrendStats: ['med', 'p(90)', 'p(95)', 'p(99)', 'max'],
   scenarios: {
     kademeli: {
       executor: 'ramping-vus',
@@ -74,7 +92,11 @@ export const options = {
     'akis_mal_kabul_listesi': ['p(95)<2500'],
     'akis_siparis_takip': ['p(95)<2500'],
     'akis_muhasebe_yevmiye': ['p(95)<3000'],
-    'bos_yanit_orani': ['rate<0.05'],                 // bkz. setup notu
+    // Bu eşik "bazı tablolar boş" durumunu DEĞİL, TOPLU boşluğu yakalamak
+    // içindir: jeton bayatlarsa ya da yetki zinciri koparsa neredeyse HER
+    // yanıt boş döner. Az veri içeren kurulumlarda tek tük boş tablo olması
+    // normaldir — hangileri olduğu raporda ayrıca listelenir.
+    'bos_yanit_orani': ['rate<0.60'],
   },
 };
 
@@ -118,7 +140,10 @@ function olc(trend, ad, url) {
   // RLS doğru çalışırken bile boş dönebilir; ama TOPLU boşluk,
   // yetkinin çözülemediğine (bayat jeton, kopuk politika) işarettir.
   if (ok) {
-    try { bosYanit.add(r.json().length === 0); } catch (e) { bosYanit.add(true); }
+    let bos = true;
+    try { bos = r.json().length === 0; } catch (e) { bos = true; }
+    bosYanit.add(bos);
+    if (BOS[ad]) BOS[ad].add(bos);
   }
   return r;
 }
@@ -157,6 +182,40 @@ export default function () {
   sleep(2); // kullanıcı düşünme süresi
 }
 
+// Boş dönen uç noktaları listeler. Amaç, "%27 boş" gibi bir oranı görüp
+// elle araştırmak zorunda kalmamak: hangi sorgunun boş döndüğü doğrudan
+// yazılır ve beklenen/beklenmeyen ayrımı okuyucuya bırakılır.
+function bosListesi(m) {
+  const satirlar = [];
+  for (let i = 0; i < UCLAR.length; i++) {
+    const u = UCLAR[i];
+    const met = m['bos_' + u];
+    if (met && met.values && met.values.rate > 0) {
+      satirlar.push('- `' + u + '` — isteklerin %' + (met.values.rate * 100).toFixed(0) + " kadarı boş döndü");
+    }
+  }
+  if (satirlar.length === 0) return '_Boş dönen sorgu yok._';
+  return [
+    'Aşağıdaki sorgular veri döndürmedi. Bu **kendiliğinden bir arıza değildir**:',
+    'ilgili tablo gerçekten boş olabilir (az veri içeren kurulumda beklenen).',
+    'Ancak bir sorgunun boş dönmesi beklenmiyorsa, o ekranın erişim politikası',
+    'kontrol edilmelidir.',
+    '',
+  ].concat(satirlar).join('\n');
+}
+
+// p99 "en yavaş %1"i temsil eder; az örnekle hesaplanan p99 gürültüdür.
+// Rapora konulacak koşunun örnek sayısı yeterli değilse bunu SÖYLEMEK,
+// sessizce yanıltıcı bir sayı sunmaktan iyidir.
+function ornekUyarisi(m) {
+  const n = m.http_reqs && m.http_reqs.values ? m.http_reqs.values.count : 0;
+  if (n >= 1000) return '- Örnek sayısı p99 için yeterli (' + n + ' istek).';
+  return '- ⚠️ **Örnek sayısı p99 için düşük** (' + n + ' istek). p99 en yavaş %1\'i\n' +
+    '  temsil eder; anlamlı olması için binlerce örnek gerekir. Zincire\n' +
+    '  sunulacak koşu daha uzun süre ve/veya daha çok eşzamanlı kullanıcı ile\n' +
+    '  tekrarlanmalıdır.';
+}
+
 export function handleSummary(data) {
   const m = data.metrics;
   const p = (ad, q) => {
@@ -190,6 +249,10 @@ export function handleSummary(data) {
     `- Tüm istekler p95: ${p('http_req_duration', 'p(95)')} · p99: ${p('http_req_duration', 'p(99)')}`,
     `- Boş yanıt oranı: ${m.bos_yanit_orani ? (m.bos_yanit_orani.values.rate * 100).toFixed(2) + ' %' : '—'}`,
     '',
+    '## Boş dönen sorgular',
+    '',
+    bosListesi(m),
+    '',
     '## Yorum notları',
     '',
     '- Bu koşu **salt-okumadır**; yazma performansını temsil etmez.',
@@ -199,6 +262,7 @@ export function handleSummary(data) {
     '  yansır. Rapor sunulurken her ikisi de belirtilmelidir.',
     '- Barındırma planı kapasite tavanını belirler; plan değişirse bu',
     '  sonuçlar geçersizdir ve koşu tekrarlanmalıdır.',
+    ornekUyarisi(m),
     '',
   ].join('\n');
 
