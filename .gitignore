@@ -17,3 +17,7 @@ node_modules/
 *.bak
 *~
 *.tmp
+
+# Yuk testi ciktilari — her kosuda degisir, surumlenmesi anlamsiz
+scripts/yuk-testi/sonuc-*.md
+scripts/yuk-testi/sonuc-*.json
