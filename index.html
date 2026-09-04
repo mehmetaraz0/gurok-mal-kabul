@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <link rel="icon" href="favicon.ico">
 <link rel="apple-touch-icon" href="icon.png">
+<!-- PWA: manifest.json ve sw.js repoda VARDI ama hiçbir sayfa onları
+     bağlamıyordu (2026-09-04'te fark edildi). Manifest görülmediği için
+     tarayıcı "uygulama yükle" yerine yalnızca ana ekran kısayolu
+     oluşturuyordu. Kurulabilirlik için ikisi de gerekli. -->
+<link rel="manifest" href="manifest.json">
 <script src="auth-guard.js"></script>
 <script src="supabase-config.js"></script>
 <script src="otel-config.js"></script>
@@ -825,6 +830,30 @@ function showToast(msg, dur=2500) {
     await showPortal();
   }
 })();
+</script>
+
+<!-- ============================================================
+     SERVICE WORKER KAYDI — PWA kurulabilirliği için ZORUNLU
+     ============================================================
+     sw.js repoda vardı ama hiçbir yerde register edilmiyordu. Chrome,
+     "uygulamayı yükle" teklifini yalnızca (a) geçerli bir manifest ve
+     (b) fetch olayını dinleyen KAYITLI bir service worker varsa sunar.
+     İkincisi eksik olduğu için tarayıcı basit bir ana ekran kısayolu
+     oluşturmakla yetiniyordu.
+
+     Kapsam kök dizin olduğu için tek kayıt tüm modül sayfalarını
+     kapsar — her sayfaya ayrı ayrı eklemeye gerek yok.
+
+     load olayından SONRA kaydediliyor: kayıt işlemi ilk açılışta
+     dosyaları indirdiği için, sayfanın ilk boyanmasıyla yarışmasın.
+     ============================================================ -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .catch(e => console.warn('Service worker kaydedilemedi:', e));
+  });
+}
 </script>
 </body>
 </html>
