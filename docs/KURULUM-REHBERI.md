@@ -8,6 +8,53 @@ sıralı adımları tanımlar. Her adım bir öncekine bağımlıdır — sıray
 - Bu reponun bir kopyası (fork veya klon)
 - Statik hosting (GitHub Pages veya eşdeğeri)
 
+## Phase 0 Security Gate (2026-09-05)
+
+`01-sema-dokumu.sql` is a historical bootstrap dump, NOT the current security
+baseline. Do not deploy it alone or replay dated SQL files in filename order.
+The earlier steps below do not replace review of the effective database catalog.
+Fresh customer deployment still requires a reviewed, complete schema baseline.
+
+For an existing MAIN ERP project only:
+
+1. Run `docs/kurulum/2026-09-05-phase0-preflight.sql` as the database owner.
+   It is read-only. Retain definitions, owners, policies, grants, views and
+   fingerprints privately for comparison/recovery. Do not commit credentials,
+   PINs, JWTs or production records. Inspect any DDL literals before sharing.
+2. Compare the effective catalog with the Phase 0 scope and prerequisites.
+   Later active-user and grant remediation supersedes the original dump;
+   a file's date is not proof that it was applied. Resolve unknown policies,
+   overloads, declaration shapes, missing tables/keys, legacy relationships,
+   and unregistered/ambiguous bar depots BEFORE applying the migration.
+3. In a staging clone, apply `docs/kurulum/2026-09-05-phase0-hardening.sql` as
+   one transaction. It establishes canonical authorization helpers, restrictive
+   hotel boundaries and protected server audit without replacing business RPC
+   bodies with old versions. Unsupported definitions abort; do not remove the
+   gates simply to force deployment.
+4. Run the local contract tests and the real ERP staging checklist documented
+   in `D:\ERP-Bilgi-Haritasi\PHASE0-HARDENING.md` ([[PHASE0-HARDENING]]).
+   Synthetic tests do NOT certify hosted Supabase or actual ERP workflows.
+5. Production application is a separate, explicit approval in a maintenance
+   window. No script in Phase 0 deploys to Supabase automatically.
+
+Local verification (Docker Desktop must be running for database tests):
+
+```powershell
+node scripts/check.mjs
+node --test scripts/phase0-security.test.mjs
+node scripts/phase0-database-tests.mjs
+```
+
+The database runner accepts no connection URL. It creates and removes its own
+network-isolated PostgreSQL 17 container with synthetic data. Reservation
+constraint tables exist only inside that disposable fixture, not in public PMS.
+
+Rollback: failed application rolls back the transaction. After a successful
+application, stop writes, preserve `erp_islem_audit`, and review the captured
+pre-change DDL/ACLs before restoring anything. Do not restore broad anonymous
+grants or permissive `USING(true)` policies on a live application. If safe
+recovery cannot be established, keep affected writes disabled and forward-fix.
+
 ## Adımlar
 
 1. **Supabase projesi oluştur.** [supabase.com](https://supabase.com) → New Project.

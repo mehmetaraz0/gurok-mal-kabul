@@ -470,12 +470,16 @@ const ROL_AD   = { yonetici:'Yönetici', depo:'Depo', satinalma:'Satınalma', ka
 let GORUNUR_MODULLER = [];
 let users = [];
 let currentUser = null;
+// Ignore responses started before logout or a newer login attempt.
+let sessionGeneration = 0;
 
 async function loadUsers() {
+  const generation = sessionGeneration;
   try {
     const r = await fetch(SB_URL + '/rest/v1/kullanicilar_genel?select=*&aktif=eq.true', { headers: SB_HEADERS });
     if (r.ok) {
       const data = await r.json();
+      if (generation !== sessionGeneration || !currentUser) return;
       if (Array.isArray(data) && data.length) {
         users = data.map(u => ({
           ...u,
@@ -525,7 +529,10 @@ async function pinInput(d) {
   pinValue += d;
   updateDots();
   document.getElementById('pin-error').textContent = '';
-  if (pinValue.length === 6) setTimeout(() => checkPin(), 200);
+  if (pinValue.length === 6) {
+    const generation = sessionGeneration;
+    setTimeout(() => { if (generation === sessionGeneration) checkPin(); }, 200);
+  }
 }
 
 function pinDelete() {
@@ -548,8 +555,11 @@ document.addEventListener('keydown', e => {
 });
 
 async function checkPin() {
+  if (pinValue.length !== 6 || currentUser) return;
+  const generation = ++sessionGeneration;
   const girilenPin = pinValue;
   const sonuc = await pinGirisiDogrula(girilenPin);
+  if (generation !== sessionGeneration) return;
   if (!sonuc || !sonuc.ok) {
     pinBasarisizKaydet();
     const kalanSn = pinKilitliMi();
@@ -557,7 +567,7 @@ async function checkPin() {
     errEl.textContent = kalanSn > 0
       ? `🔒 Çok fazla hatalı deneme — ${kalanSn} sn kilitlendi`
       : '❌ ' + (sonuc?.mesaj || 'Hatalı PIN');
-    setTimeout(() => errEl.textContent = '', kalanSn > 0 ? 4000 : 2000);
+    setTimeout(() => { if (generation === sessionGeneration) errEl.textContent = ''; }, kalanSn > 0 ? 4000 : 2000);
     pinValue = '';
     updateDots();
     document.getElementById('pin-user-show').textContent = '';
@@ -566,6 +576,8 @@ async function checkPin() {
   pinBasariliTemizle();
   currentUser = sonuc.kullanici;
   oturumKaydet(currentUser, sonuc.access_token);
+  pinValue = '';
+  updateDots();
   sbHeaderlarYenile(sonuc.access_token);
   // Başarılı giriş kaydı (yönetici giris-kayitlari.html ekranı). Kullanıcı JWT'den
   // türetilir (giris_kaydi_ekle RPC). Hata girişi ASLA engellemez.
@@ -576,7 +588,9 @@ async function checkPin() {
       body: JSON.stringify({ p_giris_tipi: 'pin' })
     });
   } catch (e) { /* giriş kaydı hatası yutulur */ }
+  if (generation !== sessionGeneration) return;
   await loadUsers();   // artık authenticated JWT var (anon'a kapalı — pentest [2])
+  if (generation !== sessionGeneration) return;
   const params = new URLSearchParams(location.search);
   const returnTo = params.get('returnTo');
   if (returnTo && /^[a-z0-9_-]+\.html(\?[^#]*)?(#.*)?$/i.test(returnTo)) {
@@ -590,7 +604,9 @@ async function checkPin() {
 // PORTAL
 // ============================================================
 async function showPortal() {
+  const generation = sessionGeneration;
   const u = currentUser;
+  if (!u) return;
   document.getElementById('screen-login').classList.add('hidden');
   document.getElementById('screen-portal').classList.add('active');
 
@@ -610,6 +626,7 @@ async function showPortal() {
 
   // Modülleri render et — gerçek yetki_matrisi'ne göre
   const yetkiHaritasi = await kullaniciYetkileriGetir();
+  if (generation !== sessionGeneration || currentUser !== u) return;
   const izinliSeviyeler = ['goruntule','kayit','tam'];
   const gorunur = MODULLER.filter(m => m.moduller.some(kod => izinliSeviyeler.includes(yetkiHaritasi[kod])));
   GORUNUR_MODULLER = gorunur;
@@ -766,7 +783,11 @@ window.addEventListener('beforeunload', e => {
 // yok" ile "erişim engellendi" birbirine karışmasın diye).
 // ============================================================
 async function loadKpiler() {
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const generation = sessionGeneration;
+  const set = (id, val) => {
+    if (generation !== sessionGeneration || !currentUser) return;
+    const el = document.getElementById(id); if (el) el.textContent = val;
+  };
   set('kpi-kullanici', users.length);
   try {
     const [tR, mR, sR] = await Promise.all([
@@ -792,8 +813,22 @@ async function loadKpiler() {
 }
 
 function logout() {
+  ++sessionGeneration;
   sessionStorage.removeItem(SESSION_KEY);
   currentUser = null;
+  users = [];
+  GORUNUR_MODULLER = [];
+  sekmeEklePaneliKapat();
+  sidebarKapat();
+  document.querySelectorAll('#tab-app-content iframe').forEach(frame => frame.remove());
+  SEKMELER = [{ id: 'home', ad: 'Ana Sayfa', url: null, kapatilabilir: false }];
+  sekmeSec('home');
+  ['sidebar-nav', 'modules-grid'].forEach(id => document.getElementById(id).replaceChildren());
+  ['header-user-name', 'header-user-rol', 'header-avatar', 'welcome-text', 'welcome-sub',
+    'welcome-date', 'kpi-talep', 'kpi-onay', 'kpi-skt', 'kpi-kullanici', 'toast']
+    .forEach(id => { document.getElementById(id).textContent = ''; });
+  document.getElementById('toast').classList.remove('show');
+  document.getElementById('loading').classList.remove('show');
   pinValue = '';
   updateDots();
   document.getElementById('pin-user-show').textContent = '';
@@ -823,9 +858,11 @@ function showToast(msg, dur=2500) {
   // Session kontrolü — paylaşılan auth-guard.js üzerinden
   const user = oturumGetir();
   if (user) {
+    const generation = sessionGeneration;
     currentUser = user;
     document.getElementById('loading').classList.add('show');
     await loadUsers();               // oturum var → authenticated JWT ile okunur
+    if (generation !== sessionGeneration) return;
     document.getElementById('loading').classList.remove('show');
     await showPortal();
   }
