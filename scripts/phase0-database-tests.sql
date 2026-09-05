@@ -146,7 +146,7 @@ do $$ declare v record; begin
       ' return null;\nend;\n$body$',v.n,v.args,v.hotel);
   end loop;
 end $$;
-create function public.bar_kullanilabilir_stok(text,text) returns numeric language sql security definer as $$ select 10; $$;
+create function public.bar_kullanilabilir_stok(text,text) returns numeric language sql security definer set search_path=public as $$ select 10; $$;
 create function public.stok_ekle(text,text,text,numeric) returns numeric language sql as $$ select 10; $$;
 create function public.stok_transfer(text,text,text,text,numeric) returns void language plpgsql as $$ begin return; end; $$;
 
@@ -180,6 +180,19 @@ do $$ declare t record; begin
   end loop;
 end $$;
 grant all on all tables in schema public to anon,authenticated,service_role;
+-- URETIM SAPMASI (2026-09-06 preflight 03 + 05): giris_kayitlari'nin otel_id
+-- kolonu VAR, ama kalici politikasinda otel kapsami YOK ve uretimdeki 46
+-- satirin 46'sinda otel_id NULL. Bu bilesim, kati bir kisitlayici tabanin
+-- ekrani tamamen karartabilecegi TEK yerdir; fixture onu birebir modeller.
+create table public.giris_kayitlari(id uuid primary key default gen_random_uuid(),
+  otel_id public.otel_id, marker text);
+alter table public.giris_kayitlari enable row level security;
+create policy fixture_permission on public.giris_kayitlari for all to authenticated
+  using (public.auth_yetki_var('kullanici_yonetimi','goruntule'))
+  with check (public.auth_yetki_var('kullanici_yonetimi','goruntule'));
+insert into public.giris_kayitlari(otel_id,marker) values(null,'merkez-kaydi'),('811','otel-811');
+grant all on public.giris_kayitlari to anon,authenticated,service_role;
+
 grant all on all sequences in schema public to anon,authenticated,service_role;
 create schema phase0_fixture;
 grant usage on schema phase0_fixture to authenticated,anon,service_role;
@@ -240,6 +253,23 @@ select phase0_fixture.assert_true((select count(*)=1 from public.stok),'permissi
 select phase0_fixture.denied($q$insert into public.stok(otel_id) values('811')$q$);
 reset role;
 drop policy fixture_legacy_bypass on public.stok;
+-- REGRESSION: a NULL hotel_id row is a CENTRAL record. The restrictive base
+-- must not erase it for central users, and must still hide it from a
+-- hotel-scoped user. Without this distinction the hardening would have
+-- blanked the giris_kayitlari screen in production.
+set role authenticated;
+select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000001',false);
+select phase0_fixture.assert_true((select count(*)=0 from public.giris_kayitlari),
+  'hotel user sees neither NULL-hotel nor other-hotel rows');
+select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000006',false);
+select phase0_fixture.assert_true(
+  (select count(*)=1 from public.giris_kayitlari where marker='merkez-kaydi'),
+  'central user still sees NULL-hotel rows after hardening');
+reset role;
+-- Oturum kimligini bu blok ONCESINDEKI haline geri birak: sonraki denetim
+-- testi aktoru auth.uid() ile karsilastiriyor.
+select set_config('request.jwt.claim.sub','20000000-0000-0000-0000-000000000001',false);
+
 
 -- Audit is protected, transactional and scoped. Nested exception is a savepoint.
 set role authenticated;

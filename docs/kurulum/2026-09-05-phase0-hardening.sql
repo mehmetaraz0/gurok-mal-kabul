@@ -403,10 +403,20 @@ begin
     loop
     execute format('alter table %s enable row level security', v.rel);
     execute format('drop policy if exists phase0_otel_kisit on %s', v.rel);
+    -- otel_id NULL olan satir bir MERKEZ kaydidir ve yalnizca tum_oteller
+    -- yetkisi olan kullaniciya gorunur. Bu ayrim olmadan giris_kayitlari
+    -- (46 satirin 46'si NULL) sertlestirme sonrasi tamamen gorunmez olurdu:
+    -- 2026-09-06 preflight 05 bulgusu.
+    -- Kisitlayici politika hicbir zaman yetki GENISLETMEZ; kalici politikalarla
+    -- AND ile baglanir. Bu yuzden NULL izni, otel kapsami zaten kalici
+    -- politikasinda olan tablolari (cari_hareketler, receteler) gevsetmez.
     execute format('create policy phase0_otel_kisit on %s
       as restrictive for all to authenticated
-      using (public.auth_otel_erisim(otel_id::text) is true)
-      with check (public.auth_otel_erisim(otel_id::text) is true)', v.rel);
+      using ((case when otel_id is null then public.auth_tum_oteller()
+                   else public.auth_otel_erisim(otel_id::text) end) is true)
+      with check ((case when otel_id is null then public.auth_tum_oteller()
+                        else public.auth_otel_erisim(otel_id::text) end) is true)',
+      v.rel);
   end loop;
 end;
 $$;
@@ -540,6 +550,56 @@ end;
 $$;
 
 -- ============================================================================
+-- 4d) VARSAYILAN İZİNLER VE PİNLENMEMİŞ search_path — preflight bulguları
+-- ============================================================================
+-- BULGU 1 (preflight 02): public şemasında postgres'in oluşturduğu YENİ
+-- fonksiyonlar varsayılan olarak anon'a EXECUTE veriyor:
+--   public | postgres | f -> ..., anon=X/postgres, ...
+-- Yani bugünden sonra eklenecek her RPC, anon tarafından çağrılabilir DOĞAR.
+-- Tek tek revoke etmek unutulabilir bir adımdır; kaynağı kapatıyoruz.
+-- Yalnız GELECEKTEKİ nesneleri etkiler, mevcut izinlere dokunmaz.
+alter default privileges for role postgres in schema public
+  revoke execute on functions from anon;
+
+-- BULGU 2 (preflight 02): supabase_admin'in varsayılanı YENİ TABLOLARA anon'a
+-- tüm hakları veriyor. Bu rolün varsayılanını değiştirmek üyelik ister;
+-- postgres üye değilse migration'ı düşürmemeli — bilgi notuyla geçilir.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'supabase_admin') then
+    raise notice 'supabase_admin rolu yok (Supabase disi ortam) - atlandi.';
+    return;
+  end if;
+  alter default privileges for role supabase_admin in schema public
+    revoke all on tables from anon;
+  raise notice 'supabase_admin varsayilan tablo izni anon icin kaldirildi.';
+exception when insufficient_privilege or invalid_grant_operation or undefined_object then
+  raise notice 'supabase_admin varsayilani degistirilemedi (uyelik yok). Kalan risk: bu rolun olusturdugu YENI tablolar anon a acik dogar. Supabase destek uzerinden kapatilmali.';
+end;
+$$;
+
+-- BULGU 3 (preflight 01): stok_ekle ve stok_transfer SECURITY INVOKER ve
+-- search_path pinlenmemiş. INVOKER oldukları için RLS'e tabiler — ayrıcalık
+-- yükseltme yolu değiller — ama pinlenmemiş yol "$user" şemasını arar ve
+-- çağıranın oluşturduğu bir fonksiyon adı gölgeleyebilir.
+-- GÖVDELERİ DEĞİŞTİRİLMEZ. extensions şeması yolda BIRAKILIR: bu iki
+-- fonksiyonun gövdesi okunmadan çıkarılırsa bir eklenti çağrısı kırılabilir.
+do $$
+declare v_sig text; v_oid oid;
+begin
+  foreach v_sig in array array[
+    'public.stok_ekle(text,text,text,numeric)',
+    'public.stok_transfer(text,text,text,text,numeric)'] loop
+    v_oid := to_regprocedure(v_sig);
+    if v_oid is null then continue; end if;
+    execute format(
+      'alter function %s set search_path = pg_catalog, public, extensions, pg_temp',
+      v_oid::regprocedure);
+  end loop;
+end;
+$$;
+
+-- ============================================================================
 -- 5) SON DOĞRULAMA — devralınan ve kolon bazlı izinler dâhil
 -- ============================================================================
 do $$
@@ -590,6 +650,28 @@ begin
     if has_function_privilege('anon', v.oid, 'EXECUTE') then
       raise exception 'Ayrıcalıklı RPC anon tarafından çağrılabilir: %', v.imza;
     end if;
+  end loop;
+
+  -- YENİ nesneler anon'a açık DOĞMAMALI. Bu, tek tek revoke etmeyi unutmaya
+  -- karşı tek yapısal korumadır (preflight 02 bulgusu).
+  if exists (
+    select 1 from pg_default_acl d
+    join pg_namespace n on n.oid = d.defaclnamespace
+    where n.nspname = 'public' and d.defaclrole = 'postgres'::regrole
+      and d.defaclobjtype = 'f'
+      and array_to_string(d.defaclacl::text[], ',') like '%anon=%') then
+    raise exception 'Yeni fonksiyonlar hala anon a aciliyor (varsayilan ACL)';
+  end if;
+
+  -- SECURITY DEFINER bir fonksiyonun search_path'i pinlenmemişse, arama yolu
+  -- manipülasyonu gövdedeki her çağrıyı yeniden hedefleyebilir.
+  for v in select p.oid::regprocedure as imza from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.prokind = 'f' and p.prosecdef
+      and (p.proconfig is null
+           or not exists (select 1 from unnest(p.proconfig) c
+                          where starts_with(c, 'search_path='))) loop
+    raise exception 'SECURITY DEFINER fonksiyonun search_path i pinlenmemis: %', v.imza;
   end loop;
 
   -- auth_* yardımcılarının hepsi fail-closed exists(...) kullanmalı.
