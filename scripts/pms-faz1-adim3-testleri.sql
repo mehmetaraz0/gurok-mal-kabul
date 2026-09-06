@@ -155,6 +155,16 @@ select pms3_test.dogru(
 -- tek transaction'da sahnelenir: atama acildi -> oda dolu -> rezervasyon
 -- giris_yapildi. Bu sırada her ara adım tutarlılık değişmezlerini GEÇER —
 -- yani sahneleme, RPC'nin üreteceği durumun birebir aynısıdır.
+-- TEK TRANSACTION + ERTELENMİŞ DEĞİŞMEZLER — RPC'nin yaptığının aynısı.
+-- Gerekçe: "oda dolu" ile "rezervasyon giris_yapildi" birbirini şart koşar
+-- (O1 ve R1). Ayrı ifadelerde yazılırsa hangisi önce gelirse gelsin ara durum
+-- değişmezi ihlal eder; pms_check_in de bu yüzden `set constraints deferred`
+-- kullanıyor. Sahneleme aynı yolu izlemeli, aksi hâlde RPC'nin üretemeyeceği
+-- bir sırayı test etmiş oluruz.
+begin;
+set constraints pms_tutarlilik_oda, pms_tutarlilik_rezervasyon,
+                pms_tutarlilik_atama deferred;
+
 insert into public.pms_rezervasyonlar
   (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
 values ('11000000-0000-0000-0000-000000030000','810','f0000000-0000-0000-0000-000000030001',
@@ -171,6 +181,7 @@ update public.pms_rezervasyonlar
    set durum = 'giris_yapildi', giris_zamani = now() - interval '1 day',
        giris_yapan = 'a0000000-0000-0000-0000-000000000001'
  where id = '11000000-0000-0000-0000-000000030000';
+commit;
 
 select pms3_test.dogru(
   (select durum='giris_yapildi' from public.pms_rezervasyonlar
@@ -550,6 +561,119 @@ select pms3_test.reddedilmeli($q$
 $q$, 'ERKEN CIKIS: kalan geceler hala satilamaz (bilincli sinirlama)');
 
 -- ---------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- T7d — GECİKMİŞ KONAKLAMA SIRASINDA SATIRLAR DONMAMALI
+-- ---------------------------------------------------------------------------
+-- B1 "bugünü kapsayan atama" varsayımını pms_check_out'tan kaldırmıştı ama
+-- değişmez katmanında (O1, R1, R2, A2) bırakmıştı. Sonuç: planlanan çıkış
+-- geçtiği anda oda ve rezervasyon satırları TAMAMEN donuyordu — kat hizmetleri
+-- temizlik durumunu güncelleyemiyor, resepsiyon nota bile dokunamıyordu.
+--
+-- GÜNCEL KONAKLAMA artık tarihten değil, DURUMDAN türetilir:
+--     atama.aktif = true  VE  rezervasyon.durum = 'giris_yapildi'
+--
+-- Tarih kısıtları veri bütünlüğü için yerinde durur (aralık geçerliliği,
+-- rezervasyon aralığına uyum, exclusion). Yalnız "şu anda konaklama sürüyor
+-- mu" sorusunda tarih kullanılmaz.
+
+insert into public.pms_odalar (id, otel_id, oda_tipi_id, oda_no, temizlik_durumu)
+values ('e0000000-0000-0000-0000-000000030131','810','d0000000-0000-0000-0000-000000030010',
+        '330','temiz')
+on conflict (id) do nothing;
+
+insert into public.pms_rezervasyonlar
+  (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+values ('11000000-0000-0000-0000-000000030050','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date - 3, current_date + 2,'onaylandi')
+on conflict (id) do nothing;
+select public.pms_check_in('11000000-0000-0000-0000-000000030050',
+                           'e0000000-0000-0000-0000-000000030131');
+
+-- Takvimi ilerlet: planlanan çıkış DÜN kaldı, misafir hâlâ içeride.
+reset role;
+set session_replication_role = replica;
+update public.pms_rezervasyonlar set cikis_tarihi = current_date - 1
+ where id = '11000000-0000-0000-0000-000000030050';
+update public.pms_oda_atamalari set bitis = current_date - 1
+ where rezervasyon_id = '11000000-0000-0000-0000-000000030050' and aktif;
+set session_replication_role = origin;
+set role authenticated;
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);
+
+-- (A) OVERDUE HOUSEKEEPING — meşru operasyonel güncelleme GEÇMELİ.
+update public.pms_odalar set temizlik_durumu = 'temizleniyor'
+ where id = 'e0000000-0000-0000-0000-000000030131';
+select pms3_test.dogru(
+  (select temizlik_durumu = 'temizleniyor' from public.pms_odalar
+    where id = 'e0000000-0000-0000-0000-000000030131'),
+  'A) GECIKMIS: housekeeping durumu guncellenebilir');
+
+-- (B) OVERDUE RESERVATION NOTE — çekirdek olmayan alan GEÇMELİ.
+update public.pms_rezervasyonlar set notlar = 'Gec cikis: misafir odada'
+ where id = '11000000-0000-0000-0000-000000030050';
+select pms3_test.dogru(
+  (select notlar = 'Gec cikis: misafir odada' from public.pms_rezervasyonlar
+    where id = '11000000-0000-0000-0000-000000030050'),
+  'B) GECIKMIS: rezervasyon notu guncellenebilir');
+
+-- (C) OVERDUE CORE DATE CHANGE — çekirdek alan hâlâ DONUK olmalı.
+-- B1 düzeltmesi bu korumayı gevşetmemeli.
+select pms3_test.reddedilmeli($q$
+  update public.pms_rezervasyonlar set cikis_tarihi = current_date + 5
+   where id = '11000000-0000-0000-0000-000000030050'
+$q$, 'C) GECIKMIS: cikis_tarihi konaklama surerken degistirilemez');
+select pms3_test.reddedilmeli($q$
+  update public.pms_rezervasyonlar set giris_tarihi = current_date - 10
+   where id = '11000000-0000-0000-0000-000000030050'
+$q$, 'C) GECIKMIS: giris_tarihi konaklama surerken degistirilemez');
+
+-- (D) DIRECT VACANT BYPASS — check-out state makinesi atlanamaz.
+select pms3_test.reddedilmeli($q$
+  update public.pms_odalar set kullanim_durumu = 'bos', temizlik_durumu = 'kirli'
+   where id = 'e0000000-0000-0000-0000-000000030131'
+$q$, 'D) GECIKMIS: oda dogrudan bos yapilamaz (checkout bypass)');
+
+-- (E) NORMAL CHECKOUT — gecikmiş konaklama RPC ile kapanmalı.
+select public.pms_check_out('11000000-0000-0000-0000-000000030050');
+select pms3_test.dogru(
+  (select durum = 'cikis_yapildi' and cikis_zamani is not null
+     from public.pms_rezervasyonlar where id = '11000000-0000-0000-0000-000000030050'),
+  'E) GECIKMIS: check-out kabul edildi + gercek damga');
+select pms3_test.dogru(
+  (select kullanim_durumu = 'bos' and temizlik_durumu = 'kirli'
+     from public.pms_odalar where id = 'e0000000-0000-0000-0000-000000030131'),
+  'E) GECIKMIS: oda bos + kirli');
+select pms3_test.dogru(
+  (select count(*) = 1 from public.pms_oda_atamalari
+    where rezervasyon_id = '11000000-0000-0000-0000-000000030050'
+      and aktif and bitis = current_date - 1),
+  'E) GECIKMIS: gecmis atama aktif kaldi, planlanan aralik degismedi');
+
+-- (F) POST-CHECKOUT HISTORICAL ASSIGNMENT — atama aktif ama GÜNCEL DOLULUK DEĞİL.
+select pms3_test.dogru(
+  (select count(*) = 1 from public.pms_oda_atamalari
+    where oda_id = 'e0000000-0000-0000-0000-000000030131' and aktif)
+  and (select count(*) = 0
+         from public.pms_oda_atamalari a
+         join public.pms_rezervasyonlar r
+           on r.id = a.rezervasyon_id and r.otel_id = a.otel_id
+        where a.oda_id = 'e0000000-0000-0000-0000-000000030131' and a.aktif
+          and r.durum = 'giris_yapildi'),
+  'F) CIKIS SONRASI: atama aktif ama guncel doluluk sayilmiyor');
+
+-- Aynı şeyin davranışsal kanıtı: oda artık operasyonel dışına alınabilir.
+-- (Misafir içerideyken bu reddedilirdi.)
+update public.pms_odalar set kullanim_durumu = 'bloke'
+ where id = 'e0000000-0000-0000-0000-000000030131';
+select pms3_test.dogru(
+  (select kullanim_durumu = 'bloke' from public.pms_odalar
+    where id = 'e0000000-0000-0000-0000-000000030131'),
+  'F) CIKIS SONRASI: oda bloke edilebilir (misafir icerideyken reddedilirdi)');
+update public.pms_odalar set kullanim_durumu = 'bos'
+ where id = 'e0000000-0000-0000-0000-000000030131';
+
+-- ---------------------------------------------------------------------------
 -- T7c — DENETİM İZİ KANITI (Phase 0 tetikleyicisi PMS yazmalarında çalışıyor)
 -- ---------------------------------------------------------------------------
 -- DÖKÜM DERSİ: erp_islem_audit'in SELECT politikası 'denetim_izi' yetkisi
@@ -692,7 +816,7 @@ select pms3_test.dogru(
   (select count(*) from public.pms_rezervasyonlar
     where otel_id='810' and durum='giris_yapildi') = 6
   and (select count(*) from public.pms_rezervasyonlar
-       where otel_id='810' and durum='cikis_yapildi') = 4,
-  'final: durum sayilari beklenen gibi');
+       where otel_id='810' and durum='cikis_yapildi') = 5,
+  'final: durum sayilari beklenen gibi (T7d gecikmis cikis dahil)');
 
 select 'TUM PMS ADIM 3 TESTLERI GECTI' as sonuc;

@@ -34,15 +34,24 @@
 -- IMMEDIATE — RPC ara hâllerde yazabilmek için kendi transaction'ında
 -- DEFERRED'e çeker; doğrudan REST tek istek = tek transaction olduğundan
 -- ara hâli commit edemez ve IMMEDIATE denetimine takılır):
---   O1: oda 'dolu'  -> bugünü kapsayan aktif atama OLMALI
---   O2: oda doludan çıkarken -> misafir içerideyse (giris_yapildi + güncel
---       atama) reddedilir; çıkış RPC üzerinden yapılır
---   R1: rez 'giris_yapildi' -> damgalar dolu + güncel aktif ataması DOLU
---       odayı göstermeli
---   R2: rez giristen cikisa dönerken -> güncel atamalarının hiçbiri DOLU
+-- GÜNCEL KONAKLAMA TANIMI (tüm değişmezlerde ortak):
+--     atama.aktif = true  VE  rezervasyon.durum = 'giris_yapildi'
+-- Tarih KULLANILMAZ. Planlanan çıkışın geçmiş olması konaklamayı bitirmez;
+-- misafir çıkış yapana kadar oda fiziksel olarak doludur. Normal çıkıştan
+-- sonra atama aktif kalır ama rezervasyon 'cikis_yapildi' olduğu için artık
+-- güncel doluluk sayılmaz.
+-- (Tarih kısıtları veri bütünlüğü için yerinde durur: aralık geçerliliği,
+--  rezervasyon aralığına uyum, exclusion. Yalnız "şu anda konaklama sürüyor
+--  mu" sorusunda tarih kullanılmaz.)
+--
+--   O1: oda 'dolu'  -> içeride konaklayan (giris_yapildi) bir rezervasyon OLMALI
+--   O2: oda doludan çıkarken -> misafir içerideyse reddedilir; çıkış RPC ile
+--   R1: rez 'giris_yapildi' -> damgalar dolu + aktif ataması DOLU odayı
+--       göstermeli
+--   R2: rez giristen cikisa dönerken -> aktif atamalarının hiçbiri DOLU
 --       odayı göstermemeli
 --   A1: aktif atama -> rezervasyon onaylandi/giris/cikis olmalı
---   A2: aktif atama + misafir içeride -> oda DOLU olmalı
+--   A2: aktif atama + misafir içeride (giris_yapildi) -> oda DOLU olmalı
 --   A3: misafir odadayken (giris_yapildi) atama pasifleştirilemez
 --
 -- Neden INVOKER yeterli: bypass için istemcinin "oda dolu + atama aktif +
@@ -326,18 +335,34 @@ create or replace function public.pms_tutarlilik_oda()
 returns trigger language plpgsql
 set search_path = pg_catalog, public, pg_temp as $$
 begin
-  -- O1: dolu oda -> bugünü kapsayan aktif atama olmalı.
+  -- GÜNCEL KONAKLAMA TANIMI (O1, O2 ortak):
+  --   atama.aktif = true  VE  rezervasyon.durum = 'giris_yapildi'
+  --
+  -- Planlanan bitiş tarihinin geçmiş olması konaklamayı BİTİRMEZ: misafir
+  -- çıkış yapana kadar oda fiziksel olarak doludur. Önceki sürüm
+  -- `a.bitis >= pms_bugun()` kullanıyordu ve gecikmiş konaklamada oda satırını
+  -- tamamen donduruyordu — kat hizmetleri temizlik durumunu güncelleyemiyordu.
+  -- B1 bu varsayımı pms_check_out'tan kaldırmıştı; değişmez katmanında kalmıştı.
+  --
+  -- Sadece "şu anda konaklama sürüyor mu" sorusunda tarih kullanılmaz.
+  -- Tarih kısıtları (aralık geçerliliği, çakışma) veri bütünlüğü için durur.
+
+  -- O1: dolu oda -> içeride konaklayan bir rezervasyon olmalı.
   if new.kullanim_durumu = 'dolu' then
     if not exists (
-      select 1 from public.pms_oda_atamalari a
+      select 1
+        from public.pms_oda_atamalari a
+        join public.pms_rezervasyonlar r
+          on r.id = a.rezervasyon_id and r.otel_id = a.otel_id
        where a.oda_id = new.id and a.otel_id = new.otel_id and a.aktif
-         and a.bitis >= public.pms_bugun(new.otel_id)) then
-      raise exception 'Oda % dolu ama bugunu kapsayan aktif oda atamasi yok',
+         and r.durum = 'giris_yapildi') then
+      raise exception 'Oda % dolu ama icerde konaklayan rezervasyon yok',
         new.oda_no;
     end if;
   end if;
   -- O2: doludan çıkarken misafir hâlâ içerideyse reddet (yalnız UPDATE'te
-  -- anlamlı; INSERT'te old yok).
+  -- anlamlı; INSERT'te old yok). Tarih filtresi YOK: gecikmiş konaklamada da
+  -- doğrudan `dolu -> bos` yazarak check-out state makinesi atlanamaz.
   if tg_op = 'UPDATE' and old.kullanim_durumu = 'dolu'
      and new.kullanim_durumu <> 'dolu' then
     if exists (
@@ -346,7 +371,6 @@ begin
         join public.pms_rezervasyonlar r
           on r.id = a.rezervasyon_id and r.otel_id = a.otel_id
        where a.oda_id = new.id and a.otel_id = new.otel_id and a.aktif
-         and a.bitis >= public.pms_bugun(new.otel_id)
          and r.durum = 'giris_yapildi') then
       raise exception 'Oda % misafir odada iken bosalamaz; once pms_check_out',
         new.oda_no;
@@ -367,6 +391,14 @@ create or replace function public.pms_tutarlilik_rezervasyon()
 returns trigger language plpgsql
 set search_path = pg_catalog, public, pg_temp as $$
 begin
+  -- GÜNCEL ATAMA TANIMI (R1, R2 ortak): atama.aktif = true VE aynı rezervasyon.
+  -- Tarih filtresi YOK — planlanan çıkış geçmiş olsa da bağ kopmaz. Önceki
+  -- sürümde gecikmiş konaklamada rezervasyonun NOT alanı bile güncellenemiyordu.
+  --
+  -- Konaklama boyunca donmuş çekirdek alanlar (giris/cikis tarihi, oda tipi,
+  -- misafir) bu değişiklikten ETKİLENMEZ: onları BEFORE geçiş tetikleyicisi
+  -- (pms_rezervasyon_gecis) koruyor, bu değişmez değil.
+
   -- R1: misafir içeride -> güncel aktif ataması DOLU odayı göstermeli.
   if new.durum = 'giris_yapildi' then
     if not exists (
@@ -375,12 +407,11 @@ begin
         join public.pms_odalar o
           on o.id = a.oda_id and o.otel_id = a.otel_id
        where a.rezervasyon_id = new.id and a.otel_id = new.otel_id and a.aktif
-         and a.bitis >= public.pms_bugun(new.otel_id)
          and o.kullanim_durumu = 'dolu') then
-      raise exception 'Rezervasyon giris_yapildi ama dolu odada guncel aktif atamasi yok';
+      raise exception 'Rezervasyon giris_yapildi ama dolu odada aktif atamasi yok';
     end if;
   end if;
-  -- R2: çıkışta güncel hiçbir atama dolu odayı göstermemeli.
+  -- R2: çıkışta hiçbir aktif atama dolu odayı göstermemeli.
   if tg_op = 'UPDATE' and old.durum = 'giris_yapildi'
      and new.durum = 'cikis_yapildi' then
     -- (yalnız UPDATE; INSERT'te bu geçiş BEFORE tetikleyicide zaten yasak)
@@ -390,7 +421,6 @@ begin
         join public.pms_odalar o
           on o.id = a.oda_id and o.otel_id = a.otel_id
        where a.rezervasyon_id = new.id and a.otel_id = new.otel_id and a.aktif
-         and a.bitis >= public.pms_bugun(new.otel_id)
          and o.kullanim_durumu = 'dolu') then
       raise exception 'Cikis yapildi ama oda hala dolu; once oda bosalmali (pms_check_out)';
     end if;
@@ -409,7 +439,9 @@ create constraint trigger pms_tutarlilik_rezervasyon
 create or replace function public.pms_tutarlilik_atama()
 returns trigger language plpgsql
 set search_path = pg_catalog, public, pg_temp as $$
-declare v_durum public.pms_rezervasyon_durum; v_bugun date;
+-- v_bugun kaldirildi: A2 artik tarih kullanmiyor, guncel konaklama
+-- rezervasyon durumundan turetiliyor.
+declare v_durum public.pms_rezervasyon_durum;
 begin
   select r.durum into v_durum
     from public.pms_rezervasyonlar r
@@ -422,16 +454,16 @@ begin
       coalesce(v_durum::text,'(yok)');
   end if;
 
+  -- A2: GÜNCEL konaklama ataması = aktif VE rezervasyon giris_yapildi.
+  -- Tarih kapısı YOK: planlanan bitiş geçmiş olsa da misafir hâlâ içeride.
+  -- Normal çıkıştan SONRA rezervasyon 'cikis_yapildi' olur; atama aktif kalsa
+  -- bile bu koşul artık sağlanmaz, yani geçmiş kayıt güncel doluluk sayılmaz.
   if new.aktif and v_durum = 'giris_yapildi' then
-    v_bugun := public.pms_bugun(new.otel_id);
-    -- A2: içerideki misafirin güncel ataması DOLU odayı göstermeli.
-    if new.bitis >= v_bugun then
-      if not exists (
-        select 1 from public.pms_odalar o
-         where o.id = new.oda_id and o.otel_id = new.otel_id
-           and o.kullanim_durumu = 'dolu') then
-        raise exception 'Misafir odada ama atamasi dolu olmayan odayi gosteriyor';
-      end if;
+    if not exists (
+      select 1 from public.pms_odalar o
+       where o.id = new.oda_id and o.otel_id = new.otel_id
+         and o.kullanim_durumu = 'dolu') then
+      raise exception 'Misafir odada ama atamasi dolu olmayan odayi gosteriyor';
     end if;
   end if;
 

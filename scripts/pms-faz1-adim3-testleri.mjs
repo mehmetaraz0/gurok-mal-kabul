@@ -126,6 +126,12 @@ values ('11000000-0000-0000-0000-000000030020','810','f0000000-0000-0000-0000-00
        ('11000000-0000-0000-0000-000000030021','810','f0000000-0000-0000-0000-000000030001',
         'd0000000-0000-0000-0000-000000030010', current_date, current_date + 2,'onaylandi')
 on conflict (id) do nothing;
+-- TEK TRANSACTION + ERTELENMIS DEGISMEZLER: "oda dolu" ile "rezervasyon
+-- giris_yapildi" birbirini sart kosar (O1 ve R1). pms_check_in de ayni yolu
+-- kullanir; sahneleme RPC'nin uretemeyecegi bir sirayi denememeli.
+begin;
+set constraints pms_tutarlilik_oda, pms_tutarlilik_rezervasyon,
+                pms_tutarlilik_atama deferred;
 insert into public.pms_oda_atamalari (otel_id, rezervasyon_id, oda_id, baslangic, bitis)
 values ('810','11000000-0000-0000-0000-000000030020','e0000000-0000-0000-0000-000000030110',
         current_date - 1, current_date);
@@ -134,7 +140,8 @@ update public.pms_odalar set kullanim_durumu='dolu'
 update public.pms_rezervasyonlar
    set durum='giris_yapildi', giris_zamani=now() - interval '1 day',
        giris_yapan='a0000000-0000-0000-0000-000000000001'
- where id='11000000-0000-0000-0000-000000030020';`);
+ where id='11000000-0000-0000-0000-000000030020';
+commit;`);
 if (!r.ok) {
   console.error('8) Eszamanlilik zemini : BASARISIZ\n'
     + r.err.split('\n').filter((l) => l.trim()).slice(-10).join('\n'));
@@ -234,6 +241,10 @@ values ('11000000-0000-0000-0000-000000030040','810','f0000000-0000-0000-0000-00
        ('11000000-0000-0000-0000-000000030041','810','f0000000-0000-0000-0000-000000030001',
         'd0000000-0000-0000-0000-000000030010', current_date, current_date + 2,'onaylandi')
 on conflict (id) do nothing;
+-- TEK TRANSACTION + ERTELENMIS DEGISMEZLER (O1/R1 birbirini sart kosar).
+begin;
+set constraints pms_tutarlilik_oda, pms_tutarlilik_rezervasyon,
+                pms_tutarlilik_atama deferred;
 insert into public.pms_oda_atamalari (otel_id, rezervasyon_id, oda_id, baslangic, bitis)
 values ('810','11000000-0000-0000-0000-000000030040','e0000000-0000-0000-0000-000000030118',
         current_date - 3, current_date + 2);
@@ -243,6 +254,7 @@ update public.pms_rezervasyonlar
    set durum='giris_yapildi', giris_zamani=now() - interval '3 days',
        giris_yapan='a0000000-0000-0000-0000-000000000001'
  where id='11000000-0000-0000-0000-000000030040';
+commit;
 -- takvim ilerledi simülasyonu: planlanan çıkış 2 gün geçmişe düşer
 set session_replication_role = replica;
 update public.pms_rezervasyonlar set cikis_tarihi = current_date - 2
