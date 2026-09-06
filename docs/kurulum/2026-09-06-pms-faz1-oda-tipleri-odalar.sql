@@ -109,17 +109,29 @@ begin
     alter table public.pms_oda_tipleri
       add constraint pms_oda_tipleri_id_otel_key unique (id, otel_id);
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'pms_oda_tipleri_otel_kod_key') then
-    alter table public.pms_oda_tipleri
-      add constraint pms_oda_tipleri_otel_kod_key unique (otel_id, kod);
+  -- Kod ve ad NORMALLESTIRILMIS olmali. `btrim(kod) <> ''` yalnizca BOS olmayi
+  -- engeller, KIRPILMIS olmayi degil: ' STD' gecerdi ve otelde iki ayri "STD"
+  -- oda tipi olusurdu. Ekran .trim() yapiyor ama API'ye dogrudan giden bir
+  -- istemci yapmaz; kural veritabaninda olmali.
+  if not exists (select 1 from pg_constraint where conname = 'pms_oda_tipleri_kod_bicim') then
+    alter table public.pms_oda_tipleri add constraint pms_oda_tipleri_kod_bicim
+      check (kod = btrim(kod) and kod <> '' and length(kod) <= 20);
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'pms_oda_tipleri_kod_bos_degil') then
-    alter table public.pms_oda_tipleri
-      add constraint pms_oda_tipleri_kod_bos_degil check (btrim(kod) <> '' and length(kod) <= 20);
+  if not exists (select 1 from pg_constraint where conname = 'pms_oda_tipleri_ad_bicim') then
+    alter table public.pms_oda_tipleri add constraint pms_oda_tipleri_ad_bicim
+      check (ad = btrim(ad) and ad <> '');
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'pms_oda_tipleri_ad_bos_degil') then
-    alter table public.pms_oda_tipleri
-      add constraint pms_oda_tipleri_ad_bos_degil check (btrim(ad) <> '');
+
+  -- Eski (harf duyarli) benzersizlik varsa birakilir; yerine buyuk/kucuk harf
+  -- duyarsiz benzersiz index gelir. 'STD' ve 'std' AYNI oda tipidir.
+  if exists (select 1 from pg_constraint where conname = 'pms_oda_tipleri_otel_kod_key') then
+    alter table public.pms_oda_tipleri drop constraint pms_oda_tipleri_otel_kod_key;
+  end if;
+  if exists (select 1 from pg_constraint where conname = 'pms_oda_tipleri_kod_bos_degil') then
+    alter table public.pms_oda_tipleri drop constraint pms_oda_tipleri_kod_bos_degil;
+  end if;
+  if exists (select 1 from pg_constraint where conname = 'pms_oda_tipleri_ad_bos_degil') then
+    alter table public.pms_oda_tipleri drop constraint pms_oda_tipleri_ad_bos_degil;
   end if;
   -- Kapasite tutarliligi: yetiskin ve cocuk ayri ayri toplam kapasiteyi asamaz.
   -- (Toplamlari asabilir: 2 yetiskin + 2 cocuk kapasiteli 3 kisilik oda mesrudur.)
@@ -132,6 +144,9 @@ begin
   end if;
 end;
 $$;
+
+create unique index if not exists pms_oda_tipleri_otel_kod_uniq
+  on public.pms_oda_tipleri (otel_id, upper(kod));
 
 create index if not exists pms_oda_tipleri_otel_aktif_idx
   on public.pms_oda_tipleri (otel_id, aktif);
@@ -166,22 +181,36 @@ begin
       on update cascade on delete restrict;
   end if;
   -- Oda numarasi otel icinde benzersiz; FARKLI otellerde ayni numara mesrudur.
-  if not exists (select 1 from pg_constraint where conname = 'pms_odalar_otel_oda_no_key') then
-    alter table public.pms_odalar
-      add constraint pms_odalar_otel_oda_no_key unique (otel_id, oda_no);
+  -- Benzersizlik asagida buyuk/kucuk harf duyarsiz INDEX ile kurulur: "12A" ve
+  -- "12a" ayni odadir. Eski harf duyarli kisit varsa birakilir.
+  if exists (select 1 from pg_constraint where conname = 'pms_odalar_otel_oda_no_key') then
+    alter table public.pms_odalar drop constraint pms_odalar_otel_oda_no_key;
+  end if;
+  if exists (select 1 from pg_constraint where conname = 'pms_odalar_oda_no_bos_degil') then
+    alter table public.pms_odalar drop constraint pms_odalar_oda_no_bos_degil;
   end if;
   -- Ileride rezervasyon/atama tablolari icin bilesik FK hedefi.
   if not exists (select 1 from pg_constraint where conname = 'pms_odalar_id_otel_key') then
     alter table public.pms_odalar
       add constraint pms_odalar_id_otel_key unique (id, otel_id);
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'pms_odalar_oda_no_bos_degil') then
-    alter table public.pms_odalar
-      add constraint pms_odalar_oda_no_bos_degil
-      check (btrim(oda_no) <> '' and length(oda_no) <= 20);
+  -- Kirpilmis olma zorunlulugu: ' 101' ile '101' ayri oda sayilmasin.
+  if not exists (select 1 from pg_constraint where conname = 'pms_odalar_oda_no_bicim') then
+    alter table public.pms_odalar add constraint pms_odalar_oda_no_bicim
+      check (oda_no = btrim(oda_no) and oda_no <> '' and length(oda_no) <= 20);
+  end if;
+  -- Kat ve blok da kirpilmis olmali; ' 1' ile '1' ayri kat filtresi uretirdi.
+  if not exists (select 1 from pg_constraint where conname = 'pms_odalar_kat_blok_bicim') then
+    alter table public.pms_odalar add constraint pms_odalar_kat_blok_bicim check (
+      (kat  is null or (kat  = btrim(kat)  and kat  <> '' and length(kat)  <= 10))
+      and (blok is null or (blok = btrim(blok) and blok <> '' and length(blok) <= 30))
+    );
   end if;
 end;
 $$;
+
+create unique index if not exists pms_odalar_otel_oda_no_uniq
+  on public.pms_odalar (otel_id, upper(oda_no));
 
 create index if not exists pms_odalar_otel_aktif_idx    on public.pms_odalar (otel_id, aktif);
 create index if not exists pms_odalar_tip_idx           on public.pms_odalar (oda_tipi_id);
@@ -360,6 +389,23 @@ begin
       where kod in ('pms_oda_tipi','pms_oda')) <> 2 then
     raise exception 'PMS modulleri kaydedilmedi (2 satir bekleniyordu)';
   end if;
+
+  -- Benzersizlik buyuk/kucuk harf DUYARSIZ olmali. Duyarli bir kisit geri
+  -- gelirse 'STD' ile 'std' iki ayri oda tipi olur ve fark edilmez.
+  foreach v_tablo in array array['pms_oda_tipleri_otel_kod_uniq',
+                                 'pms_odalar_otel_oda_no_uniq'] loop
+    if not exists (select 1 from pg_class where relname = v_tablo and relkind = 'i') then
+      raise exception 'Harf duyarsiz benzersiz index yok: %', v_tablo;
+    end if;
+  end loop;
+
+  -- Kirpma kurallari yerinde mi?
+  foreach v_tablo in array array['pms_oda_tipleri_kod_bicim','pms_oda_tipleri_ad_bicim',
+                                 'pms_odalar_oda_no_bicim','pms_odalar_kat_blok_bicim'] loop
+    if not exists (select 1 from pg_constraint where conname = v_tablo) then
+      raise exception 'Bicim kisiti yok: %', v_tablo;
+    end if;
+  end loop;
 end;
 $$;
 

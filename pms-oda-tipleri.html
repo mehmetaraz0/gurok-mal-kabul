@@ -46,6 +46,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .r-aktif{background:#dcfce7;color:#166534}
 .r-pasif{background:var(--gray-200);color:var(--gray-600)}
 .bos{text-align:center;padding:28px 12px;color:var(--gray-500);font-size:13px}
+.uyari{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.5}
+.uyari b{display:block;margin-bottom:3px}
 #ld{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:99}
 #ld.show{display:flex}
 .spin{width:34px;height:34px;border:3px solid var(--gray-300);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
@@ -63,6 +65,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <button class="hbtn" onclick="yeniAc()" title="Yeni oda tipi">+</button>
   </div>
   <div class="sc">
+    <div id="uyari" class="uyari" style="display:none"></div>
     <div class="card">
       <div class="row">
         <input id="ara" placeholder="Kod veya ad ara…" oninput="ciz()">
@@ -132,14 +135,37 @@ const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
   yukle();
 })();
 
+// Sunucu tarafinda bir satir tavani var (Supabase "Max rows", tipik 1000).
+// Asilirsa PostgREST SESSIZCE kirpar: hata yok, eksik liste. Oda tipleri az
+// sayida olsa da ayni korumayi koyuyoruz; sessiz kirpma fark edilmez.
+const SATIR_TAVANI = 5000;
+
 async function yukle(){
   sLD();
+  let uyari = '';
   try{
-    const r = await fetch(SB_URL+'/rest/v1/pms_oda_tipleri?select=*&order=otel_id,kod',{headers:SB_HEADERS});
-    TIPLER = r.ok ? await r.json() : [];
-    if(!r.ok) toast('Oda tipleri okunamadı (HTTP '+r.status+')');
-  }catch(e){ TIPLER=[]; toast('Sunucuya ulaşılamadı'); }
-  hLD(); ciz();
+    const r = await fetch(SB_URL+'/rest/v1/pms_oda_tipleri?select=*&order=otel_id,kod'
+      + '&limit=' + SATIR_TAVANI, { headers:{ ...SB_HEADERS, 'Prefer':'count=exact' } });
+    if(r.ok){
+      TIPLER = await r.json();
+      const aralik = r.headers.get('content-range') || '';
+      const toplam = parseInt(aralik.split('/')[1], 10);
+      if(Number.isFinite(toplam) && toplam > TIPLER.length){
+        uyari = 'Liste eksik: sunucu ' + toplam + ' kayıttan yalnız '
+              + TIPLER.length + ' tanesini döndürdü.';
+      }
+    }else{
+      TIPLER = [];
+      uyari = 'Oda tipleri okunamadı (HTTP ' + r.status + ').';
+    }
+  }catch(e){ TIPLER=[]; uyari = 'Sunucuya ulaşılamadı.'; }
+  hLD();
+
+  const u = document.getElementById('uyari');
+  if(uyari){ u.style.display=''; u.innerHTML = '<b>Dikkat</b>' + escapeHtml(uyari); }
+  else { u.style.display='none'; u.textContent=''; }
+
+  ciz();
 }
 
 function ciz(){

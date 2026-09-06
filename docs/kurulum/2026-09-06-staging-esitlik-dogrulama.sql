@@ -12,6 +12,25 @@
 -- durum. Bayt-birebir doğrulanmış şema dökümünden üretildi (26 fonksiyonun
 -- 26'sı üretim gövde hash'leriyle eşleşti).
 --
+-- ---------------------------------------------------------------------------
+-- BU DOSYA HER ÜRETİM YAYINDAN SONRA GÜNCELLENMELİDİR
+-- ---------------------------------------------------------------------------
+-- Aşağıdaki sayılar üretimin O ANKİ durumunu sabitliyor: politika 193, tablo
+-- 66, kısıtlayıcı politika 31, 26 fonksiyon gövde hash'i. Üretime yeni bir
+-- migration uygulanınca bunlar DEĞİŞİR ve dosya her koşuda gerçek olmayan
+-- SAPMA raporlar. Yanlış alarm veren bir sürüklenme detektörü, kısa sürede
+-- görmezden gelinir ve gerçek sürüklenmeyi de kaçırırsınız.
+--
+-- Bekleyen örnek: `2026-09-06-pms-faz1-oda-tipleri-odalar.sql` uygulandığında
+-- 2 tablo + 10 politika (8 kalıcı + 2 kısıtlayıcı) eklenir; sayılar
+-- 203 politika / 68 tablo / 33 kısıtlayıcı olur ve `pms_guncelleme_damgala`
+-- fonksiyonu doğar (SECURITY INVOKER olduğu için 4 numaralı kapsam kontrolüne
+-- takılmaz).
+--
+-- Güncelleme yordamı: yayın sonrası `preflight-01b`'yi üretimde çalıştır,
+-- çıktısını aşağıdaki VALUES bloğuna işle, sayıları düzelt.
+-- URETIM-YAYIN-RUNBOOK.md adım 2.8 bunu zaten istiyor.
+--
 -- ÇIKTI: "SAPMA" ile başlayan satır varsa sorun var. Hiç yoksa yalnızca
 -- "BILGI" satırları görünür.
 --

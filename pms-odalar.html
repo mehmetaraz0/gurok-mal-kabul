@@ -55,6 +55,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .t-kontrol_edildi{background:#dcfce7;color:#166534}
 .bos{text-align:center;padding:28px 12px;color:var(--gray-500);font-size:13px}
 .ozet{font-size:11px;color:var(--gray-600);padding:8px 10px}
+.uyari{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.5}
+.uyari b{display:block;margin-bottom:3px}
 #ld{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:99}
 #ld.show{display:flex}
 .spin{width:34px;height:34px;border:3px solid var(--gray-300);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
@@ -72,6 +74,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
     <button class="hbtn" onclick="yeniAc()" title="Yeni oda">+</button>
   </div>
   <div class="sc">
+    <div id="uyari" class="uyari" style="display:none"></div>
     <div class="card">
       <input id="ara" placeholder="Oda no ara…" oninput="ciz()" style="margin-bottom:8px">
       <div class="filtreler">
@@ -165,18 +168,60 @@ const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
   yukle();
 })();
 
+// Sunucu tarafinda bir satir tavani var (Supabase "Max rows", tipik 1000).
+// Asilirsa PostgREST SESSIZCE kirpar: hata yok, eksik liste. Odalar bu ERP'de
+// o tavani asmasi muhtemel ilk tablo (birkac yuz oda x iki otel), bu yuzden
+// gercek toplami count=exact ile isteyip donen satirla karsilastiriyoruz.
+const SATIR_TAVANI = 5000;
+
+async function cekVeSay(yol){
+  const r = await fetch(SB_URL + yol + '&limit=' + SATIR_TAVANI,
+    { headers: { ...SB_HEADERS, 'Prefer': 'count=exact' } });
+  if(!r.ok) return { veri: [], hata: 'HTTP ' + r.status, kirpildi: false };
+  const veri = await r.json();
+  const aralik = r.headers.get('content-range') || '';
+  const toplam = parseInt(aralik.split('/')[1], 10);
+  return { veri, hata: null,
+           kirpildi: Number.isFinite(toplam) && toplam > veri.length, toplam };
+}
+
 async function yukle(){
   sLD();
+  let uyarilar = [];
   try{
     const [rt, ro] = await Promise.all([
-      fetch(SB_URL+'/rest/v1/pms_oda_tipleri?select=id,otel_id,kod,ad,aktif&order=kod',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/pms_odalar?select=*&order=otel_id,oda_no',{headers:SB_HEADERS})
+      cekVeSay('/rest/v1/pms_oda_tipleri?select=id,otel_id,kod,ad,aktif&order=kod'),
+      cekVeSay('/rest/v1/pms_odalar?select=*&order=otel_id,oda_no')
     ]);
-    TIPLER = rt.ok ? await rt.json() : [];
-    ODALAR = ro.ok ? await ro.json() : [];
-    if(!rt.ok || !ro.ok) toast('Veri okunamadı');
-  }catch(e){ TIPLER=[]; ODALAR=[]; toast('Sunucuya ulaşılamadı'); }
+    TIPLER = rt.veri; ODALAR = ro.veri;
+
+    if(ro.hata) uyarilar.push('Odalar okunamadı (' + ro.hata + ').');
+    if(ro.kirpildi) uyarilar.push('Liste eksik: sunucu ' + ro.toplam
+      + ' odadan yalnız ' + ro.veri.length + ' tanesini döndürdü. '
+      + 'Filtreleme ve sayımlar EKSİK veri üzerinde çalışıyor.');
+
+    // Oda tipleri AYRI bir modul yetkisi (pms_oda_tipi). Yalniz pms_oda yetkisi
+    // olan kullanici tip adlarini okuyamaz ve her satirda "(tip yok)" gorur --
+    // ekran bozuk sanilir, oysa yetkilendirme dogru calisiyor. Acikca soyle.
+    if(ODALAR.length && !TIPLER.length){
+      uyarilar.push('Oda tipi bilgisi okunamıyor. Oda tipi adları ve tip filtresi '
+        + 'boş kalacak. Bunun için "Ön Büro — Oda Tipleri" yetkisi gerekiyor.');
+    }
+  }catch(e){
+    TIPLER=[]; ODALAR=[];
+    uyarilar.push('Sunucuya ulaşılamadı.');
+  }
   hLD();
+
+  const u = document.getElementById('uyari');
+  if(uyarilar.length){
+    u.style.display = '';
+    u.innerHTML = '<b>Dikkat</b>' + uyarilar.map(m=>escapeHtml(m)).join('<br>');
+  } else {
+    u.style.display = 'none';
+    u.textContent = '';
+  }
+
   filtreSecenekleriDoldur();
   ciz();
 }

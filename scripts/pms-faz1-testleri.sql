@@ -159,6 +159,47 @@ select pms_test.reddedilmeli($q$
   values ('810','   ','Bos kod',2,2,0)
 $q$, 'kod bos olamaz');
 
+-- ---------------------------------------------------------------------------
+-- NORMALLESTIRME: kirpma ve harf duyarsizligi
+-- ---------------------------------------------------------------------------
+-- Bunlar veri bozulmasi kaynagidir: ' 101' ile '101' ayri kabul edilirse otelde
+-- iki tane "101" odasi olur ve hangisinin dogru oldugu anlasilmaz.
+select pms_test.reddedilmeli($q$
+  insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no)
+  values ('810','80000000-0000-0000-0000-000000000810',' 101')
+$q$, 'oda_no kirpilmamis olamaz (bastaki bosluk)');
+
+select pms_test.reddedilmeli($q$
+  insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no)
+  values ('810','80000000-0000-0000-0000-000000000810','202 ')
+$q$, 'oda_no kirpilmamis olamaz (sondaki bosluk)');
+
+select pms_test.reddedilmeli($q$
+  insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no, kat)
+  values ('810','80000000-0000-0000-0000-000000000810','203',' 2')
+$q$, 'kat kirpilmamis olamaz');
+
+select pms_test.reddedilmeli($q$
+  insert into public.pms_oda_tipleri (otel_id, kod, ad, azami_kisi, azami_yetiskin)
+  values ('810',' DLX','Kirpilmamis kod',2,2)
+$q$, 'oda tipi kodu kirpilmamis olamaz');
+
+-- 'STD' zaten var; 'std' AYNI oda tipidir, ayri kayit olamaz.
+select pms_test.reddedilmeli($q$
+  insert into public.pms_oda_tipleri (otel_id, kod, ad, azami_kisi, azami_yetiskin)
+  values ('810','std','Kucuk harfli STD',2,2)
+$q$, 'oda tipi kodu harf duyarsiz benzersiz');
+
+-- '101' zaten var; '101' harf iceren varyantiyla test icin once bir oda ekleyip
+-- kucuk harflisini reddettirelim.
+insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no)
+values ('810','80000000-0000-0000-0000-000000000810','12A');
+select pms_test.reddedilmeli($q$
+  insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no)
+  values ('810','80000000-0000-0000-0000-000000000810','12a')
+$q$, 'oda numarasi harf duyarsiz benzersiz');
+delete from public.pms_odalar where oda_no = '12A';
+
 -- Gecersiz durum degeri enum tarafindan reddedilir.
 select pms_test.reddedilmeli($q$
   update public.pms_odalar set kullanim_durumu='REZERVE'
@@ -292,5 +333,76 @@ drop policy pms_test_bypass on public.pms_odalar;
 select pms_test.reddedilmeli($q$
   delete from public.pms_oda_tipleri where id='80000000-0000-0000-0000-000000000810'
 $q$, 'kullanimdaki oda tipi silinemez (on delete restrict)');
+
+-- ---------------------------------------------------------------------------
+-- YETKI SEVIYELERI: goruntule / kayit / tam ayrimi gercekten isliyor mu
+-- ---------------------------------------------------------------------------
+-- Politikalar uc seviye ayirt ediyordu ama testler yalnizca uclari (tam / hic)
+-- deniyordu. Ortadaki seviye korumasizdi.
+insert into public.roller (id, ad, seviye, kod, aktif)
+values ('50000000-0000-0000-0000-000000000003','PMS Salt Okur','otel','pms_okur',true)
+on conflict (id) do nothing;
+
+insert into public.yetki_matrisi (rol_id, modul_id, yetki)
+select '50000000-0000-0000-0000-000000000003', id, 'goruntule'::public.yetki_seviye
+from public.moduller where kod in ('pms_oda_tipi','pms_oda')
+on conflict (rol_id, modul_id) do nothing;
+
+insert into auth.users (id, email)
+values ('70000000-0000-0000-0000-000000000006','pms-okur@ornek.gecersiz')
+on conflict (id) do nothing;
+
+insert into public.kullanicilar (id, auth_user_id, rol, rol_id, otel_id, aktif, tum_oteller, ad)
+values ('60000000-0000-0000-0000-000000000006','70000000-0000-0000-0000-000000000006','yonetici',
+        '50000000-0000-0000-0000-000000000003','810', true, false, 'PMS salt okur')
+on conflict (id) do nothing;
+
+set role authenticated;
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000006',false);
+
+select pms_test.dogru((select count(*) > 0 from public.pms_odalar),
+  'goruntule yetkisi OKUYABILIR');
+
+select pms_test.reddedilmeli($q$
+  insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no)
+  values ('810','80000000-0000-0000-0000-000000000810','SALTOKUR')
+$q$, 'goruntule yetkisi YAZAMAZ (kayit seviyesi gerekli)');
+
+-- DIKKAT: RLS satiri filtreledi'ginde DELETE HATA VERMEZ, 0 satir siler.
+-- "istisna yok" ile "silebildi" ayni sey degil; SATIR SAYISI olculmeli.
+do $$
+declare v_once bigint; v_sonra bigint;
+begin
+  select count(*) into v_once from public.pms_odalar;
+  begin
+    delete from public.pms_odalar where oda_no = '101' and otel_id = '810';
+  exception when others then null;
+  end;
+  select count(*) into v_sonra from public.pms_odalar;
+  if v_sonra < v_once then
+    raise exception 'BASARISIZ: goruntule yetkisi SILEBILDI (tam seviyesi atlandi)';
+  end if;
+end $$;
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- MODUL KAPATMA ANAHTARI — geri alma yordami buna dayaniyor
+-- ---------------------------------------------------------------------------
+-- moduller.aktif=false, auth_yetki_var uzerinden hem UI'yi hem RLS'i kapatir.
+-- Dogrulanmadan guvenilecek bir geri alma yolu degildir.
+update public.moduller set aktif = false where kod = 'pms_oda';
+set role authenticated;
+select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000001',false);
+select pms_test.dogru((select count(*) = 0 from public.pms_odalar),
+  'modul pasifken erisim TAMAMEN kesilir');
+reset role;
+update public.moduller set aktif = true where kod = 'pms_oda';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub','70000000-0000-0000-0000-000000000001',false);
+select pms_test.dogru((select count(*) > 0 from public.pms_odalar),
+  'modul tekrar aktifken erisim geri gelir');
+reset role;
 
 select 'TUM PMS FAZ 1 TESTLERI GECTI' as sonuc;
