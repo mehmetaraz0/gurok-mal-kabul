@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let CU = requireLogin();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dornevi — Rezervasyonlar</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--accent:#c9a24b}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;font-family:inherit;background:white}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.filtreler{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.btn{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-p{background:var(--primary);color:white}
+.btn-s{background:var(--gray-200);color:var(--gray-700)}
+.btn-sm{padding:6px 10px;font-size:12px}
+.liste-satir{display:flex;align-items:center;gap:8px;padding:10px;border-bottom:1px solid var(--gray-200);flex-wrap:wrap}
+.liste-satir:last-child{border-bottom:none}
+.ls-ana{flex:1;min-width:150px}
+.ls-no{font-size:13px;font-weight:700;color:var(--primary)}
+.ls-meta{font-size:11px;color:var(--gray-500);margin-top:2px}
+.rozet{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.d-taslak{background:var(--gray-200);color:var(--gray-700)}
+.d-onaylandi{background:#dcfce7;color:#166534}
+.d-giris_yapildi{background:#dbeafe;color:#1e40af}
+.d-cikis_yapildi{background:#e0e7ff;color:#3730a3}
+.d-iptal{background:#fee2e2;color:#991b1b}
+.d-gelmedi{background:#fef3c7;color:#92400e}
+.bos{text-align:center;padding:28px 12px;color:var(--gray-500);font-size:13px}
+.ozet{font-size:11px;color:var(--gray-600);padding:8px 10px}
+.uyari{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.5}
+.uyari b{display:block;margin-bottom:3px}
+.atama-satir{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--gray-200);font-size:12px}
+.atama-satir:last-child{border-bottom:none}
+#ld{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:99}
+#ld.show{display:flex}
+.spin{width:34px;height:34px;border:3px solid var(--gray-300);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.modal.open{display:flex}
+.modal-ic{background:white;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:16px;max-height:90vh;overflow-y:auto}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="hbtn" href="on-buro.html" title="Ön Büro">←</a>
+    <div style="flex:1"><h1>Rezervasyonlar<span class="sub" id="hdrOtel"></span></h1></div>
+    <button class="hbtn" onclick="yeniAc()" title="Yeni rezervasyon">+</button>
+  </div>
+  <div class="sc">
+    <div id="uyari" class="uyari" style="display:none"></div>
+    <div class="card">
+      <input id="ara" placeholder="Rezervasyon no veya misafir ara…" oninput="ciz()" style="margin-bottom:8px">
+      <div class="filtreler">
+        <select id="fDurum" onchange="ciz()">
+          <option value="">Tüm durumlar</option>
+          <option value="taslak">Taslak</option><option value="onaylandi">Onaylandı</option>
+          <option value="giris_yapildi">Giriş yapıldı</option><option value="cikis_yapildi">Çıkış yapıldı</option>
+          <option value="iptal">İptal</option><option value="gelmedi">Gelmedi</option>
+        </select>
+        <select id="fTip" onchange="ciz()"><option value="">Tüm oda tipleri</option></select>
+        <input id="fBas" type="date" onchange="ciz()" title="Bu tarihten sonra giriş">
+        <input id="fBit" type="date" onchange="ciz()" title="Bu tarihten önce çıkış">
+      </div>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="ozet" id="ozet"></div>
+      <div id="liste"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mForm">
+  <div class="modal-ic">
+    <div class="card-title" id="formBaslik">Yeni Rezervasyon</div>
+    <div id="otelAlani" style="display:none" class="field">
+      <label>Otel</label><select id="fOtel" onchange="secenekleriDoldur()"></select>
+    </div>
+    <div class="field"><label>Misafir *</label><select id="mMisafir"></select></div>
+    <div class="field"><label>Oda tipi *</label><select id="mTip"></select></div>
+    <div class="row">
+      <div class="field"><label>Giriş *</label><input id="mGiris" type="date"></div>
+      <div class="field"><label>Çıkış *</label><input id="mCikis" type="date"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Yetişkin *</label><input id="mYetiskin" type="number" min="1" max="20" value="1"></div>
+      <div class="field"><label>Çocuk</label><input id="mCocuk" type="number" min="0" max="20" value="0"></div>
+      <div class="field"><label>Durum</label>
+        <select id="mDurum">
+          <option value="taslak">Taslak</option><option value="onaylandi">Onaylandı</option>
+          <option value="giris_yapildi">Giriş yapıldı</option><option value="cikis_yapildi">Çıkış yapıldı</option>
+          <option value="iptal">İptal</option><option value="gelmedi">Gelmedi</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Notlar</label><textarea id="mNotlar" rows="2"></textarea></div>
+
+    <div id="atamaBolum" style="display:none;margin-top:6px;border-top:1px solid var(--gray-200);padding-top:12px">
+      <div class="card-title">Oda Ataması</div>
+      <div id="atamaListe"></div>
+      <div class="row" style="margin-top:8px">
+        <select id="aOda"></select>
+        <button class="btn btn-s btn-sm" onclick="atamaEkle()" style="flex:0 0 auto">Ata</button>
+      </div>
+      <div style="font-size:11px;color:var(--gray-500);margin-top:6px">
+        Atama, rezervasyon tarihleri boyunca yapılır. Aynı odaya çakışan ikinci
+        bir atama veritabanı tarafından reddedilir.
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <button class="btn btn-s" onclick="kModal('mForm')">Vazgeç</button>
+      <button class="btn btn-p" onclick="kaydet()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="ld"><div class="spin"></div></div>
+
+<script>
+// Yetki ve otel kapsamı SUNUCUDA (RLS) uygulanır. Aşırı satış, çakışma ve
+// kapasite kuralları da sunucudadır — buradaki kontroller yalnızca erken
+// uyarıdır, güvence değil.
+let REZ = [], MISAFIRLER = [], TIPLER = [], ODALAR = [], ATAMALAR = [];
+let DUZENLENEN = null;
+
+const OTELLER = Object.keys(OTEL_ISIMLERI);
+const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+const SATIR_TAVANI = 5000;
+const DURUM_AD = {taslak:'Taslak', onaylandi:'Onaylandı', giris_yapildi:'Giriş yapıldı',
+                  cikis_yapildi:'Çıkış yapıldı', iptal:'İptal', gelmedi:'Gelmedi'};
+
+(function init(){
+  if(!CU) return;
+  document.getElementById('app').style.display='';
+  document.getElementById('hdrOtel').textContent =
+    TEK_OTEL ? ('🏨 ' + (OTEL_KISA[TEK_OTEL] || TEK_OTEL)) : '🏨 Tüm oteller';
+  if(!TEK_OTEL){
+    document.getElementById('otelAlani').style.display='';
+    document.getElementById('fOtel').innerHTML =
+      OTELLER.map(o=>'<option value="'+escapeHtml(o)+'">'+escapeHtml(OTEL_ISIMLERI[o])+'</option>').join('');
+  }
+  yukle();
+})();
+
+async function cekVeSay(yol){
+  const r = await fetch(SB_URL + yol + '&limit=' + SATIR_TAVANI,
+    { headers: { ...SB_HEADERS, 'Prefer':'count=exact' } });
+  if(!r.ok) return { veri: [], hata: 'HTTP ' + r.status, kirpildi:false };
+  const veri = await r.json();
+  const toplam = parseInt((r.headers.get('content-range')||'').split('/')[1], 10);
+  return { veri, hata:null, kirpildi: Number.isFinite(toplam) && toplam > veri.length, toplam };
+}
+
+async function yukle(){
+  sLD();
+  const uyarilar = [];
+  try{
+    const [r1,r2,r3,r4,r5] = await Promise.all([
+      cekVeSay('/rest/v1/pms_rezervasyonlar?select=*&order=giris_tarihi.desc'),
+      cekVeSay('/rest/v1/pms_misafirler?select=id,otel_id,ad,soyad,aktif&order=soyad'),
+      cekVeSay('/rest/v1/pms_oda_tipleri?select=id,otel_id,kod,ad,aktif&order=kod'),
+      cekVeSay('/rest/v1/pms_odalar?select=id,otel_id,oda_no,oda_tipi_id,aktif&order=oda_no'),
+      cekVeSay('/rest/v1/pms_oda_atamalari?select=*&order=baslangic')
+    ]);
+    REZ = r1.veri; MISAFIRLER = r2.veri; TIPLER = r3.veri; ODALAR = r4.veri; ATAMALAR = r5.veri;
+
+    if(r1.hata) uyarilar.push('Rezervasyonlar okunamadı (' + r1.hata + ').');
+    if(r1.kirpildi) uyarilar.push('Liste eksik: sunucu ' + r1.toplam
+      + ' rezervasyondan yalnız ' + r1.veri.length + ' tanesini döndürdü.');
+    // Misafir ve oda tipi AYRI modul yetkileridir. Okunamiyorsa ekran bozuk
+    // gorunur; sessiz birakmak yerine sebebini soyle.
+    if(REZ.length && !MISAFIRLER.length)
+      uyarilar.push('Misafir bilgisi okunamıyor — "Ön Büro — Misafirler" yetkisi gerekiyor.');
+    if(REZ.length && !TIPLER.length)
+      uyarilar.push('Oda tipi bilgisi okunamıyor — "Ön Büro — Oda Tipleri" yetkisi gerekiyor.');
+  }catch(e){
+    REZ=[]; MISAFIRLER=[]; TIPLER=[]; ODALAR=[]; ATAMALAR=[];
+    uyarilar.push('Sunucuya ulaşılamadı.');
+  }
+  hLD();
+  const u = document.getElementById('uyari');
+  if(uyarilar.length){ u.style.display=''; u.innerHTML='<b>Dikkat</b>'+uyarilar.map(escapeHtml).join('<br>'); }
+  else { u.style.display='none'; u.textContent=''; }
+  filtreDoldur();
+  ciz();
+}
+
+function misafirAdi(id){
+  const m = MISAFIRLER.find(x=>x.id===id);
+  return m ? (m.soyad + ', ' + m.ad) : '(misafir görünmüyor)';
+}
+function tipAdi(id){
+  const t = TIPLER.find(x=>x.id===id);
+  return t ? (t.kod + ' — ' + t.ad) : '(tip görünmüyor)';
+}
+function odaNo(id){
+  const o = ODALAR.find(x=>x.id===id);
+  return o ? o.oda_no : '(oda görünmüyor)';
+}
+
+function filtreDoldur(){
+  const f = document.getElementById('fTip'), onceki = f.value;
+  f.innerHTML = '<option value="">Tüm oda tipleri</option>' + TIPLER.map(t=>
+    '<option value="'+escapeHtml(t.id)+'">'+escapeHtml(t.kod+' — '+t.ad)+'</option>').join('');
+  f.value = onceki;
+}
+
+function ciz(){
+  const q  = document.getElementById('ara').value.trim().toLocaleLowerCase('tr');
+  const fd = document.getElementById('fDurum').value;
+  const ft = document.getElementById('fTip').value;
+  const fb = document.getElementById('fBas').value;
+  const fs = document.getElementById('fBit').value;
+
+  const sonuc = REZ.filter(r=>{
+    if(fd && r.durum !== fd) return false;
+    if(ft && r.oda_tipi_id !== ft) return false;
+    if(fb && r.giris_tarihi < fb) return false;
+    if(fs && r.cikis_tarihi > fs) return false;
+    if(q && !(r.rezervasyon_no + ' ' + misafirAdi(r.misafir_id))
+             .toLocaleLowerCase('tr').includes(q)) return false;
+    return true;
+  });
+
+  document.getElementById('ozet').textContent = sonuc.length + ' rezervasyon · ' + REZ.length + ' kayıttan';
+  const el = document.getElementById('liste');
+  if(!sonuc.length){ el.innerHTML='<div class="bos">Kayıt yok.<br>Sağ üstteki + ile rezervasyon açın.</div>'; return; }
+
+  el.innerHTML = sonuc.map(r=>{
+    const atama = ATAMALAR.filter(a=>a.rezervasyon_id===r.id && a.aktif);
+    return '<div class="liste-satir">'
+      + '<div class="ls-ana">'
+        + '<div class="ls-no">'+escapeHtml(r.rezervasyon_no)+' · '+escapeHtml(misafirAdi(r.misafir_id))+'</div>'
+        + '<div class="ls-meta">'
+          + escapeHtml(r.giris_tarihi)+' → '+escapeHtml(r.cikis_tarihi)
+          + ' · '+escapeHtml(tipAdi(r.oda_tipi_id))
+          + ' · '+Number(r.yetiskin_sayisi)+'+'+Number(r.cocuk_sayisi)+' kişi'
+          + ' · '+escapeHtml(OTEL_KISA[r.otel_id]||r.otel_id)
+          + (atama.length ? ' · Oda '+escapeHtml(atama.map(a=>odaNo(a.oda_id)).join(', ')) : ' · oda atanmadı')
+        + '</div>'
+      + '</div>'
+      + '<span class="rozet d-'+escapeHtml(r.durum)+'">'+escapeHtml(DURUM_AD[r.durum]||r.durum)+'</span>'
+      + '<button class="btn btn-s btn-sm" onclick="duzenleAc(\''+jsAttrStr(r.id)+'\')">Aç</button>'
+      + '</div>';
+  }).join('');
+}
+
+function secenekleriDoldur(){
+  const otel = TEK_OTEL || document.getElementById('fOtel').value;
+  const mSel = document.getElementById('mMisafir'), mOnce = mSel.value;
+  const uygunM = MISAFIRLER.filter(m=>String(m.otel_id)===String(otel) && m.aktif);
+  mSel.innerHTML = uygunM.length
+    ? uygunM.map(m=>'<option value="'+escapeHtml(m.id)+'">'+escapeHtml(m.soyad+', '+m.ad)+'</option>').join('')
+    : '<option value="">— önce misafir kaydedin —</option>';
+  if(uygunM.some(m=>m.id===mOnce)) mSel.value = mOnce;
+
+  const tSel = document.getElementById('mTip'), tOnce = tSel.value;
+  const uygunT = TIPLER.filter(t=>String(t.otel_id)===String(otel) && t.aktif);
+  tSel.innerHTML = uygunT.length
+    ? uygunT.map(t=>'<option value="'+escapeHtml(t.id)+'">'+escapeHtml(t.kod+' — '+t.ad)+'</option>').join('')
+    : '<option value="">— önce oda tipi tanımlayın —</option>';
+  if(uygunT.some(t=>t.id===tOnce)) tSel.value = tOnce;
+}
+
+function odaSecenekleriDoldur(){
+  const sel = document.getElementById('aOda');
+  if(!DUZENLENEN){ sel.innerHTML=''; return; }
+  const uygun = ODALAR.filter(o=>String(o.otel_id)===String(DUZENLENEN.otel_id) && o.aktif);
+  sel.innerHTML = uygun.length
+    ? uygun.map(o=>'<option value="'+escapeHtml(o.id)+'">'+escapeHtml(o.oda_no)
+        + ' (' + escapeHtml(tipAdi(o.oda_tipi_id)) + ')</option>').join('')
+    : '<option value="">— oda yok —</option>';
+}
+
+function atamaCiz(){
+  const el = document.getElementById('atamaListe');
+  if(!DUZENLENEN){ el.innerHTML=''; return; }
+  const liste = ATAMALAR.filter(a=>a.rezervasyon_id===DUZENLENEN.id && a.aktif);
+  el.innerHTML = liste.length
+    ? liste.map(a=>'<div class="atama-satir">'
+        + '<div style="flex:1"><b>Oda '+escapeHtml(odaNo(a.oda_id))+'</b> — '
+        + escapeHtml(a.baslangic)+' → '+escapeHtml(a.bitis)+'</div>'
+        + '<button class="btn btn-s btn-sm" onclick="atamaKaldir(\''+jsAttrStr(a.id)+'\')">Kaldır</button>'
+        + '</div>').join('')
+    : '<div class="bos" style="padding:10px">Oda atanmadı.</div>';
+}
+
+function yeniAc(){
+  DUZENLENEN = null;
+  document.getElementById('formBaslik').textContent = 'Yeni Rezervasyon';
+  document.getElementById('mGiris').value = bugunYerelStr();
+  document.getElementById('mCikis').value = '';
+  document.getElementById('mYetiskin').value = '1';
+  document.getElementById('mCocuk').value = '0';
+  document.getElementById('mDurum').value = 'taslak';
+  document.getElementById('mNotlar').value = '';
+  document.getElementById('atamaBolum').style.display = 'none';
+  secenekleriDoldur();
+  aModal('mForm');
+}
+
+function duzenleAc(id){
+  const r = REZ.find(x=>x.id===id);
+  if(!r) return;
+  DUZENLENEN = r;
+  document.getElementById('formBaslik').textContent = r.rezervasyon_no;
+  if(!TEK_OTEL) document.getElementById('fOtel').value = r.otel_id;
+  secenekleriDoldur();
+  document.getElementById('mMisafir').value = r.misafir_id;
+  document.getElementById('mTip').value = r.oda_tipi_id;
+  document.getElementById('mGiris').value = r.giris_tarihi;
+  document.getElementById('mCikis').value = r.cikis_tarihi;
+  document.getElementById('mYetiskin').value = r.yetiskin_sayisi;
+  document.getElementById('mCocuk').value = r.cocuk_sayisi;
+  document.getElementById('mDurum').value = r.durum;
+  document.getElementById('mNotlar').value = r.notlar || '';
+  document.getElementById('atamaBolum').style.display = '';
+  odaSecenekleriDoldur();
+  atamaCiz();
+  aModal('mForm');
+}
+
+async function atamaEkle(){
+  if(!DUZENLENEN){ toast('Önce rezervasyonu kaydedin'); return; }
+  const oda = document.getElementById('aOda').value;
+  if(!oda){ toast('Oda seçin'); return; }
+  sLD();
+  try{
+    const r = await sbYaz(SB_URL+'/rest/v1/pms_oda_atamalari',
+      {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+       body:JSON.stringify({otel_id:DUZENLENEN.otel_id, rezervasyon_id:DUZENLENEN.id, oda_id:oda,
+                            baslangic:DUZENLENEN.giris_tarihi, bitis:DUZENLENEN.cikis_tarihi})},
+      'Oda ataması');
+    if(r.ok){ await yukle(); DUZENLENEN = REZ.find(x=>x.id===DUZENLENEN.id) || DUZENLENEN;
+              atamaCiz(); toast('Oda atandı'); }
+  }catch(e){}
+  hLD();
+}
+
+async function atamaKaldir(id){
+  sLD();
+  try{
+    // Silmek yerine pasife alinir: gecmis korunur, oda serbest kalir
+    // (exclusion kisiti yalniz aktif atamalari sayar).
+    const r = await sbYaz(SB_URL+'/rest/v1/pms_oda_atamalari?id=eq.'+encodeURIComponent(id),
+      {method:'PATCH',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+       body:JSON.stringify({aktif:false})}, 'Atama kaldırma');
+    if(r.ok){ await yukle(); atamaCiz(); toast('Atama kaldırıldı'); }
+  }catch(e){}
+  hLD();
+}
+
+async function kaydet(){
+  const misafir = document.getElementById('mMisafir').value;
+  const tip     = document.getElementById('mTip').value;
+  const giris   = document.getElementById('mGiris').value;
+  const cikis   = document.getElementById('mCikis').value;
+  if(!misafir){ toast('Misafir seçin'); return; }
+  if(!tip){ toast('Oda tipi seçin'); return; }
+  if(!giris || !cikis){ toast('Giriş ve çıkış tarihi zorunlu'); return; }
+  // Ayni kural veritabaninda CHECK olarak da var; burada erken uyari icin.
+  if(cikis <= giris){ toast('Çıkış tarihi girişten sonra olmalı'); return; }
+
+  const govde = {
+    misafir_id: misafir,
+    oda_tipi_id: tip,
+    giris_tarihi: giris,
+    cikis_tarihi: cikis,
+    yetiskin_sayisi: parseInt(document.getElementById('mYetiskin').value,10) || 1,
+    cocuk_sayisi:    parseInt(document.getElementById('mCocuk').value,10) || 0,
+    durum:  document.getElementById('mDurum').value,
+    notlar: document.getElementById('mNotlar').value.trim() || null
+  };
+
+  sLD();
+  try{
+    let r;
+    if(DUZENLENEN){
+      // otel_id ve rezervasyon_no BILEREK gonderilmiyor: otel degistirilemez,
+      // numara sunucuda uretilir.
+      r = await sbYaz(SB_URL+'/rest/v1/pms_rezervasyonlar?id=eq.'+encodeURIComponent(DUZENLENEN.id),
+        {method:'PATCH',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+         body:JSON.stringify(govde)}, 'Rezervasyon güncelleme');
+    }else{
+      govde.otel_id = TEK_OTEL || document.getElementById('fOtel').value;
+      r = await sbYaz(SB_URL+'/rest/v1/pms_rezervasyonlar',
+        {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+         body:JSON.stringify(govde)}, 'Rezervasyon kaydı');
+    }
+    if(r.ok){ kModal('mForm'); toast(DUZENLENEN?'Güncellendi':'Rezervasyon açıldı'); await yukle(); }
+  }catch(e){}
+  hLD();
+}
+</script>
+</body>
+</html>

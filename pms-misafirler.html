@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let CU = requireLogin();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dornevi — Misafirler</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--accent:#c9a24b}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;font-family:inherit;background:white}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.btn{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-p{background:var(--primary);color:white}
+.btn-s{background:var(--gray-200);color:var(--gray-700)}
+.btn-sm{padding:6px 10px;font-size:12px}
+.liste-satir{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--gray-200)}
+.liste-satir:last-child{border-bottom:none}
+.ls-ana{flex:1;min-width:0}
+.ls-ad{font-size:14px;font-weight:700;color:var(--primary)}
+.ls-meta{font-size:11px;color:var(--gray-500);margin-top:2px}
+.rozet{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.r-pasif{background:var(--gray-200);color:var(--gray-600)}
+.bos{text-align:center;padding:28px 12px;color:var(--gray-500);font-size:13px}
+.ozet{font-size:11px;color:var(--gray-600);padding:8px 10px}
+.uyari{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.5}
+.uyari b{display:block;margin-bottom:3px}
+.kvkk{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.5;margin-bottom:10px}
+.kimlik-satir{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--gray-200);font-size:12px}
+.kimlik-satir:last-child{border-bottom:none}
+#ld{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:99}
+#ld.show{display:flex}
+.spin{width:34px;height:34px;border:3px solid var(--gray-300);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.modal.open{display:flex}
+.modal-ic{background:white;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:16px;max-height:90vh;overflow-y:auto}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="hbtn" href="on-buro.html" title="Ön Büro">←</a>
+    <div style="flex:1"><h1>Misafirler<span class="sub" id="hdrOtel"></span></h1></div>
+    <button class="hbtn" onclick="yeniAc()" title="Yeni misafir">+</button>
+  </div>
+  <div class="sc">
+    <div id="uyari" class="uyari" style="display:none"></div>
+    <div class="card">
+      <div class="row">
+        <input id="ara" placeholder="Ad, soyad, telefon, e-posta…" oninput="ciz()">
+        <select id="fAktif" onchange="ciz()" style="max-width:130px">
+          <option value="aktif">Aktif</option>
+          <option value="pasif">Pasif</option>
+          <option value="hepsi">Hepsi</option>
+        </select>
+      </div>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="ozet" id="ozet"></div>
+      <div id="liste"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mForm">
+  <div class="modal-ic">
+    <div class="card-title" id="formBaslik">Yeni Misafir</div>
+    <div id="otelAlani" style="display:none" class="field">
+      <label>Otel</label><select id="fOtel"></select>
+    </div>
+    <div class="row">
+      <div class="field"><label>Ad *</label><input id="fAd" maxlength="80"></div>
+      <div class="field"><label>Soyad *</label><input id="fSoyad" maxlength="80"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Doğum tarihi</label><input id="fDogum" type="date"></div>
+      <div class="field"><label>Uyruk</label><input id="fUyruk" maxlength="40" placeholder="TR"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Telefon</label><input id="fTelefon" maxlength="30"></div>
+      <div class="field"><label>E-posta</label><input id="fEposta" type="email" maxlength="120"></div>
+    </div>
+    <div class="field"><label>Notlar</label><textarea id="fNotlar" rows="2"></textarea></div>
+    <div class="field">
+      <label><input type="checkbox" id="fAktifChk" checked style="width:auto;margin-right:6px">Aktif</label>
+    </div>
+
+    <div id="kimlikBolum" style="display:none;margin-top:6px;border-top:1px solid var(--gray-200);padding-top:12px">
+      <div class="card-title">Kimlik Belgeleri</div>
+      <div class="kvkk">
+        Kimlik verisi ayrı bir yetkiye bağlıdır ve yalnızca Kimlik Bildirim
+        Sistemi yükümlülüğü için tutulur. Gerekmedikçe kaydetmeyin.
+      </div>
+      <div id="kimlikListe"></div>
+      <div class="row" style="margin-top:8px">
+        <select id="kTip" style="max-width:150px">
+          <option value="tc_kimlik">TC Kimlik</option>
+          <option value="pasaport">Pasaport</option>
+          <option value="surucu_belgesi">Sürücü Belgesi</option>
+          <option value="diger">Diğer</option>
+        </select>
+        <input id="kNo" placeholder="Belge no" maxlength="40">
+        <button class="btn btn-s btn-sm" onclick="kimlikEkle()" style="flex:0 0 auto">Ekle</button>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <button class="btn btn-s" onclick="kModal('mForm')">Vazgeç</button>
+      <button class="btn btn-p" onclick="kaydet()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="ld"><div class="spin"></div></div>
+
+<script>
+// Yetki ve otel kapsamı SUNUCUDA (RLS) uygulanır. Kimlik verisi ayrı bir
+// modül yetkisine (pms_misafir_kimlik) bağlıdır; bu ekran o yetkiyi
+// GİZLEMEZ, sunucudan okuyabildiğini gösterir. Bölümü gizlemek güvenlik
+// değildir — sunucu zaten reddeder.
+let MISAFIRLER = [], KIMLIKLER = [];
+let DUZENLENEN = null;
+let KIMLIK_ERISIMI = false;
+
+const OTELLER = Object.keys(OTEL_ISIMLERI);
+const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+const SATIR_TAVANI = 5000;
+const BELGE_AD = {tc_kimlik:'TC Kimlik', pasaport:'Pasaport',
+                  surucu_belgesi:'Sürücü Belgesi', diger:'Diğer'};
+
+(function init(){
+  if(!CU) return;
+  document.getElementById('app').style.display='';
+  document.getElementById('hdrOtel').textContent =
+    TEK_OTEL ? ('🏨 ' + (OTEL_KISA[TEK_OTEL] || TEK_OTEL)) : '🏨 Tüm oteller';
+  if(!TEK_OTEL){
+    document.getElementById('otelAlani').style.display='';
+    document.getElementById('fOtel').innerHTML =
+      OTELLER.map(o=>'<option value="'+escapeHtml(o)+'">'+escapeHtml(OTEL_ISIMLERI[o])+'</option>').join('');
+  }
+  yukle();
+})();
+
+async function cekVeSay(yol){
+  const r = await fetch(SB_URL + yol + '&limit=' + SATIR_TAVANI,
+    { headers: { ...SB_HEADERS, 'Prefer': 'count=exact' } });
+  if(!r.ok) return { veri: [], hata: 'HTTP ' + r.status, kirpildi: false };
+  const veri = await r.json();
+  const toplam = parseInt((r.headers.get('content-range')||'').split('/')[1], 10);
+  return { veri, hata:null, kirpildi: Number.isFinite(toplam) && toplam > veri.length, toplam };
+}
+
+async function yukle(){
+  sLD();
+  const uyarilar = [];
+  try{
+    const m = await cekVeSay('/rest/v1/pms_misafirler?select=*&order=soyad,ad');
+    MISAFIRLER = m.veri;
+    if(m.hata) uyarilar.push('Misafirler okunamadı (' + m.hata + ').');
+    if(m.kirpildi) uyarilar.push('Liste eksik: sunucu ' + m.toplam + ' misafirden yalnız '
+      + m.veri.length + ' tanesini döndürdü.');
+
+    // Kimlik verisi ayri yetki. Okuyabiliyorsak bolumu acariz; okuyamiyorsak
+    // sessizce gizlemek yerine acikca soyleriz.
+    const k = await cekVeSay('/rest/v1/pms_misafir_kimlik?select=*&order=olusturma_tarihi');
+    KIMLIKLER = k.veri;
+    KIMLIK_ERISIMI = !k.hata;
+    document.getElementById('kimlikBolum').style.display = KIMLIK_ERISIMI ? '' : 'none';
+  }catch(e){
+    MISAFIRLER=[]; KIMLIKLER=[]; uyarilar.push('Sunucuya ulaşılamadı.');
+  }
+  hLD();
+  const u = document.getElementById('uyari');
+  if(uyarilar.length){ u.style.display=''; u.innerHTML='<b>Dikkat</b>'+uyarilar.map(escapeHtml).join('<br>'); }
+  else { u.style.display='none'; u.textContent=''; }
+  ciz();
+}
+
+function ciz(){
+  const q = document.getElementById('ara').value.trim().toLocaleLowerCase('tr');
+  const fa = document.getElementById('fAktif').value;
+  const sonuc = MISAFIRLER.filter(m=>{
+    if(fa==='aktif' && !m.aktif) return false;
+    if(fa==='pasif' &&  m.aktif) return false;
+    if(!q) return true;
+    return [m.ad,m.soyad,m.telefon,m.eposta].filter(Boolean)
+      .join(' ').toLocaleLowerCase('tr').includes(q);
+  });
+  document.getElementById('ozet').textContent = sonuc.length + ' misafir · ' + MISAFIRLER.length + ' kayıttan';
+  const el = document.getElementById('liste');
+  if(!sonuc.length){ el.innerHTML='<div class="bos">Kayıt yok.<br>Sağ üstteki + ile misafir ekleyin.</div>'; return; }
+  el.innerHTML = sonuc.map(m=>{
+    const kimlikSayi = KIMLIKLER.filter(k=>k.misafir_id===m.id).length;
+    return '<div class="liste-satir">'
+      + '<div class="ls-ana">'
+        + '<div class="ls-ad">'+escapeHtml(m.soyad)+', '+escapeHtml(m.ad)+'</div>'
+        + '<div class="ls-meta">'
+          + escapeHtml(OTEL_KISA[m.otel_id]||m.otel_id)
+          + (m.uyruk ? ' · '+escapeHtml(m.uyruk) : '')
+          + (m.telefon ? ' · '+escapeHtml(m.telefon) : '')
+          + (KIMLIK_ERISIMI && kimlikSayi ? ' · '+kimlikSayi+' belge' : '')
+        + '</div>'
+      + '</div>'
+      + (m.aktif ? '' : '<span class="rozet r-pasif">Pasif</span>')
+      + '<button class="btn btn-s btn-sm" onclick="duzenleAc(\''+jsAttrStr(m.id)+'\')">Düzenle</button>'
+      + '</div>';
+  }).join('');
+}
+
+function formTemizle(){
+  ['fAd','fSoyad','fDogum','fUyruk','fTelefon','fEposta','fNotlar'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('fAktifChk').checked = true;
+  document.getElementById('kNo').value='';
+  document.getElementById('kimlikListe').innerHTML='';
+}
+
+function yeniAc(){
+  DUZENLENEN = null;
+  document.getElementById('formBaslik').textContent='Yeni Misafir';
+  formTemizle();
+  document.getElementById('kimlikListe').innerHTML =
+    '<div class="bos" style="padding:10px">Belge eklemek için önce misafiri kaydedin.</div>';
+  aModal('mForm');
+}
+
+function duzenleAc(id){
+  const m = MISAFIRLER.find(x=>x.id===id);
+  if(!m) return;
+  DUZENLENEN = m;
+  document.getElementById('formBaslik').textContent = m.soyad + ', ' + m.ad;
+  document.getElementById('fAd').value = m.ad;
+  document.getElementById('fSoyad').value = m.soyad;
+  document.getElementById('fDogum').value = m.dogum_tarihi || '';
+  document.getElementById('fUyruk').value = m.uyruk || '';
+  document.getElementById('fTelefon').value = m.telefon || '';
+  document.getElementById('fEposta').value = m.eposta || '';
+  document.getElementById('fNotlar').value = m.notlar || '';
+  document.getElementById('fAktifChk').checked = !!m.aktif;
+  if(!TEK_OTEL) document.getElementById('fOtel').value = m.otel_id;
+  kimlikCiz();
+  aModal('mForm');
+}
+
+function kimlikCiz(){
+  const el = document.getElementById('kimlikListe');
+  if(!DUZENLENEN){ el.innerHTML=''; return; }
+  const liste = KIMLIKLER.filter(k=>k.misafir_id===DUZENLENEN.id);
+  el.innerHTML = liste.length
+    ? liste.map(k=>'<div class="kimlik-satir">'
+        + '<div style="flex:1"><b>'+escapeHtml(BELGE_AD[k.belge_tipi]||k.belge_tipi)+'</b> — '
+        + escapeHtml(k.belge_no)+'</div>'
+        + '<button class="btn btn-s btn-sm" onclick="kimlikSil(\''+jsAttrStr(k.id)+'\')">Sil</button>'
+        + '</div>').join('')
+    : '<div class="bos" style="padding:10px">Kayıtlı belge yok.</div>';
+}
+
+async function kimlikEkle(){
+  if(!DUZENLENEN){ toast('Önce misafiri kaydedin'); return; }
+  const no = document.getElementById('kNo').value.trim();
+  if(!no){ toast('Belge numarası zorunlu'); return; }
+  const tip = document.getElementById('kTip').value;
+  // Ayni kural veritabaninda CHECK olarak da var; burada erken uyari icin.
+  if(tip==='tc_kimlik' && !/^[1-9][0-9]{10}$/.test(no)){
+    toast('TC kimlik 11 hane olmalı ve 0 ile başlayamaz'); return;
+  }
+  sLD();
+  try{
+    const r = await sbYaz(SB_URL+'/rest/v1/pms_misafir_kimlik',
+      {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+       body:JSON.stringify({otel_id:DUZENLENEN.otel_id, misafir_id:DUZENLENEN.id,
+                            belge_tipi:tip, belge_no:no})}, 'Kimlik belgesi');
+    if(r.ok){ document.getElementById('kNo').value=''; await yukle(); kimlikCiz(); toast('Belge eklendi'); }
+  }catch(e){}
+  hLD();
+}
+
+async function kimlikSil(id){
+  sLD();
+  try{
+    const r = await sbYaz(SB_URL+'/rest/v1/pms_misafir_kimlik?id=eq.'+encodeURIComponent(id),
+      {method:'DELETE',headers:SB_HEADERS}, 'Kimlik belgesi silme');
+    if(r.ok){ await yukle(); kimlikCiz(); toast('Belge silindi'); }
+  }catch(e){}
+  hLD();
+}
+
+async function kaydet(){
+  const ad = document.getElementById('fAd').value.trim();
+  const soyad = document.getElementById('fSoyad').value.trim();
+  if(!ad || !soyad){ toast('Ad ve soyad zorunlu'); return; }
+  const eposta = document.getElementById('fEposta').value.trim();
+  if(eposta && eposta.indexOf('@') < 1){ toast('Geçerli bir e-posta girin'); return; }
+
+  const govde = {
+    ad, soyad,
+    dogum_tarihi: document.getElementById('fDogum').value || null,
+    uyruk:   document.getElementById('fUyruk').value.trim()   || null,
+    telefon: document.getElementById('fTelefon').value.trim() || null,
+    eposta:  eposta || null,
+    notlar:  document.getElementById('fNotlar').value.trim()  || null,
+    aktif:   document.getElementById('fAktifChk').checked
+  };
+
+  sLD();
+  try{
+    let r;
+    if(DUZENLENEN){
+      // otel_id BILEREK gonderilmiyor: bir kaydin oteli degistirilemez.
+      r = await sbYaz(SB_URL+'/rest/v1/pms_misafirler?id=eq.'+encodeURIComponent(DUZENLENEN.id),
+        {method:'PATCH',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+         body:JSON.stringify(govde)}, 'Misafir güncelleme');
+    }else{
+      govde.otel_id = TEK_OTEL || document.getElementById('fOtel').value;
+      r = await sbYaz(SB_URL+'/rest/v1/pms_misafirler',
+        {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+         body:JSON.stringify(govde)}, 'Misafir kaydı');
+    }
+    if(r.ok){ kModal('mForm'); toast(DUZENLENEN?'Güncellendi':'Eklendi'); await yukle(); }
+  }catch(e){}
+  hLD();
+}
+</script>
+</body>
+</html>
