@@ -1,98 +1,110 @@
 -- ============================================================================
--- STAGING <-> ÜRETİM EŞİTLİK DOĞRULAMASI
+-- ÜRETİM EŞİTLİK / SÜRÜKLENME DOĞRULAMASI — Phase 0 SONRASI taban
 -- ============================================================================
 -- SALT-OKUMA. Tek sonuç kümesi üretir. Hiçbir mutation içermez.
 --
--- NE İÇİN: Phase 0 sertleştirmesini staging'de test edeceğiz. Ama staging
--- üretimi TEMSİL ETMİYORSA oradaki "geçti" sonucu hiçbir şey ifade etmez --
--- hatta yanlış güven verir. Supabase preview branch'leri şemayı migration
--- dosyalarından kurar; bu repoda supabase/migrations YOK. Yani branch'in
--- üretimle aynı çıkacağı VARSAYILAMAZ, KANITLANMALIDIR. Bu dosya o kanıttır.
+-- İKİ İŞİ VAR:
+--   1) STAGING KABULÜ — bir branch/kopya üretimi temsil ediyor mu? Etmiyorsa
+--      orada alınan hiçbir test sonucu geçerli değildir.
+--   2) ÜRETİM SÜRÜKLENMESİ — canlıda Phase 0 korumaları hâlâ yerinde mi?
 --
--- NE ZAMAN: Phase 0 migration'INDAN ÖNCE, staging ortamında çalıştırılır.
--- Migration auth_* fonksiyonlarını yeniden yazar ve parmak izlerini
--- DEĞİŞTİRİR; sonrasında çalıştırılırsa doğal olarak sapma raporlar.
+-- TEMEL: 6 Eylül 2026, Phase 0 sertleştirmesi üretime uygulandıktan SONRAKİ
+-- durum. Bayt-birebir doğrulanmış şema dökümünden üretildi (26 fonksiyonun
+-- 26'sı üretim gövde hash'leriyle eşleşti).
 --
--- TEMEL: 2026-09-06 tarihli üretim preflight çıktısı (01/02/03/04/05).
--- Üretimde bir şey değişirse bu dosya BAYATLAR; yeniden preflight alınıp
--- güncellenmelidir.
+-- ÇIKTI: "SAPMA" ile başlayan satır varsa sorun var. Hiç yoksa yalnızca
+-- "BILGI" satırları görünür.
 --
--- ÇIKTI: her satır bir kontrol. "SAPMA" ile başlayan satır varsa staging
--- üretimi temsil etmiyor demektir ve Phase 0 orada test EDİLMEMELİDİR.
--- Hiç SAPMA satırı yoksa yalnızca "BİLGİ" satırları görünür.
+-- ---------------------------------------------------------------------------
+-- NEDEN md5(prosrc), md5(pg_get_functiondef) DEĞİL
+-- ---------------------------------------------------------------------------
+-- pg_get_functiondef gövdeyi SUNUCUNUN biçimlendiricisinden geçirir ve çıktısı
+-- PostgreSQL minor sürümüne duyarlıdır. Üretim 17.6, doğrulama konteyneri
+-- 17.11 olduğu icin ilk sürüm 26 fonksiyonun 25'ini, döküm kusursuz olsa bile
+-- "farklı" raporluyordu. prosrc gövdenin HAM metnidir: sürüm duyarlılığı yok.
+--
+-- UYARI — DÖKÜM ALIRKEN İKİ TUZAK:
+--   * Kabuk yönlendirmesi ( > ) kullanma. PowerShell dosyayı metin modunda
+--     yazar, kodlamayı ve satır sonlarını değiştirir. Üretimdeki gövdelerin
+--     satır sonları KARIŞIK (kimi LF, kimi CRLF) ve prosrc bunu aynen saklar;
+--     tekdüzeleştiren her dönüşüm gövdeleri sessizce bozar. Daima pg_dump -f.
+--   * İKİ ŞEMAYI DA AL: --schema=public --schema=phase0_private
+--     Phase 0 tetikleyicileri phase0_private içindeki fonksiyonları çağırır.
+--     Yalnız public alınırsa tetikleyicilerin hiçbiri yüklenmez ve eksiklik
+--     sessiz kalır — aşağıdaki 7 ve 8 numaralı kontroller bunu yakalar.
 -- ============================================================================
 
-with uretim(imza, secdef, ayarlar, parmak_izi) as (values
-  ('audit_log_damgala()',                            true,  'search_path=public',             'a7cda566ac6094d6ef984ad73e51b2e8'),
-  ('auth_erp_kullanicisi()',                         true,  'search_path=public',             '6a5c9a57c06b98eace813294837a6c32'),
-  ('auth_kullanici_id()',                            true,  'search_path=public',             '663036252774bb4faa13b29d5af3450b'),
-  ('auth_kullanici_rol_id()',                        false, '(yok)',                          '6ccec830fbfea01e0648d1e8ad123240'),
-  ('auth_otel_erisim(text)',                         true,  'search_path=public',             'bc5136fe005c08e08113aa42e5899e57'),
-  ('auth_otel_id()',                                 true,  'search_path=public',             'c4dea5ba89c3043a455a80c5efe4188e'),
-  ('auth_tum_oteller()',                             true,  'search_path=public',             '1e5f903bdedb8a2643ea70c5f34f28ab'),
-  ('auth_yetki_var(text,text)',                      true,  'search_path=public',             'd71c9f9d46fd65721801218b27da4377'),
-  ('bar_kullanilabilir_stok(text,text)',             true,  'search_path=public',             'c0741660dfb6048b038977be1a64a203'),
-  ('bar_siparis_durum_guncelle(uuid,bar_durum)',     true,  'search_path=public',             '40e55ef2f861df447c412960f89e1d40'),
-  ('bar_siparis_iptal(uuid)',                        true,  'search_path=public',             '9a70695fc8b230a5dcf571fd42b6d1d0'),
-  ('bar_siparis_olustur(text,text,text,text,jsonb)', true,  'search_path=public',             '3c8aff3e15c27d49b512f49083c2db46'),
-  ('bar_siparis_teslim_et(uuid)',                    true,  'search_path=public',             '4f707549a1622838bc23f0329c2c4119'),
-  ('fatura_kaydet(uuid,jsonb,jsonb)',                true,  'search_path=public',             'aedd1d191d82142bb6b1109dbe62254f'),
-  ('giris_kaydi_ekle(text)',                         true,  'search_path=public',             'a4894989147f1a428c045565ecfcc63a'),
-  ('mal_kabul_kaydet(jsonb,jsonb)',                  true,  'search_path=public',             '8a4c02dbc8bb03ca0ef1436a71239330'),
-  ('pin_ayarla(uuid,text)',                          true,  'search_path=public, extensions', 'ce6dc02f01c630823c9db4bf41dd2d58'),
-  ('pin_dogrula(text,text)',                         true,  'search_path=public, extensions', 'd35fe0f4bb01fef5cf8569c7f1aa0a75'),
-  ('rls_auto_enable()',                              true,  'search_path=pg_catalog',         '6998ea6b4c2480f5d2e34b5dcf3f8d36'),
-  ('siparis_yeniden_yonlendir(text,text)',           true,  'search_path=public',             '3ba46cd52c147d1aad60d3374edfbc4d'),
-  ('stok_ekle(text,text,text,numeric)',              false, '(yok)',                          '82816a126a011d179f68fef872c07325'),
-  ('stok_transfer(text,text,text,text,numeric)',     false, '(yok)',                          '9e6a4a5b8d151811b62bf037f0458cb3'),
-  ('talep_asama_yetkili_mi(text,text,uuid)',         true,  'search_path=public',             'f650ca165206fb4679dca0ed98a50438'),
-  ('talep_karar_ver(uuid,text,text,numeric)',        true,  'search_path=public',             '1dc0466e0b4d5a9f9ca941aa03e59b8f'),
-  ('talep_siparise_donustur(uuid)',                  true,  'search_path=public',             '2448fb8a299435fe56630566d4812fe1'),
-  ('teklif_talebi_olustur(text,text,jsonb)',         true,  'search_path=public',             'ac285c8771b5126846eb7e4f2749d5c6')
+with uretim(imza, secdef, ayarlar, govde_md5) as (values
+  ('audit_log_damgala()',                            true,  'search_path=public',                                  '25c13af9bf1a0902e36b6fa840124b87'),
+  ('auth_erp_kullanicisi()',                         true,  'search_path=pg_catalog, public, pg_temp',             'd2d7ccc47caefb11b475cd3ef026217b'),
+  ('auth_kullanici_id()',                            true,  'search_path=pg_catalog, public, pg_temp',             'e737e12c33fa738df6fe9cef92512d98'),
+  ('auth_kullanici_rol_id()',                        true,  'search_path=pg_catalog, public, pg_temp',             'd78add90861ae12056947927188a117b'),
+  ('auth_otel_erisim(text)',                         true,  'search_path=pg_catalog, public, pg_temp',             '726e83b16316ee783c9ede8f8e734301'),
+  ('auth_otel_id()',                                 true,  'search_path=pg_catalog, public, pg_temp',             'd3a58d923e16c24e70f4fae24d8f44b9'),
+  ('auth_tum_oteller()',                             true,  'search_path=pg_catalog, public, pg_temp',             '47457292781f073bf9fef1455b44f70b'),
+  ('auth_yetki_var(text,text)',                      true,  'search_path=pg_catalog, public, pg_temp',             'fc1351608035450f1a0d8af713416ae7'),
+  ('bar_kullanilabilir_stok(text,text)',             true,  'search_path=public',                                  '7ad0d16150247564217e68e21e43b26c'),
+  ('bar_siparis_durum_guncelle(uuid,bar_durum)',     true,  'search_path=pg_catalog, public, pg_temp',             'c323e93044d574953cd452cde53ba736'),
+  ('bar_siparis_iptal(uuid)',                        true,  'search_path=pg_catalog, public, pg_temp',             '69d1a29b0759c275d11251801c956802'),
+  ('bar_siparis_olustur(text,text,text,text,jsonb)', true,  'search_path=pg_catalog, public, pg_temp',             '69869a956520424545d8402a8ecc933e'),
+  ('bar_siparis_teslim_et(uuid)',                    true,  'search_path=pg_catalog, public, pg_temp',             '202fb2660b8eb9d5d99c37c9d26cf2ab'),
+  ('fatura_kaydet(uuid,jsonb,jsonb)',                true,  'search_path=pg_catalog, public, pg_temp',             '848950e28be36d41ab8e02170f62a803'),
+  ('giris_kaydi_ekle(text)',                         true,  'search_path=public',                                  '2e36ac004fa0526f3942ae8c877a7260'),
+  ('mal_kabul_kaydet(jsonb,jsonb)',                  true,  'search_path=pg_catalog, public, pg_temp',             'd57a5bb8a37fdad5ce4bd54eea268c74'),
+  ('pin_ayarla(uuid,text)',                          true,  'search_path=public, extensions',                      'cd3138cf46711236fd3b382856c48557'),
+  ('pin_dogrula(text,text)',                         true,  'search_path=public, extensions',                      '28296366cf39306b65da0d5097f34bf3'),
+  ('rls_auto_enable()',                              true,  'search_path=pg_catalog',                              '99be20677b456ea8d3be47bdd44fb369'),
+  ('siparis_yeniden_yonlendir(text,text)',           true,  'search_path=pg_catalog, public, pg_temp',             '129a4c9e08da85a1b0eb405065a157f1'),
+  ('stok_ekle(text,text,text,numeric)',              false, 'search_path=pg_catalog, public, extensions, pg_temp', '24d255cc03df86bb4c9f6c978cadce81'),
+  ('stok_transfer(text,text,text,text,numeric)',     false, 'search_path=pg_catalog, public, extensions, pg_temp', '4c6fe1217463841653bec7637f3bf259'),
+  ('talep_asama_yetkili_mi(text,text,uuid)',         true,  'search_path=public',                                  'dfa97681636a6d1929bc5ecc533d1862'),
+  ('talep_karar_ver(uuid,text,text,numeric)',        true,  'search_path=pg_catalog, public, pg_temp',             '52b6e4f176cdb9aa7ccb52097e90dd87'),
+  ('talep_siparise_donustur(uuid)',                  true,  'search_path=pg_catalog, public, pg_temp',             'e658c914b5dacf646511b8cf4dd90234'),
+  ('teklif_talebi_olustur(text,text,jsonb)',         true,  'search_path=pg_catalog, public, pg_temp',             'eb953f048b9938b7754b9bd8648e376e')
 ),
 burada as (
+  -- KAPSAM, preflight 01b ile AYNI olmalidir. Aksi halde ai_q_* gibi mesru
+  -- SECURITY INVOKER fonksiyonlar "fazla fonksiyon" diye yanlis alarm uretir.
   select p.oid::regprocedure::text                        as imza,
          p.prosecdef                                      as secdef,
          coalesce(array_to_string(p.proconfig, ', '), '(yok)') as ayarlar,
-         md5(pg_get_functiondef(p.oid))                   as parmak_izi
+         md5(p.prosrc)                                    as govde_md5
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.prokind = 'f'
+    and (p.prosecdef
+         or p.proname like 'auth\_%'
+         or p.proname in ('stok_ekle','stok_transfer'))
 ),
--- İmza metni tip adlarında şema önekiyle farklılaşabilir; normalleştiriyoruz.
 b as (select replace(replace(imza, 'public.', ''), ' ', '') as imza,
-             secdef, ayarlar, parmak_izi from burada),
+             secdef, ayarlar, govde_md5 from burada),
 u as (select replace(imza, ' ', '') as imza,
-             secdef, ayarlar, parmak_izi from uretim)
+             secdef, ayarlar, govde_md5 from uretim)
 select * from (
 
-  select 1 as sira,
-         'SAPMA: fonksiyon staging de YOK' as kontrol,
-         u.imza                            as ayrinti
+  select 1 as sira, 'SAPMA: fonksiyon YOK' as kontrol, u.imza as ayrinti
   from u where not exists (select 1 from b where b.imza = u.imza)
 
   union all
-  -- Gövde farkı en tehlikeli sapmadir: imza ayni, davranis farkli.
-  select 2, 'SAPMA: fonksiyon govdesi FARKLI (md5)',
-         u.imza || '  uretim=' || u.parmak_izi || '  staging=' || b.parmak_izi
+  -- Govde farki en tehlikeli sapmadir: imza ayni, davranis farkli.
+  select 2, 'SAPMA: govde FARKLI (md5(prosrc))',
+         u.imza || '  beklenen=' || u.govde_md5 || '  bulunan=' || b.govde_md5
   from u join b on b.imza = u.imza
-  where b.parmak_izi is distinct from u.parmak_izi
+  where b.govde_md5 is distinct from u.govde_md5
 
   union all
   select 3, 'SAPMA: SECURITY DEFINER / search_path farkli',
-         u.imza || '  uretim=' || u.secdef::text || '/' || u.ayarlar
-                || '  staging=' || b.secdef::text || '/' || b.ayarlar
+         u.imza || '  beklenen=' || u.secdef::text || '/' || u.ayarlar
+                || '  bulunan=' || b.secdef::text || '/' || b.ayarlar
   from u join b on b.imza = u.imza
   where b.secdef is distinct from u.secdef or b.ayarlar is distinct from u.ayarlar
 
   union all
-  -- Staging de fazladan bir fonksiyon, gozden gecirilmemis bir giris noktasidir.
-  select 4, 'SAPMA: staging de FAZLA fonksiyon var (uretimde yok)', b.imza
+  select 4, 'SAPMA: kapsamda FAZLA fonksiyon (gozden gecirilmemis giris noktasi)', b.imza
   from b where not exists (select 1 from u where u.imza = b.imza)
 
   union all
-  -- Yapisal degismezler. Hepsi 2026-09-06 uretim preflight inde dogrulandi.
-  select 5, 'SAPMA: anon/PUBLIC tablo veya kolon izni var (uretimde 0)',
+  select 5, 'SAPMA: anon/PUBLIC tablo veya kolon izni (beklenen 0)',
          count(*)::text || ' satir'
   from (select 1 from information_schema.table_privileges
         where table_schema = 'public' and grantee in ('PUBLIC','anon')
@@ -102,35 +114,87 @@ select * from (
   having count(*) > 0
 
   union all
-  select 6, 'SAPMA: RLS kapali tablo var (uretimde 0)', string_agg(c.relname, ', ')
+  select 6, 'SAPMA: RLS kapali tablo (beklenen 0)', string_agg(c.relname, ', ')
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public' and c.relkind in ('r','p') and not c.relrowsecurity
   having count(*) > 0
 
   union all
-  select 7, 'SAPMA: kisitlayici politika var (Phase 0 ONCESI uretimde 0)',
-         string_agg(p.polname, ', ')
-  from pg_policy p
-  join pg_class c on c.oid = p.polrelid
+  -- 7 ve 8: dokum --schema=public ile alinirsa phase0_private DISARIDA KALIR
+  -- ve tetikleyicilerin hicbiri yuklenmez. Bu sessiz bosluk tam olarak
+  -- 6 Eylul 2026'da yasandi; bu iki kontrol onun icin var.
+  select 7, 'SAPMA: phase0_private semasi veya fonksiyonlari eksik',
+         'beklenen 3 fonksiyon (audit_immutable, islem_audit, otel_degismez), bulunan '
+         || (select count(*)::text from pg_proc p
+             join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'phase0_private')
+  where to_regnamespace('phase0_private') is null
+     or (select count(*) from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'phase0_private') <> 3
+
+  union all
+  select 8, 'SAPMA: Phase 0 tetikleyici sayisi farkli (beklenen 14 audit + 27 otel)',
+         'audit=' || (select count(*)::text from pg_trigger
+                      where not tgisinternal and tgname like 'phase0\_islem\_audit%')
+         || ' otel_degismez=' || (select count(*)::text from pg_trigger
+                                  where not tgisinternal and tgname = 'phase0_otel_degismez')
+  where (select count(*) from pg_trigger
+         where not tgisinternal and tgname like 'phase0\_islem\_audit%') <> 14
+     or (select count(*) from pg_trigger
+         where not tgisinternal and tgname = 'phase0_otel_degismez') <> 27
+
+  union all
+  select 9, 'SAPMA: phase0_otel_kisit politika sayisi farkli (beklenen 27)', count(*)::text
+  from pg_policy p join pg_class c on c.oid = p.polrelid
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public' and p.polname = 'phase0_otel_kisit'
+  having count(*) <> 27
+
+  union all
+  -- Korumali yazma yollari: onay motoru yalnizca sunucuda calismali.
+  select 10, 'SAPMA: korumali yazma yolu acilmis', 'satin_alma_talepleri UPDATE'
+  where has_table_privilege('authenticated','public.satin_alma_talepleri','UPDATE')
+     or has_any_column_privilege('authenticated','public.satin_alma_talepleri','UPDATE')
+
+  union all
+  select 11, 'SAPMA: korumali yazma yolu acilmis', 'talep_onay_gecmisi yazma'
+  where has_table_privilege('authenticated','public.talep_onay_gecmisi','INSERT,UPDATE,DELETE')
+     or has_any_column_privilege('authenticated','public.talep_onay_gecmisi','INSERT,UPDATE')
+
+  union all
+  select 12, 'SAPMA: denetim izine istemci yazabiliyor', 'erp_islem_audit'
+  where to_regclass('public.erp_islem_audit') is null
+     or has_table_privilege('authenticated','public.erp_islem_audit','INSERT,UPDATE,DELETE')
+     or has_any_column_privilege('authenticated','public.erp_islem_audit','INSERT,UPDATE')
+
+  union all
+  select 13, 'SAPMA: yeni fonksiyonlar anon a acik doguyor (varsayilan ACL)',
+         array_to_string(d.defaclacl::text[], ', ')
+  from pg_default_acl d join pg_namespace n on n.oid = d.defaclnamespace
+  where n.nspname = 'public' and d.defaclrole = 'postgres'::regrole
+    and d.defaclobjtype = 'f'
+    and array_to_string(d.defaclacl::text[], ',') like '%anon=%'
+
+  union all
+  select 14, 'BILGI: eslesen fonksiyon (26 olmali)', count(*)::text
+  from u join b on b.imza = u.imza where b.govde_md5 = u.govde_md5
+
+  union all
+  select 15, 'BILGI: politika / tablo (uretim: 193 / 66)',
+         (select count(*)::text from pg_policy p
+          join pg_class c on c.oid = p.polrelid
+          join pg_namespace n on n.oid = c.relnamespace where n.nspname='public')
+         || ' / ' ||
+         (select count(*)::text from pg_class c
+          join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname='public' and c.relkind in ('r','p'))
+
+  union all
+  select 16, 'BILGI: kisitlayici politika (uretim: 31)', count(*)::text
+  from pg_policy p join pg_class c on c.oid = p.polrelid
   join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public' and not p.polpermissive
-  having count(*) > 0
-
-  union all
-  select 8, 'BILGI: politika sayisi', count(*)::text
-  from pg_policy p
-  join pg_class c on c.oid = p.polrelid
-  join pg_namespace n on n.oid = c.relnamespace
-  where n.nspname = 'public'
-
-  union all
-  select 9, 'BILGI: public sema tablo sayisi', count(*)::text
-  from pg_class c join pg_namespace n on n.oid = c.relnamespace
-  where n.nspname = 'public' and c.relkind in ('r','p')
-
-  union all
-  select 10, 'BILGI: birebir eslesen fonksiyon sayisi (26 olmali)', count(*)::text
-  from u join b on b.imza = u.imza where b.parmak_izi = u.parmak_izi
 
 ) x
 order by sira, kontrol, ayrinti;

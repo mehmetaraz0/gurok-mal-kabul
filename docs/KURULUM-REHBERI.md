@@ -10,10 +10,25 @@ sıralı adımları tanımlar. Her adım bir öncekine bağımlıdır — sıray
 
 ## Phase 0 Security Gate (2026-09-05)
 
-`01-sema-dokumu.sql` is a historical bootstrap dump, NOT the current security
-baseline. Do not deploy it alone or replay dated SQL files in filename order.
-The earlier steps below do not replace review of the effective database catalog.
-Fresh customer deployment still requires a reviewed, complete schema baseline.
+`01-sema-dokumu.sql` is a historical bootstrap dump (31 Jul 2026), NOT the
+current security baseline. Do not deploy it alone or replay dated SQL files in
+filename order.
+
+**Güncel taban: `docs/kurulum/2026-09-06-sema-dokumu.sql`** — 6 Eylül 2026'da
+üretimden alınmış, Phase 0 sertleştirmesi uygulandıktan sonraki tam şema
+dökümü (66 tablo, 193 politika, 31 kısıtlayıcı politika, 26 fonksiyon,
+`phase0_private` şeması ve tetikleyicileri dâhil). Üretim parmak iziyle
+doğrulandı: sıfır sapma.
+
+Eski dökümün neden kullanılamayacağı ölçülerek belgelendi
+(`2026-09-06-staging-branch-kurulum.md`, bölüm 2): 26 fonksiyonun yalnız 2'si
+eşleşiyordu, sıfır `GRANT` satırı vardı ve 5 tabloda RLS kapalıydı.
+
+Her yeni döküm, kullanılmadan önce doğrulanmalıdır:
+
+```bash
+node scripts/dokum-dogrula.mjs docs/kurulum/2026-09-06-sema-dokumu.sql
+```
 
 For an existing MAIN ERP project only:
 
@@ -60,8 +75,11 @@ recovery cannot be established, keep affected writes disabled and forward-fix.
 1. **Supabase projesi oluştur.** [supabase.com](https://supabase.com) → New Project.
    Bölge ve güçlü bir DB şifresi seçin.
 
-2. **Şemayı kur.** Supabase SQL Editor'de `docs/kurulum/01-sema-dokumu.sql`
-   dosyasının tamamını çalıştırın (tablolar, RLS policy'leri, fonksiyonlar).
+2. **Şemayı kur.** Supabase SQL Editor'de
+   `docs/kurulum/2026-09-06-sema-dokumu.sql` dosyasının tamamını çalıştırın
+   (tablolar, RLS politikaları, fonksiyonlar, izinler, Phase 0 sertleştirmesi).
+   Eski `01-sema-dokumu.sql` dosyasını KULLANMAYIN — bayat ve güvenlik
+   açısından eksiktir; yukarıdaki Phase 0 Security Gate bölümüne bakın.
 
 3. **Referans veriyi yükle.** Aynı editörde `docs/kurulum/02-referans-veri.sql`
    dosyasını çalıştırın (roller, modüller, yetki matrisi — müşteri verisi içermez).

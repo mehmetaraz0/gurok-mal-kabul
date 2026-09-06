@@ -1,0 +1,16 @@
+# Şema dökümleri: satır sonlarına DOKUNMA.
+#
+# Bu depo Windows'ta core.autocrlf=true ile kullanılıyor; git normalde commit
+# sırasında CRLF'i LF'e, checkout sırasında LF'i CRLF'e çevirir. Şema dökümü
+# için bu YIKICIDIR: PostgreSQL fonksiyon gövdelerinin satır sonları prosrc
+# içinde AYNEN saklanır ve üretimdeki gövdelerin bir kısmı LF, bir kısmı CRLF,
+# bir kısmı karışık taşır. Tekdüzeleştiren her dönüşüm gövdeleri sessizce
+# değiştirir ve döküm üretimi temsil etmeyi bırakır.
+#
+# Bu tam olarak 6 Eylül 2026'da yaşandı: PowerShell yönlendirmesi dökümü
+# tekdüze CRLF yazdı, 26 fonksiyonun 25'i doğrulamada "farklı" çıktı.
+# scripts/dokum-dogrula.mjs artık bu durumu yükleme öncesi yakalıyor.
+#
+# -text: git bu dosyaları metin saymaz, satır sonlarını olduğu gibi bırakır.
+docs/kurulum/*-sema-dokumu.sql -text
+docs/kurulum/01-sema-dokumu.sql -text

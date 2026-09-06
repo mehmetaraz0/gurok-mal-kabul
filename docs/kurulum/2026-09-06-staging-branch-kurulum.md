@@ -1,9 +1,19 @@
 # Staging (Supabase Branch) kurulumu ve Phase 0 doğrulaması
 
-**Durum:** hazırlık. Üretime hiçbir yazma yapılmadı ve yapılmayacak.
+**Durum (6 Eylül 2026, akşam):** şema dökümü ALINDI ve DOĞRULANDI — sıfır
+sapma. Staging tabanı hazır. Branch henüz açılmadı.
 
-Bu belge, Phase 0 sertleştirmesini üretime dokunmadan doğrulamak için
-kurulacak staging ortamının önkoşullarını, kurulumunu ve kabul ölçütünü
+> **Önemli bağlam değişikliği:** Phase 0 sertleştirmesi bu belge yazılırken
+> **üretime uygulanmıştı.** Bu oturum uygulamadı; 6 Eylül sabahı alınan
+> dökümde 150 `phase0` izi bulunarak fark edildi. Canlıda düzeltilmiş sürüm
+> var (NULL `otel_id` merkez kaydı sayılıyor), eksiksiz uygulanmış ve dört
+> başlıkta elle regresyon testi yapıldı: sorun çıkmadı.
+>
+> Dolayısıyla staging'in gerekçesi değişti. Artık "uygulamadan önce dene"
+> değil; **PMS Faz 1 geliştirmesi için izole ortam** ve **üretim
+> sürüklenmesini yakalayan taban**.
+
+Bu belge staging ortamının önkoşullarını, kurulumunu ve kabul ölçütünü
 tanımlar.
 
 ---
@@ -48,8 +58,13 @@ PostgreSQL 17 konteynerine yüklenip üretim parmak iziyle karşılaştırıldı
 | `ALTER DEFAULT PRIVILEGES` | var | **0** |
 | `CREATE TRIGGER` | var | **0** |
 | RLS kapalı tablo | 0 | **5** |
-| Politika | ~170 | 118 |
-| `public` tablo | 43 | 55 |
+| Politika | 161 | 118 |
+| `public` tablo | 65 | 55 |
+
+> **Düzeltme (2026-09-06):** bu iki satırda önce `~170` ve `43` yazıyordu. O
+> rakamlar ölçülmemişti — 43 fixture veritabanından geliyordu, 170 ise
+> preflight çıktısını gözle saymaktan. Buradaki 161 ve 65, üretimden 6 Eylülde
+> alınan yeni dökümün ölçülen değerleridir.
 
 Eksik olan 21 fonksiyon arasında `auth_otel_erisim`, `auth_erp_kullanicisi`,
 `auth_otel_id`, `auth_tum_oteller`, `fatura_kaydet`, `mal_kabul_kaydet` ve
@@ -109,17 +124,32 @@ Bağlantı dizesi: Supabase Dashboard → Project Settings → Database →
 Connection string → **URI** (Session pooler).
 
 ```bash
-docker run --rm -i postgres:17 pg_dump "BAGLANTI_DIZESI" --schema-only --schema=public --no-owner > docs/kurulum/01-sema-dokumu.sql
+docker run --rm -e PGPASSWORD='PAROLA' -v "C:\Users\USER\Projects\gurok-mal-kabul\docs\kurulum:/out" postgres:17 pg_dump -h aws-0-ap-northeast-1.pooler.supabase.com -p 5432 -U postgres.xwytofysmgqtqjzkplfi -d postgres --schema-only --schema=public --schema=phase0_private --no-owner -f /out/2026-09-06-sema-dokumu.sql
 ```
 
-Kritik nokta: **`--no-privileges` KULLANMA.** Önceki dökümün asıl kusuru
-oydu. `--no-owner` sahiplik satırlarını atar ama `GRANT`'leri korur —
-istediğimiz tam olarak bu.
+Üç şey kritik, üçü de acı deneyimle öğrenildi (6 Eylül 2026):
+
+**1. `--no-privileges` KULLANMA.** İlk dökümün asıl kusuru oydu: sıfır
+`GRANT` satırı. `--no-owner` sahiplik satırlarını atar ama izinleri korur.
+
+**2. `-f` kullan, kabuk yönlendirmesi ( `>` ) KULLANMA.** PowerShell dosyayı
+metin modunda yazar: UTF-16'ya çevirir ve tüm satır sonlarını CRLF yapar.
+Üretimdeki fonksiyon gövdelerinin satır sonları **karışıktır** (kimi LF, kimi
+CRLF) ve `prosrc` bunu aynen saklar; tekdüzeleştiren her dönüşüm gövdeleri
+sessizce bozar ve doğrulamada 26 fonksiyonun 25'i "farklı" görünür.
+
+**3. `--schema=phase0_private` EKLE.** Phase 0 tetikleyicileri bu şemadaki
+fonksiyonları çağırır. Yalnız `public` alınırsa 42 tetikleyici ifadesinin
+hepsi yüklenmez ve staging'de ne audit ne de otel-değişmezlik koruması olur.
+
+Parola URI'ye değil `PGPASSWORD`'e verilir; böylece `@ # ? %` gibi karakterler
+için percent-encode gerekmez. PowerShell'de **tek tırnak** kullan — çift
+tırnakta `$` işareti değişken olarak yorumlanır.
 
 ### 3.3 Dökümü doğrula (yerelde, ücretsiz)
 
 ```bash
-node scripts/dokum-dogrula.mjs docs/kurulum/01-sema-dokumu.sql
+node scripts/dokum-dogrula.mjs docs/kurulum/2026-09-06-sema-dokumu.sql
 ```
 
 Bu betik dökümü tek kullanımlık bir konteynere yükler ve üretim parmak
@@ -127,6 +157,22 @@ iziyle karşılaştırır. **Tek bir `SAPMA` satırı bile çıkmamalı.** Çık
 döküm hâlâ eksiktir ve branch açmanın anlamı yoktur.
 
 Bu adım branch açmadan ve para harcamadan yapılır. Kabul ölçütü budur.
+
+**6 Eylül 2026 sonucu — GEÇTİ:**
+
+```
+2) Dokum yuklendi      : hatasiz
+   14 | BILGI: eslesen fonksiyon (26 olmali)       | 26
+   15 | BILGI: politika / tablo (uretim: 193 / 66) | 193 / 66
+   16 | BILGI: kisitlayici politika (uretim: 31)   | 31
+SONUC: Dokum uretimi temsil ediyor. Staging tabani olarak kullanilabilir.
+```
+
+Buraya üç denemede gelindi ve her deneme bir tuzağı ortaya çıkardı:
+`--no-privileges` (sıfır GRANT), kabuk yönlendirmesi (UTF-16 + satır sonu
+ezilmesi), eksik `phase0_private` şeması (42 tetikleyici yüklenmedi).
+Üçü de yukarıdaki komutta kapatıldı ve üçü de `dokum-dogrula` içinde kalıcı
+kontrole dönüştü.
 
 ### 3.4 Branch'i aç
 

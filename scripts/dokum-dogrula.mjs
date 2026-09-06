@@ -11,7 +11,7 @@
 // para harcamadan, dökümün gerçekten yeterli olup olmadığını yerelde kanıtlar.
 //
 // KULLANIM:
-//   node scripts/dokum-dogrula.mjs docs/kurulum/01-sema-dokumu.sql
+//   node scripts/dokum-dogrula.mjs docs/kurulum/2026-09-06-sema-dokumu.sql
 //
 // ÇIKIŞ KODU: 0 = döküm üretimi temsil ediyor, 1 = sapma var (veya hata).
 //
@@ -31,6 +31,56 @@ if (!dokumYolu) {
 if (!existsSync(dokumYolu)) {
   console.error('Dosya bulunamadi: ' + dokumYolu);
   process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
+// BAYT SAGLIGI — yuklemeden ONCE
+// ---------------------------------------------------------------------------
+// pg_dump Linux konteynerinde calisir ve UTF-8 + LF yazar. Dosya baska bir
+// sekilde geldiyse arada bir kabuk METIN MODUNDA yazmis demektir ve govdeler
+// sessizce degismistir: fonksiyon govdelerinin satir sonlari (LF / CRLF /
+// karisik) prosrc icinde AYNEN saklanir. Boyle bir dosya yuklenir, hicbir
+// hata vermez ve md5 karsilastirmasinda "govde farkli" olarak gorunur --
+// yani gercek bir sapma gibi. Bu yuzden burada durup acikca soyluyoruz.
+{
+  const ham = readFileSync(dokumYolu);
+  const bom = ham.length >= 2 && ((ham[0] === 0xff && ham[1] === 0xfe)
+    || (ham[0] === 0xfe && ham[1] === 0xff)) ? 'UTF-16'
+    : (ham.length >= 3 && ham[0] === 0xef && ham[1] === 0xbb && ham[2] === 0xbf) ? 'UTF-8 BOM'
+    : null;
+  const metin = ham.toString('latin1');
+  const crlf = (metin.match(/\r\n/g) || []).length;
+  const lf = (metin.match(/\n/g) || []).length;
+
+  // KARISIK satir sonu NORMALDIR ve beklenir: uretimdeki fonksiyon govdelerinin
+  // bir kismi CRLF tasiyor (Windows'tan SQL Editor'e yapistirilmis) ve pg_dump
+  // onlari AYNEN yazar. Bozulmanin isareti karisiklik degil, TEKDUZELIK'tir:
+  // her satir sonunun CRLF olmasi, arada metin modunda yazan bir kabuk oldugunu
+  // gosterir -- o kabuk govdelerdeki karisimi da ezmistir.
+  const hepsiCRLF = lf > 0 && crlf === lf;
+
+  if (bom || hepsiCRLF) {
+    console.error('DOSYA BOZUK: dokum kabuk tarafindan yeniden yazilmis.\n');
+    if (bom) console.error('  * Kodlama  : ' + bom + ' (pg_dump UTF-8 yazar)');
+    if (hepsiCRLF) console.error('  * Satir sonu: ' + crlf + ' satirin ' + lf + "'i CRLF."
+      + ' Tekduze CRLF, kabugun metin modunda yazdigi anlamina gelir;'
+      + '\n                fonksiyon govdelerindeki LF/CRLF karisimi ezilmistir.');
+    console.error('\nSebep: PowerShell yonlendirmesi ( > ) ciktiyi metin olarak yazar;'
+      + '\nkodlamayi ve satir sonlarini degistirir. Fonksiyon govdelerindeki'
+      + '\nsatir sonu karisimi geri donusu olmayan sekilde ezilir.'
+      + '\n\nCozum: dokumu kabuk yonlendirmesi OLMADAN, pg_dump -f ile al.'
+      + '\nParola URI ye degil PGPASSWORD e verilir (percent-encode gerekmez);'
+      + '\nPowerShell de TEK tirnak kullan, cift tirnakta $ degisken sayilir.'
+      + '\nphase0_private semasini da al: tetikleyiciler oradaki fonksiyonlari'
+      + '\ncagirir, yoksa hicbiri yuklenmez.'
+      + '\n\n  docker run --rm -e PGPASSWORD=\'PAROLA\' \\'
+      + '\n    -v "' + kok.replace(/\//g, '\\') + 'docs\\kurulum:/out" postgres:17 \\'
+      + '\n    pg_dump -h <pooler-host> -p 5432 -U postgres.<proje-ref> -d postgres \\'
+      + '\n    --schema-only --schema=public --schema=phase0_private --no-owner \\'
+      + '\n    -f /out/<tarih>-sema-dokumu.sql'
+      + '\n\nAyrinti: docs/kurulum/2026-09-06-staging-branch-kurulum.md, bolum 3.2');
+    process.exit(1);
+  }
 }
 
 const konteyner = 'dokum-dogrula';
@@ -67,7 +117,13 @@ console.log('1) Supabase iskelesi   : kuruldu');
 // 2) Dokum. ON_ERROR_STOP KULLANILMAZ: amac dokumun ne kadarinin yuklendigini
 //    gormek; ilk hatada durursak eksikligin boyutunu olcemeyiz.
 r = docker(psql, readFileSync(dokumYolu, 'utf8'));
-const hatalar = r.err.split('\n').filter((l) => l.startsWith('ERROR:'));
+// "schema public already exists" ZARARSIZDIR: public semasi her PostgreSQL
+// veritabaninda hazir gelir, dokum ise onu olusturmayi dener. Beyaz listeye
+// aliyoruz ki gercek bir hata cikarsa goze carpsin.
+const zararsiz = [/schema "public" already exists/];
+const hatalar = r.err.split('\n')
+  .filter((l) => l.startsWith('ERROR:'))
+  .filter((l) => !zararsiz.some((z) => z.test(l)));
 console.log('2) Dokum yuklendi      : ' + (hatalar.length === 0
   ? 'hatasiz'
   : hatalar.length + ' HATA (ilk 5 asagida)'));
