@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dornevi — Ön Büro</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);color:var(--gray-800)}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header-btn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.kart{background:white;border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);text-decoration:none;color:inherit;display:block;transition:transform .12s}
+.kart:active{transform:scale(.98)}
+.kart-ikon{font-size:26px;margin-bottom:8px}
+.kart-ad{font-size:14px;font-weight:700;color:var(--primary);margin-bottom:4px}
+.kart-desc{font-size:12px;color:var(--gray-600);line-height:1.4}
+.not{margin-top:18px;font-size:12px;color:var(--gray-600);background:white;border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);line-height:1.55}
+.not b{color:var(--primary)}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="header-btn" href="index.html" title="Portal">←</a>
+    <div style="flex:1"><h1>Ön Büro</h1></div>
+  </div>
+  <div class="wrap">
+    <div class="grid">
+      <a class="kart" href="pms-oda-tipleri.html">
+        <div class="kart-ikon">🛏️</div>
+        <div class="kart-ad">Oda Tipleri</div>
+        <div class="kart-desc">Oda tiplerini tanımla, kapasite ve doluluk kurallarını belirle</div>
+      </a>
+      <a class="kart" href="pms-odalar.html">
+        <div class="kart-ikon">🚪</div>
+        <div class="kart-ad">Odalar</div>
+        <div class="kart-desc">Oda envanteri, kat/blok, kullanım ve temizlik durumu</div>
+      </a>
+    </div>
+    <div class="not">
+      <b>Bu bölüm geliştiriliyor.</b> Şu an yalnızca oda ana verisi yönetiliyor.
+      Misafir kayıtları, rezervasyon, müsaitlik, oda planı, giriş/çıkış ve folio
+      sonraki adımlarda gelecek — henüz mevcut değiller.
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const CU = requireLogin();
+  if(!CU) return;
+  document.getElementById('app').style.display='';
+})();
+</script>
+</body>
+</html>

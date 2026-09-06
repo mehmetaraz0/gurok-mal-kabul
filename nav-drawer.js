@@ -71,6 +71,12 @@ const ND_MODULLER = [
     moduller: ['stok_takip'], durum: 'aktif',
     svg: '<path d="M20.5 7.5 12 3 3.5 7.5 12 12l8.5-4.5Z"/><path d="M3.5 7.5v9L12 21l8.5-4.5v-9"/><path d="M12 12v9"/>',
     eslesir: f => f === 'urun-yonetimi.html'
+  },
+  {
+    id: 'onburo', ad: 'Ön Büro', url: 'on-buro.html',
+    moduller: ['pms_oda_tipi', 'pms_oda'], durum: 'aktif',
+    svg: '<path d="M3 20V9l9-5 9 5v11"/><path d="M9 20v-6h6v6"/><path d="M3 20h18"/>',
+    eslesir: f => f === 'on-buro.html' || f.startsWith('pms-')
   }
 ];
 

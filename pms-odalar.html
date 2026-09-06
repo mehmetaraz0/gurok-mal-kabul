@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let CU = requireLogin();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dornevi — Odalar</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--accent:#c9a24b}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none}
+.hbtn:active{background:rgba(255,255,255,.3)}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;font-family:inherit;background:white}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.filtreler{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.btn{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-p{background:var(--primary);color:white}
+.btn-s{background:var(--gray-200);color:var(--gray-700)}
+.btn-sm{padding:6px 10px;font-size:12px}
+.liste-satir{display:flex;align-items:center;gap:8px;padding:10px;border-bottom:1px solid var(--gray-200);flex-wrap:wrap}
+.liste-satir:last-child{border-bottom:none}
+.ls-ana{flex:1;min-width:120px}
+.ls-no{font-size:14px;font-weight:700;color:var(--primary)}
+.ls-meta{font-size:11px;color:var(--gray-500);margin-top:2px}
+.rozet{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.r-aktif{background:#dcfce7;color:#166534}
+.r-pasif{background:var(--gray-200);color:var(--gray-600)}
+.d-bos{background:#dcfce7;color:#166534}
+.d-dolu{background:#fee2e2;color:#991b1b}
+.d-bloke{background:#fef3c7;color:#92400e}
+.d-ariza{background:#e5e7eb;color:#374151}
+.t-temiz{background:#dbeafe;color:#1e40af}
+.t-kirli{background:#fee2e2;color:#991b1b}
+.t-temizleniyor{background:#fef3c7;color:#92400e}
+.t-kontrol_edildi{background:#dcfce7;color:#166534}
+.bos{text-align:center;padding:28px 12px;color:var(--gray-500);font-size:13px}
+.ozet{font-size:11px;color:var(--gray-600);padding:8px 10px}
+#ld{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:99}
+#ld.show{display:flex}
+.spin{width:34px;height:34px;border:3px solid var(--gray-300);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.modal.open{display:flex}
+.modal-ic{background:white;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:16px;max-height:88vh;overflow-y:auto}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="hbtn" href="on-buro.html" title="Ön Büro">←</a>
+    <div style="flex:1"><h1>Odalar<span class="sub" id="hdrOtel"></span></h1></div>
+    <button class="hbtn" onclick="yeniAc()" title="Yeni oda">+</button>
+  </div>
+  <div class="sc">
+    <div class="card">
+      <input id="ara" placeholder="Oda no ara…" oninput="ciz()" style="margin-bottom:8px">
+      <div class="filtreler">
+        <select id="fTip" onchange="ciz()"><option value="">Tüm tipler</option></select>
+        <select id="fKat" onchange="ciz()"><option value="">Tüm katlar</option></select>
+        <select id="fKullanim" onchange="ciz()">
+          <option value="">Tüm durumlar</option>
+          <option value="bos">Boş</option><option value="dolu">Dolu</option>
+          <option value="bloke">Bloke</option><option value="ariza">Arıza</option>
+        </select>
+        <select id="fTemizlik" onchange="ciz()">
+          <option value="">Tüm temizlik</option>
+          <option value="temiz">Temiz</option><option value="kirli">Kirli</option>
+          <option value="temizleniyor">Temizleniyor</option><option value="kontrol_edildi">Kontrol edildi</option>
+        </select>
+        <select id="fAktif" onchange="ciz()">
+          <option value="aktif">Aktif</option><option value="pasif">Pasif</option><option value="hepsi">Hepsi</option>
+        </select>
+      </div>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="ozet" id="ozet"></div>
+      <div id="liste"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mForm">
+  <div class="modal-ic">
+    <div class="card-title" id="formBaslik">Yeni Oda</div>
+    <div id="otelAlani" style="display:none" class="field">
+      <label>Otel</label>
+      <select id="fOtel" onchange="tipSecenekleriDoldur()"></select>
+    </div>
+    <div class="row">
+      <div class="field"><label>Oda no *</label><input id="mOdaNo" maxlength="20" placeholder="101"></div>
+      <div class="field"><label>Oda tipi *</label><select id="mTip"></select></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Kat</label><input id="mKat" maxlength="10" placeholder="1"></div>
+      <div class="field"><label>Blok</label><input id="mBlok" maxlength="30" placeholder="A"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Kullanım durumu</label>
+        <select id="mKullanim">
+          <option value="bos">Boş</option><option value="dolu">Dolu</option>
+          <option value="bloke">Bloke</option><option value="ariza">Arıza</option>
+        </select>
+      </div>
+      <div class="field"><label>Temizlik durumu</label>
+        <select id="mTemizlik">
+          <option value="kirli">Kirli</option><option value="temiz">Temiz</option>
+          <option value="temizleniyor">Temizleniyor</option><option value="kontrol_edildi">Kontrol edildi</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Açıklama</label><textarea id="mAciklama" rows="2"></textarea></div>
+    <div class="field">
+      <label><input type="checkbox" id="mAktif" checked style="width:auto;margin-right:6px">Aktif</label>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn btn-s" onclick="kModal('mForm')">Vazgeç</button>
+      <button class="btn btn-p" onclick="kaydet()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="ld"><div class="spin"></div></div>
+
+<script>
+// Yetki ve otel kapsamı SUNUCUDA (RLS) uygulanır. Buradaki filtreler ve
+// gizlemeler yalnızca kullanılabilirlik içindir.
+let ODALAR = [], TIPLER = [];
+let DUZENLENEN = null;
+
+const KULLANIM_AD = {bos:'Boş', dolu:'Dolu', bloke:'Bloke', ariza:'Arıza'};
+const TEMIZLIK_AD = {temiz:'Temiz', kirli:'Kirli', temizleniyor:'Temizleniyor', kontrol_edildi:'Kontrol edildi'};
+const OTELLER = Object.keys(OTEL_ISIMLERI);
+const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+
+(function init(){
+  if(!CU) return;
+  document.getElementById('app').style.display='';
+  document.getElementById('hdrOtel').textContent =
+    TEK_OTEL ? ('🏨 ' + (OTEL_KISA[TEK_OTEL] || TEK_OTEL)) : '🏨 Tüm oteller';
+  if(!TEK_OTEL){
+    document.getElementById('otelAlani').style.display='';
+    document.getElementById('fOtel').innerHTML =
+      OTELLER.map(o=>'<option value="'+escapeHtml(o)+'">'+escapeHtml(OTEL_ISIMLERI[o])+'</option>').join('');
+  }
+  yukle();
+})();
+
+async function yukle(){
+  sLD();
+  try{
+    const [rt, ro] = await Promise.all([
+      fetch(SB_URL+'/rest/v1/pms_oda_tipleri?select=id,otel_id,kod,ad,aktif&order=kod',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/pms_odalar?select=*&order=otel_id,oda_no',{headers:SB_HEADERS})
+    ]);
+    TIPLER = rt.ok ? await rt.json() : [];
+    ODALAR = ro.ok ? await ro.json() : [];
+    if(!rt.ok || !ro.ok) toast('Veri okunamadı');
+  }catch(e){ TIPLER=[]; ODALAR=[]; toast('Sunucuya ulaşılamadı'); }
+  hLD();
+  filtreSecenekleriDoldur();
+  ciz();
+}
+
+function tipAdi(id){
+  const t = TIPLER.find(x=>x.id===id);
+  return t ? (t.kod+' — '+t.ad) : '(tip yok)';
+}
+
+function filtreSecenekleriDoldur(){
+  const fT = document.getElementById('fTip'), onceki = fT.value;
+  fT.innerHTML = '<option value="">Tüm tipler</option>' + TIPLER.map(t=>
+    '<option value="'+escapeHtml(t.id)+'">'+escapeHtml(t.kod+' — '+t.ad)+'</option>').join('');
+  fT.value = onceki;
+
+  const katlar = [...new Set(ODALAR.map(o=>o.kat).filter(k=>k!==null && k!==''))].sort();
+  const fK = document.getElementById('fKat'), oncekiK = fK.value;
+  fK.innerHTML = '<option value="">Tüm katlar</option>' + katlar.map(k=>
+    '<option value="'+escapeHtml(k)+'">'+escapeHtml(k)+'. kat</option>').join('');
+  fK.value = oncekiK;
+}
+
+function tipSecenekleriDoldur(){
+  // Yalnızca SEÇİLİ OTELE ait tipler listelenir. Çapraz otel bağlantısını
+  // veritabanı bileşik yabancı anahtarla zaten reddeder; bu, kullanıcıya
+  // reddedilecek bir seçeneği hiç göstermemek içindir.
+  const otel = TEK_OTEL || document.getElementById('fOtel').value;
+  const uygun = TIPLER.filter(t=>String(t.otel_id)===String(otel) && t.aktif);
+  const sel = document.getElementById('mTip'), onceki = sel.value;
+  sel.innerHTML = uygun.length
+    ? uygun.map(t=>'<option value="'+escapeHtml(t.id)+'">'+escapeHtml(t.kod+' — '+t.ad)+'</option>').join('')
+    : '<option value="">— önce oda tipi tanımlayın —</option>';
+  if(uygun.some(t=>t.id===onceki)) sel.value = onceki;
+}
+
+function ciz(){
+  const q  = document.getElementById('ara').value.trim().toLocaleLowerCase('tr');
+  const ft = document.getElementById('fTip').value;
+  const fk = document.getElementById('fKat').value;
+  const fu = document.getElementById('fKullanim').value;
+  const fz = document.getElementById('fTemizlik').value;
+  const fa = document.getElementById('fAktif').value;
+
+  const sonuc = ODALAR.filter(o=>{
+    if(fa==='aktif' && !o.aktif) return false;
+    if(fa==='pasif' &&  o.aktif) return false;
+    if(ft && o.oda_tipi_id !== ft) return false;
+    if(fk && String(o.kat||'') !== fk) return false;
+    if(fu && o.kullanim_durumu !== fu) return false;
+    if(fz && o.temizlik_durumu !== fz) return false;
+    if(q && !String(o.oda_no).toLocaleLowerCase('tr').includes(q)) return false;
+    return true;
+  });
+
+  document.getElementById('ozet').textContent =
+    sonuc.length + ' oda · ' + ODALAR.length + ' kayıttan';
+
+  const el = document.getElementById('liste');
+  if(!sonuc.length){
+    el.innerHTML = '<div class="bos">Kayıt yok.<br>Sağ üstteki + ile oda ekleyin.</div>';
+    return;
+  }
+  el.innerHTML = sonuc.map(o=>
+    '<div class="liste-satir">'
+    + '<div class="ls-ana">'
+      + '<div class="ls-no">'+escapeHtml(o.oda_no)+'</div>'
+      + '<div class="ls-meta">'+escapeHtml(tipAdi(o.oda_tipi_id))
+        + (o.kat ? ' · '+escapeHtml(o.kat)+'. kat' : '')
+        + (o.blok ? ' · '+escapeHtml(o.blok)+' blok' : '')
+        + ' · '+escapeHtml(OTEL_KISA[o.otel_id]||o.otel_id)+'</div>'
+    + '</div>'
+    + '<span class="rozet d-'+escapeHtml(o.kullanim_durumu)+'">'+escapeHtml(KULLANIM_AD[o.kullanim_durumu]||o.kullanim_durumu)+'</span>'
+    + '<span class="rozet t-'+escapeHtml(o.temizlik_durumu)+'">'+escapeHtml(TEMIZLIK_AD[o.temizlik_durumu]||o.temizlik_durumu)+'</span>'
+    + (o.aktif ? '' : '<span class="rozet r-pasif">Pasif</span>')
+    + '<button class="btn btn-s btn-sm" onclick="duzenleAc(\''+jsAttrStr(o.id)+'\')">Düzenle</button>'
+    + '</div>'
+  ).join('');
+}
+
+function yeniAc(){
+  DUZENLENEN = null;
+  document.getElementById('formBaslik').textContent = 'Yeni Oda';
+  document.getElementById('mOdaNo').value='';
+  document.getElementById('mKat').value='';
+  document.getElementById('mBlok').value='';
+  document.getElementById('mKullanim').value='bos';
+  document.getElementById('mTemizlik').value='kirli';
+  document.getElementById('mAciklama').value='';
+  document.getElementById('mAktif').checked = true;
+  tipSecenekleriDoldur();
+  aModal('mForm');
+}
+
+function duzenleAc(id){
+  const o = ODALAR.find(x=>x.id===id);
+  if(!o) return;
+  DUZENLENEN = o;
+  document.getElementById('formBaslik').textContent = 'Oda ' + o.oda_no;
+  if(!TEK_OTEL) document.getElementById('fOtel').value = o.otel_id;
+  tipSecenekleriDoldur();
+  document.getElementById('mOdaNo').value = o.oda_no;
+  document.getElementById('mTip').value = o.oda_tipi_id;
+  document.getElementById('mKat').value = o.kat || '';
+  document.getElementById('mBlok').value = o.blok || '';
+  document.getElementById('mKullanim').value = o.kullanim_durumu;
+  document.getElementById('mTemizlik').value = o.temizlik_durumu;
+  document.getElementById('mAciklama').value = o.aciklama || '';
+  document.getElementById('mAktif').checked = !!o.aktif;
+  aModal('mForm');
+}
+
+async function kaydet(){
+  const odaNo = document.getElementById('mOdaNo').value.trim();
+  const tipId = document.getElementById('mTip').value;
+  if(!odaNo){ toast('Oda numarası zorunlu'); return; }
+  if(!tipId){ toast('Önce bu otel için bir oda tipi tanımlayın'); return; }
+
+  const govde = {
+    oda_tipi_id: tipId,
+    oda_no: odaNo,
+    kat:  document.getElementById('mKat').value.trim()  || null,
+    blok: document.getElementById('mBlok').value.trim() || null,
+    kullanim_durumu: document.getElementById('mKullanim').value,
+    temizlik_durumu: document.getElementById('mTemizlik').value,
+    aciklama: document.getElementById('mAciklama').value.trim() || null,
+    aktif: document.getElementById('mAktif').checked
+  };
+
+  sLD();
+  try{
+    let r;
+    if(DUZENLENEN){
+      // otel_id BİLEREK gönderilmiyor: bir kaydın oteli değiştirilemez.
+      r = await sbYaz(SB_URL+'/rest/v1/pms_odalar?id=eq.'+encodeURIComponent(DUZENLENEN.id),
+        {method:'PATCH',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+         body:JSON.stringify(govde)}, 'Oda güncelleme');
+    }else{
+      govde.otel_id = TEK_OTEL || document.getElementById('fOtel').value;
+      r = await sbYaz(SB_URL+'/rest/v1/pms_odalar',
+        {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+         body:JSON.stringify(govde)}, 'Oda kaydı');
+    }
+    if(r.ok){ kModal('mForm'); toast(DUZENLENEN?'Güncellendi':'Eklendi'); await yukle(); }
+  }catch(e){ /* sbYaz kalıcı hata şeridini zaten gösterdi */ }
+  hLD();
+}
+</script>
+</body>
+</html>
