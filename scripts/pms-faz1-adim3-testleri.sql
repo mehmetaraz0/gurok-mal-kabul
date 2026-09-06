@@ -35,6 +35,17 @@ $$;
 grant usage on schema pms3_test to authenticated, anon;
 
 -- ---------------------------------------------------------------------------
+-- OTURUM KİMLİĞİ (denetim izi için)
+-- ---------------------------------------------------------------------------
+-- Adım 3, pms_rezervasyonlar/pms_oda_atamalari üzerine Phase 0 denetim izi
+-- tetikleyicisini bağlar; fonksiyon "aktif ERP personeli" şartı arar ve
+-- aktörü auth.uid()'den okur. Tezgâh yazmaları süperuser oturumunda yapılır;
+-- tetikleyicinin çalışabilmesi için claim'ler BAŞTAN ayarlanır. Gerçek aktör:
+-- pms3 810 tam kullanıcısı (aşağıda kullanicilar'a yazılıyor).
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);
+
+-- ---------------------------------------------------------------------------
 -- Tezgah: roller, kullanicilar, tipler, odalar, misafirler
 -- ---------------------------------------------------------------------------
 insert into auth.users (id, email)
@@ -79,6 +90,12 @@ insert into public.pms_odalar (id, otel_id, oda_tipi_id, oda_no, kullanim_durumu
   ('e0000000-0000-0000-0000-000000030108','810','d0000000-0000-0000-0000-000000030010','308','bos','temiz',         true),
   ('e0000000-0000-0000-0000-000000030109','810','d0000000-0000-0000-0000-000000030010','309','bos','temiz',         true),
   ('e0000000-0000-0000-0000-000000030110','810','d0000000-0000-0000-0000-000000030010','310','bos','temiz',         true),
+  ('e0000000-0000-0000-0000-000000030112','810','d0000000-0000-0000-0000-000000030010','312','bos','temiz',         true),
+  ('e0000000-0000-0000-0000-000000030113','810','d0000000-0000-0000-0000-000000030010','313','bos','temiz',         true),
+  ('e0000000-0000-0000-0000-000000030114','810','d0000000-0000-0000-0000-000000030010','314','bos','temiz',         true),
+  ('e0000000-0000-0000-0000-000000030115','810','d0000000-0000-0000-0000-000000030010','315','bos','temiz',         true),
+  ('e0000000-0000-0000-0000-000000030116','810','d0000000-0000-0000-0000-000000030010','316','bos','temiz',         true),
+  ('e0000000-0000-0000-0000-000000030117','810','d0000000-0000-0000-0000-000000030010','317','bos','temiz',         true),
   ('e0000000-0000-0000-0000-000000030111','811','d0000000-0000-0000-0000-000000030011','311','bos','temiz',         true)
 on conflict (id) do nothing;
 
@@ -392,6 +409,174 @@ select pms3_test.dogru(
   'CIKIS GUNU: ayni odaya yeni giris kabul edilir ([) yari acik aralik)');
 
 -- ---------------------------------------------------------------------------
+-- T7b — GECİKMİŞ CHECK-OUT (B1): planlanan çıkış günü geçse de çıkış yapılır
+-- ---------------------------------------------------------------------------
+-- "Takvim ilerledi" simülasyonu: geçerli konaklama state'i RPC ile kurulur;
+-- sonra planlanan çıkış tarihi, tetikleyiciler devre dışı bırakılarak
+-- (session_replication_role = replica — YALNIZ test, süperuser) geride
+-- bırakılır. Gerçek işletmede bu durum takvimin kendi ilerlemesiyle oluşur;
+-- replica hilesi yalnızca sahneleme içindir, RPC yollarına dokunmaz.
+
+-- (B) Planlanan çıkıştan 1 GÜN sonra.
+insert into public.pms_rezervasyonlar
+  (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+values ('11000000-0000-0000-0000-000000030030','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date - 3, current_date + 2,'onaylandi')
+on conflict (id) do nothing;
+select public.pms_check_in('11000000-0000-0000-0000-000000030030',
+                           'e0000000-0000-0000-0000-000000030112');
+
+reset role;
+set session_replication_role = replica;
+update public.pms_rezervasyonlar set cikis_tarihi = current_date - 1
+ where id = '11000000-0000-0000-0000-000000030030';
+update public.pms_oda_atamalari set bitis = current_date - 1
+ where rezervasyon_id = '11000000-0000-0000-0000-000000030030' and aktif;
+set session_replication_role = origin;
+set role authenticated;
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);
+
+select public.pms_check_out('11000000-0000-0000-0000-000000030030');
+select pms3_test.dogru(
+  (select durum='cikis_yapildi' and cikis_yapan='a0000000-0000-0000-0000-000000000001'
+     and cikis_zamani is not null
+   from public.pms_rezervasyonlar where id='11000000-0000-0000-0000-000000030030'),
+  'GECIKMIS (1 gun): cikis kabul edildi + gercek damga');
+select pms3_test.dogru(
+  (select kullanim_durumu='bos' and temizlik_durumu='kirli'
+   from public.pms_odalar where id='e0000000-0000-0000-0000-000000030112'),
+  'GECIKMIS (1 gun): oda bos + kirli');
+select pms3_test.dogru(
+  (select count(*) = 1 from public.pms_oda_atamalari
+    where rezervasyon_id='11000000-0000-0000-0000-000000030030' and aktif
+      and bitis = current_date - 1),
+  'GECIKMIS (1 gun): gecmis atama korunuyor, planlanan aralik degismedi');
+
+-- (C) Planlanan çıkıştan BİRKAÇ gün sonra (3 gün). Giriş, sahnelemeden önce
+--     çıkıştan önce olmalı: [d-6, d+2) kurulur, çıkış d-3'e geriletir.
+insert into public.pms_rezervasyonlar
+  (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+values ('11000000-0000-0000-0000-000000030031','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date - 6, current_date + 2,'onaylandi')
+on conflict (id) do nothing;
+select public.pms_check_in('11000000-0000-0000-0000-000000030031',
+                           'e0000000-0000-0000-0000-000000030113');
+
+reset role;
+set session_replication_role = replica;
+update public.pms_rezervasyonlar set cikis_tarihi = current_date - 3
+ where id = '11000000-0000-0000-0000-000000030031';
+update public.pms_oda_atamalari set bitis = current_date - 3
+ where rezervasyon_id = '11000000-0000-0000-0000-000000030031' and aktif;
+set session_replication_role = origin;
+set role authenticated;
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);
+
+select public.pms_check_out('11000000-0000-0000-0000-000000030031');
+select pms3_test.dogru(
+  (select durum='cikis_yapildi' from public.pms_rezervasyonlar
+    where id='11000000-0000-0000-0000-000000030031'),
+  'GECIKMIS (4 gun): cikis kabul edildi');
+
+-- (F) checked-in rezervasyonun 0 aktif ataması -> açık tutarsızlık hatası.
+insert into public.pms_rezervasyonlar
+  (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+values ('11000000-0000-0000-0000-000000030032','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date, current_date + 2,'onaylandi')
+on conflict (id) do nothing;
+select public.pms_check_in('11000000-0000-0000-0000-000000030032',
+                           'e0000000-0000-0000-0000-000000030114');
+
+reset role;
+set session_replication_role = replica;
+update public.pms_oda_atamalari set aktif = false
+ where rezervasyon_id = '11000000-0000-0000-0000-000000030032';
+set session_replication_role = origin;
+set role authenticated;
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);
+
+select pms3_test.reddedilmeli($q$
+  select public.pms_check_out('11000000-0000-0000-0000-000000030032')
+$q$, 'TUTARSIZLIK: 0 aktif atamali check-in rezervasyonundan cikis reddedilir');
+
+-- (G) checked-in rezervasyonun >1 aktif ataması -> açık tutarsızlık hatası;
+--     sessizce ilki SEÇİLMEZ.
+insert into public.pms_rezervasyonlar
+  (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+values ('11000000-0000-0000-0000-000000030033','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date, current_date + 2,'onaylandi')
+on conflict (id) do nothing;
+select public.pms_check_in('11000000-0000-0000-0000-000000030033',
+                           'e0000000-0000-0000-0000-000000030115');
+
+reset role;
+set session_replication_role = replica;
+insert into public.pms_oda_atamalari (otel_id, rezervasyon_id, oda_id, baslangic, bitis)
+values ('810','11000000-0000-0000-0000-000000030033','e0000000-0000-0000-0000-000000030116',
+        current_date, current_date + 2);
+set session_replication_role = origin;
+set role authenticated;
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);
+
+select pms3_test.reddedilmeli($q$
+  select public.pms_check_out('11000000-0000-0000-0000-000000030033')
+$q$, 'TUTARSIZLIK: 2 aktif atamali check-in rezervasyonundan cikis reddedilir');
+
+-- (J) ERKEN ÇIKIŞ: mevcut bilinçli davranış DEĞİŞMEDİ — atama aktif kalır,
+--     kalan geceler exclusion nedeniyle yeniden satılamaz.
+insert into public.pms_rezervasyonlar
+  (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+values ('11000000-0000-0000-0000-000000030035','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date, current_date + 3,'onaylandi'),
+       ('11000000-0000-0000-0000-000000030036','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date + 1, current_date + 3,'onaylandi')
+on conflict (id) do nothing;
+select public.pms_check_in('11000000-0000-0000-0000-000000030035',
+                           'e0000000-0000-0000-0000-000000030117');
+select public.pms_check_out('11000000-0000-0000-0000-000000030035');
+select pms3_test.dogru(
+  (select count(*) = 1 from public.pms_oda_atamalari
+    where rezervasyon_id='11000000-0000-0000-0000-000000030035' and aktif
+      and bitis = current_date + 3),
+  'ERKEN CIKIS: atama tam aralikta aktif kaldi');
+select pms3_test.reddedilmeli($q$
+  insert into public.pms_oda_atamalari (otel_id, rezervasyon_id, oda_id, baslangic, bitis)
+  values ('810','11000000-0000-0000-0000-000000030036','e0000000-0000-0000-0000-000000030117',
+          current_date + 1, current_date + 3)
+$q$, 'ERKEN CIKIS: kalan geceler hala satilamaz (bilincli sinirlama)');
+
+-- ---------------------------------------------------------------------------
+-- T7c — DENETİM İZİ KANITI (Phase 0 tetikleyicisi PMS yazmalarında çalışıyor)
+-- ---------------------------------------------------------------------------
+-- DÖKÜM DERSİ: erp_islem_audit'in SELECT politikası 'denetim_izi' yetkisi
+-- ister; pms3 rolünde o yetki YOK. RLS satırı GİZLER — sayım 0 döner,
+-- satır olmadığı için değil. Sayım SAHİP ROLÜYLE yapılır.
+reset role;
+
+select pms3_test.dogru(
+  (select count(*) >= 1 from public.erp_islem_audit
+    where entity_type = 'pms_oda_atamalari' and event_type = 'INSERT'),
+  'AUDIT: atama INSERT izi uretildi');
+select pms3_test.dogru(
+  (select count(*) >= 1 from public.erp_islem_audit
+    where entity_type = 'pms_rezervasyonlar' and event_type = 'UPDATE'),
+  'AUDIT: rezervasyon gecis (UPDATE) izi uretildi');
+select pms3_test.dogru(
+  (select count(*) >= 1 from public.erp_islem_audit
+    where entity_type = 'pms_rezervasyonlar'
+      and actor_user_id = 'a0000000-0000-0000-0000-000000000001'
+      and hotel_id::text = '810' and transaction_id is not null),
+  'AUDIT: aktor + hotel_id + transaction_id dolu');
+select pms3_test.dogru(
+  (select count(*) = 0 from public.erp_islem_audit
+    where entity_type in ('pms_misafirler','pms_misafir_kimlik')),
+  'AUDIT: kisisel veri tablolari kapsam disi');
+
+-- ---------------------------------------------------------------------------
 -- T8 — İPTAL / GELMEDİ ATAMAYI SERBEST BIRAKIR; YENİDEN AKTİFLEŞMEZ
 -- ---------------------------------------------------------------------------
 insert into public.pms_rezervasyonlar
@@ -501,13 +686,13 @@ reset role;
 -- NİHAİ SAYIM — satir sayisi OLCULUR (dunku ders: "istisna yok" kanit degil)
 -- ---------------------------------------------------------------------------
 select pms3_test.dogru(
-  (select count(*) from public.pms_odalar where otel_id='810' and kullanim_durumu='dolu') = 4,
-  'final: 810 otelinde 4 dolu oda (301, 304, 308, 309)');
+  (select count(*) from public.pms_odalar where otel_id='810' and kullanim_durumu='dolu') = 6,
+  'final: 810 otelinde 6 dolu oda (301, 304, 308, 309, 314, 315)');
 select pms3_test.dogru(
   (select count(*) from public.pms_rezervasyonlar
-    where otel_id='810' and durum='giris_yapildi') = 4
+    where otel_id='810' and durum='giris_yapildi') = 6
   and (select count(*) from public.pms_rezervasyonlar
-       where otel_id='810' and durum='cikis_yapildi') = 1,
+       where otel_id='810' and durum='cikis_yapildi') = 4,
   'final: durum sayilari beklenen gibi');
 
 select 'TUM PMS ADIM 3 TESTLERI GECTI' as sonuc;

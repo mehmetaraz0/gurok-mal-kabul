@@ -115,7 +115,10 @@ function sorgu(sql) {
 const psqlKatiArgs = [...psqlArgs, '-v', 'ON_ERROR_STOP=1'];
 
 // Zemin: V20 konaklıyor (310, dün girdi, bugün çıkışlı — sahnelenmiş), V21 bugün girecek.
+// Denetim izi tetikleyicisi claim beklediği için claim'ler baştan ayarlanır.
 r = docker(psqlKatiArgs, `
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);
 insert into public.pms_rezervasyonlar
   (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
 values ('11000000-0000-0000-0000-000000030020','810','f0000000-0000-0000-0000-000000030001',
@@ -201,13 +204,123 @@ try {
     [v20 === 'cikis_yapildi', 'V20 cikis_yapildi olmaliydi, durum: ' + v20, 'V20 cikis_yapildi'],
     [v21 === 'onaylandi', "V21 onaylandi kalmaliydi (giris YAPILMAMALI), durum: " + v21, 'V21 giris yapamadi'],
   ];
-  console.log('\n8) Eszamanlilik testi (check-out vs check-in):');
+  console.log('\n8a) Eszamanlilik testi (normal check-out vs check-in):');
   for (const [gecti, hataMsg, okMsg] of kontroller) {
     console.log((gecti ? '   OK   ' : '   HATA ') + (gecti ? okMsg : hataMsg));
     if (!gecti) sonuc = 1;
   }
 } catch (e) {
-  console.error('\n8) Eszamanlilik testi  : ' + e.message);
+  console.error('\n8a) Eszamanlilik testi  : ' + e.message);
+  sonuc = 1;
+}
+
+// ---------------------------------------------------------------------------
+// 8b) GECİKMİŞ check-out vs check-in yarışı (B1 düzeltmesinin yarışı)
+// ---------------------------------------------------------------------------
+// V40: planlanan çıkışı 2 GÜN geçmiş (resepsiyon çıkışı unuttu). A gecikmiş
+// check-out yapar, oda kilidini elinde tutar; B aynı odaya check-in
+// etmeye çalışır. Sonuç: B bekler, A commit olur (oda bos/kirli), B kilidi
+// alınca YENİDEN doğrulama ile KİRLİ nedeniyle reddedilir.
+const zemin2 = `
+select set_config('request.jwt.claim.role','authenticated',false);
+select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);
+insert into public.pms_odalar (id, otel_id, oda_tipi_id, oda_no, temizlik_durumu)
+values ('e0000000-0000-0000-0000-000000030118','810','d0000000-0000-0000-0000-000000030010','318','temiz')
+on conflict (id) do nothing;
+insert into public.pms_rezervasyonlar
+  (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+values ('11000000-0000-0000-0000-000000030040','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date - 3, current_date + 2,'onaylandi'),
+       ('11000000-0000-0000-0000-000000030041','810','f0000000-0000-0000-0000-000000030001',
+        'd0000000-0000-0000-0000-000000030010', current_date, current_date + 2,'onaylandi')
+on conflict (id) do nothing;
+insert into public.pms_oda_atamalari (otel_id, rezervasyon_id, oda_id, baslangic, bitis)
+values ('810','11000000-0000-0000-0000-000000030040','e0000000-0000-0000-0000-000000030118',
+        current_date - 3, current_date + 2);
+update public.pms_odalar set kullanim_durumu='dolu'
+ where id='e0000000-0000-0000-0000-000000030118';
+update public.pms_rezervasyonlar
+   set durum='giris_yapildi', giris_zamani=now() - interval '3 days',
+       giris_yapan='a0000000-0000-0000-0000-000000000001'
+ where id='11000000-0000-0000-0000-000000030040';
+-- takvim ilerledi simülasyonu: planlanan çıkış 2 gün geçmişe düşer
+set session_replication_role = replica;
+update public.pms_rezervasyonlar set cikis_tarihi = current_date - 2
+ where id = '11000000-0000-0000-0000-000000030040';
+update public.pms_oda_atamalari set bitis = current_date - 2
+ where rezervasyon_id = '11000000-0000-0000-0000-000000030040' and aktif;
+set session_replication_role = origin;`;
+r = docker(psqlKatiArgs, zemin2);
+if (!r.ok) {
+  console.error('8b) Gecikmis yaris zemini: BASARISIZ\n'
+    + r.err.split('\n').filter((l) => l.trim()).slice(-10).join('\n'));
+  bitir(1);
+}
+
+const a2 = spawn('docker', psqlKatiArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+let a2Cikti = '', a2Hata = '';
+a2.stdout.on('data', (d) => { a2Cikti += d; });
+a2.stderr.on('data', (d) => { a2Hata += d; });
+const a2Kapandi = new Promise((c) => a2.on('close', c));
+const kilit2 = new Promise((coz, red) => {
+  const zaman = setTimeout(() => red(new Error('gecikmis yaris bariyeri zaman asimi')), 20000);
+  a2.stdout.on('data', () => {
+    if (a2Cikti.includes('PMS3_KILIT')) { clearTimeout(zaman); coz(); }
+  });
+  a2.on('close', () => { clearTimeout(zaman); red(new Error(a2Hata || 'A2 bariyerden once durdu')); });
+});
+
+try {
+  a2.stdin.write(`begin;\n`
+    + `set role authenticated;\n`
+    + `select set_config('request.jwt.claim.role','authenticated',false);\n`
+    + `select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);\n`
+    + `select public.pms_check_out('11000000-0000-0000-0000-000000030040');\n`
+    + `reset role;\n\\echo PMS3_KILIT\n`);
+  await kilit2;
+
+  const b2 = spawn('docker', psqlKatiArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+  let b2Hata = '';
+  b2.stdout.resume();
+  b2.stderr.on('data', (d) => { b2Hata += d; });
+  const b2Kapandi = new Promise((c) => b2.on('close', c));
+  b2.stdin.end(`set application_name='pms3-ikinci2';\n`
+    + `set role authenticated;\n`
+    + `select set_config('request.jwt.claim.role','authenticated',false);\n`
+    + `select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000001',false);\n`
+    + `select public.pms_check_in('11000000-0000-0000-0000-000000030041',\n`
+    + `                           'e0000000-0000-0000-0000-000000030118');\n`);
+
+  let bekliyor2 = false;
+  for (let i = 0; i < 80; i++) {
+    const bek = sorgu("select count(*) from pg_stat_activity where application_name='pms3-ikinci2' and wait_event_type='Lock';").trim();
+    if (bek === '1') { bekliyor2 = true; break; }
+    await bekle(100);
+  }
+  a2.stdin.end('commit;\n');
+  const a2Kod = await a2Kapandi;
+  const b2Kod = await b2Kapandi;
+
+  const oda2 = sorgu("select kullanim_durumu || '/' || temizlik_durumu from public.pms_odalar where id='e0000000-0000-0000-0000-000000030118';").trim();
+  const v40 = sorgu("select durum from public.pms_rezervasyonlar where id='11000000-0000-0000-0000-000000030040';").trim();
+  const v41 = sorgu("select durum from public.pms_rezervasyonlar where id='11000000-0000-0000-0000-000000030041';").trim();
+
+  const kontroller2 = [
+    [a2Kod === 0, 'A2 (gecikmis check-out) commit etmeliydi', 'A2 commit etti'],
+    [bekliyor2, 'B2, A2 nin oda kilidini BEKLEMELIYDI', 'B2 kilidi bekledi'],
+    [b2Kod !== 0, 'B2 REDDEDILMELIYDI', 'B2 reddedildi'],
+    [/kirli|temizleniyor|bos degil/i.test(b2Hata), 'B2 housekeeping hatasiyla reddedilmeliydi', 'red sebebi: kirli oda'],
+    [oda2 === 'bos/kirli', 'oda bos/kirli kalmaliydi, durum: ' + oda2, 'oda bos/kirli (gecikmis cikis odayi devretti)'],
+    [v40 === 'cikis_yapildi', 'V40 cikis_yapildi olmaliydi, durum: ' + v40, 'V40 cikis_yapildi'],
+    [v41 === 'onaylandi', 'V41 onaylandi kalmaliydi, durum: ' + v41, 'V41 giris yapamadi'],
+  ];
+  console.log('\n8b) Eszamanlilik testi (GECIKMIS check-out vs check-in):');
+  for (const [gecti, hataMsg, okMsg] of kontroller2) {
+    console.log((gecti ? '   OK   ' : '   HATA ') + (gecti ? okMsg : hataMsg));
+    if (!gecti) sonuc = 1;
+  }
+} catch (e) {
+  console.error('\n8b) Gecikmis yaris testi : ' + e.message);
   sonuc = 1;
 }
 

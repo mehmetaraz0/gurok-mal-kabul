@@ -198,6 +198,16 @@ create index if not exists pms_misafir_kimlik_misafir_idx
 -- ============================================================================
 create sequence if not exists public.pms_rezervasyon_no_seq;
 
+-- EXPLICIT ACL (F2): Supabase varsayılan ayrıcalıkları yeni sekansları
+-- anon'a ve authenticated'a TAM yetkiyle açıyor (açık madde 5 ile aynı
+-- sınıf). Sekans numarası içtendir; istemcinin setval/nextval hakkı
+-- OLMAMALI. Varsayılanları ezerek yalnız gerçekten gerekli izin verilir:
+-- tetikleyici (INVOKER, authenticated olarak çalışan INSERT akışı) USAGE
+-- ister; SELECT/UPDATE verilmez. Minumum yetki: USAGE.
+revoke all on sequence public.pms_rezervasyon_no_seq from public, anon, authenticated;
+grant usage on sequence public.pms_rezervasyon_no_seq to authenticated;
+grant all    on sequence public.pms_rezervasyon_no_seq to service_role;
+
 create table if not exists public.pms_rezervasyonlar (
   id                 uuid primary key default gen_random_uuid(),
   otel_id            public.otel_id not null,
@@ -702,6 +712,18 @@ begin
   if (select count(*) from public.moduller
       where kod in ('pms_misafir','pms_misafir_kimlik','pms_rezervasyon')) <> 3 then
     raise exception 'PMS Adim 2 modulleri kaydedilmedi';
+  end if;
+
+  -- Sekans ACL (F2): anon/PUBLIC kapali, authenticated yalniz USAGE.
+  if has_sequence_privilege('anon', 'public.pms_rezervasyon_no_seq', 'USAGE,SELECT,UPDATE')
+     or has_sequence_privilege('public', 'public.pms_rezervasyon_no_seq', 'USAGE,SELECT,UPDATE') then
+    raise exception 'pms_rezervasyon_no_seq anon/PUBLIC''e acik';
+  end if;
+  if not has_sequence_privilege('authenticated', 'public.pms_rezervasyon_no_seq', 'USAGE') then
+    raise exception 'pms_rezervasyon_no_seq authenticated icin USAGE yok (numara uretimi kirilir)';
+  end if;
+  if has_sequence_privilege('authenticated', 'public.pms_rezervasyon_no_seq', 'UPDATE') then
+    raise exception 'pms_rezervasyon_no_seq authenticated icin fazla yetkili (setval vermeyin)';
   end if;
 
   -- Is kurali tetikleyicileri yerinde mi? Bunlar oz-incelemede bulunan

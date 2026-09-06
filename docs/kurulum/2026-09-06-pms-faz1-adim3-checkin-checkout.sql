@@ -98,13 +98,17 @@
 -- * Erken check-out: çıkış yapılır ama atama aktif kalır; kalan gecelerde
 --   oda exclusion nedeniyle yeniden satılamaz. Effective bitiş kapatma
 --   özelliği ileride eklenecek (mimari hazır).
--- * Gecikmiş çıkış (bugün > cikis_tarihi): RPC çalışır; atama bitişi geçmiş
---   olduğundan tutarlılık değişmezleri buna engel değildir.
--- * Gecikmiş konaklama (misafir çıkış gününü geçti, hâlâ giris_yapildi):
---   tutarlılık değişmezleri bu hâle yeni yazmayı reddeder; önce atama
---   uzatılmalıdır. Faz 1 için kabul edilebilir.
--- * Oda tipi yükseltmesi (upgrade) meşrudur: atamanın odası rezervasyonun
---   tipinden farklı olabilir; otel aynı olmak zorundadır (bileşik FK).
+-- * Gecikmiş check-out DESTEKLENİR: resepsiyon planlanan çıkış gününü
+--   kaçırsa bile (bugün > cikis_tarihi) giris_yapildi rezervasyonun aktif
+--   ataması hâlâ güncel konaklama kaydıdır ve check-out kabul edilir.
+--   - cikis_zamani/cikis_yapan GERÇEK işlem anını ve aktörünü taşır
+--     (planlanan tarih değil),
+--   - planlanan stay aralığı (giris_tarihi/cikis_tarihi) sessizce
+--     DEĞİŞTİRİLMEZ,
+--   - atama geçmiş konaklama kaydı olarak aktif kalır.
+--   Atama seçimi "bugünü kapsıyor mu" ile değil "bu rezervasyonun güncel
+--   aktif ataması mı" ile yapılır; 0 veya >1 aktif atama açık tutarsızlık
+--   hatasıdır (sessizce ilki seçilmez).
 -- * 'bloke'/'ariza' odalara check-in yok; 'dolu' oda bloke/ariza yapılamaz.
 -- ============================================================================
 
@@ -569,9 +573,8 @@ as $$
 declare
   v_rez    public.pms_rezervasyonlar%rowtype;
   v_oda    public.pms_odalar%rowtype;
-  v_bugun  date;
+  v_oda_id uuid;
   v_sayi   int := 0;
-  v_kayit  record;
 begin
   if public.auth_yetki_var('pms_rezervasyon','kayit') is not true then
     raise exception 'Check-out icin rezervasyon kayit yetkisi gerekli';
@@ -591,43 +594,52 @@ begin
       v_rez.durum;
   end if;
 
-  v_bugun := public.pms_bugun(v_rez.otel_id);
-
   set constraints pms_tutarlilik_oda, pms_tutarlilik_rezervasyon,
                   pms_tutarlilik_atama deferred;
 
-  -- Kilit sırası 2: güncel atamalar (deterministik oda sırasıyla).
-  -- NOT: atamalar pasifleştirilmez (geçmiş konaklama kaydı korunur).
-  for v_kayit in
-    select a.oda_id
-      from public.pms_oda_atamalari a
-     where a.rezervasyon_id = v_rez.id and a.otel_id = v_rez.otel_id and a.aktif
-       and a.bitis >= v_bugun
-     order by a.oda_id
-     for update
-  loop
-    v_sayi := v_sayi + 1;
-    -- Kilit sırası 3: oda; kilit altında durumu yeniden doğrula.
-    select * into v_oda
-      from public.pms_odalar
-     where id = v_kayit.oda_id and otel_id = v_rez.otel_id
-     for update;
-    if not found then
-      raise exception 'Atamadaki oda bulunamadi (oda_id: %)', v_kayit.oda_id;
-    end if;
-    if v_oda.kullanim_durumu <> 'dolu' then
-      raise exception 'Oda % dolu degil (durum: %), tutarsiz durum',
-        v_oda.oda_no, v_oda.kullanim_durumu;
-    end if;
-    update public.pms_odalar
-       set kullanim_durumu = 'bos',
-           temizlik_durumu = 'kirli'
-     where id = v_oda.id;
-  end loop;
-
-  if v_sayi = 0 then
-    raise exception 'Guncel aktif oda atamasi yok; tutarsiz durum, cikis reddedildi';
+  -- Kilit sırası 2: rezervasyonun AKTİF konaklama ataması.
+  -- "Bugünü kapsıyor mu" ŞARTI YOK: planlanan çıkış tarihi geçmiş olsa bile
+  -- (resepsiyon çıkışı unuttu) atama bu rezervasyonun güncel konaklama
+  -- kaydıdır ve çıkış yapılabilir. cikis_zamani gerçek işlem anını taşır;
+  -- planlanan stay aralığı SESSİZCE DEĞİŞTİRİLMEZ; atama geçmiş kayıt
+  -- olarak aktif kalır.
+  select a.oda_id into v_oda_id
+    from public.pms_oda_atamalari a
+   where a.rezervasyon_id = v_rez.id and a.otel_id = v_rez.otel_id and a.aktif
+   order by a.oda_id
+   limit 1
+   for update;
+  if not found then
+    raise exception 'Aktif oda atamasi yok; tutarsiz durum, cikis reddedildi';
   end if;
+
+  -- Kilit altında yeniden doğrula: checked-in rezervasyonun TAM BİR aktif
+  -- ataması olmalı. 0 ve >1, veri bozulmasıdır; sessizce ilki SEÇİLMEZ.
+  -- (Kilit, bu sayım ile ilk kontrol arasına giren değişiklikleri de yakalar.)
+  select count(*) into v_sayi
+    from public.pms_oda_atamalari a
+   where a.rezervasyon_id = v_rez.id and a.otel_id = v_rez.otel_id and a.aktif;
+  if v_sayi <> 1 then
+    raise exception 'Check-in rezervasyonun % aktif oda atamasi var; tutarsiz durum (1 bekleniyordu)',
+      v_sayi;
+  end if;
+
+  -- Kilit sırası 3: oda; kilit altında durumu yeniden doğrula.
+  select * into v_oda
+    from public.pms_odalar
+   where id = v_oda_id and otel_id = v_rez.otel_id
+   for update;
+  if not found then
+    raise exception 'Atamadaki oda bulunamadi (oda_id: %)', v_oda_id;
+  end if;
+  if v_oda.kullanim_durumu <> 'dolu' then
+    raise exception 'Oda % dolu degil (durum: %), tutarsiz durum',
+      v_oda.oda_no, v_oda.kullanim_durumu;
+  end if;
+  update public.pms_odalar
+     set kullanim_durumu = 'bos',
+         temizlik_durumu = 'kirli'
+   where id = v_oda.id;
 
   update public.pms_rezervasyonlar
      set durum = 'cikis_yapildi',
@@ -646,7 +658,44 @@ grant  execute on function public.pms_check_in(uuid, uuid) to authenticated, ser
 grant  execute on function public.pms_check_out(uuid)        to authenticated, service_role;
 
 -- ============================================================================
--- 8) DOĞRULAMA — migration kendi iddialarını sınar
+-- 8) DENETİM İZİ — Phase 0 generic tetikleyicisi, MİNİMUM kapsam
+-- ============================================================================
+-- Karar (F3): PMS'de her CRUD değil, İŞ GEÇİŞLERİ denetlenir:
+--   - rezervasyon yaratma + durum geçişleri (check-in/check-out dahil:
+--     damgalar rezervasyon satırında taşındığından UPDATE olayı izi verir)
+--   - oda ataması yaratma / pasifleştirme / değişiklik
+-- Oda listesindeki sıradan açıklama/temizlik değişiklikleri denetlenmez.
+--
+-- Yeni paralel audit sistemi KURULMADI: Phase 0'ın generic
+-- phase0_private.islem_audit() tetikleyicisi aynen bağlanır. Fonksiyon
+-- SECURITY DEFINER + aynı transaction'da yazar; hotel_id (satırdaki
+-- otel_id), actor (auth.uid()), actor_role, event_type (TG_OP),
+-- entity_type (tablo adı), entity_id (satır id) ve transaction_id
+-- (pg_current_xact_id) taşır. Satır İÇERİĞİNİ kopyalamaz — misafir kişisel
+-- verisi denetim izine sızamaz. Kişisel veri taşıyan pms_misafirler ve
+-- pms_misafir_kimlik bilinçli olarak kapsam DIŞIDIR.
+--
+-- pms_misafirler ve pms_misafir_kimlik'e DELETE tetikleyicisi bağlanmaz:
+-- PMS'de silme ekranları pasife alma (aktif=false) kullanır; kalıcı silme
+-- yönetici işlemidir ve kapsamı büyütmeden dışarıda bırakıldı.
+do $$
+begin
+  if to_regprocedure('phase0_private.islem_audit()') is null then
+    raise exception 'phase0_private.islem_audit() yok: Phase 0 denetim izi uygulanmamis';
+  end if;
+end;
+$$;
+
+drop trigger if exists phase0_islem_audit on public.pms_rezervasyonlar;
+create trigger phase0_islem_audit after insert or update on public.pms_rezervasyonlar
+  for each row execute function phase0_private.islem_audit();
+
+drop trigger if exists phase0_islem_audit on public.pms_oda_atamalari;
+create trigger phase0_islem_audit after insert or update on public.pms_oda_atamalari
+  for each row execute function phase0_private.islem_audit();
+
+-- ============================================================================
+-- 9) DOĞRULAMA — migration kendi iddialarını sınar
 -- ============================================================================
 do $$
 declare v text;
@@ -687,6 +736,26 @@ begin
                    and p.provolatile='s') then
     raise exception 'pms_bugun yok veya stable degil';
   end if;
+
+  -- Denetim izi: minimum kapsam tetikleyicileri yerinde mi ve Phase 0
+  -- fonksiyonuna mı bağlı?
+  foreach v in array array['pms_rezervasyonlar','pms_oda_atamalari'] loop
+    if not exists (
+      select 1 from pg_trigger t
+       where t.tgrelid = ('public.' || v)::regclass
+         and t.tgname = 'phase0_islem_audit' and not t.tgisinternal
+         and t.tgfoid::regprocedure::text like '%islem_audit%' and t.tgenabled <> 'D') then
+      raise exception 'Denetim izi tetikleyicisi yok: %', v;
+    end if;
+  end loop;
+  -- Kişisel veri tabloları bilinçli kapsam dışı: yanlışlıkla bağlanmışsa kaldır.
+  foreach v in array array['pms_misafirler','pms_misafir_kimlik'] loop
+    if exists (select 1 from pg_trigger t
+               where t.tgrelid = ('public.' || v)::regclass
+                 and t.tgname = 'phase0_islem_audit') then
+      raise exception 'Kisisel veri tablosu denetim kapsaminda olmamali: %', v;
+    end if;
+  end loop;
 end;
 $$;
 

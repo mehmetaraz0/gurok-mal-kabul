@@ -441,6 +441,18 @@ select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-000000000002'
 select pms2_test.dogru((select count(*) > 0 from public.pms_misafir_kimlik),
   'yetkili kullanici kimlik verisini gorur');
 
+-- F2: sekans ACL — authenticated INSERT akisi rezervasyon no uretebilmeli
+-- (tetikleyici INVOKER oldugu icin nextval authenticated hakkiyla calisir:
+-- yalniz USAGE verildi; anon/PUBLIC kapali — dogrulama migration'da).
+insert into public.pms_rezervasyonlar
+  (id, otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+values ('11110000-0000-0000-0000-0000000f2001','810','f0000000-0000-0000-0000-000000000810',
+        'd0000000-0000-0000-0000-000000000810','2028-02-01','2028-02-03','taslak');
+select pms2_test.dogru(
+  (select rezervasyon_no like 'R-2028-%' from public.pms_rezervasyonlar
+    where id = '11110000-0000-0000-0000-0000000f2001'),
+  'F2: authenticated kullanici icin rezervasyon no otomatik uretildi (sekans USAGE)');
+
 -- Otel izolasyonu: 810 kullanicisi 811 misafirini/rezervasyonunu goremez.
 select pms2_test.dogru((select count(*) = 0 from public.pms_misafirler where otel_id::text = '811'),
   'OTEL: 810 kullanicisi 811 misafirlerini goremez');
