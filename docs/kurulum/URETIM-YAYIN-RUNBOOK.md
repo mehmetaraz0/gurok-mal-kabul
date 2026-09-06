@@ -91,15 +91,32 @@ bir fark bile yayını durdurur.
 Tek transaction. Hata alırsa tamamı geri döner. Çıktı kaydedilir.
 
 ### 2.7 Smoke test
-En az şu ekranlar, gerçek kullanıcıyla:
 
-- Giriş (PIN) ve otel seçimi
-- Satın alma talep onay/ret
-- Mal kabul kaydı
-- Fatura kaydı
-- Stok hareketi
-- Bar sipariş akışı ve QR
-- Giriş kayıtları (merkez dolu / otel boş)
+**Ekranın açılması smoke test DEĞİLDİR.** Her yazma maddesi gerçek bir kayıt
+gerektirir; "çalışıyor gibi görünüyor" sonuç olarak kabul edilmez. Bu ayrım
+6 Eylül 2026'da atlandı (bkz. bölüm 4).
+
+Gerçek kullanıcıyla, gerçek kayıtla:
+
+| Adım | Kanıt |
+|---|---|
+| Giriş (PIN) ve otel seçimi | oturum açılıyor, doğru otel görünüyor |
+| Satın alma talep onay/ret | `talep_onay_gecmisi` yeni satır |
+| Mal kabul kaydı | `erp_islem_audit` yeni satır |
+| Fatura kaydı | `erp_islem_audit` yeni satır |
+| Stok hareketi | `erp_islem_audit` yeni satır |
+| Bar sipariş akışı ve QR | `erp_islem_audit` yeni satır |
+| Giriş kayıtları | merkez kullanıcıda dolu, otel kullanıcısında boş |
+
+Yazma yollarını topluca doğrula — sayı yayın öncesine göre **artmalı**:
+
+```sql
+select count(*) as audit_satiri, max(server_timestamp) as son_kayit
+from public.erp_islem_audit;
+```
+
+Artmıyorsa ya kayıt gerçekten yazılmadı ya da denetim izi kopmuş. İkisi de
+yayının tamamlanmadığı anlamına gelir.
 
 ### 2.8 Yayın sonrası parmak izi
 2.3'teki dosya tekrar çalıştırılır. Beklenen dışında `SAPMA` varsa geri alma
@@ -131,8 +148,37 @@ geri alır; kısmi durum oluşmaz.
 
 | Tarih/saat | Owner | Onay | Commit | Migration | Sonuç |
 |---|---|---|---|---|---|
-| 2026-09-06, ~00:44–08:32 arası (kesin değil) | **UNKNOWN** | **YOK** | 8a080d3 veya sonrası ile uyumlu | `2026-09-05-phase0-hardening.sql` | Uygulandı; smoke test sonradan yapıldı, sorun çıkmadı |
+| 2026-09-06, ~00:44–08:32 arası (kesin değil) | **UNKNOWN** | **YOK** | 8a080d3 veya sonrası ile uyumlu | `2026-09-05-phase0-hardening.sql` | Uygulandı; **smoke test EKSİK** — aşağıya bakınız |
 
 > Bu satır bir uyarı olarak duruyor. Onaysız, sahipsiz ve kayıtsız bir üretim
 > değişikliğinin nasıl göründüğünü gösteriyor. Sonraki her satır eksiksiz
 > doldurulacak.
+
+### 6 Eylül yayınının smoke test durumu
+
+Bu satır önce "smoke test sonradan yapıldı, sorun çıkmadı" diyordu. **Fazla
+iddialıydı; düzeltildi.**
+
+Yapılan: satın alma onay/ret ekranı, giriş kayıtları merkez/otel ayrımı, otel
+seçimi ve çapraz otel görünürlüğü, denetim kapsamındaki 7 tablonun ekranları
+açıldı ve çalıştığı görüldü. Sorun bildirilmedi.
+
+Yapılmayan: **o 7 tabloya gerçek bir kayıt yazılmadı.** Kanıt —
+`select count(*) from public.erp_islem_audit` **0** dönüyor; gerçek bir
+INSERT/UPDATE olsaydı tetikleyici satır üretirdi. Ekranın açılması ile kaydın
+kaydedilmesi farklı şeylerdir ve bu ayrım sorulmadan "smoke test yapıldı"
+yazılmıştı.
+
+Yapısal durum sağlam: 7 tabloda `AFTER INSERT OR UPDATE` tetikleyicisi
+`phase0_private.islem_audit()` çağırıyor, devre dışı bırakılmış yok. Ayrıca
+sessiz bozulma mümkün değil — audit iş işlemiyle **aynı transaction'da**
+olduğu için bozuk olsaydı yazmayı sessizce atlamaz, yazmayı komple düşürürdü.
+Yani kalan risk "bozuk olabilir" değil, **"hiç denenmedi"**.
+
+**Kapanma ölçütü:** günlük işte ilk gerçek kayıt açıldıktan sonra
+`erp_islem_audit` en az bir satır içermeli. İçermiyorsa gerçek bir sorun var.
+
+**Ders — sonraki yayınlar için:** 2.7'deki smoke test listesi "ekran açıldı"
+ile karşılanmaz. Her madde bir **yazma** gerektirir ve yazmanın gerçekleştiği
+`erp_islem_audit` üzerinden doğrulanır. "Çalışıyor gibi görünüyor" bir smoke
+test sonucu değildir.
