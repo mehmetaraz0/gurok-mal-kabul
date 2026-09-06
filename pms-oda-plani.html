@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let CU = requireLogin();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dornevi — Oda Planı</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--accent:#c9a24b}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px}
+.filtreler{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+select,input{width:100%;padding:9px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;font-family:inherit;background:white}
+select:focus,input:focus{outline:none;border-color:var(--accent)}
+.btn{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-p{background:var(--primary);color:white}
+.btn-s{background:var(--gray-200);color:var(--gray-700)}
+.btn-g{background:#dcfce7;color:#166534}
+.btn-r{background:#fee2e2;color:#991b1b}
+.btn-sm{padding:5px 9px;font-size:11px}
+.kat-baslik{font-size:12px;font-weight:700;color:var(--gray-600);margin:14px 2px 8px}
+.rack{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.oda-kart{background:white;border-radius:10px;padding:10px;box-shadow:var(--shadow);border:2px solid var(--gray-200);display:flex;flex-direction:column;gap:5px}
+.k-bos{border-color:#e5e7eb}
+.k-dolu{border-color:#1e40af;background:#eff6ff}
+.k-bloke{border-color:#92400e;background:#fef3c7}
+.k-ariza{border-color:#991b1b;background:#fee2e2}
+.oda-no{font-size:15px;font-weight:700;color:var(--primary)}
+.k-dolu .oda-no{color:#1e40af}
+.oda-tip{font-size:10px;color:var(--gray-500)}
+.rozet{font-size:9px;font-weight:700;padding:2px 6px;border-radius:9px;white-space:nowrap;display:inline-block}
+.kd-bos{background:#f3f4f6;color:#4b5563}
+.kd-dolu{background:#dbeafe;color:#1e40af}
+.kd-bloke{background:#fef3c7;color:#92400e}
+.kd-ariza{background:#fee2e2;color:#991b1b}
+.tm-temiz{background:#dcfce7;color:#166534}
+.tm-kirli{background:#fee2e2;color:#991b1b}
+.tm-temizleniyor{background:#fef3c7;color:#92400e}
+.tm-kontrol_edildi{background:#e0e7ff;color:#3730a3}
+.misafir{font-size:11px;color:#1e40af;font-weight:600}
+.uygun-olmayan{opacity:.55}
+.uyari{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.5}
+.uyari b{display:block;margin-bottom:3px}
+.legend{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--gray-600);align-items:center}
+.bos{text-align:center;padding:28px 12px;color:var(--gray-500);font-size:13px}
+.ozet{font-size:11px;color:var(--gray-600);padding:8px 10px;background:var(--gray-50)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.modal.open{display:flex}
+.modal-ic{background:white;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:16px;max-height:90vh;overflow-y:auto}
+#ld{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:99}
+#ld.show{display:flex}
+.spin{width:34px;height:34px;border:3px solid var(--gray-300);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="hbtn" href="on-buro.html" title="Ön Büro">←</a>
+    <div style="flex:1"><h1>Oda Planı<span class="sub" id="hdrOtel"></span></h1></div>
+    <button class="hbtn" onclick="yukle()" title="Yenile">⟳</button>
+  </div>
+  <div class="sc">
+    <div id="uyari" class="uyari" style="display:none"></div>
+    <div class="card">
+      <div class="filtreler">
+        <select id="fKullanim" onchange="ciz()">
+          <option value="">Tüm durumlar</option>
+          <option value="bos">Boş</option><option value="dolu">Dolu</option>
+          <option value="bloke">Bloke</option><option value="ariza">Arıza</option>
+        </select>
+        <select id="fTemizlik" onchange="ciz()">
+          <option value="">Tüm temizlik</option>
+          <option value="temiz">Temiz</option><option value="kirli">Kirli</option>
+          <option value="temizleniyor">Temizleniyor</option><option value="kontrol_edildi">Kontrol edildi</option>
+        </select>
+        <select id="fKat" onchange="ciz()"><option value="">Tüm katlar</option></select>
+        <select id="fTip" onchange="ciz()"><option value="">Tüm oda tipleri</option></select>
+      </div>
+      <div class="legend" style="margin-top:10px">
+        <b style="font-size:10px">Bugün:</b> <span id="bugunLbl"></span>
+        <span class="rozet kd-dolu">dolu</span><span class="rozet kd-bos">boş</span>
+        <span class="rozet kd-bloke">bloke</span><span class="rozet kd-ariza">arıza</span>
+        <span class="rozet tm-temiz">temiz</span><span class="rozet tm-kirli">kirli</span>
+      </div>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="ozet" id="ozet"></div>
+      <div id="rack" style="padding:10px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mGiris">
+  <div class="modal-ic">
+    <div class="card-title" id="girisBaslik">Check-in</div>
+    <div id="girisListe"></div>
+    <div style="font-size:11px;color:var(--gray-500);margin-top:8px">
+      Liste: aynı otelde bugün giriş yapılabilir, onaylı, odası atanmamış ve
+      bu odanın tipiyle uyumlu rezervasyonlar. Kirl/temizleniyor oda
+      veritabanınca reddedilir; temizlik kart üzerinde işaretlenir.
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn btn-s" onclick="kModal('mGiris')">Vazgeç</button>
+    </div>
+  </div>
+</div>
+
+<div id="ld"><div class="spin"></div></div>
+
+<script>
+// Yetki ve otel kapsamı SUNUCUDA (RLS) uygulanır. Check-in/out STATE MAKİNESİ
+// sunucudadır (pms_check_in / pms_check_out RPC + tetikleyiciler): buradaki
+// düğmeler yalnızca kolaylıktır, güvence değildir.
+// "Bugün" yerel takvim günüdür (Türkiye UTC+3 tek saat dilimi; sunucuda
+// pms_bugun Europe/Istanbul okur — aynı varsayım iki uçta da sabit).
+let ODALAR = [], TIPLER = [], MISAFIRLER = [], REZ = [], ATAMALAR = [];
+const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+const SATIR_TAVANI = 5000;
+const BUGUN = bugunYerelStr();
+const KULLANIM_AD = {bos:'Boş', dolu:'Dolu', bloke:'Bloke', ariza:'Arıza'};
+const TEMIZLIK_AD = {temiz:'Temiz', kirli:'Kirli', temizleniyor:'Temizleniyor', kontrol_edildi:'Kontrol edildi'};
+// temizlik akışı: bir sonraki durum (yalnız BOŞ odalarda gösterilir)
+const TEMIZLIK_SONRAKI = {kirli:'temizleniyor', temizleniyor:'temiz', kontrol_edildi:'temiz'};
+
+(function init(){
+  if(!CU) return;
+  document.getElementById('app').style.display='';
+  document.getElementById('hdrOtel').textContent =
+    TEK_OTEL ? ('🏨 ' + (OTEL_KISA[TEK_OTEL] || TEK_OTEL)) : '🏨 Tüm oteller';
+  document.getElementById('bugunLbl').textContent = BUGUN;
+  yukle();
+})();
+
+async function cekVeSay(yol){
+  const r = await fetch(SB_URL + yol + '&limit=' + SATIR_TAVANI,
+    { headers: { ...SB_HEADERS, 'Prefer':'count=exact' } });
+  if(!r.ok) return { veri: [], hata: 'HTTP ' + r.status, kirpildi:false };
+  const veri = await r.json();
+  const toplam = parseInt((r.headers.get('content-range')||'').split('/')[1], 10);
+  return { veri, hata:null, kirpildi: Number.isFinite(toplam) && toplam > veri.length, toplam };
+}
+
+async function yukle(){
+  sLD();
+  const uyarilar = [];
+  try{
+    // Toplu sorgu: 5 istek, satır başına ayrı istek YOK (N+1 yasak).
+    const [r1,r2,r3,r4,r5] = await Promise.all([
+      cekVeSay('/rest/v1/pms_odalar?select=id,otel_id,oda_no,kat,blok,oda_tipi_id,kullanim_durumu,temizlik_durumu,aktif&order=oda_no'),
+      cekVeSay('/rest/v1/pms_oda_tipleri?select=id,otel_id,kod,ad,aktif'),
+      cekVeSay('/rest/v1/pms_misafirler?select=id,otel_id,ad,soyad&order=soyad'),
+      cekVeSay('/rest/v1/pms_rezervasyonlar?select=id,otel_id,misafir_id,oda_tipi_id,giris_tarihi,cikis_tarihi,durum,yetiskin_sayisi,cocuk_sayisi&order=giris_tarihi'),
+      cekVeSay('/rest/v1/pms_oda_atamalari?select=id,otel_id,rezervasyon_id,oda_id,baslangic,bitis,aktif&order=baslangic')
+    ]);
+    ODALAR = r1.veri; TIPLER = r2.veri; MISAFIRLER = r3.veri; REZ = r4.veri; ATAMALAR = r5.veri;
+
+    if(r1.hata) uyarilar.push('Odalar okunamadı (' + r1.hata + ') — "Ön Büro — Odalar" yetkisi gerekiyor.');
+    if(r1.kirpildi) uyarilar.push('Liste eksik: sunucu ' + r1.toplam + ' odadan yalnız ' + r1.veri.length + ' tanesini döndürdü.');
+    if(r4.hata) uyarilar.push('Rezervasyonlar okunamadı (' + r4.hata + ') — check-in/check-out "Ön Büro — Rezervasyonlar" yetkisi ister.');
+  }catch(e){
+    ODALAR=[]; TIPLER=[]; MISAFIRLER=[]; REZ=[]; ATAMALAR=[];
+    uyarilar.push('Sunucuya ulaşılamadı.');
+  }
+  hLD();
+  const u = document.getElementById('uyari');
+  if(uyarilar.length){ u.style.display=''; u.innerHTML='<b>Dikkat</b>'+uyarilar.map(escapeHtml).join('<br>'); }
+  else { u.style.display='none'; u.textContent=''; }
+  katleriDoldur(); tipDoldur(); ciz();
+}
+
+function tipKod(id){
+  const t = TIPLER.find(x=>x.id===id);
+  return t ? t.kod : '';
+}
+function misafirAdi(id){
+  const m = MISAFIRLER.find(x=>x.id===id);
+  return m ? (m.soyad + ' ' + m.ad) : '(misafir görünmüyor)';
+}
+function katleriDoldur(){
+  const f = document.getElementById('fKat'), onceki = f.value;
+  const katlar = [...new Set(ODALAR.map(o=>o.kat).filter(Boolean))].sort();
+  f.innerHTML = '<option value="">Tüm katlar</option>' + katlar.map(k=>
+    '<option value="'+escapeHtml(k)+'">'+escapeHtml(k)+'</option>').join('');
+  f.value = onceki;
+}
+function tipDoldur(){
+  const f = document.getElementById('fTip'), onceki = f.value;
+  f.innerHTML = '<option value="">Tüm oda tipleri</option>' + TIPLER.map(t=>
+    '<option value="'+escapeHtml(t.id)+'">'+escapeHtml(t.kod+' — '+t.ad)+'</option>').join('');
+  f.value = onceki;
+}
+
+// Oda doluluğu: bugünü kapsayan aktif atama -> giris_yapildi rezervasyon.
+// (Sunucudaki tutarlılık değişmezleriyle aynı kuralın istemci görüntüsü.)
+function doluRez(o){
+  const atama = ATAMALAR.find(a=>a.oda_id===o.id && a.aktif && a.bitis >= BUGUN);
+  if(!atama) return null;
+  const r = REZ.find(x=>x.id===atama.rezervasyon_id);
+  return (r && r.durum === 'giris_yapildi') ? { rez:r, atama } : null;
+}
+// Check-in'e uygun rezervasyonlar: aynı otel, onaylandı, bugün girilebilir,
+// aktif ataması YOK, oda tipiyle uyumlu.
+function uygunRezervasyonlar(o){
+  const otel = String(o.otel_id);
+  return REZ.filter(r=>
+    String(r.otel_id)===otel
+    && r.durum==='onaylandi'
+    && r.giris_tarihi <= BUGUN && BUGUN < r.cikis_tarihi
+    && !ATAMALAR.some(a=>a.rezervasyon_id===r.id && a.aktif)
+    && r.oda_tipi_id===o.oda_tipi_id
+  );
+}
+
+function ciz(){
+  const fk = document.getElementById('fKullanim').value;
+  const ft = document.getElementById('fTemizlik').value;
+  const fkat = document.getElementById('fKat').value;
+  const ftip = document.getElementById('fTip').value;
+
+  const odalar = ODALAR.filter(o=>{
+    if(!o.aktif) return false;
+    if(fk && o.kullanim_durumu!==fk) return false;
+    if(ft && o.temizlik_durumu!==ft) return false;
+    if(fkat && o.kat!==fkat) return false;
+    if(ftip && o.oda_tipi_id!==ftip) return false;
+    return true;
+  });
+
+  document.getElementById('ozet').textContent =
+    odalar.length + ' oda gösteriliyor · dolu ' + odalar.filter(o=>o.kullanim_durumu==='dolu').length
+    + ' · temiz ' + odalar.filter(o=>o.temizlik_durumu==='temiz').length;
+
+  const el = document.getElementById('rack');
+  if(!odalar.length){ el.innerHTML='<div class="bos">Gösterilecek oda yok.</div>'; return; }
+
+  // kat -> blok -> oda_no sırasıyla grupla
+  const gruplar = new Map();
+  for(const o of odalar){
+    const k = o.kat || '—';
+    if(!gruplar.has(k)) gruplar.set(k, new Map());
+    const b = o.blok || '';
+    if(!gruplar.get(k).has(b)) gruplar.get(k).set(b, []);
+    gruplar.get(k).get(b).push(o);
+  }
+  let html = '';
+  for(const [kat, bloklar] of [...gruplar.entries()].sort()){
+    html += '<div class="kat-baslik">Kat ' + escapeHtml(kat) + '</div>';
+    for(const [blok, odalarB] of [...bloklar.entries()].sort()){
+      if(blok) html += '<div class="kat-baslik" style="font-weight:600;color:var(--gray-500)">Blok ' + escapeHtml(blok) + '</div>';
+      html += '<div class="rack">' + odalarB.map(odaKart).join('') + '</div>';
+    }
+  }
+  el.innerHTML = html;
+}
+
+function odaKart(o){
+  const dolu = doluRez(o);
+  const cls = 'k-' + o.kullanim_durumu;
+  const tipUyumlu = dolu ? '' : (uygunRezervasyonlar(o).length ? '' : ' uygun-olmayan');
+  let butonlar = '';
+  if(dolu){
+    butonlar = '<button class="btn btn-r btn-sm" onclick="cikisAc(\''+jsAttrStr(o.id)+'\')">Çıkış</button>';
+  }else if(o.kullanim_durumu==='bos'){
+    const n = uygunRezervasyonlar(o).length;
+    if(o.temizlik_durumu==='temiz' || o.temizlik_durumu==='kontrol_edildi'){
+      butonlar = '<button class="btn btn-g btn-sm'+(n?'':' uygun-olmayan')+'" '
+        + (n ? 'onclick="girisAc(\''+jsAttrStr(o.id)+'\')"' : 'disabled')
+        + '>Giriş' + (n ? ' ('+n+')' : '') + '</button>';
+    }
+    const sonraki = TEMIZLIK_SONRAKI[o.temizlik_durumu];
+    if(sonraki){
+      butonlar += ' <button class="btn btn-s btn-sm" onclick="temizlikDegistir(\''+jsAttrStr(o.id)+'\',\''+sonraki+'\')">'
+        + escapeHtml(TEMIZLIK_AD[sonraki]) + '</button>';
+    }
+  }
+  const misafirSatiri = dolu
+    ? '<div class="misafir">'+escapeHtml(misafirAdi(dolu.rez.misafir_id))+'</div>'
+      + '<div style="font-size:10px;color:var(--gray-500)">'+escapeHtml(dolu.rez.giris_tarihi)+' → '+escapeHtml(dolu.rez.cikis_tarihi)+'</div>'
+    : '';
+  return '<div class="oda-kart '+cls+tipUyumlu+'">'
+    + '<div class="oda-no">'+escapeHtml(o.oda_no)+'</div>'
+    + '<div class="oda-tip">'+escapeHtml(tipKod(o.oda_tipi_id))
+      + (o.kat ? ' · K'+escapeHtml(o.kat) : '')+'</div>'
+    + '<div><span class="rozet kd-'+escapeHtml(o.kullanim_durumu)+'">'+escapeHtml(KULLANIM_AD[o.kullanim_durumu]||o.kullanim_durumu)+'</span>'
+      + ' <span class="rozet tm-'+escapeHtml(o.temizlik_durumu)+'">'+escapeHtml(TEMIZLIK_AD[o.temizlik_durumu]||o.temizlik_durumu)+'</span></div>'
+    + misafirSatiri
+    + '<div>' + butonlar + '</div>'
+    + '</div>';
+}
+
+// ---------------------------------------------------------------------------
+// CHECK-IN
+// ---------------------------------------------------------------------------
+let GIRIS_ODA = null;
+function girisAc(odaId){
+  const o = ODALAR.find(x=>x.id===odaId);
+  if(!o) return;
+  if(o.kullanim_durumu!=='bos' || !(o.temizlik_durumu==='temiz' || o.temizlik_durumu==='kontrol_edildi')){
+    toast('Bu oda check-in alamaz (durum/temizlik)'); return;
+  }
+  const liste = uygunRezervasyonlar(o);
+  if(!liste.length){ toast('Bu oda tipinde bugün giriş yapılabilir rezervasyon yok'); return; }
+  GIRIS_ODA = o;
+  document.getElementById('girisBaslik').textContent =
+    'Check-in — Oda ' + o.oda_no + ' (' + tipKod(o.oda_tipi_id) + ')';
+  document.getElementById('girisListe').innerHTML = liste.map(r=>
+    '<div class="liste-satir" style="display:flex;align-items:center;gap:8px;padding:10px;border-bottom:1px solid var(--gray-200)">'
+    + '<div style="flex:1"><b style="font-size:12px">'+escapeHtml(misafirAdi(r.misafir_id))+'</b>'
+    + '<div style="font-size:11px;color:var(--gray-500)">'+escapeHtml(r.giris_tarihi)+' → '+escapeHtml(r.cikis_tarihi)
+    + ' · '+Number(r.yetiskin_sayisi)+'+'+Number(r.cocuk_sayisi)+' kişi</div></div>'
+    + '<button class="btn btn-p btn-sm" onclick="checkInYap(\''+jsAttrStr(r.id)+'\')">Giriş Yap</button>'
+    + '</div>').join('');
+  aModal('mGiris');
+}
+
+async function checkInYap(rezId){
+  if(!GIRIS_ODA) return;
+  sLD();
+  try{
+    // State makinesi sunucuda: pms_check_in tek transaction'da atama + oda +
+    // rezervasyonu yazar; çakışma/kapasite/temizlik sunucuda denetlenir.
+    await sbYaz(SB_URL+'/rest/v1/rpc/pms_check_in',
+      {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json'},
+       body:JSON.stringify({p_rezervasyon_id:rezId, p_oda_id:GIRIS_ODA.id})},
+      'Check-in (oda ' + GIRIS_ODA.oda_no + ')');
+    kModal('mGiris'); GIRIS_ODA = null;
+    toast('Check-in yapıldı');
+    await yukle();
+  }catch(e){}
+  hLD();
+}
+
+// ---------------------------------------------------------------------------
+// CHECK-OUT
+// ---------------------------------------------------------------------------
+function cikisAc(odaId){
+  const o = ODALAR.find(x=>x.id===odaId);
+  if(!o) return;
+  const dolu = doluRez(o);
+  if(!dolu){ toast('Bu odada bugünü kapsayan aktif konaklama yok'); return; }
+  if(confirm('Oda ' + o.oda_no + ' — ' + misafirAdi(dolu.rez.misafir_id)
+    + ' için check-out yapılacak.\n\nOnaylıyor musunuz?')){
+    checkOutYap(dolu.rez.id, o.oda_no);
+  }
+}
+
+async function checkOutYap(rezId, odaNo){
+  sLD();
+  try{
+    await sbYaz(SB_URL+'/rest/v1/rpc/pms_check_out',
+      {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json'},
+       body:JSON.stringify({p_rezervasyon_id:rezId})},
+      'Check-out (oda ' + odaNo + ')');
+    toast('Check-out yapıldı — oda kirli olarak işaretlendi');
+    await yukle();
+  }catch(e){}
+  hLD();
+}
+
+// ---------------------------------------------------------------------------
+// HOUSEKEEPING — temizlik durumu (yalnız BOŞ odada; sunucu kuralı: dolu oda
+// kullanim değişmez, boş odada temizlik akışı serbesttir)
+// ---------------------------------------------------------------------------
+async function temizlikDegistir(odaId, sonraki){
+  sLD();
+  try{
+    await sbYaz(SB_URL+'/rest/v1/pms_odalar?id=eq.'+encodeURIComponent(odaId),
+      {method:'PATCH',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+       body:JSON.stringify({temizlik_durumu:sonraki})}, 'Temizlik güncelleme');
+    toast('Temizlik: ' + TEMIZLIK_AD[sonraki]);
+    await yukle();
+  }catch(e){}
+  hLD();
+}
+</script>
+</body>
+</html>
