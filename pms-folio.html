@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let CU = requireLogin();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dornevi — Misafir Hesabı (Folio)</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+:root{--accent:#c9a24b}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none}
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.card{background:white;border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--gray-600);margin-bottom:4px}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--gray-300);border-radius:8px;font-size:14px;font-family:inherit;background:white}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.filtreler{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.btn{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-p{background:var(--primary);color:white}
+.btn-s{background:var(--gray-200);color:var(--gray-700)}
+.btn-sm{padding:6px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.liste-satir{display:flex;align-items:center;gap:8px;padding:10px;border-bottom:1px solid var(--gray-200);flex-wrap:wrap}
+.liste-satir:last-child{border-bottom:none}
+.ls-ana{flex:1;min-width:170px}
+.ls-no{font-size:13px;font-weight:700;color:var(--primary)}
+.ls-meta{font-size:11px;color:var(--gray-500);margin-top:2px}
+.rozet{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.d-acik{background:#dcfce7;color:#166534}
+.d-kapali{background:var(--gray-200);color:var(--gray-700)}
+.para{font-variant-numeric:tabular-nums;font-weight:700;font-size:13px;white-space:nowrap}
+.bakiye-var{color:#991b1b}
+.bakiye-sifir{color:#166534}
+.bos{text-align:center;padding:28px 12px;color:var(--gray-500);font-size:13px}
+.ozet{font-size:11px;color:var(--gray-600);padding:8px 10px}
+.uyari{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;font-size:12px;line-height:1.5}
+.uyari b{display:block;margin-bottom:3px}
+.hs{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--gray-200);font-size:12px}
+.hs:last-child{border-bottom:none}
+.hs-ana{flex:1;min-width:0}
+.hs-tip{font-size:10px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.4px}
+.hs-ters{text-decoration:line-through;opacity:.65}
+.toplam{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
+.toplam b{font-variant-numeric:tabular-nums}
+.toplam.son{border-top:1px solid var(--gray-300);margin-top:4px;padding-top:8px;font-weight:700}
+#ld{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:99}
+#ld.show{display:flex}
+.spin{width:34px;height:34px;border:3px solid var(--gray-300);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.modal.open{display:flex}
+.modal-ic{background:white;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:16px;max-height:92vh;overflow-y:auto}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="hbtn" href="on-buro.html" title="Ön Büro">←</a>
+    <div style="flex:1"><h1>Misafir Hesabı<span class="sub" id="hdrOtel"></span></h1></div>
+    <button class="hbtn" onclick="yukle()" title="Yenile">↻</button>
+  </div>
+  <div class="sc">
+    <div id="uyari" class="uyari" style="display:none"></div>
+    <div class="card">
+      <input id="ara" placeholder="Folyo no, rezervasyon no veya misafir ara…" oninput="ciz()" style="margin-bottom:8px">
+      <div class="filtreler">
+        <select id="fDurum" onchange="ciz()">
+          <option value="acik">Açık folyolar</option>
+          <option value="kapali">Kapalı folyolar</option>
+          <option value="">Tümü</option>
+        </select>
+        <select id="fBakiye" onchange="ciz()">
+          <option value="">Bakiye farketmez</option>
+          <option value="var">Yalnız bakiyesi olanlar</option>
+          <option value="sifir">Yalnız bakiyesi sıfır olanlar</option>
+        </select>
+      </div>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="ozet" id="ozet"></div>
+      <div id="liste"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="mFolio">
+  <div class="modal-ic">
+    <div class="card-title" id="fBaslik">Folyo</div>
+    <div id="fBilgi" class="ls-meta" style="margin-bottom:10px;line-height:1.6"></div>
+
+    <div id="fKapaliNot" class="uyari" style="display:none">
+      <b>Bu folyo kapalı.</b>
+      Kapalı folyoya yeni hareket veya tahsilat eklenemez, mevcut satırlar değiştirilemez.
+      Kural veritabanındadır; ekran yalnızca aynı şeyi gösterir.
+    </div>
+
+    <div class="row" id="fIslemler" style="margin-bottom:12px">
+      <button class="btn btn-s btn-sm" onclick="odaUcretiIsle()" id="btnOda">Oda ücretlerini işle</button>
+      <button class="btn btn-s btn-sm" onclick="folyoKapat()" id="btnKapat">Folyoyu kapat</button>
+    </div>
+
+    <div class="card-title">Hareketler (borç)</div>
+    <div id="fHareket"></div>
+
+    <div id="fHareketForm" style="margin-top:10px;border-top:1px solid var(--gray-200);padding-top:10px">
+      <div class="row">
+        <div class="field" style="flex:0 0 34%">
+          <label>Tip</label>
+          <select id="hTip">
+            <option value="ekstra">Ekstra</option>
+            <option value="duzeltme">Düzeltme</option>
+          </select>
+        </div>
+        <div class="field"><label>Açıklama *</label><input id="hAciklama" maxlength="200" placeholder="Minibar, çamaşır, indirim…"></div>
+        <div class="field" style="flex:0 0 26%"><label>Tutar *</label><input id="hTutar" type="number" step="0.01" placeholder="0,00"></div>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="hareketEkle()">Hareket ekle</button>
+      <div style="font-size:11px;color:var(--gray-500);margin-top:6px">
+        İndirim veya iptal için <b>Düzeltme</b> tipiyle negatif tutar girin.
+        Oda ücretleri elle eklenmez — yukarıdaki düğme geceleri işler.
+      </div>
+    </div>
+
+    <div class="card-title" style="margin-top:16px">Tahsilat</div>
+    <div id="fOdeme"></div>
+
+    <div id="fOdemeForm" style="margin-top:10px;border-top:1px solid var(--gray-200);padding-top:10px">
+      <div class="row">
+        <div class="field" style="flex:0 0 36%">
+          <label>Yöntem</label>
+          <select id="oYontem">
+            <option value="nakit">Nakit</option>
+            <option value="kredi_karti">Kredi kartı</option>
+            <option value="havale">Havale</option>
+            <option value="diger">Diğer</option>
+          </select>
+        </div>
+        <div class="field" style="flex:0 0 30%"><label>Tutar *</label><input id="oTutar" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="field"><label>Açıklama</label><input id="oAciklama" maxlength="200"></div>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="odemeEkle()">Tahsilat ekle</button>
+      <div style="font-size:11px;color:var(--gray-500);margin-top:6px">
+        İade negatif tutarla girilir. Sıfır tutar veritabanı tarafından reddedilir.
+      </div>
+    </div>
+
+    <div style="margin-top:16px;border-top:1px solid var(--gray-300);padding-top:10px">
+      <div class="toplam"><span>Toplam borç</span><b id="tBorc">—</b></div>
+      <div class="toplam"><span>Toplam tahsilat</span><b id="tOdeme">—</b></div>
+      <div class="toplam son"><span>Bakiye</span><b id="tBakiye">—</b></div>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-s" onclick="kModal('mFolio')">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<div id="ld"><div class="spin"></div></div>
+
+<script>
+// Yetki, otel kapsamı ve tüm folyo kuralları (kapalı folyoya yazma yasağı,
+// bakiyesi sıfır olmayan folyonun kapanmaması, aynı gecenin iki kez
+// işlenmemesi) SUNUCUDADIR. Buradaki kontroller yalnızca erken uyarıdır.
+let OZET = [], FOLYOLAR = [], REZ = [], MISAFIRLER = [];
+let ACIK = null;              // seçili folyo özeti
+let ACIK_HAREKET = [], ACIK_ODEME = [];
+
+const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+const SATIR_TAVANI = 5000;
+const TIP_AD = {oda_ucreti:'Oda ücreti', bar:'Bar', ekstra:'Ekstra', duzeltme:'Düzeltme'};
+const YONTEM_AD = {nakit:'Nakit', kredi_karti:'Kredi kartı', havale:'Havale', diger:'Diğer'};
+const DURUM_AD = {acik:'Açık', kapali:'Kapalı'};
+const REZ_DURUM_AD = {taslak:'Taslak', onaylandi:'Onaylandı', giris_yapildi:'Giriş yapıldı',
+                      cikis_yapildi:'Çıkış yapıldı', iptal:'İptal', gelmedi:'Gelmedi'};
+
+(function init(){
+  if(!CU) return;
+  document.getElementById('app').style.display='';
+  document.getElementById('hdrOtel').textContent =
+    TEK_OTEL ? ('🏨 ' + (OTEL_KISA[TEK_OTEL] || TEK_OTEL)) : '🏨 Tüm oteller';
+  yukle();
+})();
+
+function tl(n){
+  const s = Number(n||0).toLocaleString('tr-TR',{minimumFractionDigits:2, maximumFractionDigits:2});
+  return s + ' ₺';
+}
+
+async function cekVeSay(yol){
+  const r = await fetch(SB_URL + yol + '&limit=' + SATIR_TAVANI,
+    { headers: { ...SB_HEADERS, 'Prefer':'count=exact' } });
+  if(!r.ok) return { veri: [], hata: 'HTTP ' + r.status, kirpildi:false };
+  const veri = await r.json();
+  const toplam = parseInt((r.headers.get('content-range')||'').split('/')[1], 10);
+  return { veri, hata:null, kirpildi: Number.isFinite(toplam) && toplam > veri.length, toplam };
+}
+
+async function yukle(){
+  sLD();
+  const uyarilar = [];
+  try{
+    const [r1,r2,r3,r4] = await Promise.all([
+      cekVeSay('/rest/v1/pms_folio_ozet?select=*'),
+      cekVeSay('/rest/v1/pms_folyolar?select=id,otel_id,rezervasyon_id,folio_no,tip,durum,acilis_zamani,kapanis_zamani&order=acilis_zamani.desc'),
+      cekVeSay('/rest/v1/pms_rezervasyonlar?select=id,otel_id,rezervasyon_no,misafir_id,giris_tarihi,cikis_tarihi,durum,gecelik_fiyat'),
+      cekVeSay('/rest/v1/pms_misafirler?select=id,otel_id,ad,soyad')
+    ]);
+    OZET = r1.veri; FOLYOLAR = r2.veri; REZ = r3.veri; MISAFIRLER = r4.veri;
+
+    if(r2.hata) uyarilar.push('Folyolar okunamadı (' + r2.hata + ') — "Ön Büro — Misafir Hesabı" görüntüleme yetkisi gerekiyor.');
+    if(r1.hata) uyarilar.push('Bakiye görünümü okunamadı (' + r1.hata + ').');
+    if(r2.kirpildi) uyarilar.push('Liste eksik: sunucu ' + r2.toplam
+      + ' folyodan yalnız ' + r2.veri.length + ' tanesini döndürdü.');
+    // Rezervasyon ve misafir AYRI modül yetkileridir. Okunamıyorsa ekran
+    // "isimsiz" görünür; sessiz bırakmak yerine sebebini söyle.
+    if(FOLYOLAR.length && !REZ.length)
+      uyarilar.push('Rezervasyon bilgisi okunamıyor — "Ön Büro — Rezervasyonlar" yetkisi gerekiyor.');
+    if(REZ.length && !MISAFIRLER.length)
+      uyarilar.push('Misafir bilgisi okunamıyor — "Ön Büro — Misafirler" yetkisi gerekiyor.');
+  }catch(e){
+    OZET=[]; FOLYOLAR=[]; REZ=[]; MISAFIRLER=[];
+    uyarilar.push('Sunucuya ulaşılamadı.');
+  }
+  hLD();
+  const u = document.getElementById('uyari');
+  if(uyarilar.length){ u.style.display=''; u.innerHTML='<b>Dikkat</b>'+uyarilar.map(escapeHtml).join('<br>'); }
+  else { u.style.display='none'; u.textContent=''; }
+  ciz();
+  if(ACIK) { const y = OZET.find(o=>o.folio_id===ACIK.folio_id); if(y) ACIK = y; }
+}
+
+function rezOf(id){ return REZ.find(r=>r.id===id) || null; }
+function misafirAdi(id){
+  const m = MISAFIRLER.find(x=>x.id===id);
+  return m ? (m.soyad + ', ' + m.ad) : '(misafir görünmüyor)';
+}
+function folyoBilgi(f){
+  const oz = OZET.find(o=>o.folio_id===f.id);
+  const r  = rezOf(f.rezervasyon_id);
+  return {
+    folio_id: f.id, otel_id: f.otel_id, rezervasyon_id: f.rezervasyon_id,
+    folio_no: f.folio_no, durum: f.durum, tip: f.tip,
+    borc: oz ? Number(oz.borc) : null,
+    odeme: oz ? Number(oz.odeme) : null,
+    bakiye: oz ? Number(oz.bakiye) : null,
+    rez: r
+  };
+}
+
+function ciz(){
+  const q  = document.getElementById('ara').value.trim().toLocaleLowerCase('tr');
+  const fd = document.getElementById('fDurum').value;
+  const fb = document.getElementById('fBakiye').value;
+
+  const hepsi = FOLYOLAR.map(folyoBilgi);
+  const sonuc = hepsi.filter(f=>{
+    if(fd && f.durum !== fd) return false;
+    if(fb === 'var'   && !(f.bakiye !== null && Math.abs(f.bakiye) > 0.005)) return false;
+    if(fb === 'sifir' && !(f.bakiye !== null && Math.abs(f.bakiye) <= 0.005)) return false;
+    if(q){
+      const ad = f.rez ? misafirAdi(f.rez.misafir_id) : '';
+      const no = f.rez ? f.rez.rezervasyon_no : '';
+      if(!(f.folio_no + ' ' + no + ' ' + ad).toLocaleLowerCase('tr').includes(q)) return false;
+    }
+    return true;
+  });
+
+  const acikBakiye = sonuc.reduce((t,f)=>t + (f.bakiye || 0), 0);
+  document.getElementById('ozet').textContent =
+    sonuc.length + ' folyo · ' + FOLYOLAR.length + ' kayıttan · toplam bakiye ' + tl(acikBakiye);
+
+  const el = document.getElementById('liste');
+  if(!sonuc.length){
+    el.innerHTML = '<div class="bos">Bu filtrede folyo yok.<br>'
+      + 'Folyo, rezervasyon <b>onaylandı</b> olduğunda otomatik açılır.</div>';
+    return;
+  }
+
+  el.innerHTML = sonuc.map(f=>{
+    const ad = f.rez ? misafirAdi(f.rez.misafir_id) : '(rezervasyon görünmüyor)';
+    const meta = (f.rez ? escapeHtml(f.rez.rezervasyon_no) + ' · '
+                    + escapeHtml(f.rez.giris_tarihi) + ' → ' + escapeHtml(f.rez.cikis_tarihi)
+                    + ' · ' + escapeHtml(REZ_DURUM_AD[f.rez.durum] || f.rez.durum)
+                  : '—')
+               + ' · ' + escapeHtml(OTEL_KISA[f.otel_id] || f.otel_id);
+    const bakiyeSinif = (f.bakiye === null) ? ''
+      : (Math.abs(f.bakiye) > 0.005 ? 'bakiye-var' : 'bakiye-sifir');
+    return '<div class="liste-satir">'
+      + '<div class="ls-ana">'
+        + '<div class="ls-no">'+escapeHtml(f.folio_no)+' · '+escapeHtml(ad)+'</div>'
+        + '<div class="ls-meta">'+meta+'</div>'
+      + '</div>'
+      + '<span class="para '+bakiyeSinif+'">'
+        + (f.bakiye === null ? 'bakiye yok' : escapeHtml(tl(f.bakiye)))
+      + '</span>'
+      + '<span class="rozet d-'+escapeHtml(f.durum)+'">'+escapeHtml(DURUM_AD[f.durum]||f.durum)+'</span>'
+      + '<button class="btn btn-s btn-sm" onclick="folyoAc(\''+jsAttrStr(f.folio_id)+'\')">Aç</button>'
+      + '</div>';
+  }).join('');
+}
+
+async function folyoAc(id){
+  const f = FOLYOLAR.find(x=>x.id===id);
+  if(!f) return;
+  ACIK = folyoBilgi(f);
+  await detayYukle();
+  aModal('mFolio');
+}
+
+async function detayYukle(){
+  if(!ACIK) return;
+  sLD();
+  const uyarilar = [];
+  try{
+    const [h,o] = await Promise.all([
+      cekVeSay('/rest/v1/pms_folio_hareketleri?select=*&folio_id=eq.'+encodeURIComponent(ACIK.folio_id)+'&order=tarih,olusturma_tarihi'),
+      cekVeSay('/rest/v1/pms_folio_odemeler?select=*&folio_id=eq.'+encodeURIComponent(ACIK.folio_id)+'&order=tarih,olusturma_tarihi')
+    ]);
+    ACIK_HAREKET = h.veri; ACIK_ODEME = o.veri;
+    if(h.hata) uyarilar.push('Hareketler okunamadı (' + h.hata + ').');
+    if(o.hata) uyarilar.push('Tahsilatlar okunamadı (' + o.hata + ').');
+    if(h.kirpildi) uyarilar.push('Hareket listesi eksik: ' + h.toplam + ' kayıttan '
+      + h.veri.length + ' tanesi gösteriliyor — toplamlar view’den geldiği için doğrudur.');
+  }catch(e){
+    ACIK_HAREKET=[]; ACIK_ODEME=[];
+    uyarilar.push('Folyo detayı okunamadı.');
+  }
+  hLD();
+  if(uyarilar.length) toast(uyarilar[0], 4000);
+  detayCiz();
+}
+
+function detayCiz(){
+  if(!ACIK) return;
+  const kapali = ACIK.durum === 'kapali';
+  document.getElementById('fBaslik').textContent = ACIK.folio_no;
+
+  const r = ACIK.rez;
+  document.getElementById('fBilgi').innerHTML = r
+    ? escapeHtml(misafirAdi(r.misafir_id)) + '<br>'
+      + escapeHtml(r.rezervasyon_no) + ' · ' + escapeHtml(r.giris_tarihi) + ' → ' + escapeHtml(r.cikis_tarihi)
+      + ' · ' + escapeHtml(REZ_DURUM_AD[r.durum] || r.durum) + '<br>'
+      + 'Gecelik fiyat: ' + (r.gecelik_fiyat === null || r.gecelik_fiyat === undefined
+          ? '<b style="color:#991b1b">girilmedi</b>' : escapeHtml(tl(r.gecelik_fiyat)))
+    : '(rezervasyon bilgisi görünmüyor)';
+
+  document.getElementById('fKapaliNot').style.display  = kapali ? '' : 'none';
+  document.getElementById('fHareketForm').style.display = kapali ? 'none' : '';
+  document.getElementById('fOdemeForm').style.display   = kapali ? 'none' : '';
+  document.getElementById('fIslemler').style.display    = kapali ? 'none' : '';
+
+  const btnOda = document.getElementById('btnOda');
+  const isleneb = r && (r.durum === 'giris_yapildi' || r.durum === 'cikis_yapildi')
+                    && r.gecelik_fiyat !== null && r.gecelik_fiyat !== undefined;
+  btnOda.disabled = !isleneb;
+  btnOda.title = isleneb ? 'Bugüne kadarki konaklama gecelerini işler'
+    : 'Oda ücreti yalnız giriş yapılmış konaklamaya ve gecelik fiyat girilmişse işlenir';
+
+  const hEl = document.getElementById('fHareket');
+  hEl.innerHTML = ACIK_HAREKET.length ? ACIK_HAREKET.map(h=>
+      '<div class="hs'+(h.ters_kayit?' hs-ters':'')+'">'
+      + '<div class="hs-ana">'
+        + '<div class="hs-tip">'+escapeHtml(TIP_AD[h.tip]||h.tip)
+          + (h.konaklama_gecesi ? ' · '+escapeHtml(h.konaklama_gecesi) : '')
+          + (h.ters_kayit ? ' · ters kayıt' : '') + '</div>'
+        + '<div>'+escapeHtml(h.aciklama)+'</div>'
+        + '<div style="color:var(--gray-500)">'+escapeHtml(h.tarih)+'</div>'
+      + '</div>'
+      + '<span class="para">'+escapeHtml(tl(h.tutar))+'</span>'
+      + '</div>').join('')
+    : '<div class="bos" style="padding:10px">Hareket yok.</div>';
+
+  const oEl = document.getElementById('fOdeme');
+  oEl.innerHTML = ACIK_ODEME.length ? ACIK_ODEME.map(o=>
+      '<div class="hs">'
+      + '<div class="hs-ana">'
+        + '<div class="hs-tip">'+escapeHtml(YONTEM_AD[o.yontem]||o.yontem)+'</div>'
+        + (o.aciklama ? '<div>'+escapeHtml(o.aciklama)+'</div>' : '')
+        + '<div style="color:var(--gray-500)">'+escapeHtml(o.tarih)+'</div>'
+      + '</div>'
+      + '<span class="para">'+escapeHtml(tl(o.tutar))+'</span>'
+      + '</div>').join('')
+    : '<div class="bos" style="padding:10px">Tahsilat yok.</div>';
+
+  // Toplamlar view'den gelir: satır tavanı kırpsa bile doğrudur.
+  document.getElementById('tBorc').textContent   = ACIK.borc   === null ? '—' : tl(ACIK.borc);
+  document.getElementById('tOdeme').textContent  = ACIK.odeme  === null ? '—' : tl(ACIK.odeme);
+  const tb = document.getElementById('tBakiye');
+  tb.textContent = ACIK.bakiye === null ? '—' : tl(ACIK.bakiye);
+  tb.className = ACIK.bakiye === null ? ''
+    : (Math.abs(ACIK.bakiye) > 0.005 ? 'bakiye-var' : 'bakiye-sifir');
+
+  document.getElementById('btnKapat').disabled =
+    !(ACIK.bakiye !== null && Math.abs(ACIK.bakiye) <= 0.005);
+}
+
+async function odaUcretiIsle(){
+  if(!ACIK || !ACIK.rez) return;
+  sLD();
+  try{
+    const r = await sbYaz(SB_URL+'/rest/v1/rpc/pms_folio_oda_ucreti_isle',
+      {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json'},
+       body:JSON.stringify({p_rezervasyon_id: ACIK.rez.id})},
+      'Oda ücreti işleme');
+    if(r.ok){
+      const n = await r.json().catch(()=>null);
+      toast(Number(n) > 0 ? (n + ' gece işlendi') : 'İşlenecek yeni gece yok');
+      await yukle(); await detayYukle();
+    }
+  }catch(e){}
+  hLD();
+}
+
+async function hareketEkle(){
+  if(!ACIK) return;
+  const aciklama = document.getElementById('hAciklama').value.trim();
+  const tutarStr = document.getElementById('hTutar').value;
+  if(!aciklama){ toast('Açıklama zorunlu'); return; }
+  const tutar = Number(tutarStr);
+  if(!tutarStr || !Number.isFinite(tutar)){ toast('Geçerli bir tutar girin'); return; }
+  sLD();
+  try{
+    const r = await sbYaz(SB_URL+'/rest/v1/pms_folio_hareketleri',
+      {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+       body:JSON.stringify({otel_id: ACIK.otel_id, folio_id: ACIK.folio_id,
+                            tip: document.getElementById('hTip').value,
+                            aciklama: aciklama, tutar: tutar})},
+      'Folyo hareketi');
+    if(r.ok){
+      document.getElementById('hAciklama').value=''; document.getElementById('hTutar').value='';
+      toast('Hareket eklendi');
+      await yukle(); await detayYukle();
+    }
+  }catch(e){}
+  hLD();
+}
+
+async function odemeEkle(){
+  if(!ACIK) return;
+  const tutarStr = document.getElementById('oTutar').value;
+  const tutar = Number(tutarStr);
+  if(!tutarStr || !Number.isFinite(tutar)){ toast('Geçerli bir tutar girin'); return; }
+  // Ayni kural veritabaninda CHECK olarak da var; burada erken uyari icin.
+  if(tutar === 0){ toast('Tutar sıfır olamaz'); return; }
+  sLD();
+  try{
+    const r = await sbYaz(SB_URL+'/rest/v1/pms_folio_odemeler',
+      {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
+       body:JSON.stringify({otel_id: ACIK.otel_id, folio_id: ACIK.folio_id,
+                            yontem: document.getElementById('oYontem').value,
+                            tutar: tutar,
+                            aciklama: document.getElementById('oAciklama').value.trim() || null})},
+      'Tahsilat');
+    if(r.ok){
+      document.getElementById('oTutar').value=''; document.getElementById('oAciklama').value='';
+      toast('Tahsilat eklendi');
+      await yukle(); await detayYukle();
+    }
+  }catch(e){}
+  hLD();
+}
+
+async function folyoKapat(){
+  if(!ACIK) return;
+  // Bakiye kontrolu SUNUCUDA; buradaki onay yalnizca kazayla kapatmayi engeller.
+  if(!confirm(ACIK.folio_no + ' kapatılsın mı?\n\nKapalı folyoya bir daha hareket veya tahsilat eklenemez.')) return;
+  sLD();
+  try{
+    const r = await sbYaz(SB_URL+'/rest/v1/rpc/pms_folio_kapat',
+      {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json'},
+       body:JSON.stringify({p_folio_id: ACIK.folio_id})},
+      'Folyo kapatma');
+    if(r.ok){
+      toast('Folyo kapatıldı');
+      await yukle();
+      const y = FOLYOLAR.find(x=>x.id===ACIK.folio_id);
+      if(y) ACIK = folyoBilgi(y);
+      await detayYukle();
+    }
+  }catch(e){}
+  hLD();
+}
+</script>
+</body>
+</html>

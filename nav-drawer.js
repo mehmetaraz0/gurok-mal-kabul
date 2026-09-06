@@ -74,7 +74,7 @@ const ND_MODULLER = [
   },
   {
     id: 'onburo', ad: 'Ön Büro', url: 'on-buro.html',
-    moduller: ['pms_oda_tipi', 'pms_oda', 'pms_misafir', 'pms_rezervasyon'], durum: 'aktif',
+    moduller: ['pms_oda_tipi', 'pms_oda', 'pms_misafir', 'pms_rezervasyon', 'pms_folio'], durum: 'aktif',
     svg: '<path d="M3 20V9l9-5 9 5v11"/><path d="M9 20v-6h6v6"/><path d="M3 20h18"/>',
     eslesir: f => f === 'on-buro.html' || f.startsWith('pms-')
   }
