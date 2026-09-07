@@ -137,7 +137,7 @@ Tüm adımlar aynı yayın penceresinde, aynı kişi tarafından, runbook bölü
 | Hash | `9c30126…975047` |
 | Pre-check | preflight 1.1–1.7 hepsi 0; 2.1–2.6 beklenen |
 | Post-check | Migration'ın kendi doğrulama bloğu hatasız bitti; `pms_oda_tipleri` + `pms_odalar` var; her ikisinde RLS açık ve kısıtlayıcı otel tabanı var |
-| Smoke test | `pms-oda-tipleri.html`: bir oda tipi **kaydet**, listede gör, `erp_islem_audit` sayacının arttığını doğrula. *Ekranın açılması smoke test değildir.* |
+| Smoke test | `pms-oda-tipleri.html`: bir oda tipi **kaydet**, listede gör — kayıt yazıldı VE RLS altında geri okunabiliyor demektir. *Ekranın açılması smoke test değildir.* **DÜZELTME (2026-09-07): denetim izi sayacı bu adımda ARTMAZ** ve artması beklenmemelidir — Adım 1 `phase0_islem_audit` tetikleyicisi bağlamaz; oda tipleri/odalar bilinçli olarak kapsam dışıdır. |
 | STOP | Doğrulama bloğu hata verirse; smoke test'te kayıt yazılamazsa |
 | Geri alma | `2026-09-06-pms-faz1-oda-tipleri-odalar.sql` içindeki geri alma bloğu (dosya sonu, yorumlu) |
 
@@ -149,7 +149,7 @@ Tüm adımlar aynı yayın penceresinde, aynı kişi tarafından, runbook bölü
 | Hash | `ba4f9ad…5df2cd` |
 | Pre-check | Adım 1 post-check geçti |
 | Post-check | Doğrulama bloğu hatasız; `pms_rezervasyon_no_seq` üzerinde `authenticated` yalnız USAGE; EXCLUDE kısıtı kurulu |
-| Smoke test | Bir misafir + bir rezervasyon kaydet; **aynı odaya çakışan ikinci atamanın reddedildiğini** gör; audit sayacı arttı |
+| Smoke test | Bir misafir kaydet ve listede gör. **DÜZELTME (2026-09-07): denetim izi sayacı bu adımda da ARTMAZ** — kişisel veri tabloları KVKK gereği kapsam dışıdır; rezervasyon/atama Adım 3 ile kapsama girer. Çakışma reddi yapısal olarak `exclude_kisit` ile doğrulanır. **Rezervasyon kaydı bu adımda YAPILAMAZ:** ekran `gecelik_fiyat` alanını gönderir, o kolon Adım 4 ile eklenir. Rezervasyon akışı Adım 4 sonrasına aittir. |
 | STOP | Çakışma reddedilmiyorsa (aşırı satış koruması çalışmıyor demektir) |
 | Geri alma | Dosya sonundaki geri alma bloğu |
 
@@ -250,6 +250,7 @@ Kalan riskler yalnız **P3**; hiçbiri yayını durdurmaz:
 | 6 | P3 | `supabase_admin` varsayılan ACL'i yeni nesnelerde `anon`'a hak veriyor (Supabase destek konusu). Migration'lar bunu tablo bazında geri alıyor; doğrulama blokları sınıyor |
 | 7 | P3 | Yayın sonrası eşitlik tabanı bayatlayacak; PMS nesneleri eklendiği için yeni taban çıkarılmalı (Adım 5) |
 | 8 | P3 | Gerçek PIN akışı ve diğer Edge Function'lar yerel staging'de sınanmadı (stub); üretimde ilk girişte doğrulanmalı |
+| 9 | P3 | **Ön yüz, Adım 1–4'ün TAMAMINA bağlıdır.** Rezervasyon ekranı `gecelik_fiyat` gönderir (Adım 4). Ön yüzü dört adım tamamlanmadan yayınlamak rezervasyon kaydını kırar — 2026-09-07 yayınında ölçüldü. |
 
 ## 8. Tarayıcı QA durumu
 

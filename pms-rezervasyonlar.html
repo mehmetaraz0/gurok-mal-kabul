@@ -116,11 +116,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <div class="field"><label>Yetişkin *</label><input id="mYetiskin" type="number" min="1" max="20" value="1"></div>
       <div class="field"><label>Çocuk</label><input id="mCocuk" type="number" min="0" max="20" value="0"></div>
       <div class="field"><label>Durum</label>
-        <select id="mDurum">
-          <option value="taslak">Taslak</option><option value="onaylandi">Onaylandı</option>
-          <option value="giris_yapildi">Giriş yapıldı</option><option value="cikis_yapildi">Çıkış yapıldı</option>
-          <option value="iptal">İptal</option><option value="gelmedi">Gelmedi</option>
-        </select>
+        <select id="mDurum"></select>
+        <div id="durumNotu" style="font-size:11px;color:var(--gray-500);margin-top:4px"></div>
       </div>
     </div>
     <div class="field">
@@ -164,6 +161,55 @@ const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
 const SATIR_TAVANI = 5000;
 const DURUM_AD = {taslak:'Taslak', onaylandi:'Onaylandı', giris_yapildi:'Giriş yapıldı',
                   cikis_yapildi:'Çıkış yapıldı', iptal:'İptal', gelmedi:'Gelmedi'};
+
+// GEÇİŞ MATRİSİ — kaynağı Adım 3 migration'ındaki pms_rezervasyon_gecis()
+// tetikleyicisidir; buradaki liste onun AYNISI olmak zorunda, tahmin değil.
+//
+//   INSERT : giris_yapildi / cikis_yapildi ile rezervasyon AÇILAMAZ.
+//   taslak        -> onaylandi | iptal
+//   onaylandi     -> giris_yapildi | iptal | gelmedi
+//   giris_yapildi -> cikis_yapildi
+//   cikis_yapildi / iptal / gelmedi -> TERMİNAL, değiştirilemez
+//
+// AMA giris_yapildi ve cikis_yapildi geçişleri damgasız yapılamaz
+// (giris_zamani/giris_yapan, cikis_zamani/cikis_yapan). Damgayı yalnız
+// pms_check_in / pms_check_out RPC'leri yazar. Dolayısıyla bu iki durum
+// DOĞRUDAN DÜZENLEME akışında hiçbir zaman seçilemez — form onları
+// göstermemeli. (2026-09-07 yayın bulgusu: gösteriliyordu ve veritabanı
+// her seferinde reddediyordu.)
+//
+// Check-in/check-out bu forma TAŞINMAZ; Oda Planı ekranı ve RPC'ler
+// yetkili akış olarak kalır.
+const DURUM_GECISLERI = {
+  yeni:          ['taslak','onaylandi','iptal','gelmedi'],
+  taslak:        ['taslak','onaylandi','iptal'],
+  onaylandi:     ['onaylandi','iptal','gelmedi'],
+  giris_yapildi: ['giris_yapildi'],
+  cikis_yapildi: ['cikis_yapildi'],
+  iptal:         ['iptal'],
+  gelmedi:       ['gelmedi'],
+};
+const DURUM_NOTU = {
+  onaylandi:     'Check-in bu formdan yapılmaz — Oda Planı ekranından yapılır.',
+  giris_yapildi: 'Misafir içeride. Çıkış yalnız Oda Planı ekranından yapılır.',
+  cikis_yapildi: 'Konaklama tamamlandı; durum artık değiştirilemez.',
+  iptal:         'Terminal durum; değiştirilemez.',
+  gelmedi:       'Terminal durum; değiştirilemez.',
+};
+
+// Durum listesini MEVCUT duruma göre kurar. mevcut = null ise yeni kayıt.
+function durumSecenekleriDoldur(mevcut){
+  const anahtar = mevcut || 'yeni';
+  const izinli = DURUM_GECISLERI[anahtar] || DURUM_GECISLERI.yeni;
+  const sel = document.getElementById('mDurum');
+  sel.innerHTML = izinli.map(d =>
+    '<option value="'+escapeHtml(d)+'">'+escapeHtml(DURUM_AD[d]||d)+'</option>').join('');
+  sel.value = mevcut || 'taslak';
+  // Tek seçenek varsa değiştirilecek bir şey yok.
+  sel.disabled = izinli.length <= 1;
+  const not = document.getElementById('durumNotu');
+  not.textContent = DURUM_NOTU[anahtar] || '';
+}
 
 (function init(){
   if(!CU) return;
@@ -329,7 +375,7 @@ function yeniAc(){
   document.getElementById('mYetiskin').value = '1';
   document.getElementById('mCocuk').value = '0';
   document.getElementById('mFiyat').value = '';
-  document.getElementById('mDurum').value = 'taslak';
+  durumSecenekleriDoldur(null);
   document.getElementById('mNotlar').value = '';
   document.getElementById('atamaBolum').style.display = 'none';
   secenekleriDoldur();
@@ -350,7 +396,7 @@ function duzenleAc(id){
   document.getElementById('mYetiskin').value = r.yetiskin_sayisi;
   document.getElementById('mCocuk').value = r.cocuk_sayisi;
   document.getElementById('mFiyat').value = (r.gecelik_fiyat === null || r.gecelik_fiyat === undefined) ? '' : r.gecelik_fiyat;
-  document.getElementById('mDurum').value = r.durum;
+  durumSecenekleriDoldur(r.durum);
   document.getElementById('mNotlar').value = r.notlar || '';
   document.getElementById('atamaBolum').style.display = '';
   odaSecenekleriDoldur();
