@@ -67,6 +67,13 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
 .modal.open{display:flex}
 .modal-ic{background:white;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:16px;max-height:92vh;overflow-y:auto}
+/* KOK NEDEN (2026-09-07 QA): ortak.js toast() dogrudan #toast elementine
+   yazar. Element YOKSA TypeError firlatir; cagri yerleri try/catch icinde
+   oldugu icin hata SESSIZCE yutulur ve hemen ardindaki await yukle()
+   calismaz. Sonuc: dogrulama mesajlari hic gorunmez ve islem sonrasi liste
+   tazelenmez. Element + stil diger tum ERP ekranlarindaki gibi eklendi. */
+#toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -175,6 +182,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   </div>
 </div>
 
+<div id="toast"></div>
 <div id="ld"><div class="spin"></div></div>
 
 <script>
@@ -183,6 +191,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 // işlenmemesi) SUNUCUDADIR. Buradaki kontroller yalnızca erken uyarıdır.
 let OZET = [], FOLYOLAR = [], REZ = [], MISAFIRLER = [];
 let ACIK = null;              // seçili folyo özeti
+// RLS yetkisiz kullaniciya HATA degil SIFIR SATIR dondurur. Bu yuzden
+// "veri yok" ile "yetki yok" ayrimi listeden turetilemez; mevcut yetki
+// motoruna (auth-guard.js -> kullaniciYetkileriGetir) ayrica sorulur.
+// Yeni bir yetki sistemi kurulmuyor; var olan matris okunuyor.
+let FOLIO_YETKI = null;       // 'yok' | 'goruntule' | 'kayit' | 'tam'
 let ACIK_HAREKET = [], ACIK_ODEME = [];
 // ODEME IDEMPOTENCY ANAHTARI. Folyo acilinca uretilir, BASARILI tahsilattan
 // sonra yenilenir. Boylece cift tiklama ve agin ayni istegi tekrar gondermesi
@@ -228,6 +241,12 @@ async function cekVeSay(yol){
 async function yukle(){
   sLD();
   const uyarilar = [];
+  if(FOLIO_YETKI === null){
+    try{
+      const harita = await kullaniciYetkileriGetir();
+      FOLIO_YETKI = harita['pms_folio'] || 'yok';
+    }catch(e){ FOLIO_YETKI = 'yok'; }   // fail-closed
+  }
   try{
     const [r1,r2,r3,r4] = await Promise.all([
       cekVeSay('/rest/v1/pms_folio_ozet?select=*'),
@@ -237,7 +256,9 @@ async function yukle(){
     ]);
     OZET = r1.veri; FOLYOLAR = r2.veri; REZ = r3.veri; MISAFIRLER = r4.veri;
 
-    if(r2.hata) uyarilar.push('Folyolar okunamadı (' + r2.hata + ') — "Ön Büro — Misafir Hesabı" görüntüleme yetkisi gerekiyor.');
+    if(FOLIO_YETKI === 'yok')
+      uyarilar.push('Bu modülü görüntüleme yetkiniz yok — "Ön Büro — Misafir Hesabı" yetkisi gerekiyor. Liste boş görünmesi verinin olmadığı anlamına gelmez.');
+    if(r2.hata) uyarilar.push('Folyolar okunamadı (' + r2.hata + ').');
     if(r1.hata) uyarilar.push('Bakiye görünümü okunamadı (' + r1.hata + ').');
     if(r2.kirpildi) uyarilar.push('Liste eksik: sunucu ' + r2.toplam
       + ' folyodan yalnız ' + r2.veri.length + ' tanesini döndürdü.');
@@ -256,7 +277,16 @@ async function yukle(){
   if(uyarilar.length){ u.style.display=''; u.innerHTML='<b>Dikkat</b>'+uyarilar.map(escapeHtml).join('<br>'); }
   else { u.style.display='none'; u.textContent=''; }
   ciz();
-  if(ACIK) { const y = OZET.find(o=>o.folio_id===ACIK.folio_id); if(y) ACIK = y; }
+  // ACIK'i HAM ozet satiriyla degistirme: o satirda rez yok. folyoBilgi()
+  // ile yeniden kur ki bakiye, durum VE rezervasyon baglami birlikte
+  // tazelensin. Aksi halde tazelemeden sonra modal "rezervasyon bilgisi
+  // gorunmuyor" der ve oda ucreti dugmesi kalici pasif kalirdi
+  // (2026-09-07 QA bulgusu). Degerler yine SUNUCUDAN gelir; istemci
+  // state'i hicbir DB kuralinin yerine gecmez.
+  if(ACIK){
+    const f = FOLYOLAR.find(x => x.id === ACIK.folio_id);
+    ACIK = f ? folyoBilgi(f) : null;
+  }
 }
 
 function rezOf(id){ return REZ.find(r=>r.id===id) || null; }
@@ -301,8 +331,11 @@ function ciz(){
 
   const el = document.getElementById('liste');
   if(!sonuc.length){
-    el.innerHTML = '<div class="bos">Bu filtrede folyo yok.<br>'
-      + 'Folyo, rezervasyon <b>onaylandı</b> olduğunda otomatik açılır.</div>';
+    el.innerHTML = (FOLIO_YETKI === 'yok')
+      ? '<div class="bos"><b>Görüntüleme yetkiniz yok.</b><br>'
+        + 'Burada veri olup olmadığı bu hesapla anlaşılamaz.</div>'
+      : '<div class="bos">Bu filtrede folyo yok.<br>'
+        + 'Folyo, rezervasyon <b>onaylandı</b> olduğunda otomatik açılır.</div>';
     return;
   }
 

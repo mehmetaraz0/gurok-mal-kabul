@@ -61,6 +61,13 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
 .modal.open{display:flex}
 .modal-ic{background:white;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:16px;max-height:90vh;overflow-y:auto}
+/* KOK NEDEN (2026-09-07 QA): ortak.js toast() dogrudan #toast elementine
+   yazar. Element YOKSA TypeError firlatir; cagri yerleri try/catch icinde
+   oldugu icin hata SESSIZCE yutulur ve hemen ardindaki await yukle()
+   calismaz. Sonuc: dogrulama mesajlari hic gorunmez ve islem sonrasi liste
+   tazelenmez. Element + stil diger tum ERP ekranlarindaki gibi eklendi. */
+#toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -142,6 +149,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   </div>
 </div>
 
+<div id="toast"></div>
 <div id="ld"><div class="spin"></div></div>
 
 <script>

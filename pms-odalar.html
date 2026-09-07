@@ -64,6 +64,13 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
 .modal.open{display:flex}
 .modal-ic{background:white;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:16px;max-height:88vh;overflow-y:auto}
+/* KOK NEDEN (2026-09-07 QA): ortak.js toast() dogrudan #toast elementine
+   yazar. Element YOKSA TypeError firlatir; cagri yerleri try/catch icinde
+   oldugu icin hata SESSIZCE yutulur ve hemen ardindaki await yukle()
+   calismaz. Sonuc: dogrulama mesajlari hic gorunmez ve islem sonrasi liste
+   tazelenmez. Element + stil diger tum ERP ekranlarindaki gibi eklendi. */
+#toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
@@ -142,6 +149,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   </div>
 </div>
 
+<div id="toast"></div>
 <div id="ld"><div class="spin"></div></div>
 
 <script>
@@ -154,6 +162,15 @@ const KULLANIM_AD = {bos:'Boş', dolu:'Dolu', bloke:'Bloke', ariza:'Arıza'};
 const TEMIZLIK_AD = {temiz:'Temiz', kirli:'Kirli', temizleniyor:'Temizleniyor', kontrol_edildi:'Kontrol edildi'};
 const OTELLER = Object.keys(OTEL_ISIMLERI);
 const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+
+// Sunucu tarafinda bir satir tavani var (Supabase "Max rows", tipik 1000).
+// Asilirsa PostgREST SESSIZCE kirpar: hata yok, eksik liste. Odalar bu ERP'de
+// o tavani asmasi muhtemel ilk tablo (birkac yuz oda x iki otel), bu yuzden
+// gercek toplami count=exact ile isteyip donen satirla karsilastiriyoruz.
+// DIKKAT: bu sabit init IIFE'sinden ONCE durmali. yukle() async olsa da URL'yi
+// ilk await'ten ONCE kurar; asagi tasinirsa temporal dead zone'a duser ve
+// ReferenceError "Sunucuya ulasilamadi" diye gorunur (2026-09-07 QA bulgusu).
+const SATIR_TAVANI = 5000;
 
 (function init(){
   if(!CU) return;
@@ -168,11 +185,6 @@ const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
   yukle();
 })();
 
-// Sunucu tarafinda bir satir tavani var (Supabase "Max rows", tipik 1000).
-// Asilirsa PostgREST SESSIZCE kirpar: hata yok, eksik liste. Odalar bu ERP'de
-// o tavani asmasi muhtemel ilk tablo (birkac yuz oda x iki otel), bu yuzden
-// gercek toplami count=exact ile isteyip donen satirla karsilastiriyoruz.
-const SATIR_TAVANI = 5000;
 
 async function cekVeSay(yol){
   const r = await fetch(SB_URL + yol + '&limit=' + SATIR_TAVANI,
