@@ -5,10 +5,23 @@
 > kullanıcının açık `CANLIYA UYGULA` onayı ile başlar
 > ([[URETIM-YAYIN-RUNBOOK]] bölüm 0 — üretim yazma dondurması).
 
-- **Manifest tarihi:** 2026-09-07
-- **Karar:** `PMS RELEASE CANDIDATE: NO-GO` (gerekçeler aşağıda)
-- **Git HEAD (manifest anında):** `1e97e2f` — *fix(pms): folyo finansal butunluk ve idempotency korumalari*
-- **origin/main:** `0740cfb` — HEAD 14 commit önde, 0 geride. Push yapılmadı.
+- **Manifest tarihi:** 2026-09-07 (final)
+- **Karar:** `PMS RELEASE CANDIDATE: GO`
+- **Git HEAD:** `d9e8bc5` — *chore(pms): yerel staging ve tarayici qa altyapisi*
+- **origin/main:** `0740cfb` — HEAD 17 commit önde, 0 geride. **Push yapılmadı.**
+- **Üretime uygulandı mı:** **HAYIR.** Dört migration da aday olarak repoda duruyor.
+  Uygulama yalnız açık `CANLIYA UYGULA` onayıyla başlar.
+
+### Kapılar
+
+| Kapı | Durum | Kanıt |
+|---|---|---|
+| Otomatik regresyon | ✅ | bölüm 6 |
+| Sabotaj koşumu | ✅ 6/6 | bölüm 6 |
+| **PMS BROWSER QA** | ✅ **PASSED** | bölüm 8 |
+| **PRODUCTION PREFLIGHT** | ✅ **PASSED** 19/19 | bölüm 3 |
+| Migration sürümü sabitlendi | ✅ | bölüm 1–2 (SHA256) |
+| Geri alma planı | ✅ | bölüm 5 |
 
 ## 1. Adayın sabitlenmesi
 
@@ -53,6 +66,11 @@ Yardımcı dosyalar (uygulanmaz, doğrulama içindir):
 | `2026-09-06-sema-dokumu.sql` | `93810ba662d5517365273e0b36a59b5f9c53b283b4d314b6146d319f154a9956` | Üretim taban kopyası |
 | `2026-09-07-pms-yayin-oncesi-preflight.sql` | `3bb9b326e4a2f52037f44c19dfbe4ce28f07782db7643a59bca180186e17e5e7` | Yayın öncesi salt-okuma preflight |
 
+> **Hash doğrulaması (2026-09-07, final):** dört migration da manifest ilk
+> yazıldığından beri **değişmedi**; SHA256'lar yeniden hesaplandı ve yukarıdaki
+> değerlerle birebir aynı çıktı. Sonraki commit'ler (`7f15e8c`, `d9e8bc5`)
+> yalnız ekran dosyalarına ve QA altyapısına dokundu.
+>
 > **Adım 4 için `81f71db` sürümü GEÇERSİZDİR.** O sürümde finansal append-only,
 > ödeme idempotency anahtarı, kapanış kilidi ve bar terminal durum kilidi yoktur.
 > Geçerli içerik yukarıdaki hash'tir.
@@ -74,6 +92,26 @@ saparsa **yayın durdurulur**:
 
 Sayı doğrulaması: `2026-09-07-pms-yayin-oncesi-preflight.sql`
 Gövde doğrulaması: `2026-09-06-staging-esitlik-dogrulama.sql`
+
+### Preflight sonucu — 2026-09-07, ÜRETİMDE ÇALIŞTIRILDI (salt-okuma)
+
+**19/19 kontrol geçti. Sıfır drift.**
+
+| Grup | Sonuç |
+|---|---|
+| 1.1–1.7 PMS nesneleri üretimde yok | hepsi 0 ✅ — **sahipsiz uygulama yok**, isim/kolon/tetikleyici çakışması yok |
+| 2.1–2.6 Adım 1 önkoşulları | 4 / 4 / 1 / 1 / 2 / 3 ✅ |
+| 3.1 tablo · 3.2 politika · 3.3 kısıtlayıcı | 66 / 193 / 31 ✅ — üretim, testlerin koştuğu şemayla **aynı** |
+| 3.4 RLS kapalı tablo · 3.5 pinsiz SECURITY DEFINER · 3.6 anon hakkı | hepsi 0 ✅ |
+
+**Bilgi (karar kriteri değil):** `erp_islem_audit` satır sayısı **0**. Denetim izi
+üretimde hâlâ hiç kayıt üretmedi. Bu, yayın için ölçüm avantajıdır: sayaç 0'dan
+başladığı için her adımın smoke testinde artması, denetim izinin canlıda
+çalıştığının **ilk somut kanıtı** olacaktır (runbook 2.7).
+
+**Sürüm farkı, sapma değil:** üretim PostgreSQL **17.6**, test konteyneri 17.11.
+Bilinen ve zararsız; fonksiyon karşılaştırması zaten sürümden bağımsız
+`md5(prosrc)` ile yapılır (`md5(pg_get_functiondef())` sürüme duyarlıdır).
 
 ## 4. Yayın sırası ve her adımın kapıları
 
@@ -187,33 +225,63 @@ Tüm adımlar aynı yayın penceresinde, aynı kişi tarafından, runbook bölü
 | `phase0-security.test.mjs` | 6/6 |
 | `git diff --check` | temiz |
 | Sabotaj koşumu | **6/6 yakalandı** |
+| Tarayıcı QA (yerel staging) | **PASSED** (bölüm 8) |
+| Üretim salt-okuma preflight | **PASSED** 19/19 (bölüm 3) |
 
 Tüm veritabanı testleri, tek kullanımlık PostgreSQL 17 konteynerinde
 **doğrulanmış üretim şema dökümü** üzerinde koşar; üretime bağlanmaz.
 
 ## 7. Bilinen açıklar
 
+**Blocker kalmadı.** Üçü de kapandı:
+
+| # | Eski seviye | Durum |
+|---|---|---|
+| 1 | Blocker | ✅ **Kapandı** — tarayıcı QA yerel staging'de koşuldu, PASSED (bölüm 8) |
+| 2 | Blocker | ✅ **Kapandı** — üretim preflight'ı çalıştırıldı, 19/19 (bölüm 3) |
+| 3 | Blocker | ✅ **Kapandı** — aday commit edildi ve SHA256 ile sabitlendi (bölüm 1–2) |
+
+Kalan riskler yalnız **P3**; hiçbiri yayını durdurmaz:
+
 | # | Seviye | Konu |
 |---|---|---|
-| 1 | **Blocker** | Manuel tarayıcı QA yapılmadı (bkz. bölüm 8) |
-| 2 | **Blocker** | Üretim salt-okuma preflight'ı çalıştırılmadı — kimlik bilgisi yok |
-| 3 | ~~Blocker~~ **kapandı** | Aday commit edildi ve SHA256 ile sabitlendi (bölüm 1–2) |
-| 4 | P3 | Teslim sonrası düzeltme, folyoya elle `duzeltme` satırı gerektirir (bar siparişinin durumu geri alınamaz — bilinçli) |
-| 5 | P3 | `erp_islem_audit` üretimde 0; denetim izi canlıda hiç kanıtlanmadı |
-| 6 | P3 | `supabase_admin` varsayılan ACL'i yeni nesnelerde `anon`'a hak veriyor (Supabase destek konusu) |
-| 7 | P3 | Yayın sonrası eşitlik tabanı bayatlayacak; yeni taban çıkarılmalı |
+| 4 | P3 | Teslim sonrası düzeltme, folyoya elle `duzeltme` satırı gerektirir (bar siparişinin durumu geri alınamaz — bilinçli karar) |
+| 5 | P3 | `erp_islem_audit` üretimde 0; denetim izi canlıda hiç kanıtlanmadı. **Yayın smoke testleri bunu kanıtlayacak** |
+| 6 | P3 | `supabase_admin` varsayılan ACL'i yeni nesnelerde `anon`'a hak veriyor (Supabase destek konusu). Migration'lar bunu tablo bazında geri alıyor; doğrulama blokları sınıyor |
+| 7 | P3 | Yayın sonrası eşitlik tabanı bayatlayacak; PMS nesneleri eklendiği için yeni taban çıkarılmalı (Adım 5) |
+| 8 | P3 | Gerçek PIN akışı ve diğer Edge Function'lar yerel staging'de sınanmadı (stub); üretimde ilk girişte doğrulanmalı |
 
 ## 8. Tarayıcı QA durumu
 
-**MANUEL TARAYICI QA BEKLIYOR.**
+**PMS BROWSER QA: PASSED** — 2026-09-07, `scripts/yerel-staging.mjs` ile kurulan
+yerel ortamda (Docker PostgreSQL 17 + PostgREST + doğrulanmış üretim şema dökümü
++ Adım 1–4). Ayrıntılı liste: [[2026-09-07-tarayici-qa-kontrol-listesi]].
 
-Yapılabilen: yerel statik sunucuda giriş ekranı render edildi; `pms-folio.html`
-oturumsuz açılmaya çalışıldığında giriş ekranına döndü (fail-closed doğrulandı).
+**Ağ güvenliği:** koşum boyunca `supabase.co`'ya **0 istek**; tüm trafik
+`127.0.0.1`. Üretim PIN'i kullanılmadı, üretime giriş kaydı yazılmadı.
 
-Yapılamayan: giriş sonrası hiçbir işlevsel akış. Uygulama üretim Supabase'ine
-bağlanır ve giriş başarılı PIN kaydı **yazar**; bu, üretim yazma dondurmasının
-ihlali olurdu. Formlar, modal'lar, filtreler, check-in/out, folyo, tahsilat,
-bar devri ve dar ekran kullanımı **kullanıcı tarafından** test edilmelidir.
+Doğrulanan kritik akışlar: giriş + otel kapsamı · oda tipleri (ekleme/düzenleme/
+aktif-pasif/arama/filtre/doğrulama) · odalar (mükerrer oda no reddi HTTP 409
+dahil) · misafir · rezervasyon · check-in · room rack · folyo (oda ücreti,
+**ikinci basışta mükerrer yok**, ekstra, **tahsilat çift tıklamasında tek kayıt**,
+bakiyeli kapanış reddi, sıfır bakiyeli kapanış, kapalı folyoya yazma reddi) ·
+bar devri (boş oda reddi, **terminal durum reddi**, çapraz otel reddi) ·
+bakiye kalmışken check-out · dar ekran (375×812, yatay taşma yok).
+
+### İlk koşumda bulunan 4 sorun — hepsi düzeltildi (`7f15e8c`)
+
+| Bulgu | Kök neden | Durum |
+|---|---|---|
+| Oda tipleri ve odalar ekranları açılışta boş, "Sunucuya ulaşılamadı" | `SATIR_TAVANI` sabiti onu kullanan `yukle()` çağrısından sonra tanımlıydı (temporal dead zone) | ✅ |
+| Folyo modali tazelemeden sonra bozuluyor, oda ücreti düğmesi kalıcı pasif | `yukle()` `ACIK`'ı ham özet satırıyla değiştirip `rez` bağlamını düşürüyordu | ✅ |
+| Yetkisiz kullanıcı yanıltıcı "kayıt yok" görüyor | RLS hata değil 0 satır döndürür; ekran yalnız HTTP hatasına bakıyordu | ✅ mevcut yetki motoruna soruluyor, fail-closed |
+| Doğrulama mesajları hiç görünmüyor + hiçbir ekran işlem sonrası tazelenmiyor | **Altı PMS ekranında da `#toast` elementi yoktu**; her `toast()` `TypeError` fırlatıyor, `try/catch` yutuyor ve hemen ardındaki `await yukle()` çalışmıyordu | ✅ element + stil eklendi |
+
+Son madde P3 "otomatik tazeleme" maddesinin de kök nedeniydi; ekran başına yama
+gerekmeden kapandı.
+
+**Service worker:** panelde kayıt başarısızdı; **gerçek Chrome penceresinde
+başarılı** olduğu doğrulandı. Panel sandbox'ı kaynaklı, **ürün hatası değil**.
 
 ## 9. İlgili
 
