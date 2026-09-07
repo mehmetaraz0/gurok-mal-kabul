@@ -11,7 +11,17 @@
 // para harcamadan, dökümün gerçekten yeterli olup olmadığını yerelde kanıtlar.
 //
 // KULLANIM:
-//   node scripts/dokum-dogrula.mjs docs/kurulum/2026-09-06-sema-dokumu.sql
+//   node scripts/dokum-dogrula.mjs <dokum.sql> [esitlik-dosyasi.sql]
+//
+//   PMS ONCESI taban (varsayilan, geriye donuk uyumlu):
+//     node scripts/dokum-dogrula.mjs docs/kurulum/2026-09-06-sema-dokumu.sql
+//
+//   POST-PMS-FAZ1 taban:
+//     node scripts/dokum-dogrula.mjs docs/kurulum/<yeni-dokum>.sql //          docs/kurulum/2026-09-07-post-pms-faz1-esitlik-dogrulama.sql
+//
+// Esitlik dosyasi VERILMEZSE PMS oncesi dosya kullanilir; o dosya PMS
+// uygulandiktan sonra tasarimi geregi SAPMA raporlar. Yeni taban icin
+// ikinci argumani vermek ZORUNLUDUR.
 //
 // ÇIKIŞ KODU: 0 = döküm üretimi temsil ediyor, 1 = sapma var (veya hata).
 //
@@ -130,8 +140,16 @@ console.log('2) Dokum yuklendi      : ' + (hatalar.length === 0
 for (const h of hatalar.slice(0, 5)) console.log('   ' + h.slice(0, 160));
 
 // 3) Uretime karsi esitlik.
-r = docker([...psql, '-v', 'ON_ERROR_STOP=1'],
-  readFileSync(kok + 'docs/kurulum/2026-09-06-staging-esitlik-dogrulama.sql', 'utf8'));
+// Esitlik dosyasi argumanla degistirilebilir: PMS oncesi ve PMS sonrasi
+// tabanlar ayri dosyalardir ve ikisi de tarihsel kanit olarak durur.
+const esitlikVarsayilan = kok + 'docs/kurulum/2026-09-06-staging-esitlik-dogrulama.sql';
+const esitlikYolu = process.argv[3] || esitlikVarsayilan;
+if (!existsSync(esitlikYolu)) {
+  console.error('Esitlik dosyasi bulunamadi: ' + esitlikYolu);
+  temizle(); process.exit(1);
+}
+console.log('   esitlik dosyasi: ' + esitlikYolu.replace(kok, ''));
+r = docker([...psql, '-v', 'ON_ERROR_STOP=1'], readFileSync(esitlikYolu, 'utf8'));
 if (!r.ok) {
   console.error('Esitlik sorgusu calismadi:\n' + r.err.slice(0, 400));
   temizle(); process.exit(1);
