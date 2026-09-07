@@ -452,19 +452,11 @@ begin
     return null;
   end if;
 
-  -- ---- TESLIMDEN CIKIS (iptal): TERS KAYIT ----
-  -- Borc SILINMEZ; mali iz korunur.
-  if old.durum = 'teslim_edildi' and new.durum is distinct from 'teslim_edildi' then
-    insert into public.pms_folio_hareketleri
-      (otel_id, folio_id, tip, aciklama, tutar, kaynak_tip, kaynak_id, ters_kayit)
-    select h.otel_id, h.folio_id, 'duzeltme',
-           'Bar siparisi iptali (ters kayit)', -h.tutar, 'bar', new.id, true
-      from public.pms_folio_hareketleri h
-     where h.kaynak_tip = 'bar' and h.kaynak_id = new.id and not h.ters_kayit
-    on conflict do nothing;
-    return null;
-  end if;
-
+  -- TESLIMDEN CIKIS DIYE BIR SEY YOK: 'teslim_edildi' TERMINAL durumdur
+  -- (asagidaki pms_bar_durum_kilit). Teslimden sonra yapilan duzeltme folyoya
+  -- elle 'duzeltme' satiri olarak girilir; bar siparisinin durumu geri alinmaz.
+  -- Bu yuzden burada ters kayit dali YOKTUR: ulasilamayan, dolayisiyla
+  -- sinanamayan bir finansal kod yolu birakmiyoruz.
   return null;
 end;
 $$;
@@ -472,6 +464,46 @@ $$;
 drop trigger if exists pms_bar_folio_koprusu on public.bar_siparisleri;
 create trigger pms_bar_folio_koprusu after update of durum on public.bar_siparisleri
   for each row execute function public.pms_bar_folio_koprusu();
+
+-- ---------------------------------------------------------------------------
+-- BAR DURUM MAKINESI: 'teslim_edildi' ve 'iptal' TERMINALDIR
+-- ---------------------------------------------------------------------------
+-- Bu kural yeni bir is kurali DEGIL; sistemde zaten fiilen gecerli olan
+-- davranisin DB katmaninda eksik kalan yarisi:
+--
+--   * bar_siparis_teslim_et() stok rezervasyonlarini 'kullanildi' yapar ve
+--     stogu duser. IKINCI teslim hicbir stok hareketi uretmez.
+--   * bar_siparis_iptal() yalniz 'aktif' rezervasyonu serbest birakir; teslim
+--     sonrasi iptal stogu GERI VERMEZ.
+--   * bar_siparis_durum_guncelle() yalniz 'hazirlaniyor'/'hazir' hedefini
+--     kabul eder, terminal durumlardan geri donus saglamaz.
+--   * bar-siparis-kuyrugu.html teslim/iptal kartlarinda HIC buton gostermez.
+--
+-- Yani stok defteri ve ekran icin teslim/iptal zaten son duraktir; yalnizca
+-- dogrudan REST/DML yolu aciktir. Acik kalirsa
+-- teslim_edildi -> iptal -> teslim_edildi zinciri folyoda borc/ters kayit
+-- karmasasi uretebilirdi. Kural burada kapatilir; teslim sonrasi duzeltme
+-- folyoya 'duzeltme' satiri olarak girilir.
+create or replace function public.pms_bar_durum_kilit()
+returns trigger language plpgsql
+set search_path = pg_catalog, public, pg_temp as $$
+begin
+  if new.durum is not distinct from old.durum then
+    return new;   -- durum degismiyor: diger kolonlar serbest
+  end if;
+  if old.durum in ('teslim_edildi','iptal') then
+    raise exception
+      'Bar siparisi % durumundan cikarilamaz (son durum). Duzeltme folyoya duzeltme satiri olarak girilir',
+      old.durum
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists pms_bar_durum_kilit on public.bar_siparisleri;
+create trigger pms_bar_durum_kilit before update of durum on public.bar_siparisleri
+  for each row execute function public.pms_bar_durum_kilit();
 
 -- ============================================================================
 -- 9) FOLYO KAPATMA
@@ -787,6 +819,14 @@ begin
       raise exception 'Append-only tetikleyicisi yok: %', v_tablo;
     end if;
   end loop;
+
+  -- Bar durum kilidi olmadan teslim_edildi -> iptal -> teslim_edildi zinciri
+  -- folyoda borc/ters kayit karmasasi uretir.
+  if not exists (select 1 from pg_trigger t
+                  where t.tgrelid = 'public.bar_siparisleri'::regclass
+                    and t.tgname = 'pms_bar_durum_kilit' and not t.tgisinternal) then
+    raise exception 'Bar durum kilidi tetikleyicisi yok';
+  end if;
 
   -- "Silme mumkun + denetim izi yok" durumu HICBIR tabloda kalmamali.
   foreach v_tablo in array array['pms_folyolar','pms_folio_hareketleri',

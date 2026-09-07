@@ -233,22 +233,49 @@ select pms4_test.dogru(
     where kaynak_id = 'c2000000-0000-0000-0000-000000040004'),
   'T3: oda numarasi olmayan siparis folyoya dusmez');
 
--- IPTAL: borc silinmez, TERS KAYIT yazilir.
-update public.bar_siparisleri set durum = 'iptal'
- where id = 'c2000000-0000-0000-0000-000000040001';
+-- TESLIM SONRASI IPTAL YOK: 'teslim_edildi' TERMINAL durumdur.
+-- Mevcut is akisi zaten boyle: teslim stogu duser, sonraki iptal stogu geri
+-- VERMEZ, ekranda teslim edilmis sipariste buton yoktur. Eksik olan tek sey
+-- DB kilidiydi; simdi o da var.
+select pms4_test.reddedilmeli($q$
+  update public.bar_siparisleri set durum = 'iptal'
+   where id = 'c2000000-0000-0000-0000-000000040001'
+$q$, 'T3: teslim edilmis siparis iptale cevrilemez (terminal durum)');
 select pms4_test.dogru(
-  (select count(*) = 1 from public.pms_folio_hareketleri
-    where kaynak_id = 'c2000000-0000-0000-0000-000000040001'
-      and ters_kayit and tutar = -240.00),
-  'T3: iptal ters kayit uretti (-240)');
+  (select durum = 'teslim_edildi' from public.bar_siparisleri
+    where id = 'c2000000-0000-0000-0000-000000040001'),
+  'T3: siparis teslim_edildi olarak kaldi');
 select pms4_test.dogru(
   (select count(*) = 1 from public.pms_folio_hareketleri
     where kaynak_id = 'c2000000-0000-0000-0000-000000040001' and not ters_kayit),
-  'T3: orijinal borc SILINMEDI (mali iz korundu)');
+  'T3: borc satiri yerinde');
 select pms4_test.dogru(
-  (select bakiye = 3000.00 from public.pms_folio_ozet
+  (select count(*) = 0 from public.pms_folio_hareketleri
+    where kaynak_id = 'c2000000-0000-0000-0000-000000040001' and ters_kayit),
+  'T3: ters kayit URETILMEDI (ulasilamayan finansal dal yok)');
+select pms4_test.dogru(
+  (select bakiye = 3240.00 from public.pms_folio_ozet
     where rezervasyon_id = '11000000-0000-0000-0000-000000040001'),
-  'T3: ters kayit sonrasi bakiye 3000 e dondu');
+  'T3: bakiye 3240 olarak kaldi');
+
+-- IPTAL EDILMIS siparis de geri alinamaz (diger terminal durum).
+insert into public.bar_siparisleri (id, otel_id, depo_id, oda_no, durum)
+values ('c2000000-0000-0000-0000-000000040005','810','BAR1','401','hazir')
+on conflict (id) do nothing;
+update public.bar_siparisleri set durum = 'iptal'
+ where id = 'c2000000-0000-0000-0000-000000040005';
+select pms4_test.reddedilmeli($q$
+  update public.bar_siparisleri set durum = 'teslim_edildi'
+   where id = 'c2000000-0000-0000-0000-000000040005'
+$q$, 'T3: iptal edilmis siparis teslime cevrilemez (terminal durum)');
+
+-- Terminal durumda DIGER kolonlar serbest kalmali (kilit fazla genis olmasin).
+update public.bar_siparisleri set oda_no = '401'
+ where id = 'c2000000-0000-0000-0000-000000040001';
+select pms4_test.dogru(
+  (select oda_no = '401' from public.bar_siparisleri
+    where id = 'c2000000-0000-0000-0000-000000040001'),
+  'T3: terminal sipariste durum disi kolon guncellenebiliyor');
 
 -- ---------------------------------------------------------------------------
 -- T4 — ÖDEME VE BAKİYE
@@ -261,9 +288,9 @@ insert into public.pms_folio_odemeler (otel_id, folio_id, yontem, tutar)
 select '810', id, 'nakit', 1000.00 from public.pms_folyolar
  where rezervasyon_id = '11000000-0000-0000-0000-000000040001';
 select pms4_test.dogru(
-  (select bakiye = 2000.00 from public.pms_folio_ozet
+  (select bakiye = 2240.00 from public.pms_folio_ozet
     where rezervasyon_id = '11000000-0000-0000-0000-000000040001'),
-  'T4: 1000 tahsilat sonrasi bakiye 2000');
+  'T4: 1000 tahsilat sonrasi bakiye 2240 (3000 oda + 240 bar - 1000)');
 
 -- Sifir tutarli odeme anlamsizdir.
 select pms4_test.reddedilmeli($q$
@@ -282,7 +309,7 @@ select pms4_test.reddedilmeli($q$
 $q$, 'T5: bakiyeli folyo kapatilamaz');
 
 insert into public.pms_folio_odemeler (otel_id, folio_id, yontem, tutar)
-select '810', id, 'kredi_karti', 2000.00 from public.pms_folyolar
+select '810', id, 'kredi_karti', 2240.00 from public.pms_folyolar
  where rezervasyon_id = '11000000-0000-0000-0000-000000040001';
 select public.pms_folio_kapat(
   (select id from public.pms_folyolar
