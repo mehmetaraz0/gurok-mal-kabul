@@ -82,6 +82,7 @@ c2_kayit_toplam as (select count(*) n from pg_default_acl),
 -- D) ETKİ ÖLÇÜMÜ — varsayılan ACL bir NİYET beyanıdır; asıl soru
 --    üretimde GERÇEKTEN anon'a açık nesne olup olmadığıdır.
 --    Bu üç sayı `public` şemasındaki fiili durumu ölçer ve HEPSİ 0 olmalıdır.
+--    D3 ilk ölçümde (2026-09-07) 18'di; 2026-09-08 temizliğiyle 0'a indi.
 --    Varsayılan ACL riski gerçekleşirse önce burası kırmızıya döner.
 -- ---------------------------------------------------------------------------
 d1_anon_tablo as (
@@ -140,8 +141,8 @@ from (values
   -- Fiili etki: hepsi 0 olmalı. Risk gerçekleşirse ilk burası kırmızıya döner.
   ('D1 anon tablo hakki (public)',  (select n from d1_anon_tablo),          0, 'esit'),
   ('D2 anon sekans USAGE (public)', (select n from d2_anon_sekans),         0, 'esit'),
-  ('D3 anon EXECUTE fonksiyon (public) BILGI',
-                                    (select n from d3_anon_fonksiyon),     -1, 'bilgi')
+  ('D3 anon EXECUTE fonksiyon (public)',
+                                    (select n from d3_anon_fonksiyon),      0, 'esit')
 ) as t(kontrol, bulunan, beklenen, tur)
 
 union all
@@ -162,6 +163,12 @@ order by 1, 2;
 --                   üretiyor. Phase 0'ın `alter default privileges for role
 --                   postgres in schema public revoke execute on functions
 --                   from anon` satırı geri alınmış olabilir. Yayını durdur.
+--
+-- D3 <> 0        -> DUR. `public` semasinda anon'a EXECUTE acik fonksiyon var.
+--                   2026-09-08'de 18'den 0'a indirildi
+--                   (`2026-09-08-pms-fonksiyon-acl-temizligi.sql`); yeniden
+--                   yukselmesi, ACL karari verilmemis yeni bir fonksiyon
+--                   eklendigi anlamina gelir.
 --
 -- D1/D2 <> 0     -> DUR. Varsayılan ACL riski ARTIK TEORİK DEĞİL: üretimde
 --                   anon'a açık nesne var. Hangi nesne olduğunu bulmadan

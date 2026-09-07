@@ -161,11 +161,23 @@ nesneler** için geçerli. Somut olarak:
    `supabase_admin`'in yarattığı tabloda RLS'i **biz açmayız** — açık gelmezse
    koruma yoktur. Bu yüzden `rls_auto_enable` (henüz bağlı değil) ve
    D1/D2 fiili ölçümü birlikte önem taşır.
-3. **Fonksiyonlar.** `anon` EXECUTE ile doğan bir fonksiyon, gövdesi ne
-   yapıyorsa onu oturumsuz çağrıya açar. `public` şemasındaki tüm
-   fonksiyonların `anon` EXECUTE durumu uyarı kontrolünde **D3** olarak
-   raporlanır (bilgi; henüz sayısal beklenti konmadı — ölçülmemiş bir sayıya
-   beklenti yazmıyoruz).
+3. **Fonksiyonlar — ölçüldü ve kapatıldı (2026-09-08).** İlk çalıştırmada
+   **D3 = 18** çıktı: `public` şemasında `anon`'un EXECUTE hakkı olan 18
+   fonksiyon, hepsi bizim PMS fonksiyonlarımız.
+
+   Sınıflandırma repodan doğrulandı: **17'si `returns trigger`** (doğrudan
+   çağrılamaz — PostgreSQL tetikleyici bağlamı dışında reddeder, PostgREST
+   RPC olarak yayınlamaz), **1'i `pms_bugun(otel_id)`** (`language sql
+   stable`, hiçbir tabloya dokunmuyor, saat dilimine göre tarih döndürüyor).
+   **Fiili sızıntı yoktu.**
+
+   Asıl bulgu şuydu: 22 PMS fonksiyonundan yalnız 4'ü açık `revoke` almıştı.
+   Açık revoke alan her fonksiyon kapalı, almayan her fonksiyon açıktı —
+   standardın kuralının üretimde bire bir çalıştığının kanıtı.
+
+   `2026-09-08-pms-fonksiyon-acl-temizligi.sql` ile **D3: 18 → 0**.
+   Uygulama sonrası ölçüm: beş çağrılabilir RPC'de `authenticated = true`,
+   `anon = false`; `pms_toplam = 22`. Akış etkilenmedi.
 4. **Gerçekleşme sinyali.** Risk teorikten fiiliye dönerse önce D1/D2 kırmızıya
    döner. Karar kriteri **D1/D2**'dir; B1/C1 yalnız kaynağı gösterir.
 

@@ -174,6 +174,7 @@ geri alır; kısmi durum oluşmaz.
 |---|---|---|---|---|---|
 | 2026-09-06, ~00:44–08:32 arası (kesin değil) | **UNKNOWN** | **YOK** | 8a080d3 veya sonrası ile uyumlu | `2026-09-05-phase0-hardening.sql` | Uygulandı; **smoke test EKSİK** — aşağıya bakınız |
 | 2026-09-07T20:30–21:05+03:00 | Claude (ajan) + kullanıcı (SQL Editor) | **VAR** — `CANLIYA UYGULA`, 2026-09-07 | `5f0945d` (DB) → `4b131ae` (ön yüz) | PMS Faz 1 Adım 1–4 (4 dosya) | **Başarılı.** Hata yok, geri alma gerekmedi — aşağıya bakınız |
+| 2026-09-08 | Kullanıcı (SQL Editor) | **YOK** — ajan öneri olarak sunmuştu, kullanıcı doğrudan çalıştırdı | Sonradan `2026-09-08-pms-fonksiyon-acl-temizligi.sql` ile kayda geçirildi | PMS fonksiyon ACL temizliği (yalnız REVOKE) | **Başarılı.** Uygulama sonrası ölçüldü; hiçbir akış kırılmadı — aşağıya bakınız |
 
 > Bu satır bir uyarı olarak duruyor. Onaysız, sahipsiz ve kayıtsız bir üretim
 > değişikliğinin nasıl göründüğünü gösteriyor. Sonraki her satır eksiksiz
@@ -288,3 +289,34 @@ için şu zincir üretimde kalıcıdır ve silinemez: misafir `araz, mehmet`,
 `R-2026-000002` / `F-2026-000002` (9.000 / 9.000, kapalı). Her ikisi de net
 sıfır ve kapalı; muhasebe açısından etkisizdir. Misafir adı istenirse
 değiştirilebilir (misafir tablosu append-only değildir).
+
+---
+
+## 6. PMS fonksiyon ACL temizliği — 2026-09-08
+
+| Alan | Değer |
+|---|---|
+| **Ne yapıldı** | `public` şemasındaki tüm `pms_*` fonksiyonlarından `PUBLIC` ve `anon` için EXECUTE geri alındı. Yalnız `REVOKE`; hiçbir gövde, tablo, politika ya da veri değişmedi. |
+| **Kim çalıştırdı** | Kullanıcı, Supabase SQL Editor. |
+| **Onay** | **`CANLIYA UYGULA` alınmadı.** Ajan bunu bir öneri olarak sunmuş, kullanıcı doğrudan çalıştırmıştır. Prosedür ihlali olarak kayda geçer; sonucu zararsız çıkmıştır ama kayıt düzeltilmemelidir. |
+| **Neden gerekti** | `2026-09-07-varsayilan-acl-uyari-kontrolu.sql` ilk çalıştırmasında **D3 = 18** ölçüldü: `public` şemasında `anon`'un EXECUTE hakkı olan 18 fonksiyon, hepsi PMS. 22 PMS fonksiyonundan yalnız 4'ü açık `revoke` almıştı. |
+| **Fiili risk (uygulama öncesi)** | **Yok.** 18'in 17'si `returns trigger` — doğrudan çağrılamaz, PostgREST RPC olarak yayınlamaz. Kalan biri `pms_bugun(otel_id)`: `language sql stable`, hiçbir tabloya dokunmuyor, saat dilimine göre tarih döndürüyor. |
+| **Doğrulama (uygulama sonrası, salt-okuma)** | `d3_anon = 0` · `pms_toplam = 22`. Beş çağrılabilir RPC'de (`pms_check_in`, `pms_check_out`, `pms_folio_oda_ucreti_isle`, `pms_folio_kapat`, `pms_bugun`) `authenticated = true`, `anon = false`. |
+| **Etki** | Yok. Tetikleyiciler etkilenmez: PostgreSQL tetikleyici fonksiyonu üzerindeki EXECUTE hakkını `CREATE TRIGGER` anında kontrol eder, ateşlenirken yeniden kontrol etmez. `authenticated` da etkilenmez: varsayılan ACL ona PUBLIC üzerinden değil, kendi EXECUTE hakkını verir. |
+| **Repo kaydı** | `docs/kurulum/2026-09-08-pms-fonksiyon-acl-temizligi.sql` — idempotent, doğrulama bloklu, yeni kurulumlarda da çalışır. |
+| **Geri alma gerekti mi** | Hayır. Geri alma ayrıca **önerilmez**: bu migration yalnız fazla verilmiş ayrıcalığı geri alır. |
+
+### Alınan ders
+
+Değişiklik zararsız çıktı, ama **önce üretimde uygulanıp sonra kayda geçirildi.**
+Bu, 6 Eylül'deki sahipsiz Phase 0 uygulamasının küçük ölçekli tekrarıdır: bir
+süre boyunca üretimde, repoda karşılığı olmayan bir durum vardı ve sonraki bir
+eşitlik doğrulaması bunu açıklanamayan bir sapma olarak raporlayacaktı.
+
+Sıra her zaman şudur: **migration dosyası → statik denetim → onay → uygulama
+→ doğrulama → kayıt.** Doğrudan SQL Editor'de çalıştırılan bir DDL, ne kadar
+küçük olursa olsun, aynı gün dosyaya dönüştürülmelidir.
+
+> `Success. No rows returned` bir DO bloğunun her zaman verdiği çıktıdır ve
+> **hiçbir şey kanıtlamaz** — kaç revoke çalıştığını söylemez. Bu yüzden
+> uygulama sonrası ölçüm ayrıca yapıldı.
