@@ -142,3 +142,20 @@ recovery cannot be established, keep affected writes disabled and forward-fix.
   production deploy'undan KALDIRIN (2026-07-21 güvenlik denetimi önerisi) —
   ikisi de service-role anahtarı kabul eden tek seferlik araçlardır.
 - Service-role anahtarını hiçbir dosyaya/nota yazmadığınızı doğrulayın.
+
+### Yeni migration yazacaksanız
+
+2026-09-08'den itibaren yeni migration'lar bir ACL/grant standardına tabidir:
+
+| | |
+|---|---|
+| Standart | `docs/kurulum/MIGRATION-GUVENLIK-STANDARDI.md` |
+| Şablon | `docs/kurulum/SABLON-yeni-migration.sql` |
+| Denetim | `node scripts/migration-guvenlik-kontrol.mjs` |
+
+Denetim `node scripts/check.mjs` zincirine bağlıdır. Canlıya uygulanmış
+tarihî migration'lar (PMS Adım 1–4 dâhil) **yeniden yazılmaz** ve varsayılan
+kapsamda değildir.
+
+Üretimin fiili ACL durumu ayrı ölçülür:
+`docs/kurulum/2026-09-07-varsayilan-acl-uyari-kontrolu.sql` (salt-okuma).

@@ -67,12 +67,34 @@ git rev-parse HEAD        # kayda geçecek hash
 Çalışma ağacı kirliyse yayın yapılmaz: uygulanan şeyin hangi commit olduğu
 belirsizleşir. Bu tam olarak 6 Eylül'de yaşanan belirsizliktir.
 
+### 2.2b Statik migration denetimi (2026-09-08'den itibaren zorunlu)
+```bash
+node scripts/migration-guvenlik-kontrol.mjs
+node --test scripts/migration-guvenlik-kontrol.test.mjs
+```
+İkisi de yeşil olmadan yayın başlamaz. Denetleyici veritabanına bağlanmaz;
+yalnız yeni migration dosyalarının ACL/grant standardına uyduğunu ölçer.
+Standart: `docs/kurulum/MIGRATION-GUVENLIK-STANDARDI.md`.
+
+Tarihî dosyalar (PMS Adım 1–4 dâhil) varsayılan kapsamda **değildir** ve
+CI'ı kırmazlar; bilinen sapmaları standardın 5. bölümünde listelidir.
+
 ### 2.3 Yayın öncesi parmak izi (salt-okuma)
-```
-docs/kurulum/2026-09-06-staging-esitlik-dogrulama.sql
-```
-Üretimde çalıştırılır. Çıktı **kaydedilir** — geri alma gerekirse
-"öncesi" fotoğrafı budur.
+
+Üretimde çalıştırılır, çıktı **kaydedilir** — geri alma gerekirse "öncesi"
+fotoğrafı budur. Güncel taban POST-PMS-FAZ1'dir; eski dosyalar yanlış alarm
+verir (bkz. "Yeni taban (POST-PMS-FAZ1)" bölümü).
+
+| Ne ölçer | Dosya |
+|---|---|
+| Şema / politika / fonksiyon parmak izi | `2026-09-07-post-pms-faz1-uretim-parmakizi.sql` |
+| Şema eşitliği | `2026-09-07-post-pms-faz1-esitlik-dogrulama.sql` |
+| **Varsayılan ACL + fiili anon hakkı** | `2026-09-07-varsayilan-acl-uyari-kontrolu.sql` |
+
+**ACL uyarı kontrolünün karar kriteri D1/D2'dir** (`public` şemasında anon
+tablo/sekans hakkı = 0). `B1`/`C1` bilinen platform riskini izler:
+büyürlerse yayın durmaz, ama açıklanmadan geçilmez. Ayrıntı:
+`2026-09-07-varsayilan-acl-bulgusu.md`.
 
 ### 2.4 Yedek
 Supabase Dashboard → Database → Backups. Yedeğin tarihi ve saati kayda
@@ -82,7 +104,9 @@ süre kayıt altına alınır.
 ### 2.5 Yerel prova
 Migration önce üretimin doğrulanmış kopyasında koşturulur:
 ```bash
-node scripts/dokum-dogrula.mjs docs/kurulum/<tarih>-sema-dokumu.sql
+node scripts/dokum-dogrula.mjs \
+  docs/kurulum/2026-09-07-post-pms-faz1-sema-dokumu.sql \
+  docs/kurulum/2026-09-07-post-pms-faz1-esitlik-dogrulama.sql
 ```
 Ardından migration o kopyaya uygulanıp fark raporu alınır. Beklenmeyen tek
 bir fark bile yayını durdurur.

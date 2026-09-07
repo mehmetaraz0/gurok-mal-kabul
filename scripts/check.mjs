@@ -6,6 +6,8 @@
 //      (auth-guard -> supabase-config -> otel-config -> ortak/onay-motoru)
 //   3) UTC tarih tuzağı regülasyonu: toISOString() üzerinden gün damgası yasak
 //   4) Bar müşteri-proje sabitlerinin sayfalara geri kopyalanmaması (tek kaynak bar-config.js)
+//   5) Yeni migration dosyalarının ACL/grant standardı
+//      (docs/kurulum/MIGRATION-GUVENLIK-STANDARDI.md)
 
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -65,6 +67,18 @@ for (const f of htmls) {
   if (src.includes('CUSTOMER_SB_URL') && !src.includes('bar-config.js') && f !== 'docs') {
     // bar-config yüklenmeden CUSTOMER_* kullanan sayfa
   }
+}
+
+// ---- 5) Migration ACL/grant standardı --------------------------------------
+// Ayrı bir süreç olarak çalışır: denetleyici kendi çıkış kodunu üretir ve
+// veritabanına bağlanmaz. Yalnız taban tarihten YENİ migration dosyalarına
+// bakar; canlıya uygulanmış tarihî dosyalar kapsam dışıdır.
+try {
+  execFileSync(process.execPath, [join(root, 'scripts', 'migration-guvenlik-kontrol.mjs')],
+    { stdio: 'pipe', cwd: root });
+} catch (e) {
+  const cikti = String(e.stdout || '') + String(e.stderr || '');
+  errors.push('MIGRATION ACL STANDARDI — bkz. docs/kurulum/MIGRATION-GUVENLIK-STANDARDI.md\n' + cikti.trim());
 }
 
 console.log(`Taranan: ${readdirSync(root).filter(f => f.endsWith('.js')).length} .js + ${htmls.length} .html`);
