@@ -107,8 +107,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 
     <div id="fKapaliNot" class="uyari" style="display:none">
       <b>Bu folyo kapalı.</b>
-      Kapalı folyoya yeni hareket veya tahsilat eklenemez, mevcut satırlar değiştirilemez.
-      Kural veritabanındadır; ekran yalnızca aynı şeyi gösterir.
+      Kapalı folyoya yeni hareket veya tahsilat eklenemez.
+      Ayrıca <b>finansal satırlar hiçbir folyoda değiştirilemez veya silinemez</b> —
+      düzeltme yeni bir kayıtla yapılır. Kural veritabanındadır; ekran yalnızca
+      aynı şeyi gösterir.
     </div>
 
     <div class="row" id="fIslemler" style="margin-bottom:12px">
@@ -182,6 +184,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
 let OZET = [], FOLYOLAR = [], REZ = [], MISAFIRLER = [];
 let ACIK = null;              // seçili folyo özeti
 let ACIK_HAREKET = [], ACIK_ODEME = [];
+// ODEME IDEMPOTENCY ANAHTARI. Folyo acilinca uretilir, BASARILI tahsilattan
+// sonra yenilenir. Boylece cift tiklama ve agin ayni istegi tekrar gondermesi
+// ayni anahtari tasir; sunucu ikincisini reddeder. Guvence sunucudadir
+// (pms_folio_odeme_anahtar_uniq); buradaki anahtar onu KULLANILIR kilar.
+let ODEME_ANAHTARI = null;
+function yeniOdemeAnahtari(){
+  ODEME_ANAHTARI = (crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : 'o-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
+}
 
 const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
 const SATIR_TAVANI = 5000;
@@ -321,6 +333,7 @@ async function folyoAc(id){
   const f = FOLYOLAR.find(x=>x.id===id);
   if(!f) return;
   ACIK = folyoBilgi(f);
+  yeniOdemeAnahtari();
   await detayYukle();
   aModal('mFolio');
 }
@@ -467,10 +480,12 @@ async function odemeEkle(){
        body:JSON.stringify({otel_id: ACIK.otel_id, folio_id: ACIK.folio_id,
                             yontem: document.getElementById('oYontem').value,
                             tutar: tutar,
+                            islem_anahtari: ODEME_ANAHTARI,
                             aciklama: document.getElementById('oAciklama').value.trim() || null})},
       'Tahsilat');
     if(r.ok){
       document.getElementById('oTutar').value=''; document.getElementById('oAciklama').value='';
+      yeniOdemeAnahtari();   // yalniz BASARIDAN sonra: basarisiz istek tekrar denenebilsin
       toast('Tahsilat eklendi');
       await yukle(); await detayYukle();
     }

@@ -260,6 +260,30 @@ $$;
 create index if not exists pms_folio_odemeler_folio_idx
   on public.pms_folio_odemeler (folio_id, tarih);
 
+-- ÖDEME IDEMPOTENCY ANAHTARI.
+-- Hareketlerde kaynak (bar siparisi) mukerrer borcu engelliyor; odemenin ise
+-- dogal bir is anahtari YOK. Cift tiklama ya da ag katmaninin ayni istegi
+-- tekrar gondermesi ikinci bir tahsilat uretirdi ve bakiye sessizce bozulurdu.
+-- Istemci odeme niyeti basina bir anahtar uretir; ayni anahtar ikinci kez
+-- yazilamaz. Anahtarsiz odeme de kabul edilir (eski/entegrasyon disi yollar).
+alter table public.pms_folio_odemeler
+  add column if not exists islem_anahtari text;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname='pms_folio_odemeler_anahtar') then
+    alter table public.pms_folio_odemeler add constraint pms_folio_odemeler_anahtar
+      check (islem_anahtari is null
+             or (islem_anahtari = btrim(islem_anahtari)
+                 and length(islem_anahtari) between 8 and 100));
+  end if;
+end;
+$$;
+
+create unique index if not exists pms_folio_odeme_anahtar_uniq
+  on public.pms_folio_odemeler (otel_id, islem_anahtari)
+  where islem_anahtari is not null;
+
 -- ============================================================================
 -- 5) BAKİYE GÖRÜNÜMÜ
 -- ============================================================================
@@ -485,13 +509,27 @@ begin
 end;
 $$;
 
--- Kapali folyoya yazma YASAK — hem borc hem odeme icin.
+-- Kapali folyoya yazma YASAK.
+--
+-- KILIT ZORUNLU (P0 dersi): kilitsiz `select ... where durum = 'kapali'`
+-- READ COMMITTED altinda YARISI KAYBEDER. Kapatan islem folyoyu 'kapali'
+-- yapip commit ederken, ayni anda baslamis bir odeme hala ESKI satiri
+-- ('acik') gorur, kontrolden gecer ve KAPANMIS folyoya yazar; folyo sifir
+-- bakiyeyle kapali gorunurken bakiyesi artik sifir DEGILDIR.
+--
+-- `for share` bunu deterministik yapar: kapatan islem satiri `for update` ile
+-- tuttugu icin yazan islem BEKLER; kapanis commit olunca kilit istegi satirin
+-- EN GUNCEL surumunu yeniden okur ve 'kapali' gorup reddeder. Ters sirada
+-- (once yazan) kapanis bekler, sonra bakiyeyi yeniden hesaplar ve sifir
+-- degilse reddeder. Iki yonde de tek bir dogru sonuc kalir.
 create or replace function public.pms_folio_kapali_kontrol()
 returns trigger language plpgsql
 set search_path = pg_catalog, public, pg_temp as $$
+declare v_durum public.pms_folio_durum;
 begin
-  if exists (select 1 from public.pms_folyolar
-              where id = new.folio_id and durum = 'kapali') then
+  select durum into v_durum from public.pms_folyolar
+   where id = new.folio_id for share;
+  if v_durum = 'kapali' then
     raise exception 'Kapali folyoya kayit eklenemez veya degistirilemez';
   end if;
   return new;
@@ -499,14 +537,46 @@ end;
 $$;
 
 drop trigger if exists pms_folio_kapali_kontrol on public.pms_folio_hareketleri;
-create trigger pms_folio_kapali_kontrol before insert or update
+create trigger pms_folio_kapali_kontrol before insert
   on public.pms_folio_hareketleri
   for each row execute function public.pms_folio_kapali_kontrol();
 
 drop trigger if exists pms_folio_kapali_kontrol on public.pms_folio_odemeler;
-create trigger pms_folio_kapali_kontrol before insert or update
+create trigger pms_folio_kapali_kontrol before insert
   on public.pms_folio_odemeler
   for each row execute function public.pms_folio_kapali_kontrol();
+
+-- ---------------------------------------------------------------------------
+-- FINANSAL HAREKETLER APPEND-ONLY
+-- ---------------------------------------------------------------------------
+-- Muhasebesel gecmis DEGISTIRILEMEZ ve SILINEMEZ. Yanlis kayit yeni bir
+-- kayitla duzeltilir: negatif tutarli 'duzeltme' hareketi, iade icin negatif
+-- odeme, bar iptalinde ters kayit. Bunlarin hepsi zaten tasarimda var, yani
+-- append-only kisitlamasi hicbir mevcut akisi kapatmiyor.
+--
+-- Koruma tetikleyicidedir, yalniz ayricalik/politika katmaninda degil: RLS'i
+-- atlayan service_role da buna takilir. Migration'in kendi geri alisi tablolari
+-- DROP eder (DDL), bu tetikleyici DDL'i engellemez.
+create or replace function public.pms_folio_degismez()
+returns trigger language plpgsql
+set search_path = pg_catalog, public, pg_temp as $$
+begin
+  raise exception
+    'Finansal kayit degistirilemez/silinemez (%.%). Duzeltme icin ters kayit girin',
+    tg_table_name, lower(tg_op)
+    using errcode = '42501';
+end;
+$$;
+
+drop trigger if exists pms_folio_degismez on public.pms_folio_hareketleri;
+create trigger pms_folio_degismez before update or delete
+  on public.pms_folio_hareketleri
+  for each row execute function public.pms_folio_degismez();
+
+drop trigger if exists pms_folio_degismez on public.pms_folio_odemeler;
+create trigger pms_folio_degismez before update or delete
+  on public.pms_folio_odemeler
+  for each row execute function public.pms_folio_degismez();
 
 -- Guncelleme damgasi
 drop trigger if exists pms_guncelleme on public.pms_folyolar;
@@ -548,8 +618,19 @@ begin
   foreach v_tablo in array array['pms_folyolar','pms_folio_hareketleri',
                                  'pms_folio_odemeler'] loop
     execute format('alter table public.%I enable row level security', v_tablo);
-    execute format('revoke all on public.%I from public, anon', v_tablo);
-    execute format('grant select, insert, update, delete on public.%I to authenticated', v_tablo);
+    -- authenticated DAHIL sifirla: varsayilan ayricaliklar (F2 dersi) tabloya
+    -- zaten ALL vermis olabilir; yalniz public/anon'u geri almak append-only
+    -- kisitlamasini SESSIZCE etkisiz birakirdi.
+    execute format('revoke all on public.%I from public, anon, authenticated', v_tablo);
+    -- Finansal hareket tablolari APPEND-ONLY: update/delete AYRICALIGI dahi yok.
+    -- Folyo BASLIGI degistirilebilir/silinebilir kalir; ama hareketi ya da
+    -- odemesi olan folyo, FK'lerin `on delete restrict`i yuzunden zaten
+    -- silinemez — yani baslik silme finansal gecmisi yok edemez.
+    if v_tablo = 'pms_folyolar' then
+      execute format('grant select, insert, update, delete on public.%I to authenticated', v_tablo);
+    else
+      execute format('grant select, insert on public.%I to authenticated', v_tablo);
+    end if;
     execute format('grant all on public.%I to service_role', v_tablo);
 
     execute format('drop policy if exists %I on public.%I', v_tablo || '_select', v_tablo);
@@ -564,19 +645,25 @@ begin
                   and public.auth_otel_erisim(otel_id::text) is true)$f$,
       v_tablo || '_insert', v_tablo);
 
+    -- Append-only tablolarda update/delete POLITIKASI DA yok: politikasiz
+    -- islem RLS altinda 0 satir eder, ayricalik da verilmedi, ustune
+    -- tetikleyici var. Uc katman da ayni yone bakar.
     execute format('drop policy if exists %I on public.%I', v_tablo || '_update', v_tablo);
-    execute format($f$create policy %I on public.%I for update to authenticated
-      using (public.auth_yetki_var('pms_folio','kayit') is true
-             and public.auth_otel_erisim(otel_id::text) is true)
-      with check (public.auth_yetki_var('pms_folio','kayit') is true
-                  and public.auth_otel_erisim(otel_id::text) is true)$f$,
-      v_tablo || '_update', v_tablo);
-
     execute format('drop policy if exists %I on public.%I', v_tablo || '_delete', v_tablo);
-    execute format($f$create policy %I on public.%I for delete to authenticated
-      using (public.auth_yetki_var('pms_folio','tam') is true
-             and public.auth_otel_erisim(otel_id::text) is true)$f$,
-      v_tablo || '_delete', v_tablo);
+
+    if v_tablo = 'pms_folyolar' then
+      execute format($f$create policy %I on public.%I for update to authenticated
+        using (public.auth_yetki_var('pms_folio','kayit') is true
+               and public.auth_otel_erisim(otel_id::text) is true)
+        with check (public.auth_yetki_var('pms_folio','kayit') is true
+                    and public.auth_otel_erisim(otel_id::text) is true)$f$,
+        v_tablo || '_update', v_tablo);
+
+      execute format($f$create policy %I on public.%I for delete to authenticated
+        using (public.auth_yetki_var('pms_folio','tam') is true
+               and public.auth_otel_erisim(otel_id::text) is true)$f$,
+        v_tablo || '_delete', v_tablo);
+    end if;
 
     execute format('drop policy if exists phase0_otel_kisit on public.%I', v_tablo);
     execute format($f$create policy phase0_otel_kisit on public.%I
@@ -618,8 +705,15 @@ begin
   end if;
   foreach v_tablo in array array['pms_folyolar','pms_folio_hareketleri',
                                  'pms_folio_odemeler'] loop
+    -- DELETE DE DENETLENIR. Hareket/odeme zaten append-only tetikleyicisine
+    -- takilir; ama "silme mumkun + iz yok" durumu hicbir tabloda kalmasin
+    -- diye kapsam op bazinda degil, tablo bazinda tam tutuldu. Folyo basligi
+    -- silinebilen tek satirdir ve artik izini birakir.
+    -- islem_audit() satir icerigini KOPYALAMAZ: yalniz otel, aktor, op,
+    -- tablo, kimlik ve txid yazar. Odeme yontemi, tutar, misafir bilgisi ya da
+    -- kart benzeri hicbir veri denetim izine dusmez.
     execute format('drop trigger if exists phase0_islem_audit on public.%I', v_tablo);
-    execute format('create trigger phase0_islem_audit after insert or update
+    execute format('create trigger phase0_islem_audit after insert or update or delete
                     on public.%I for each row
                     execute function phase0_private.islem_audit()', v_tablo);
   end loop;
@@ -664,9 +758,46 @@ begin
   end if;
 
   -- Idempotency dayanaklari index'lerdir; varliklari sinanir.
-  foreach v_tablo in array array['pms_folio_gece_uniq','pms_folio_kaynak_uniq'] loop
-    if not exists (select 1 from pg_class where relname = v_tablo and relkind = 'i') then
+  -- VARLIK YETMEZ: index BENZERSIZ olmali. Ayni adla benzersiz olmayan bir
+  -- index idempotency'yi sessizce yok ederdi; sadece adi aramak bunu kacirir.
+  foreach v_tablo in array array['pms_folio_gece_uniq','pms_folio_kaynak_uniq',
+                                 'pms_folio_odeme_anahtar_uniq'] loop
+    if not exists (select 1 from pg_class c where c.relname = v_tablo and c.relkind = 'i') then
       raise exception 'Idempotency index i yok: %', v_tablo;
+    end if;
+    if not exists (select 1 from pg_index i join pg_class c on c.oid = i.indexrelid
+                    where c.relname = v_tablo and i.indisunique) then
+      raise exception 'Idempotency index i BENZERSIZ DEGIL: %', v_tablo;
+    end if;
+  end loop;
+
+  -- APPEND-ONLY: uc katman da kapali olmali.
+  foreach v_tablo in array array['pms_folio_hareketleri','pms_folio_odemeler'] loop
+    v_rel := to_regclass('public.' || v_tablo);
+    if has_table_privilege('authenticated', v_rel, 'UPDATE')
+       or has_table_privilege('authenticated', v_rel, 'DELETE') then
+      raise exception 'Finansal tabloda update/delete ayricaligi kalmis: %', v_tablo;
+    end if;
+    if exists (select 1 from pg_policy p where p.polrelid = v_rel
+                and p.polcmd in ('w','d')) then
+      raise exception 'Finansal tabloda update/delete politikasi kalmis: %', v_tablo;
+    end if;
+    if not exists (select 1 from pg_trigger t where t.tgrelid = v_rel
+                    and t.tgname = 'pms_folio_degismez' and not t.tgisinternal) then
+      raise exception 'Append-only tetikleyicisi yok: %', v_tablo;
+    end if;
+  end loop;
+
+  -- "Silme mumkun + denetim izi yok" durumu HICBIR tabloda kalmamali.
+  foreach v_tablo in array array['pms_folyolar','pms_folio_hareketleri',
+                                 'pms_folio_odemeler'] loop
+    v_rel := to_regclass('public.' || v_tablo);
+    if to_regprocedure('phase0_private.islem_audit()') is not null
+       and not exists (select 1 from pg_trigger t where t.tgrelid = v_rel
+                        and t.tgname = 'phase0_islem_audit'
+                        and not t.tgisinternal
+                        and (t.tgtype & 8) = 8) then   -- 8 = DELETE
+      raise exception 'Denetim izi DELETE i kapsamiyor: %', v_tablo;
     end if;
   end loop;
 
