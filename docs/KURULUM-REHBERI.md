@@ -14,11 +14,32 @@ sıralı adımları tanımlar. Her adım bir öncekine bağımlıdır — sıray
 current security baseline. Do not deploy it alone or replay dated SQL files in
 filename order.
 
-**Güncel taban: `docs/kurulum/2026-09-06-sema-dokumu.sql`** — 6 Eylül 2026'da
-üretimden alınmış, Phase 0 sertleştirmesi uygulandıktan sonraki tam şema
-dökümü (66 tablo, 193 politika, 31 kısıtlayıcı politika, 26 fonksiyon,
-`phase0_private` şeması ve tetikleyicileri dâhil). Üretim parmak iziyle
-doğrulandı: sıfır sapma.
+### Taban dökümleri — hangisi ne zaman
+
+İki taban vardır ve **ikisi de korunur**. Yeni kurulumlar POST-PMS tabanı
+kullanır; eski dosya tarihsel kanıttır, silinmez.
+
+| Taban | Dosya | Ölçüler | Ne zaman |
+|---|---|---|---|
+| **POST-PMS-FAZ1** (güncel) | `2026-09-07-post-pms-faz1-sema-dokumu.sql` | **75 tablo · 234 politika · 40 kısıtlayıcı · 28 kapsam fonksiyonu** | Yeni kurulum, staging, drift kontrolü |
+| PMS öncesi (tarihsel) | `2026-09-06-sema-dokumu.sql` | 66 tablo · 193 politika · 31 kısıtlayıcı · 26 fonksiyon | Yalnız arşiv/karşılaştırma |
+
+Her tabanın kendi eşitlik doğrulayıcısı vardır ve **eşleştirilerek** kullanılır:
+
+| Taban | Eşitlik doğrulayıcısı |
+|---|---|
+| POST-PMS-FAZ1 | `2026-09-07-post-pms-faz1-esitlik-dogrulama.sql` |
+| PMS öncesi | `2026-09-06-staging-esitlik-dogrulama.sql` |
+
+> **Yanlış eşleştirme sessiz alarm üretir.** PMS sonrası bir veritabanını PMS
+> öncesi doğrulayıcıyla sınarsanız SAPMA raporlanır — bu gerçek bir sorun
+> değil, tabanın bayat olmasıdır. `dokum-dogrula.mjs` ikinci argüman
+> verilmezse **eski** dosyayı kullanır; yeni taban için argümanı vermek
+> zorunludur.
+
+Her iki döküm de üretim parmak iziyle doğrulandı: sıfır sapma. POST-PMS tabanı
+2026-09-07'de üretimde çalıştırılan 28 kontrollük salt-okuma parmak iziyle
+(`2026-09-07-post-pms-faz1-uretim-parmakizi.sql`) 28/28 eşleşti.
 
 Eski dökümün neden kullanılamayacağı ölçülerek belgelendi
 (`2026-09-06-staging-branch-kurulum.md`, bölüm 2): 26 fonksiyonun yalnız 2'si
@@ -27,6 +48,12 @@ eşleşiyordu, sıfır `GRANT` satırı vardı ve 5 tabloda RLS kapalıydı.
 Her yeni döküm, kullanılmadan önce doğrulanmalıdır:
 
 ```bash
+# POST-PMS-FAZ1 taban (guncel):
+node scripts/dokum-dogrula.mjs \\
+  docs/kurulum/2026-09-07-post-pms-faz1-sema-dokumu.sql \\
+  docs/kurulum/2026-09-07-post-pms-faz1-esitlik-dogrulama.sql
+
+# PMS oncesi taban (tarihsel):
 node scripts/dokum-dogrula.mjs docs/kurulum/2026-09-06-sema-dokumu.sql
 ```
 

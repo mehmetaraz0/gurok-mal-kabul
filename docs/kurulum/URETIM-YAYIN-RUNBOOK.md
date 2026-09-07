@@ -204,6 +204,24 @@ Bölüm 1'deki zorunlu alanların tamamı doldurulmuştur.
 | **Yayın sonrası parmak izi** | **75 tablo · 234 politika · 40 kısıtlayıcı** · RLS kapalı tablo **0** · anon tablo hakkı **0** · `search_path` pinsiz SECURITY DEFINER **0**.<br>Delta doğrulaması: +9 tablo (2+4+3), +41 politika, +9 kısıtlayıcı. **+41'in +45 olmaması append-only'nin kanıtıdır:** `pms_folio_hareketleri` ve `pms_folio_odemeler` yalnız `select`+`insert` alır, `update`/`delete` politikası hiç oluşturulmaz.<br>**Not:** `2026-09-06-staging-esitlik-dogrulama.sql` bundan sonra SAPMA raporlayacaktır — tabanı PMS öncesidir. Yeni taban çıkarılmalı (manifest P3 #7). |
 | **Geri alma gerekti mi** | **Hayır.** Hiçbir adımda STOP kriteri tetiklenmedi. |
 
+### Yeni taban (POST-PMS-FAZ1) — 2026-09-07
+
+Bu yayından sonra taban değişti. Sonraki yayınlarda **eski dosyalar
+kullanılırsa yanlış alarm** verir; aşağıdaki eşleştirmeye uyun.
+
+| Amaç | Kullanılacak dosya |
+|---|---|
+| Yayın öncesi üretim parmak izi | `2026-09-07-post-pms-faz1-uretim-parmakizi.sql` |
+| Şema eşitlik doğrulaması | `2026-09-07-post-pms-faz1-esitlik-dogrulama.sql` |
+| Taban şema dökümü | `2026-09-07-post-pms-faz1-sema-dokumu.sql` |
+| Yeni döküm alma | `dokum-al.ps1 -Etiket <tarih-etiket>` |
+
+Yeni taban: **75 tablo · 234 politika · 40 kısıtlayıcı · 28 kapsam fonksiyonu**
+· RLS kapalı 0 · `search_path` pinsiz SECURITY DEFINER 0 · anon tablo hakkı 0.
+
+Eski dosyalar (66/193/31/26) **tarihsel kanıt** olarak korunur; PMS öncesi
+durumu temsil ederler ve silinmemelidir.
+
 ### Smoke test ayrıntısı — üretimde gerçek kayıtlar
 
 | Halka | Kanıt |
