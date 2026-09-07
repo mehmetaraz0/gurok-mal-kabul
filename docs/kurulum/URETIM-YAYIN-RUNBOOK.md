@@ -149,6 +149,7 @@ geri alır; kısmi durum oluşmaz.
 | Tarih/saat | Owner | Onay | Commit | Migration | Sonuç |
 |---|---|---|---|---|---|
 | 2026-09-06, ~00:44–08:32 arası (kesin değil) | **UNKNOWN** | **YOK** | 8a080d3 veya sonrası ile uyumlu | `2026-09-05-phase0-hardening.sql` | Uygulandı; **smoke test EKSİK** — aşağıya bakınız |
+| 2026-09-07T20:30–21:05+03:00 | Claude (ajan) + kullanıcı (SQL Editor) | **VAR** — `CANLIYA UYGULA`, 2026-09-07 | `5f0945d` (DB) → `4b131ae` (ön yüz) | PMS Faz 1 Adım 1–4 (4 dosya) | **Başarılı.** Hata yok, geri alma gerekmedi — aşağıya bakınız |
 
 > Bu satır bir uyarı olarak duruyor. Onaysız, sahipsiz ve kayıtsız bir üretim
 > değişikliğinin nasıl göründüğünü gösteriyor. Sonraki her satır eksiksiz
@@ -182,3 +183,66 @@ Yani kalan risk "bozuk olabilir" değil, **"hiç denenmedi"**.
 ile karşılanmaz. Her madde bir **yazma** gerektirir ve yazmanın gerçekleştiği
 `erp_islem_audit` üzerinden doğrulanır. "Çalışıyor gibi görünüyor" bir smoke
 test sonucu değildir.
+
+---
+
+## 5. PMS Faz 1 yayını — 2026-09-07 (tam kayıt)
+
+Bölüm 1'deki zorunlu alanların tamamı doldurulmuştur.
+
+| Alan | Değer |
+|---|---|
+| **Tarih / saat** | Veritabanı: `2026-09-07T20:30+03:00` – `2026-09-07T20:50+03:00` (damgalardan ölçüldü: check-in `17:41:14+00`, check-out `17:46:36+00`, folyo kapanışı `17:49:03+00`). Ön yüz push: aynı gün, veritabanı doğrulaması tamamlandıktan sonra. |
+| **Release owner** | Claude (ajan) yürüttü ve doğruladı; SQL Editor komutlarını ve ekran işlemlerini kullanıcı çalıştırdı. Ajanın üretim kimlik bilgisi **yoktur**; hiçbir migration ajan tarafından uygulanmadı. |
+| **Kullanıcı onayı** | `CANLIYA UYGULA` — kullanıcı mesajı, 2026-09-07. Ön yüz push'u için **ayrı** onay alındı (`PMS FRONTEND RELEASE — COMMIT + PUSH ONAYLI`). |
+| **Git commit hash** | Veritabanı yayını: `5f0945da10bb0c2877862674b015422bc2bb684c`. Ön yüz yayını: `4b131ae8bff524c44c11572aa3a7a742da48a0f9`. Her ikisinde de çalışma ağacı **temiz**. |
+| **Migration dosyası** | `docs/kurulum/2026-09-06-pms-faz1-oda-tipleri-odalar.sql` (`9c30126139a4…975047`)<br>`docs/kurulum/2026-09-06-pms-faz1-adim2-misafir-rezervasyon.sql` (`ba4f9ad026f7…5df2cd`)<br>`docs/kurulum/2026-09-06-pms-faz1-adim3-checkin-checkout.sql` (`3954dcd1f94d…31e74f`)<br>`docs/kurulum/2026-09-06-pms-faz1-adim4-folio.sql` (`bc9b320359bf…c71ea`)<br>Her dosya uygulanmadan önce SHA256 ile doğrulandı. |
+| **Preflight sonucu** | `2026-09-07-pms-yayin-oncesi-preflight.sql` (salt-okuma) → **19/19 geçti, sıfır drift**. PMS nesneleri yok (7/7 sıfır), Adım 1 önkoşulları tam (4/4/1/1/2/3), taban sapmamış (66 tablo / 193 politika / 31 kısıtlayıcı), RLS kapalı tablo 0, `search_path` pinsiz SECURITY DEFINER 0, anon tablo hakkı 0.<br>`2026-09-06-staging-esitlik-dogrulama.sql` → yayın öncesi **SAPMA yok** (26/26 fonksiyon gövdesi eşleşti). |
+| **Yedek / geri alma** | **Otomatik günlük yedek, 2026-09-07** (Supabase Pro). Geri alma yolu, tercih sırasıyla: (1) modül `aktif=false` — `auth_yetki_var()` modül aktifliğini şart koştuğu için tüm PMS politikaları anında kapanır; (2) her migration dosyasının sonundaki yorumlu geri alma bloğu, **ters sırada** (Adım 4→3→2→1); (3) yedekten dönüş. **Uyarı:** modül kapatmak bar köprüsünü durdurmaz (SECURITY DEFINER); `pms_bar_folio_koprusu` tetikleyicisi ayrıca düşürülmelidir. **Sınır:** `pms_folio_odemeler` boş değilse Adım 4 geri alınmaz, özellik kapatma tercih edilir. |
+| **Uygulama sonucu** | **Başarılı.** Dört migration da tek transaction içinde (`begin`…`commit`) uygulandı, hiçbirinde `ERROR` alınmadı. Her adımın kendi doğrulama bloğu commit öncesi çalıştı ve geçti. Post-check sonuçları: Adım 1 → 5/5, Adım 2 → 6/6, Adım 3 → 5/5, Adım 4 → **10/10**. |
+| **Smoke test** | Ekranların açılması smoke test sayılmadı; **gerçek kayıt yazıldı ve geri okundu.** Ayrıntı aşağıda. |
+| **Yayın sonrası parmak izi** | **75 tablo · 234 politika · 40 kısıtlayıcı** · RLS kapalı tablo **0** · anon tablo hakkı **0** · `search_path` pinsiz SECURITY DEFINER **0**.<br>Delta doğrulaması: +9 tablo (2+4+3), +41 politika, +9 kısıtlayıcı. **+41'in +45 olmaması append-only'nin kanıtıdır:** `pms_folio_hareketleri` ve `pms_folio_odemeler` yalnız `select`+`insert` alır, `update`/`delete` politikası hiç oluşturulmaz.<br>**Not:** `2026-09-06-staging-esitlik-dogrulama.sql` bundan sonra SAPMA raporlayacaktır — tabanı PMS öncesidir. Yeni taban çıkarılmalı (manifest P3 #7). |
+| **Geri alma gerekti mi** | **Hayır.** Hiçbir adımda STOP kriteri tetiklenmedi. |
+
+### Smoke test ayrıntısı — üretimde gerçek kayıtlar
+
+| Halka | Kanıt |
+|---|---|
+| Oda tipi + oda | `std` oda tipi ve oda `101` ekrandan kaydedildi, listede görüldü |
+| Misafir | `araz, mehmet` kaydedildi |
+| Rezervasyon + otomatik folyo | `R-2026-000001` onaylandı → **`F-2026-000001` kendiliğinden açıldı** |
+| Check-in | Oda Planı ekranından; oda `dolu`, giriş damgası `17:41:14+00`, atama oluştu |
+| **Oda ücreti idempotency** | Düğmeye **iki kez** basıldı → **tek** `oda_ucreti` satırı, yalnız `2026-09-07` gecesi. Denetim izi de yalnız 1 arttı (bağımsız ikinci kanıt). |
+| Ödeme idempotency anahtarı | Tahsilat kaydında `islem_anahtari` UUID yazıldı |
+| **Bakiyeli check-out** | 5.000,00 ₺ açıkken çıkış çalıştı; folyo açık kaldı, borç korundu (bilinçli Faz 1 kararı) |
+| Atama korundu | Çıkıştan sonra `aktif = true` kaldı — geçmiş konaklama kaydı |
+| Folyo kapanışı | Bakiye sıfırlanınca kapandı (`17:49:03+00`); kapalı folyoda formlar gizlendi |
+| İkinci konaklama | `F-2026-000002`: oda ücreti 10.000 + indirim −1.000, tahsilat 9.000, bakiye 0, kapatıldı |
+| **Denetim izi** | `erp_islem_audit` **0 → 12**. Üretimde ilk kez kayıt üretti. Manifest P3 #5 kapandı. |
+| Ön yüz (canlı) | 7 PMS ekranı `demo.otel.dornevi.com` üzerinde HTTP 200; canlı `pms-rezervasyonlar.html` SHA256'sı commit'tekiyle **birebir aynı**; oturumsuz erişim giriş ekranına yönlendiriyor (fail-closed); 404 ve konsol hatası yok |
+
+> **Ön yüz için giriş sonrası akışlar ajan tarafından doğrulanmadı** — üretim
+> PIN'i ajanda yoktur ve olmamalıdır. Giriş sonrası canlı doğrulama kullanıcıya
+> aittir.
+
+### Yayın sırasında öğrenilenler
+
+1. **Ön yüz, Adım 1–4'ün tamamına bağlıdır.** Rezervasyon ekranı `gecelik_fiyat`
+   gönderir; o kolon Adım 4 ile gelir. Ön yüzü dört adım tamamlanmadan
+   yayınlamak rezervasyon kaydını kırardı. Push'un sona bırakılması bu sayede
+   doğrulandı. (Manifest P3 #9)
+2. **Manifestteki Adım 1–2 smoke kriteri yanlıştı** — "audit sayacı artmalı"
+   diyordu, oysa o adımlar denetim tetikleyicisi bağlamaz. `4b131ae` ile
+   düzeltildi; Adım 3–4 kriterleri korundu.
+3. **Rezervasyon formu, veritabanının reddedeceği durumları sunuyordu**
+   (`giris_yapildi`/`cikis_yapildi`). Durum listesi geçiş matrisine bağlandı
+   (`4b131ae`); check-in/out yetkili akışı Oda Planı + RPC olarak **korundu**.
+
+### Üretimde kalıcı test verisi
+
+Smoke test gerçek kayıtlar ürettiği ve finansal satırlar **append-only** olduğu
+için şu zincir üretimde kalıcıdır ve silinemez: misafir `araz, mehmet`,
+`R-2026-000001` / `F-2026-000001` (6.000 borç / 6.000 tahsilat, kapalı) ve
+`R-2026-000002` / `F-2026-000002` (9.000 / 9.000, kapalı). Her ikisi de net
+sıfır ve kapalı; muhasebe açısından etkisizdir. Misafir adı istenirse
+değiştirilebilir (misafir tablosu append-only değildir).
