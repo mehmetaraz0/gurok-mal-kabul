@@ -206,6 +206,39 @@ test('K: sekans REVOKE yok -> R8', () => {
 });
 
 // ---------------------------------------------------------------------------
+// M) YANLIS ALARM: DIZE ICINDEKI DDL ANAHTAR KELIMESI
+//
+//    Gercek olay (2026-09-08): event trigger tanimindaki
+//      when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+//    satirindan denetleyici "as" adli bir tablo uydurdu ve dosyayi haksiz
+//    yere kirmizi yapti. Bir denetleyici yanlis alarm verdiginde artik
+//    okunmaz; bu yuzden regresyon testi.
+// ---------------------------------------------------------------------------
+test('M: dize icindeki CREATE TABLE sahte nesne uretmemeli', () => {
+  const sql = [
+    'create event trigger ornek_trg',
+    "  on ddl_command_end",
+    "  when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')",
+    '  execute function public.ornek_ag();',
+    '',
+    "-- Dolar-tirnak govdesi icinde de sayilmamali:",
+    'do $$',
+    'begin',
+    "  raise notice 'create table public.hayalet_tablo (id int)';",
+    'end;',
+    '$$;',
+  ].join('\n');
+
+  const r = denetle(sql, 'm-dize-icinde-ddl');
+  assert.equal(r.kod, 0, r.cikti);
+  assert.match(r.cikti, /tablo 0/);
+  assert.doesNotMatch(r.cikti, /\bas\b/,
+    'dize icindeki "CREATE TABLE AS" tablo olarak sayilmamali');
+  assert.doesNotMatch(r.cikti, /hayalet_tablo/,
+    'dolar-tirnak govdesindeki DDL metni tablo olarak sayilmamali');
+});
+
+// ---------------------------------------------------------------------------
 // L) TARIHSEL DOSYALAR FAIL ETMEMELI
 //    Argumansiz calistirma yalniz taban tarihten YENI dosyalari denetler.
 //    Canliya uygulanmis Adim 1-4 bu kapsamin disindadir.

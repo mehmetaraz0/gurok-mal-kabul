@@ -110,7 +110,58 @@ function yonergeleriOku(hamSql) {
 
 // ---------------------------------------------------------------------------
 // 3) Olusturulan nesneler
+//
+// ONEMLI: nesne kesfi, dize ve dolar-tirnak GOVDELERI BOSALTILMIS metin
+// uzerinde yapilir. Aksi halde SQL icindeki bir metin sabiti sahte nesne
+// uretir. Gercek ornek:
+//
+//   when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+//
+// Bu satir bir event trigger tanimidir, tablo yaratmaz; ama duz arama
+// "CREATE TABLE AS" icinden "as" adli bir tablo uydurur ve dosyayi haksiz
+// yere kirmizi yapar. 2026-09-08'de tam olarak bu oldu.
+//
+// Bosaltma satir sonlarini KORUR, boylece fonksiyon satir numaralari kaymaz.
+// Nesne ADLARI her zaman govdenin DISINDA oldugu icin bu kayipsizdir.
 // ---------------------------------------------------------------------------
+function govdeleriBosalt(sql) {
+  const bosluk = t => t.replace(/[^\n]/g, ' ');
+  let cikti = '';
+  let i = 0;
+  while (i < sql.length) {
+    const c = sql[i];
+
+    if (c === '$') {
+      const m = /^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/.exec(sql.slice(i));
+      if (m) {
+        const etiket = m[0];
+        const son = sql.indexOf(etiket, i + etiket.length);
+        if (son === -1) { cikti += sql.slice(i); break; }
+        cikti += etiket + bosluk(sql.slice(i + etiket.length, son)) + etiket;
+        i = son + etiket.length;
+        continue;
+      }
+    }
+
+    if (c === "'") {
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === "'" && sql[j + 1] === "'") { j += 2; continue; }
+        if (sql[j] === "'") { j++; break; }
+        j++;
+      }
+      const kapali = sql[j - 1] === "'";
+      cikti += "'" + bosluk(sql.slice(i + 1, kapali ? j - 1 : j)) + (kapali ? "'" : '');
+      i = j;
+      continue;
+    }
+
+    cikti += c;
+    i++;
+  }
+  return cikti;
+}
+
 function nesneleriBul(sql) {
   const tablolar = new Set();
   const sekanslar = new Set();
@@ -285,7 +336,7 @@ function dosyayiDenetle(yol) {
   const ham = fs.readFileSync(yol, 'utf8');
   const yonerge = yonergeleriOku(ham);
   const sql = yorumlariSil(ham);
-  const { tablolar, sekanslar, gorunumler, fonksiyonlar } = nesneleriBul(sql);
+  const { tablolar, sekanslar, gorunumler, fonksiyonlar } = nesneleriBul(govdeleriBosalt(sql));
 
   const tumAdlar = new Set([...tablolar, ...sekanslar, ...gorunumler, ...fonksiyonlar.map(f => f.ad)]);
   const ifadeler = ifadeleriTopla(sql, tumAdlar);
