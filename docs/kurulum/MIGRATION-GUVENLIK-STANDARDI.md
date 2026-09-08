@@ -143,6 +143,38 @@ açıkça geri alınır.
 çağrılamazlar (`can only be called as a trigger`), ACL kararı gerekmez.
 Denetleyici bunları ayırt eder.
 
+#### Süpürge — açık kararın üstüne
+
+Açık `revoke`/`grant` çiftinden **sonra**, migration'ın yarattığı tüm
+fonksiyonları kapsayan bir süpürge döngüsü yazılır:
+
+```sql
+do $$
+declare v record;
+begin
+  for v in select p.oid::regprocedure as f
+             from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+            where ns.nspname = 'public' and p.proname like '<onek>\_%'
+  loop
+    execute format('revoke all on function %s from public, anon', v.f);
+  end loop;
+end;
+$$;
+```
+
+Süpürge açık kararın **yerine geçmez, üstüne biner**. Açık `revoke` hangi
+rolün neyi çağırabileceğini dosyada görünür kılar; süpürge tetikleyici
+fonksiyonlarını ve unutulanı toplar.
+
+**Neden gerekli — ölçülmüş gerekçe:** 2026-09-08'de üretimde `public`
+şemasında `anon`'un EXECUTE hakkı olan **18 fonksiyon** vardı; 17'si
+tetikleyici, 1'i `pms_bugun`. Fiili risk yoktu (tetikleyici fonksiyonu
+çağrılamaz), ama **"anon EXECUTE = 0" beklentisi ancak süpürgeyle
+tutturulabilir** — ve o beklenti bir kez tuttuktan sonra, tutmadığı gün
+gerçek bir bulguyu işaret eder. Gürültülü bir sayaç, sayaç değildir.
+
+Temizlik: `2026-09-08-pms-fonksiyon-acl-temizligi.sql` (D3: 18 → 0).
+
 ### SECURITY DEFINER
 
 ```sql
@@ -237,6 +269,22 @@ kırmızı yapardı. Denetleyici bu yüzden DO bloklarını ayrıştırır, dön
 hangi nesne adları üzerinde döndüğünü çıkarır ve `format` şablonlarını o
 adlarla açar. Yorumlar temizlenirken dize ve dolar-tırnak gövdeleri korunur.
 
+İkinci yanlış alarm kaynağı **dize içindeki DDL anahtar kelimeleri**ydi. Bir
+event trigger tanımındaki
+
+```sql
+when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+```
+
+satırından düz arama `as` adlı bir tablo uydurdu ve dosyayı haksız yere
+kırmızı yaptı (2026-09-08). Nesne keşfi artık **dize ve dolar-tırnak
+gövdeleri boşaltılmış** metin üzerinde yapılır; boşaltma satır sonlarını
+korur, böylece satır numaraları kaymaz. Nesne adları her zaman gövdenin
+dışında olduğu için bu kayıpsızdır.
+
+> Yanlış alarm veren bir denetleyici artık okunmaz. Bu yüzden her yanlış
+> alarm sınıfı düzeltildiği gün bir regresyon testine bağlanır (test M).
+
 **Kalibrasyon kanıtı:** denetleyici PMS Adım 4'te (tam sertleştirilmiş dosya)
 sıfır bulgu üretir; Adım 1–2'de altı `R2` ve Adım 3'te bir `R9` bulur — yani
 elle bulunmuş bilinen boşlukların **tamamını ve yalnız onları** yeniden
@@ -272,10 +320,12 @@ hedefini bulamazsa test **kurulum hatası** verir, sessizce yeşile dönmez.
 | I | REVOKE'tan `authenticated` düşürüldü | `R2` |
 | J | fonksiyon EXECUTE kararı silindi | `R9` (UYARI) + `--uyari-da-hata` ile kırmızı |
 | K | sekans REVOKE silindi | `R8` |
+| M | dize içinde `CREATE TABLE AS` | sahte nesne **üretmez** (yanlış alarm regresyonu) |
 | L | argümansız çalıştırma | tarihî dosyalar **kırmızı yapmaz** |
 
-I ve J gerçek olaylardır: I, PMS Adım 1–2'nin yaptığı şeydir; J, Adım 3'teki
-`pms_bugun` fonksiyonudur.
+I, J ve M gerçek olaylardır: I, PMS Adım 1–2'nin yaptığı şeydir; J, Adım
+3'teki `pms_bugun` fonksiyonudur; M, denetleyicinin 2026-09-08'de kendi
+ürettiği yanlış alarmdır.
 
 ---
 

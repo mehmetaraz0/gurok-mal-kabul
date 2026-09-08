@@ -318,8 +318,38 @@ grant all   on sequence public.ornek_no_seq to service_role;
 -- Tetikleyici fonksiyonlari (returns trigger) dogrudan cagrilamaz; onlar
 -- icin ACL karari gerekmez.
 -- ============================================================================
+-- 10a) ACIK KARAR — cagrilabilir her fonksiyon icin, imzasiyla birlikte.
+--      Bunu YAZMAK zorunludur: hangi rolun neyi cagirabilecegi bir KARARDIR
+--      ve kararin dosyada gorunmesi gerekir.
 revoke all on function public.ornek_kapat(uuid) from public, anon;
 grant execute on function public.ornek_kapat(uuid) to authenticated, service_role;
+
+-- 10b) SUPURGE — bu migration'in yarattigi TUM fonksiyonlardan PUBLIC/anon
+--      icin EXECUTE geri alinir. 10a'nin yerine gecmez, ustune biner.
+--
+--      Neden gerekli: tetikleyici fonksiyonlari (returns trigger) icin ACL
+--      karari yazilmaz -- dogrudan cagrilamazlar. Ama PostgreSQL onlara da
+--      varsayilan EXECUTE verir ve katalogda "anon cagirabiliyor" olarak
+--      gorunurler. 2026-09-08'de uretimde tam olarak bu olcuIdu: 22 PMS
+--      fonksiyonundan 18'i anon'a acikti, 17'si tetikleyiciydi.
+--
+--      Fiili risk dusuktur (tetikleyici fonksiyonu cagrilamaz), ama olcum
+--      gurultusu gercektir: "anon EXECUTE = 0" beklentisi ancak bu supurge
+--      ile tutturulabilir, ve o beklenti tutmadiginda GERCEK bir bulguyu
+--      isaret eder.
+do $$
+declare v record;
+begin
+  for v in select p.oid::regprocedure as f
+             from pg_proc p
+             join pg_namespace ns on ns.oid = p.pronamespace
+            where ns.nspname = 'public'
+              and p.proname like 'ornek\_%'      -- kendi onekini yaz
+  loop
+    execute format('revoke all on function %s from public, anon', v.f);
+  end loop;
+end;
+$$;
 
 revoke all on public.ornek_ozet from public, anon;
 grant select on public.ornek_ozet to authenticated, service_role;
@@ -396,6 +426,13 @@ begin
   if has_function_privilege('anon', 'public.ornek_kapat(uuid)', 'EXECUTE') then
     raise exception 'DOGRULAMA: anon RPC cagirabiliyor';
   end if;
+
+  -- Supurge tuttu mu: anon'a acik TEK BIR fonksiyon kalmamali.
+  select count(*) into n from pg_proc p
+    join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public' and p.proname like 'ornek\_%'
+     and has_function_privilege('anon', p.oid, 'EXECUTE');
+  if n <> 0 then raise exception 'DOGRULAMA: anon hala % fonksiyon cagirabiliyor', n; end if;
 
   -- Idempotency indeksi GERCEKTEN unique mi? (adi dogru, tanimi yanlis olabilir)
   select count(*) into n from pg_index i
