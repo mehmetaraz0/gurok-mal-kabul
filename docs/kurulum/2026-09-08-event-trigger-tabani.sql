@@ -35,6 +35,21 @@
 -- Bu dosya o boşluğu kapatır.
 --
 -- ---------------------------------------------------------------------------
+-- ÜRETİM DOĞRULAMASI — 2026-09-08
+-- ---------------------------------------------------------------------------
+-- Üretimde çalıştırıldı: **8/8 ESIT**, özet `7 / 7 beklenen`, `0 devre disi`.
+--
+--   ensure_rls                | BIZIM    | ESIT | postgres       | ddl_command_end -> rls_auto_enable()
+--   issue_graphql_placeholder | platform | ESIT | supabase_admin | sql_drop        -> set_graphql_placeholder()
+--   issue_pg_cron_access      | platform | ESIT | supabase_admin | ddl_command_end -> grant_pg_cron_access()
+--   issue_pg_graphql_access   | platform | ESIT | supabase_admin | ddl_command_end -> grant_pg_graphql_access()
+--   issue_pg_net_access       | platform | ESIT | supabase_admin | ddl_command_end -> grant_pg_net_access()
+--   pgrst_ddl_watch           | platform | ESIT | supabase_admin | ddl_command_end -> pgrst_ddl_watch()
+--   pgrst_drop_watch          | platform | ESIT | supabase_admin | sql_drop        -> pgrst_drop_watch()
+--
+-- Taban artık yalnız veriyle değil, karşılaştırma mantığıyla da doğrulandı.
+--
+-- ---------------------------------------------------------------------------
 -- YORUMLAMA
 --   durum = 'ESIT'       -> beklenen taban.
 --   durum = 'DEVRE DISI' -> tetikleyici var ama ÇALIŞMIYOR. DUR.
@@ -128,6 +143,21 @@ order by 1, 2;
 --   başlamıştır; DEVRE DISI ise katalogda görünür ama çalışmaz.
 --   Her iki durumda da `public` şemasındaki RLS kapalı tablo sayısı
 --   ayrıca ölçülmelidir (ACL uyarı kontrolü, D bloğu).
+--
+--   ⚠️ BU ARIZA SQL EDITOR'DEN ONARILAMAZ.
+--   2026-09-08 ölçümü: `postgres` superuser DEĞİL ve üye olduğu dokuz
+--   rolün (anon, authenticated, authenticator, pg_create_subscription,
+--   pg_monitor, pg_read_all_data, pg_signal_backend, service_role,
+--   supabase_privileged_role) hiçbiri superuser değil. `CREATE EVENT
+--   TRIGGER` superuser ister ve grant edilebilen bir ayrıcalık değildir.
+--
+--   Yani `ensure_rls` bir kez düşerse ne doğrudan ne `set role` ile geri
+--   konabilir — Supabase provizyon sırasında oluşturmuş, bizde yeniden
+--   yaratma yolu yok. Kurtarma yolu Supabase desteğidir.
+--
+--   Sonuç: bu kontrolün yakaladığı arıza, "fark edip düzeltiriz"
+--   sınıfında DEĞİL. Erken görmek tek savunma; görülmezse yeni tablolar
+--   sessizce RLS'siz doğmaya devam eder. Her yayın öncesi çalıştırılır.
 --
 -- Herhangi bir satır 'FAZLA' ise -> DUR, incele.
 --   Tabanda olmayan bir event trigger, her DDL olayında sahibinin
