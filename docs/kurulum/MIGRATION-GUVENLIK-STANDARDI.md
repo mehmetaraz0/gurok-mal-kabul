@@ -391,7 +391,26 @@ Bu standart **dosyaları** denetler. Üretimin fiili durumu ayrı ölçülür:
 |---|---|---|
 | Şema/politika/fonksiyon parmak izi | `2026-09-07-post-pms-faz1-uretim-parmakizi.sql` | SQL Editor (salt-okuma) |
 | Varsayılan ACL + fiili `anon` hakkı | `2026-09-07-varsayilan-acl-uyari-kontrolu.sql` | SQL Editor (salt-okuma) |
+| **Event trigger tabanı** | `2026-09-08-event-trigger-tabani.sql` | SQL Editor (salt-okuma) |
 | Repo tabanı ↔ üretim eşitliği | `2026-09-07-post-pms-faz1-esitlik-dogrulama.sql` | `dokum-dogrula.mjs` |
+
+### Şema dökümünün kör noktası
+
+```
+pg_dump --schema=public --schema=phase0_private ...
+```
+
+`--schema` filtresi verildiğinde pg_dump **veritabanı düzeyindeki nesneleri
+dökmez** — event trigger'lar bunlara dâhildir. Taban dökümünde "event
+trigger" ifadesi sıfır kez geçer.
+
+Bunun bedeli 2026-09-08'de ödendi: `ensure_rls` üretimde altı hafta boyunca
+çalıştı ve biz onu "hiç bağlanmamış" sandık. Ölçüm aracının kapsamı dışında
+kalan şey yok sanılır — projenin tekrar eden dersi.
+
+Event trigger'lar artık ayrı bir salt-okuma kontrolüyle izleniyor. **Diğer
+veritabanı düzeyindeki nesneler (roller, veritabanı ayarları, uzantılar)
+hâlâ taban kapsamı dışındadır** ve gerektiğinde aynı yöntemle kapsanmalıdır.
 
 İkisi birbirinin yerine geçmez: statik denetleyici **yazdığımızı**, parmak izi
 **çalışanı** ölçer. Bir migration'ın doğru yazılmış olması uygulandığının

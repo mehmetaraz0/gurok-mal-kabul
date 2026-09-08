@@ -158,9 +158,23 @@ nesneler** için geçerli. Somut olarak:
    yoldan geçmez.
 2. **RLS bir yedek katman, ama tam değil.** `anon` bir tabloya SELECT hakkıyla
    doğsa bile RLS açıksa ve politika yoksa 0 satır okur. Ancak
-   `supabase_admin`'in yarattığı tabloda RLS'i **biz açmayız** — açık gelmezse
-   koruma yoktur. Bu yüzden `rls_auto_enable` (henüz bağlı değil) ve
-   D1/D2 fiili ölçümü birlikte önem taşır.
+   `supabase_admin`'in yarattığı tabloda RLS'i **biz açmayız**.
+
+   **Düzeltme (2026-09-08):** Bu maddenin ilk hâli "`rls_auto_enable` henüz
+   bağlı değil" diyordu. **Yanlıştı.** Üretimde `ensure_rls` adlı event
+   trigger mevcut, açık ve `public.rls_auto_enable()`'a bağlı; ölçümle
+   doğrulandı. Altı hafta boyunca yanlış bilinmesinin sebebi, taban şema
+   dökümünün event trigger'ları hiç içermemesiydi — `pg_dump --schema=...`
+   veritabanı düzeyindeki nesneleri dökmez. Bağımsız doğrulama: `public`
+   şemasındaki **75 tablonun 75'inde de RLS açık.**
+
+   Ağ riski **azaltır, sıfırlamaz**: `rls_auto_enable()` SECURITY DEFINER'dır
+   ve sahibinin yetkisiyle `alter table` çalıştırır. Tabloyu
+   `supabase_admin` yaratmışsa fonksiyon sahibi onu değiştiremeyebilir ve
+   gövde `exception when others` ile sarılı olduğu için hata **sessizce**
+   yutulur. Bu yüzden P3 "çözüldü" sayılmıyor; karar kriteri hâlâ D1/D2'dir.
+
+   Kalıcı ölçüm: `2026-09-08-event-trigger-tabani.sql`.
 3. **Fonksiyonlar — ölçüldü ve kapatıldı (2026-09-08).** İlk çalıştırmada
    **D3 = 18** çıktı: `public` şemasında `anon`'un EXECUTE hakkı olan 18
    fonksiyon, hepsi bizim PMS fonksiyonlarımız.
