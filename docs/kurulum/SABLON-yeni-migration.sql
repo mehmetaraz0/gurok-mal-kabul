@@ -384,10 +384,44 @@ $$;
 
 -- ============================================================================
 -- 12) MODUL VE YETKI KAYDI
+-- ----------------------------------------------------------------------------
+-- BES SUTUNUN BESI DE YAZILIR. `kategori` NOT NULL'dur ve VARSAYILANI YOKTUR;
+-- atlanirsa migration `23502 not_null_violation` ile patlar. `sira` ve `aktif`
+-- varsayilan tasir ama ikisi de acik yazilir: sira menudeki yeri belirler,
+-- `aktif` varsayilani `true`'dur ve yeni modulun KAPALI dogmasi isteniyorsa
+-- acikca `false` verilmelidir.
+--
+-- `sira` TAHMIN EDILMEZ. Ayni kategorideki en yuksek degerin bir fazlasi
+-- alinir; asagidaki sorgu onu soyler:
+--
+--   select kategori, max(sira) from public.moduller
+--    where kategori = '<kategori>' group by kategori;
+--
+-- Kategoriler mevcut veriden gelir (onburo, depo, satinalma, muhasebe,
+-- sistem, fb, analiz ...); yeni kategori uydurulmaz.
 -- ============================================================================
-insert into public.moduller (kod, ad, aktif)
-values ('ornek', 'Ornek Modul', true)
+insert into public.moduller (kod, ad, kategori, sira, aktif) values
+  ('ornek', 'Ornek Modul', 'onburo', 0, false)   -- kod/ad/kategori/sira/aktif: BESI DE DOLDUR
 on conflict (kod) do nothing;
+
+-- Zorunlu alanlarin gercekten dolduruldugunu SAYARAK dogrula: `on conflict do
+-- nothing` sessizce hicbir sey yapmamis olabilir ve migration yine "calisti"
+-- gorunur.
+do $$
+declare v record;
+begin
+  select kod, ad, kategori, sira, aktif into v
+    from public.moduller where kod = 'ornek';
+  if v is null then
+    raise exception 'MODUL: ornek kaydi olusmadi';
+  end if;
+  if v.kategori is null or v.kategori = '' then
+    raise exception 'MODUL: kategori bos';
+  end if;
+  raise notice 'MODUL: % / % / kategori=% sira=% aktif=%',
+    v.kod, v.ad, v.kategori, v.sira, v.aktif;
+end;
+$$;
 
 
 -- ============================================================================
