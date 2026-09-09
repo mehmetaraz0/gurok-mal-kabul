@@ -21,6 +21,21 @@
 -- Hiçbir test satırı kalıcı olmaz.
 begin;
 
+-- ---------------------------------------------------------------------------
+-- KATMAN İZOLASYONU (mimari §23) — TEST-ONLY FİKSTÜR
+-- ---------------------------------------------------------------------------
+-- Bu dosya satır-şekli CHECK / FK / kısmi indeks KATMANINI ölçer. Artım 2'nin
+-- geçiş bekçisi ve H1-H10 kısıtları bu girişimlerin çoğunu daha önce reddeder;
+-- açık bırakılırsa test yeşil olsa bile CHECK'lerin varlığını KANITLAMAZ.
+--
+-- Üç tetikleyici yalnız bu dosya boyunca kapatılır. Atılabilir veritabanında
+-- çalışır ve ROLLBACK edilir; migration dosyasına ASLA girmez.
+-- Dosyanın sonunda geri açılır ve T14 sızmadığını doğrular.
+-- ---------------------------------------------------------------------------
+alter table public.pms_housekeeping_gorevleri disable trigger pms_housekeeping_gorev_koruma;
+alter table public.pms_housekeeping_gorevleri disable trigger pms_housekeeping_tutarlilik_gorev;
+alter table public.pms_odalar               disable trigger pms_housekeeping_tutarlilik_oda;
+
 do $$
 declare
   v_oda    uuid;
@@ -84,11 +99,20 @@ begin
   -- T2  Tamamlanmış görev aktif yuvayı BOŞALTIR (kontrol bekleyen iş
   --     bitmemiş sayılmaz)
   -- ====================================================================
+  -- Artim 2'den sonra gecis bekcisi devrede: dogrudan `bekliyor ->
+  -- tamamlandi` yazmasi REDDEDILIR (dogru davranis). Bu yuzden gorev
+  -- YASAL adimlarla tamamlanir; her adim surum + damga sozlesmesine uyar.
   begin
     update public.pms_housekeeping_gorevleri
-       set durum = 'tamamlandi',
-           atanan_kullanici_id = v_calisan,
-           baslama_zamani = now(), bitis_zamani = now()
+       set atanan_kullanici_id = v_calisan, surum = surum + 1, guncelleme_tarihi = now()
+     where id = v_gorev;
+    update public.pms_housekeeping_gorevleri
+       set durum = 'temizleniyor', baslama_zamani = now(),
+           surum = surum + 1, guncelleme_tarihi = now()
+     where id = v_gorev;
+    update public.pms_housekeeping_gorevleri
+       set durum = 'tamamlandi', bitis_zamani = now(),
+           surum = surum + 1, guncelleme_tarihi = now()
      where id = v_gorev;
 
     insert into public.pms_housekeeping_gorevleri
@@ -281,4 +305,32 @@ end;
 $$;
 
 -- Fikstür ve tüm test satırları geri alınır; hiçbir şey kalıcı olmaz.
+-- Katman izolasyonu biter.
+alter table public.pms_housekeeping_gorevleri enable trigger pms_housekeeping_gorev_koruma;
+alter table public.pms_housekeeping_gorevleri enable trigger pms_housekeeping_tutarlilik_gorev;
+alter table public.pms_odalar               enable trigger pms_housekeeping_tutarlilik_oda;
+
+-- T14: bekçi gerçekten geri açıldı mı? (fikstür sızmasın)
+do $t14$
+declare v_oda uuid; v_h text := encode(sha256('t14'::bytea),'hex'); v_g uuid;
+begin
+  insert into public.pms_oda_tipleri (otel_id,kod,ad,azami_kisi,azami_yetiskin,azami_cocuk)
+  values ('810','t14','T14',2,2,1);
+  insert into public.pms_odalar (otel_id,oda_tipi_id,oda_no)
+  select '810',id,'T1401' from public.pms_oda_tipleri where kod='t14' returning id into v_oda;
+  insert into public.pms_housekeeping_gorevleri
+    (otel_id,oda_id,gorev_tipi,olusturma_kaynagi,istek_anahtari,istek_ozeti,
+     son_islem_anahtari,son_islem_ozeti)
+  values ('810',v_oda,'ekstra_temizlik','sistem',gen_random_uuid(),v_h,gen_random_uuid(),v_h)
+  returning id into v_g;
+  begin
+    update public.pms_housekeeping_gorevleri
+       set durum='tamamlandi', surum=surum+1, guncelleme_tarihi=now() where id=v_g;
+    raise notice 'T14 FAIL  bekci geri acilmamis';
+  exception when others then
+    raise notice 'T14 OK    bekci geri acildi (izolasyon sizmadi)';
+  end;
+end
+$t14$;
+
 rollback;
