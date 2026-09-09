@@ -20,6 +20,17 @@
 -- üretimde çalıştırılmasıyla ÖLÇÜLDÜ. Hiçbiri tahmin değildir.
 --
 -- ---------------------------------------------------------------------------
+-- ÜRETİM DOĞRULAMASI — 2026-09-09
+-- ---------------------------------------------------------------------------
+-- Üretimde çalıştırıldı: **22/22** — yirmi kontrol `ESIT`, iki uyarı
+-- kontrolü (`E2`, `E3`) `BILINEN`. **Blok 2'den hiç satır gelmedi**, yani
+-- sapan tek bir kayıt yok.
+--
+-- Taban artık iki yönlü doğrulanmış durumda: değerler keşif sorgusundan
+-- ölçüldü, karşılaştırma da bu dosyanın kendi sorgusuyla üretimde teyit
+-- edildi. Bundan sonraki her sapma gerçek bir değişikliktir.
+--
+-- ---------------------------------------------------------------------------
 -- YORUMLAMA
 --   tur='esit'  -> bulunan <> beklenen ise SAPMA. Yayını durdur.
 --   tur='uyari' -> bulunan > beklenen ise büyümüş; blocker değil ama
