@@ -204,15 +204,22 @@ b5_tablo as (
 --    Bir şemada USAGE olmadan içindeki hiçbir nesneye erişilemez; USAGE
 --    varsa nesne bazlı ACL tek savunma kalır.
 -- ---------------------------------------------------------------------------
+-- ACL girdisi biçimi: `alici=haklar/veren`. PUBLIC girdisinin ALICISI
+-- BOŞTUR — yani `=U/sahip`. `postgres=UC/postgres` PUBLIC DEĞİLDİR.
+-- İlk sürüm `like '%=UC/%'` diyordu ve her adlandırılmış girdiyi PUBLIC
+-- sandı: `phase0_private` ve `vault` yanlışlıkla "PUBLIC erisebilir"
+-- işaretlendi. Doğru sınama, girdinin başındaki boş alıcıdır.
 b6 as (
   select 6, 'SEMA', n.nspname,
          'sahip=' || n.nspowner::regrole::text,
          coalesce(array_to_string(n.nspacl::text[], ', '), '(varsayilan)'),
-         case
-           when n.nspacl::text like '%anon=%'   then 'anon ERISEBILIR'
-           when n.nspacl::text like '%=UC/%'    then 'PUBLIC erisebilir'
-           when n.nspacl is null                then 'ACL yok - sahibe ozel'
-           else '' end
+         nullif(trim(both ' ' from
+           case when n.nspacl is null then 'ACL yok - sahibe ozel ' else
+             (case when array_to_string(n.nspacl::text[], ', ') ~ '(^|, )anon='
+                   then 'anon ERISEBILIR ' else '' end) ||
+             (case when array_to_string(n.nspacl::text[], ', ') ~ '(^|, )='
+                   then 'PUBLIC ERISEBILIR ' else '' end)
+           end), '')
     from pg_namespace n
    where n.nspname not like 'pg\_%'
      and n.nspname <> 'information_schema'
