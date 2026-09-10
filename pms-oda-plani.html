@@ -7,6 +7,7 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="pms-housekeeping.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let CU = requireLogin();
@@ -145,8 +146,11 @@ const SATIR_TAVANI = 5000;
 const BUGUN = bugunYerelStr();
 const KULLANIM_AD = {bos:'Boş', dolu:'Dolu', bloke:'Bloke', ariza:'Arıza'};
 const TEMIZLIK_AD = {temiz:'Temiz', kirli:'Kirli', temizleniyor:'Temizleniyor', kontrol_edildi:'Kontrol edildi'};
-// temizlik akışı: bir sonraki durum (yalnız BOŞ odalarda gösterilir)
-const TEMIZLIK_SONRAKI = {kirli:'temizleniyor', temizleniyor:'temiz', kontrol_edildi:'temiz'};
+// Oda başına kat hizmetleri özeti: oda_id -> {gorev_id, gorev_durum, ...}
+// TEK toplu istekle doldurulur (pms_housekeeping_oda_ozet). Oda başına
+// sorgu YOKTUR.
+let HK_OZET = new Map();
+let HK_OKUNABILIR = true;
 
 (function init(){
   if(!CU) return;
@@ -187,6 +191,7 @@ async function yukle(){
     ODALAR=[]; TIPLER=[]; MISAFIRLER=[]; REZ=[]; ATAMALAR=[];
     uyarilar.push('Sunucuya ulaşılamadı.');
   }
+  await hkOzetYukle();
   hLD();
   const u = document.getElementById('uyari');
   if(uyarilar.length){ u.style.display=''; u.innerHTML='<b>Dikkat</b>'+uyarilar.map(escapeHtml).join('<br>'); }
@@ -216,13 +221,46 @@ function tipDoldur(){
   f.value = onceki;
 }
 
-// Oda doluluğu: bugünü kapsayan aktif atama -> giris_yapildi rezervasyon.
-// (Sunucudaki tutarlılık değişmezleriyle aynı kuralın istemci görüntüsü.)
+// Oda doluluğu: AKTİF atama -> rezervasyon durumu `giris_yapildi`.
+//
+// DÜZELTME (Faz 2): burada eskiden `a.bitis >= BUGUN` koşulu vardı. Bu, Faz 1
+// doluluk sözleşmesinde YOKTUR ve GECİKMİŞ konaklamayı (planlanan çıkışı
+// geçmiş ama hâlâ giriş yapmış misafir) BOŞ gösteriyordu: oda planında
+// "Çıkış" düğmesi kaybolduğu için resepsiyon check-out yapamıyordu.
+// Sunucu tarafı zaten tarihe bakmaz — `pms_check_out` planlanan çıkış
+// tarihini şart koşmaz ve tutarlılık değişmezleri yalnız aktif atama +
+// `giris_yapildi` arar. İstemci görünümü artık aynı kuralı uyguluyor.
 function doluRez(o){
-  const atama = ATAMALAR.find(a=>a.oda_id===o.id && a.aktif && a.bitis >= BUGUN);
+  const atama = ATAMALAR.find(a=>a.oda_id===o.id && a.aktif);
   if(!atama) return null;
   const r = REZ.find(x=>x.id===atama.rezervasyon_id);
   return (r && r.durum === 'giris_yapildi') ? { rez:r, atama } : null;
+}
+
+// Kat hizmetleri özeti — TEK toplu istek (oda başına sorgu YOK).
+// Sunucu en çok 500 oda kabul ettiği için parçalanır; otel başına gruplanır.
+async function hkOzetYukle(){
+  HK_OZET = new Map(); HK_OKUNABILIR = true;
+  if(typeof HK === 'undefined') { HK_OKUNABILIR = false; return; }
+  const otelBazli = new Map();
+  for(const o of ODALAR){
+    const k = String(o.otel_id);
+    if(!otelBazli.has(k)) otelBazli.set(k, []);
+    otelBazli.get(k).push(o.id);
+  }
+  for(const [otel, idler] of otelBazli.entries()){
+    for(let i = 0; i < idler.length; i += 500){
+      try{
+        const satirlar = await HK.odaOzet(otel, idler.slice(i, i + 500));
+        for(const s of (satirlar || [])) HK_OZET.set(s.oda_id, s);
+      }catch(e){
+        // Kat hizmetleri yetkisi olmayan kullanıcı oda planını GÖRMEYE
+        // devam eder; yalnız kat hizmetleri satırı gizlenir.
+        HK_OKUNABILIR = false;
+        return;
+      }
+    }
+  }
 }
 // Check-in'e uygun rezervasyonlar: aynı otel, onaylandı, bugün girilebilir,
 // aktif ataması YOK, oda tipiyle uyumlu.
@@ -293,11 +331,12 @@ function odaKart(o){
         + (n ? 'onclick="girisAc(\''+jsAttrStr(o.id)+'\')"' : 'disabled')
         + '>Giriş' + (n ? ' ('+n+')' : '') + '</button>';
     }
-    const sonraki = TEMIZLIK_SONRAKI[o.temizlik_durumu];
-    if(sonraki){
-      butonlar += ' <button class="btn btn-s btn-sm" onclick="temizlikDegistir(\''+jsAttrStr(o.id)+'\',\''+sonraki+'\')">'
-        + escapeHtml(TEMIZLIK_AD[sonraki]) + '</button>';
-    }
+  }
+  // Kat hizmetleri işlemi ARTIK BURADA YAPILMAZ; ilgili ekrana yönlendirilir.
+  const hk = HK_OZET.get(o.id);
+  if(hk && hk.gorev_id){
+    butonlar += ' <button class="btn btn-s btn-sm" onclick="katHizmetleriAc(\''+jsAttrStr(o.id)+'\')">'
+      + 'Kat Hizmetlerinde Aç</button>';
   }
   const misafirSatiri = dolu
     ? '<div class="misafir">'+escapeHtml(misafirAdi(dolu.rez.misafir_id))+'</div>'
@@ -309,8 +348,32 @@ function odaKart(o){
       + (o.kat ? ' · K'+escapeHtml(o.kat) : '')+'</div>'
     + '<div><span class="rozet kd-'+escapeHtml(o.kullanim_durumu)+'">'+escapeHtml(KULLANIM_AD[o.kullanim_durumu]||o.kullanim_durumu)+'</span>'
       + ' <span class="rozet tm-'+escapeHtml(o.temizlik_durumu)+'">'+escapeHtml(TEMIZLIK_AD[o.temizlik_durumu]||o.temizlik_durumu)+'</span></div>'
+    + hkSatiri(o)
     + misafirSatiri
     + '<div>' + butonlar + '</div>'
+    + '</div>';
+}
+
+// Kat hizmetleri SALT OKUNUR satırı. Kaynak: görev motorunun izdüşümü.
+// Renkten bağımsız okunur (her satır metin taşır).
+const HK_DURUM_KISA = {
+  bekliyor:'bekliyor', temizleniyor:'temizleniyor',
+  tamamlandi:'hazır', kontrol_edildi:'denetlendi', iptal:'iptal'
+};
+function hkSatiri(o){
+  if(!HK_OKUNABILIR) return '';
+  const hk = HK_OZET.get(o.id);
+  if(!hk || !hk.gorev_id){
+    // Kirli ama görevi olmayan oda geçerli bir birikimdir (mimari §7.2).
+    return o.temizlik_durumu === 'kirli'
+      ? '<div style="font-size:10px;color:var(--gray-500)">görev açılmadı</div>' : '';
+  }
+  const tip = (typeof HK !== 'undefined' && HK.TIP_AD[hk.gorev_tipi]) || hk.gorev_tipi;
+  const durum = HK_DURUM_KISA[hk.gorev_durum] || hk.gorev_durum;
+  const kim = hk.atanan_kullanici_id ? '' : ' · atanmamış';
+  return '<div style="font-size:10px;color:var(--gray-600);line-height:1.35">'
+    + '🧹 ' + escapeHtml(tip) + ' · ' + escapeHtml(durum) + escapeHtml(kim)
+    + (Number(hk.oncelik) === 1 ? ' · <b>yüksek öncelik</b>' : '')
     + '</div>';
 }
 
@@ -384,19 +447,22 @@ async function checkOutYap(rezId, odaNo){
 }
 
 // ---------------------------------------------------------------------------
-// HOUSEKEEPING — temizlik durumu (yalnız BOŞ odada; sunucu kuralı: dolu oda
-// kullanim değişmez, boş odada temizlik akışı serbesttir)
+// KAT HİZMETLERİ — ESKİ DOĞRUDAN TEMİZLİK AKIŞI KALDIRILDI (PMS Faz 2)
 // ---------------------------------------------------------------------------
-async function temizlikDegistir(odaId, sonraki){
-  sLD();
-  try{
-    await sbYaz(SB_URL+'/rest/v1/pms_odalar?id=eq.'+encodeURIComponent(odaId),
-      {method:'PATCH',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
-       body:JSON.stringify({temizlik_durumu:sonraki})}, 'Temizlik güncelleme');
-    toast('Temizlik: ' + TEMIZLIK_AD[sonraki]);
-    await yukle();
-  }catch(e){}
-  hLD();
+// Eskiden burada `TEMIZLIK_SONRAKI` haritası ve `temizlikDegistir()` vardı:
+// oda planındaki bir düğme `pms_odalar.temizlik_durumu` alanını DOĞRUDAN
+// PATCH ediyordu.
+//
+// Bu yol KAPATILDI. Artık temizlik durumu görev motorunun İZDÜŞÜMÜDÜR:
+// sunucudaki oda bekçisi (`pms_housekeeping_oda_koruma`) uygulama rolünün
+// temizlik alanını ve gösterge alanını yazmasını REDDEDER. Durum yalnız
+// onaylı RPC'lerle (sahiplen/başlat/tamamla/kontrol et) ilerler.
+//
+// Oda planı bu bilgiyi SALT OKUNUR gösterir; işlem için kat hizmetleri
+// ekranına yönlendirir.
+function katHizmetleriAc(odaId){
+  const o = ODALAR.find(x=>x.id===odaId);
+  location.href = 'pms-housekeeping.html' + (o ? '#oda=' + encodeURIComponent(o.oda_no) : '');
 }
 </script>
 </body>
