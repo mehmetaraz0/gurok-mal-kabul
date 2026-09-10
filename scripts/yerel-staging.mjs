@@ -43,7 +43,9 @@ const DOSYA = {
   adim2: join(kok, 'docs/kurulum/2026-09-06-pms-faz1-adim2-misafir-rezervasyon.sql'),
   adim3: join(kok, 'docs/kurulum/2026-09-06-pms-faz1-adim3-checkin-checkout.sql'),
   adim4: join(kok, 'docs/kurulum/2026-09-06-pms-faz1-adim4-folio.sql'),
+  faz2:    join(kok, 'docs/kurulum/2026-09-09-pms-faz2-adim1-housekeeping.sql'),
   overlay: join(kok, 'scripts/yerel-staging-overlay.sql'),
+  hk:      join(kok, 'scripts/yerel-staging-housekeeping.sql'),
 };
 
 // PIN -> demo kullanici. Gercek PIN dogrulamasi DEGILDIR; yerel stub.
@@ -51,6 +53,9 @@ const PINLER = {
   '111111': 'a0000000-0000-0000-0000-0000000000a1',  // QA Tam Yetki (otel 810)
   '222222': 'a0000000-0000-0000-0000-0000000000a2',  // QA Kisitli (folyo yetkisi YOK)
   '333333': 'a0000000-0000-0000-0000-0000000000a3',  // QA 811 Otel
+  '444444': 'a0000000-0000-0000-0000-0000000000a4',  // QA Kat Gorevlisi (kayit)
+  '555555': 'a0000000-0000-0000-0000-0000000000a5',  // QA Yetkisiz (kat hizmetleri YOK)
+  '666666': 'a0000000-0000-0000-0000-0000000000a6',  // QA Kat Gorevlisi 2 (kayit)
 };
 
 function calistir(komut, args, girdi) {
@@ -110,18 +115,23 @@ const dh = r.err.split('\n').filter((l) => l.startsWith('ERROR:'))
 if (dh.length) { console.error('dokum:\n' + dh.slice(0, 5).join('\n')); temizle(); process.exit(1); }
 console.log('  [3/6] uretim sema kopyasi');
 
-for (const ad of ['adim1', 'adim2', 'adim3', 'adim4']) {
+for (const ad of ['adim1', 'adim2', 'adim3', 'adim4', 'faz2']) {
   r = psql(readFileSync(DOSYA[ad], 'utf8'));
   if (!r.ok) {
     console.error(ad + ':\n' + r.err.split('\n').filter((l) => l.startsWith('ERROR:')).slice(0, 4).join('\n'));
     temizle(); process.exit(1);
   }
 }
-console.log('  [4/6] PMS Adim 1-4 migration');
+console.log('  [4/6] PMS Adim 1-4 + Faz 2 kat hizmetleri migration');
 
 r = psql(readFileSync(DOSYA.overlay, 'utf8'));
 if (!r.ok) { console.error('overlay: ' + r.err.slice(-800)); temizle(); process.exit(1); }
 console.log('  [5/6] staging katmani + demo veri');
+
+// Kat hizmetleri QA katmani: dort yetki seviyesi + otel izolasyonu verisi.
+r = psql(readFileSync(DOSYA.hk, 'utf8'));
+if (!r.ok) { console.error('hk-overlay: ' + r.err.slice(-800)); temizle(); process.exit(1); }
+console.log('  [5b/6] kat hizmetleri QA katmani');
 
 r = docker(['run', '--detach', '--name', PR, '--network', AG,
   '-e', 'PGRST_DB_URI=postgres://authenticator:staging@' + PG + ':5432/pmsqa',
