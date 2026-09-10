@@ -36,8 +36,9 @@ declare
   v_rol811 uuid; v_auth811 uuid := gen_random_uuid(); v_kul811 uuid;
   v_pauth uuid := gen_random_uuid(); v_pkul uuid;
   v_tip uuid; v_tip811 uuid; v_oda uuid; v_oda811 uuid;
-  v_g uuid; v_g811 uuid; v_r jsonb; v_n int;
+  v_g uuid; v_g811 uuid; v_r jsonb; v_n int; v_n2 int;
   v_state text; v_msg text; v_katman text; v_h text := encode(sha256('rest'::bytea),'hex');
+  v_alan text;
 
 begin
   -- ================= FİKSTÜR =================
@@ -281,6 +282,148 @@ begin
       raise notice 'X13 OK    ozel yardimci REST ten kapali  [katman: %]', v_katman; v_ok:=v_ok+1;
     else raise notice 'X13 FAIL  gozlenen %', v_katman; v_fail:=v_fail+1; end if;
   end;
+
+  -- ==================================================================
+  -- X14  KOLON KOLON SAHTECILIK — 1. KATMAN (ACL)
+  -- Gereksinim listesi her alani AYRI AYRI istiyor. `authenticated` rolunun
+  -- gorev tablosunda YALNIZ SELECT hakki var, bu yuzden hepsini AYNI katman
+  -- reddeder; yine de her alan tek tek denenir ve reddeden katman yazilir.
+  -- ==================================================================
+  perform set_config('request.jwt.claim.role','authenticated',true);
+  perform set_config('request.jwt.claim.sub', v_auth::text, true);
+  v_n := 0;
+  foreach v_alan in array array[
+    'durum', 'atanan_kullanici_id', 'olusturan', 'olusturma_kaynagi',
+    'olusturma_tarihi', 'guncelleme_tarihi', 'baslama_zamani', 'bitis_zamani',
+    'surum'
+  ] loop
+    begin
+      execute 'set local role authenticated';
+      execute format(
+        'update public.pms_housekeeping_gorevleri set %I = %L where id = %L',
+        v_alan,
+        case v_alan
+          when 'durum' then 'tamamlandi'
+          when 'atanan_kullanici_id' then v_kul::text
+          when 'olusturan' then v_kul::text
+          when 'olusturma_kaynagi' then 'sistem'
+          when 'surum' then '99'
+          else '2020-01-01 00:00:00+00' end,
+        v_g);
+      execute 'reset role';
+      raise notice 'X14 FAIL  % alani sahte yazildi', v_alan; v_fail:=v_fail+1;
+    exception when others then
+      get stacked diagnostics v_state = returned_sqlstate;
+      execute 'reset role';
+      if v_state = '42501' then v_n := v_n + 1;
+      else raise notice 'X14 FAIL  % alani icin beklenen ACL, gozlenen %', v_alan, v_state;
+           v_fail:=v_fail+1; end if;
+    end;
+  end loop;
+  if v_n = 9 then
+    raise notice 'X14 OK    9/9 alan dogrudan yazmaya kapali  [katman: ACL (tek revoke, tum kolonlar)]';
+    v_ok:=v_ok+1;
+  end if;
+
+  -- ==================================================================
+  -- X15  KOLON KOLON SAHTECILIK — DERINLIKTE SAVUNMA
+  -- ------------------------------------------------------------------
+  -- OLCULEN GERCEK: bir REST cagiranini durduran katmanlar SIRAYLA
+  --   1) ACL   — `authenticated` rolunun UPDATE hakki YOK        (X14)
+  --   2) RLS   — UPDATE icin PERMISSIVE politika YOK: satir 0     (bu test)
+  --   3) BEKCI — ancak ikisi de acilirsa tetikleyici konusur      (bu test)
+  --
+  -- KATMAN IZOLASYONU: once yalniz ACL acilir ve RLS'in TEK BASINA
+  -- durdurdugu kanitlanir; sonra RLS de acilir ve bekcinin konustugu
+  -- kanitlanir. Sonuc "0 satir" ile "istisna" AYRI AYRI ayirt edilir;
+  -- RLS sessizligi asla bekci reddi sayilmaz. Bu fikstur yalniz bu
+  -- dosyada yasar, geri alinir ve migration dosyasina ASLA girmez.
+  -- ==================================================================
+  grant update on public.pms_housekeeping_gorevleri to authenticated;
+
+  -- ---- 2. KATMAN: RLS tek basina ----
+  begin
+    execute 'set local role authenticated';
+    update public.pms_housekeeping_gorevleri set olusturma_kaynagi='sistem' where id=v_g;
+    get diagnostics v_n = row_count;
+    execute 'reset role';
+    select count(*) into v_n2 from public.pms_housekeeping_gorevleri
+     where id=v_g and olusturma_kaynagi='kullanici';
+    if v_n = 0 and v_n2 = 1 then
+      raise notice 'X15a OK    ACL acilsa bile yazma 0 satir, deger degismedi  [katman: RLS]';
+      v_ok:=v_ok+1;
+    else
+      raise notice 'X15a FAIL  row_count=% degeri koruyan satir=%', v_n, v_n2; v_fail:=v_fail+1;
+    end if;
+  exception when others then
+    get stacked diagnostics v_state = returned_sqlstate;
+    execute 'reset role';
+    raise notice 'X15a OK    ACL acilinca BEKCI konustu (%)  [katman: BEKCI]', v_state;
+    v_ok:=v_ok+1;
+  end;
+
+  -- ---- 3. KATMAN: RLS de acilir, geriye YALNIZ bekci kalir ----
+  create policy x15_yaz on public.pms_housekeeping_gorevleri
+    for update to authenticated using (true) with check (true);
+
+  v_n := 0; v_n2 := 0;
+  foreach v_alan in array array[
+    'durum', 'atanan_kullanici_id', 'olusturan', 'olusturma_kaynagi',
+    'olusturma_tarihi', 'surum'
+  ] loop
+    declare v_satir int; begin
+      execute 'set local role authenticated';
+      execute format(
+        'update public.pms_housekeeping_gorevleri set %I = %L where id = %L',
+        v_alan,
+        case v_alan
+          when 'durum' then 'tamamlandi'
+          when 'atanan_kullanici_id' then v_kul::text
+          when 'olusturan' then v_kul::text
+          when 'olusturma_kaynagi' then 'sistem'
+          when 'surum' then '99'
+          else '2020-01-01 00:00:00+00' end,
+        v_g);
+      get diagnostics v_satir = row_count;
+      execute 'reset role';
+      if v_satir = 0 then
+        -- RLS hala susturuyor: bu testin KATMANI YALITAMADIGI anlamina gelir.
+        raise notice 'X15b FAIL  % icin RLS SESSIZLIGI (0 satir) — katman yalitilamadi', v_alan;
+        v_fail:=v_fail+1;
+      else
+        raise notice 'X15b FAIL  % alani SAHTE YAZILDI (% satir)', v_alan, v_satir;
+        v_fail:=v_fail+1;
+      end if;
+    exception when others then
+      get stacked diagnostics v_state = returned_sqlstate;
+      execute 'reset role';
+      v_n := v_n + 1;
+    end;
+  end loop;
+
+  drop policy x15_yaz on public.pms_housekeeping_gorevleri;
+  revoke update on public.pms_housekeeping_gorevleri from authenticated;
+
+  if v_n = 6 then
+    raise notice 'X15b OK    ACL ve RLS acilsa bile 6/6 alan reddedildi  [katman: BEKCI (son savunma)]';
+    v_ok:=v_ok+1;
+  end if;
+
+  -- ==================================================================
+  -- X16  service_role ve PUBLIC icin ISTENMEYEN MUTASYON API'si YOK
+  -- ==================================================================
+  select count(*) into v_n from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+   where n.nspname='public' and p.proname like 'pms_housekeeping!_%' escape '!'
+     and p.prorettype <> 'trigger'::regtype
+     and (has_function_privilege('service_role', p.oid, 'EXECUTE')
+          or p.proacl is null or array_to_string(p.proacl,',') ~ '(^|,)=');
+  if v_n = 0 then
+    raise notice 'X16 OK    service_role/PUBLIC icin kat hizmetleri RPC yuzeyi yok  [katman: ACL]';
+    v_ok:=v_ok+1;
+  else
+    raise notice 'X16 FAIL  % RPC service_role/PUBLIC tarafindan cagrilabiliyor', v_n;
+    v_fail:=v_fail+1;
+  end if;
 
   raise notice '--------------------------------------------------';
   raise notice 'REST BAYPAS SONUC: % OK / % FAIL', v_ok, v_fail;

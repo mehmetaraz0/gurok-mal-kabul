@@ -111,8 +111,11 @@ function sonuc(kod, gecti, satir) {
 const FIKSTUR = `
 begin;
 update public.moduller set aktif = true where kod = 'pms_housekeeping';
-insert into public.moduller (kod, ad, kategori, sira, aktif)
-values ('pms_oda','On Buro - Odalar','onburo',44,true)
+insert into public.moduller (kod, ad, kategori, sira, aktif) values
+  ('pms_oda','On Buro - Odalar','onburo',44,true),
+  ('pms_oda_tipi','On Buro - Oda Tipleri','onburo',43,true),
+  ('pms_misafir','On Buro - Misafirler','onburo',45,true),
+  ('pms_rezervasyon','On Buro - Rezervasyonlar','onburo',47,true)
 on conflict (kod) do update set aktif = true;
 
 drop table if exists public.ez_fikstur;
@@ -123,7 +126,7 @@ declare
   v_rol uuid; v_rolw uuid;
   v_a1 uuid := gen_random_uuid(); v_a2 uuid := gen_random_uuid(); v_as uuid := gen_random_uuid();
   v_w1 uuid; v_w2 uuid; v_sup uuid;
-  v_tip uuid; v_oda uuid; v_oda2 uuid; v_g uuid; v_r jsonb;
+  v_tip uuid; v_oda uuid; v_oda2 uuid; v_g uuid; v_r jsonb; v_mis uuid;
   -- Dosya ayni atilabilir veritabaninda birden cok kez calisabilmeli:
   -- oda_no ve tip kodu otel icinde benzersiz, bu yuzden her kosuya ozgu ek.
   v_ek text := substr(md5(random()::text || clock_timestamp()::text), 1, 6);
@@ -131,7 +134,8 @@ begin
   insert into public.roller (ad, seviye) values ('EZ Sup '||v_ek,'otel')    returning id into v_rol;
   insert into public.roller (ad, seviye) values ('EZ Worker '||v_ek,'otel') returning id into v_rolw;
   insert into public.yetki_matrisi (rol_id, modul_id, yetki)
-  select v_rol, id, 'tam' from public.moduller where kod in ('pms_housekeeping','pms_oda');
+  select v_rol, id, 'tam' from public.moduller
+   where kod in ('pms_housekeeping','pms_oda','pms_oda_tipi','pms_misafir','pms_rezervasyon');
   insert into public.yetki_matrisi (rol_id, modul_id, yetki)
   select v_rolw, id, 'kayit' from public.moduller where kod = 'pms_housekeeping';
 
@@ -155,10 +159,15 @@ begin
   v_r := public.pms_housekeeping_gorev_olustur(v_oda,'ekstra_temizlik','bos',gen_random_uuid());
   v_g := (v_r->>'gorev_id')::uuid;
 
+  -- Gercek Faz 1 check-in/check-out senaryolari icin misafir + oda tipi.
+  insert into public.pms_misafirler (otel_id, ad, soyad)
+  values ('810','EZ','Misafir') returning id into v_mis;
+
   insert into public.ez_fikstur values
     ('a1',v_a1),('a2',v_a2),('as',v_as),
     ('w1',v_w1),('w2',v_w2),('sup',v_sup),
-    ('oda',v_oda),('oda2',v_oda2),('gorev',v_g);
+    ('oda',v_oda),('oda2',v_oda2),('gorev',v_g),
+    ('tip',v_tip),('misafir',v_mis);
 end
 $f$;
 commit;
@@ -176,6 +185,86 @@ do $j$ begin
     (select deger from public.ez_fikstur where ad='${auth}')::text, false);
 end $j$;
 `;
+
+// ---------------------------------------------------------------------------
+// SENARYO KURULUM YARDIMCILARI
+// Her senaryo KENDI odasini/gorevini kurar. Onceki senaryonun biraktigi durum
+// bir sonrakini sessizce bozamaz; bozarsa `kurulum()` testi DURDURUR.
+// ---------------------------------------------------------------------------
+const KIMLIK = /^[0-9a-f-]{36}$/;
+
+function kimlikDogrula(etiket, deger) {
+  if (!KIMLIK.test(deger)) {
+    console.error(`KURULUM BASARISIZ (${etiket}): kimlik okunamadi: [${deger}]`);
+    process.exit(1);
+  }
+  return deger;
+}
+
+let odaSayaci = 0;
+async function odaKur(etiket, temizlik) {
+  odaSayaci += 1;
+  const no = `EZ${String(odaSayaci).padStart(2, '0')}-${Date.now().toString(36).slice(-5)}`;
+  const id = kimlikDogrula(etiket, await kurulum(`${etiket} oda`, `
+    insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no)
+    select '810', deger, '${no}' from public.ez_fikstur where ad='tip'
+    returning id::text;`));
+  if (temizlik) {
+    // Guvenilir yazar: kat hizmetleri motorunun yapacagi izdusumun ayni.
+    // Temizlik degisimi DENETLENIR, bu yuzden kimlik sart.
+    await kurulum(`${etiket} oda temizlik`, `${JWT('as')}
+      update public.pms_odalar set temizlik_durumu='${temizlik}' where id='${id}'
+      returning id::text;`);
+  }
+  return id;
+}
+
+// Rezervasyon yazmasi da denetlenir: Faz 0 kurali aktif ERP personeli ister,
+// bu yuzden fikstur JWT'siz yazamaz.
+async function rezervasyonKur(etiket) {
+  return kimlikDogrula(etiket, await kurulum(`${etiket} rezervasyon`, `${JWT('as')}
+    insert into public.pms_rezervasyonlar
+      (otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi,
+       yetiskin_sayisi, durum, gecelik_fiyat)
+    select '810',
+      (select deger from public.ez_fikstur where ad='misafir'),
+      (select deger from public.ez_fikstur where ad='tip'),
+      public.pms_bugun(), public.pms_bugun()+1, 1, 'onaylandi', 100
+    returning id::text;`));
+}
+
+// Gercek Faz 1 check-in: rezervasyon + pms_check_in (uygulama rolu).
+async function konaklamaKur(etiket, odaId) {
+  const rez = await rezervasyonKur(etiket);
+  await kurulum(`${etiket} check-in`, `${JWT('as')}
+    set local role authenticated;
+    select public.pms_check_in('${rez}'::uuid, '${odaId}'::uuid);
+    reset role;
+    select '${rez}';`);
+  return rez;
+}
+
+async function gorevKur(etiket, odaId, tip, kullanim) {
+  return kimlikDogrula(etiket, await kurulum(`${etiket} gorev`, `${JWT('as')}
+    select (public.pms_housekeeping_gorev_olustur('${odaId}'::uuid,
+      '${tip}', '${kullanim}', gen_random_uuid())->>'gorev_id')::text;`));
+}
+
+const surumOku = (g) =>
+  tekSorgu(`select surum::text from public.pms_housekeeping_gorevleri where id='${g}';`);
+
+const odaDurumu = (o) =>
+  tekSorgu(`select kullanim_durumu::text||'|'||temizlik_durumu::text
+            from public.pms_odalar where id='${o}';`);
+
+const gorevDurumu = (g) =>
+  tekSorgu(`select durum||coalesce('/'||iptal_nedeni,'')
+            from public.pms_housekeeping_gorevleri where id='${g}';`);
+
+// Denetim izi: senaryodan SONRA gorev icin denetim satiri olustu mu?
+const denetimSayisi = (g) =>
+  tekSorgu(`select count(*)::text from public.erp_islem_audit
+            where entity_id = '${g}';`);
 
 async function calis() {
   console.log('=== FIKSTUR ===');
@@ -405,14 +494,399 @@ async function calis() {
   }
 
   // =====================================================================
+  // EZ-F  (matris C)  YENIDEN ATAMA vs BASLATMA
+  // A: yonetici gorevi W2'ye atiyor (commit YOK) — B: W1 baslatmaya calisiyor
+  // =====================================================================
+  {
+    const oda = await odaKur('EZ-F');
+    const g   = await gorevKur('EZ-F', oda, 'ekstra_temizlik', 'bos');
+    await kurulum('EZ-F sahiplen', `${JWT('a1')}
+      select public.pms_housekeeping_sahiplen('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'),
+        gen_random_uuid());`);
+    const s = await surumOku(g);
+
+    const A = oturum('A'), B = oturum('B');
+    await gonder(A, JWT('as'));
+    await gonder(B, JWT('a1'));
+
+    await gonder(A, `begin;`);
+    await gonder(A, `select public.pms_housekeeping_ata('${g}'::uuid,
+      (select deger from public.ez_fikstur where ad='w2'), ${s}, gen_random_uuid())->>'atanan';`);
+
+    const bloke = await gonder(B, `begin;
+      select public.pms_housekeeping_baslat('${g}'::uuid, ${s}, gen_random_uuid())->>'durum';`, 3000);
+    const blokeOldu = (bloke === null);
+
+    await gonder(A, `commit;`);
+    const rb = await gonder(B, ``, 8000);
+    await gonder(B, `rollback;`, 5000);
+
+    const kazanan = await tekSorgu(`select k.ad from public.pms_housekeeping_gorevleri gg
+      join public.kullanicilar k on k.id=gg.atanan_kullanici_id where gg.id='${g}';`);
+    const dur = await gorevDurumu(g);
+    const bKaybetti = rb === null || /ERROR/i.test(rb || '');
+
+    sonuc('EZ-F', blokeOldu && bKaybetti && kazanan === 'EZ W2' && dur === 'bekliyor',
+      `A yeniden atadi, B ${blokeOldu ? 'BLOKE OLDU' : 'bloke OLMADI'}; ` +
+      `atanan=${kazanan}, gorev=${dur}, B ham=[${kisalt(rb)}]`);
+    rapor.push({ test:'EZ-F', matris:'C', a:'ata (W2)', b:'baslat (W1)',
+      bariyer:'gorev satir kilidi', kazanan:'A (yeniden atama)',
+      kaybeden:'B (surum/durum catismasi)', oda:await odaDurumu(oda), gorev:dur,
+      denetim:await denetimSayisi(g) });
+    kapat(A); kapat(B);
+  }
+
+  // =====================================================================
+  // EZ-G  (matris D)  TAMAMLAMA vs GERCEK pms_check_in
+  // EZ-D dogrudan oda yazmasiydi; BU test gercek Faz 1 RPC'sini kullanir.
+  // =====================================================================
+  {
+    const oda = await odaKur('EZ-G', 'kirli');
+    const g   = await gorevKur('EZ-G', oda, 'ekstra_temizlik', 'bos');
+    await kurulum('EZ-G sahiplen/baslat', `${JWT('a1')}
+      select public.pms_housekeeping_sahiplen('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());
+      select public.pms_housekeeping_baslat('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());`);
+    const rez = await rezervasyonKur('EZ-G');
+    const s = await surumOku(g);
+
+    const A = oturum('A'), B = oturum('B');
+    await gonder(A, JWT('a1'));
+    await gonder(B, JWT('as'));
+
+    await gonder(A, `begin;`);
+    await gonder(A, `select public.pms_housekeeping_tamamla('${g}'::uuid, ${s},
+      gen_random_uuid())->>'oda_temizlik';`);
+
+    // B GERCEK check-in dener: oda satiri kilitli oldugu icin BLOKE olmali
+    const bloke = await gonder(B, `begin;
+      set local role authenticated;
+      select public.pms_check_in('${rez}'::uuid, '${oda}'::uuid);`, 3000);
+    const blokeOldu = (bloke === null);
+
+    await gonder(A, `commit;`);
+    const rb = await gonder(B, ``, 8000);
+    await gonder(B, `commit;`, 5000);
+
+    const son = await odaDurumu(oda);
+    const dur = await gorevDurumu(g);
+    // Mesru sira: temizlik biter -> oda temiz -> check-in BASARILI olmali.
+    const bBasarili = rb !== null && !/ERROR/i.test(rb || '');
+
+    sonuc('EZ-G', blokeOldu && bBasarili && son === 'dolu|temiz' && dur === 'tamamlandi',
+      `A tamamladi, B GERCEK check-in ${blokeOldu ? 'ODA KILIDINDE BEKLEDI' : 'beklemedi'} ` +
+      `ve ${bBasarili ? 'serilestirilerek BASARILI oldu' : 'BASARISIZ oldu'}; ` +
+      `oda=${son}, gorev=${dur}`);
+    rapor.push({ test:'EZ-G', matris:'D', a:'tamamla', b:'pms_check_in (gercek)',
+      bariyer:'oda satir kilidi', kazanan:'A once biter',
+      kaybeden:'B beklerdi, sonra mesru sekilde gecti', oda:son, gorev:dur,
+      denetim:await denetimSayisi(g) });
+    kapat(A); kapat(B);
+  }
+
+  // =====================================================================
+  // EZ-H  (matris F)  KONTROL ETME vs GERCEK pms_check_in
+  // =====================================================================
+  {
+    const oda = await odaKur('EZ-H', 'kirli');
+    const g   = await gorevKur('EZ-H', oda, 'ekstra_temizlik', 'bos');
+    await kurulum('EZ-H tamamlamaya kadar', `${JWT('a1')}
+      select public.pms_housekeeping_sahiplen('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());
+      select public.pms_housekeeping_baslat('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());
+      select public.pms_housekeeping_tamamla('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());`);
+    const rez = await rezervasyonKur('EZ-H');
+    const s = await surumOku(g);
+
+    const A = oturum('A'), B = oturum('B');
+    await gonder(A, JWT('as'));
+    await gonder(B, JWT('as'));
+
+    await gonder(A, `begin;`);
+    await gonder(A, `select public.pms_housekeeping_kontrol_et('${g}'::uuid, ${s},
+      gen_random_uuid())->>'durum';`);
+
+    const bloke = await gonder(B, `begin;
+      set local role authenticated;
+      select public.pms_check_in('${rez}'::uuid, '${oda}'::uuid);`, 3000);
+    const blokeOldu = (bloke === null);
+
+    await gonder(A, `commit;`);
+    const rb = await gonder(B, ``, 8000);
+    await gonder(B, `commit;`, 5000);
+
+    const son = await odaDurumu(oda);
+    const dur = await gorevDurumu(g);
+    const bBasarili = rb !== null && !/ERROR/i.test(rb || '');
+
+    sonuc('EZ-H', blokeOldu && bBasarili && dur === 'kontrol_edildi' && son.startsWith('dolu'),
+      `A kontrol etti, B GERCEK check-in ${blokeOldu ? 'ODA KILIDINDE BEKLEDI' : 'beklemedi'}; ` +
+      `oda=${son}, gorev=${dur}`);
+    rapor.push({ test:'EZ-H', matris:'F', a:'kontrol_et', b:'pms_check_in (gercek)',
+      bariyer:'oda satir kilidi', kazanan:'A once biter',
+      kaybeden:'B beklerdi, sonra mesru sekilde gecti', oda:son, gorev:dur,
+      denetim:await denetimSayisi(g) });
+    kapat(A); kapat(B);
+  }
+
+  // =====================================================================
+  // EZ-I  (matris G)  CHECK-OUT vs ODADA BEKLEYEN KAT HIZMETI GOREVI
+  // Cikis ureticisi bekleyen gorevi `cikis_ile_yenilendi` ile SISTEM
+  // IPTALINE ugratir ve yerine cikis_temizligi uretir.
+  // =====================================================================
+  {
+    const oda = await odaKur('EZ-I', 'temiz');
+    const rez = await konaklamaKur('EZ-I', oda);
+    const g   = await gorevKur('EZ-I', oda, 'ekstra_temizlik', 'dolu');
+    const s   = await surumOku(g);
+
+    const A = oturum('A'), B = oturum('B');
+    await gonder(A, JWT('as'));
+    await gonder(B, JWT('a1'));
+
+    await gonder(A, `begin;`);
+    await gonder(A, `set local role authenticated;
+      select public.pms_check_out('${rez}'::uuid);`);
+
+    // B bekleyen gorevi sahiplenmeye calisir: oda kilidinde BLOKE olmali
+    const bloke = await gonder(B, `begin;
+      select public.pms_housekeeping_sahiplen('${g}'::uuid, ${s}, gen_random_uuid())->>'durum';`, 3000);
+    const blokeOldu = (bloke === null);
+
+    await gonder(A, `commit;`);
+    const rb = await gonder(B, ``, 8000);
+    await gonder(B, `rollback;`, 5000);
+
+    const son  = await odaDurumu(oda);
+    const dur  = await gorevDurumu(g);
+    const yeni = await tekSorgu(`select count(*)::text from public.pms_housekeeping_gorevleri
+      where oda_id='${oda}' and gorev_tipi='cikis_temizligi' and olusturma_kaynagi='checkout';`);
+    const bKaybetti = rb === null || /ERROR/i.test(rb || '');
+
+    sonuc('EZ-I', blokeOldu && bKaybetti && son === 'bos|kirli' &&
+                  dur === 'iptal/cikis_ile_yenilendi' && yeni === '1',
+      `A check-out yapti, B ${blokeOldu ? 'ODA KILIDINDE BLOKE OLDU' : 'bloke olmadi'}; ` +
+      `oda=${son}, eski gorev=${dur}, yeni cikis gorevi=${yeni}, B ham=[${kisalt(rb)}]`);
+    rapor.push({ test:'EZ-I', matris:'G', a:'pms_check_out (gercek)', b:'sahiplen (bekleyen gorev)',
+      bariyer:'oda satir kilidi', kazanan:'A (cikis uretici)',
+      kaybeden:'B (gorev sistemce iptal edildi)', oda:son, gorev:dur,
+      denetim:await denetimSayisi(g) });
+    kapat(A); kapat(B);
+  }
+
+  // =====================================================================
+  // EZ-J  (matris H)  ODA BLOKE/ARIZA vs TAMAMLAMA
+  // =====================================================================
+  {
+    const oda = await odaKur('EZ-J', 'kirli');
+    const g   = await gorevKur('EZ-J', oda, 'ekstra_temizlik', 'bos');
+    await kurulum('EZ-J sahiplen/baslat', `${JWT('a1')}
+      select public.pms_housekeeping_sahiplen('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());
+      select public.pms_housekeeping_baslat('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());`);
+    const s = await surumOku(g);
+
+    const A = oturum('A'), B = oturum('B');
+    await gonder(A, JWT('a1'));
+    await gonder(B, JWT('as'));
+
+    await gonder(A, `begin;`);
+    await gonder(A, `select public.pms_housekeeping_tamamla('${g}'::uuid, ${s},
+      gen_random_uuid())->>'durum';`);
+
+    // B odayi ariza yapmaya calisir -> yasam dongusu gecersizlestiricisi
+    const bloke = await gonder(B, `begin;
+      set local role authenticated;
+      update public.pms_odalar set kullanim_durumu='ariza' where id='${oda}';`, 3000);
+    const blokeOldu = (bloke === null);
+
+    await gonder(A, `commit;`);
+    const rb = await gonder(B, ``, 8000);
+    await gonder(B, `commit;`, 5000);
+
+    const son = await odaDurumu(oda);
+    const dur = await gorevDurumu(g);
+    // Gorev A tarafindan tamamlanmisti; B'nin gecersizlestiricisi IPTAL
+    // EDECEK bekleyen gorev BULAMAMALI ve tamamlanmis gorevi BOZMAMALI.
+    sonuc('EZ-J', blokeOldu && dur === 'tamamlandi',
+      `A tamamladi, B ariza yazdi ${blokeOldu ? '(ODA KILIDINDE BEKLEDI)' : '(beklemedi)'}; ` +
+      `oda=${son}, gorev=${dur}, B ham=[${kisalt(rb)}]`);
+    rapor.push({ test:'EZ-J', matris:'H', a:'tamamla', b:'oda ariza (yasam dongusu)',
+      bariyer:'oda satir kilidi', kazanan:'A (tamamlama korundu)',
+      kaybeden:'B iptal edecek bekleyen gorev bulamadi', oda:son, gorev:dur,
+      denetim:await denetimSayisi(g) });
+    kapat(A); kapat(B);
+  }
+
+  // =====================================================================
+  // EZ-K  (matris I)  YENIDEN ACMA (rework) vs YENI CIKIS DONGUSU
+  // =====================================================================
+  {
+    const oda = await odaKur('EZ-K', 'temiz');
+    const rez = await konaklamaKur('EZ-K', oda);
+    // Once bir tamamlanmis gorev: cikis -> temizlik -> tamamla
+    await kurulum('EZ-K check-out', `${JWT('as')}
+      set local role authenticated;
+      select public.pms_check_out('${rez}'::uuid);
+      reset role;
+      select 'ok';`);
+    const g = kimlikDogrula('EZ-K gorev', await kurulum('EZ-K cikis gorevi', `
+      select id::text from public.pms_housekeeping_gorevleri
+       where oda_id='${oda}' and gorev_tipi='cikis_temizligi' limit 1;`));
+    await kurulum('EZ-K tamamla', `${JWT('a1')}
+      select public.pms_housekeeping_sahiplen('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());
+      select public.pms_housekeeping_baslat('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());
+      select public.pms_housekeeping_tamamla('${g}'::uuid,
+        (select surum from public.pms_housekeeping_gorevleri where id='${g}'), gen_random_uuid());`);
+    const s = await surumOku(g);
+
+    const A = oturum('A'), B = oturum('B');
+    await gonder(A, JWT('as'));
+    await gonder(B, JWT('as'));
+
+    await gonder(A, `begin;`);
+    await gonder(A, `select public.pms_housekeeping_yeniden_ac('${g}'::uuid,
+      'yeniden temizlik gerekti', ${s}, gen_random_uuid())->>'gorev_id';`);
+
+    // B ayni odaya YENI bir dongu baslatmaya calisir
+    const bloke = await gonder(B, `begin;
+      select public.pms_housekeeping_gorev_olustur('${oda}'::uuid,
+        'ekstra_temizlik','bos',gen_random_uuid())->>'gorev_id';`, 3000);
+    const blokeOldu = (bloke === null);
+
+    await gonder(A, `commit;`);
+    const rb = await gonder(B, ``, 8000);
+    await gonder(B, `rollback;`, 5000);
+
+    const bitmemis = await tekSorgu(`select count(*)::text from public.pms_housekeeping_gorevleri
+      where oda_id='${oda}' and durum in ('bekliyor','temizleniyor');`);
+    const bKaybetti = rb === null || /ERROR/i.test(rb || '');
+
+    sonuc('EZ-K', blokeOldu && bKaybetti && bitmemis === '1',
+      `A yeniden acti, B ${blokeOldu ? 'BLOKE OLDU' : 'bloke olmadi'} ve ` +
+      `${bKaybetti ? 'kaybetti' : 'GECTI(!)'}; bitmemis gorev=${bitmemis} (1 olmali)`);
+    rapor.push({ test:'EZ-K', matris:'I', a:'yeniden_ac (rework)', b:'yeni gorev olustur',
+      bariyer:'oda satir kilidi + aktif_oda_uniq', kazanan:'A (rework donusu)',
+      kaybeden:'B (benzersizlik/catisma)', oda:await odaDurumu(oda),
+      gorev:await gorevDurumu(g), denetim:await denetimSayisi(g) });
+    kapat(A); kapat(B);
+  }
+
+  // =====================================================================
+  // EZ-L  (matris K)  CALISAN KAPSAM/UYGUNLUK DEGISIMI vs ATAMA
+  // KILIT 1 (calisan satirlari FOR SHARE) burada olculur.
+  // =====================================================================
+  {
+    const oda = await odaKur('EZ-L');
+    const g   = await gorevKur('EZ-L', oda, 'ekstra_temizlik', 'bos');
+    const s   = await surumOku(g);
+
+    const A = oturum('A'), B = oturum('B');
+    await gonder(A, JWT('as'));
+    await gonder(B, JWT('as'));
+
+    await gonder(A, `begin;`);
+    await gonder(A, `select public.pms_housekeeping_ata('${g}'::uuid,
+      (select deger from public.ez_fikstur where ad='w2'), ${s}, gen_random_uuid())->>'atanan';`);
+
+    // B hedef calisani PASIFLESTIRMEYE calisir: A satiri FOR SHARE tutuyor
+    const bloke = await gonder(B, `begin;
+      update public.kullanicilar set aktif=false
+       where id=(select deger from public.ez_fikstur where ad='w2');`, 3000);
+    const blokeOldu = (bloke === null);
+
+    await gonder(A, `commit;`);
+    const rb = await gonder(B, ``, 8000);
+    await gonder(B, `rollback;`, 5000);
+
+    const atanan = await tekSorgu(`select k.ad from public.pms_housekeeping_gorevleri gg
+      join public.kullanicilar k on k.id=gg.atanan_kullanici_id where gg.id='${g}';`);
+
+    sonuc('EZ-L', blokeOldu && atanan === 'EZ W2',
+      `A atama yapti, B calisani pasiflestirme ` +
+      `${blokeOldu ? 'CALISAN SATIR KILIDINDE BEKLEDI' : 'BEKLEMEDI(!)'}; atanan=${atanan}`);
+    rapor.push({ test:'EZ-L', matris:'K', a:'ata (W2)', b:'W2 aktif=false',
+      bariyer:'kullanicilar satiri FOR SHARE (KILIT 1)', kazanan:'A once biter',
+      kaybeden:'B bekler (kapsam komut sirasinda donduruldu)',
+      oda:await odaDurumu(oda), gorev:await gorevDurumu(g),
+      denetim:await denetimSayisi(g) });
+    kapat(A); kapat(B);
+  }
+
+  // =====================================================================
+  // EZ-M  (matris L)  AG BELIRSIZLIGI SONRASI TEKRAR DENEME
+  // Ayni islem anahtari + AYNI icerik -> idempotent TEKRAR
+  // Ayni islem anahtari + FARKLI icerik -> HK_ISTEK_CAKISMASI
+  // =====================================================================
+  {
+    const oda = await odaKur('EZ-M');
+    const g   = await gorevKur('EZ-M', oda, 'ekstra_temizlik', 'bos');
+    const s   = await surumOku(g);
+    const anahtar = await tekSorgu(`select gen_random_uuid()::text;`);
+
+    const A = oturum('A'), B = oturum('B');
+    await gonder(A, JWT('a1'));
+    await gonder(B, JWT('a1'));
+
+    await gonder(A, `begin;`);
+    await gonder(A, `select public.pms_housekeeping_sahiplen('${g}'::uuid, ${s},
+      '${anahtar}'::uuid)->>'durum';`);
+
+    // B: istemci yaniti alamadi sanip AYNI komutu AYNI anahtarla yeniliyor
+    const bloke = await gonder(B, `begin;
+      select public.pms_housekeeping_sahiplen('${g}'::uuid, ${s},
+        '${anahtar}'::uuid)->>'tekrar';`, 3000);
+    const blokeOldu = (bloke === null);
+
+    await gonder(A, `commit;`);
+    const rb = await gonder(B, ``, 8000);
+    await gonder(B, `commit;`, 5000);
+
+    const tekrarDondu = /^t(rue)?$/i.test((rb || '').trim());
+    const atamaSayisi = await tekSorgu(`select count(*)::text from public.erp_islem_audit
+      where entity_id='${g}';`);
+    const dur = await gorevDurumu(g);
+
+    // Farkli icerik AYNI anahtarla: catisma bekleniyor
+    const farkli = await tekSorgu(`${JWT('a1')}
+      do $x$ begin
+        perform public.pms_housekeeping_birak('${g}'::uuid,
+          (select surum from public.pms_housekeeping_gorevleri where id='${g}'),
+          '${anahtar}'::uuid);
+        insert into public.ez_fikstur values ('m_sonuc', null);
+      exception when others then
+        null;   -- NOTICE basma: cikti tek satir olmali
+      end $x$;
+      select coalesce((select 'GECTI' from public.ez_fikstur where ad='m_sonuc'), 'REDDEDILDI');`);
+
+    sonuc('EZ-M', blokeOldu && tekrarDondu && dur === 'bekliyor' && farkli === 'REDDEDILDI',
+      `A sahiplendi, B ayni anahtarla ${blokeOldu ? 'BLOKE OLDU' : 'bloke olmadi'} ve ` +
+      `${tekrarDondu ? 'IDEMPOTENT TEKRAR aldi' : 'TEKRAR ALMADI: [' + kisalt(rb) + ']'}; ` +
+      `farkli icerik ayni anahtar: ${farkli}; denetim satiri=${atamaSayisi}`);
+    rapor.push({ test:'EZ-M', matris:'L', a:'sahiplen (anahtar K)', b:'ayni komut ayni anahtar',
+      bariyer:'gorev satir kilidi + islem anahtari', kazanan:'A (tek kez uygulandi)',
+      kaybeden:'B ikinci kez UYGULAMADI, tekrar makbuzu aldi',
+      oda:await odaDurumu(oda), gorev:dur, denetim:atamaSayisi });
+    kapat(A); kapat(B);
+  }
+
+  // =====================================================================
   // TEMİZLİK
   // =====================================================================
   await tekSorgu(`drop table if exists public.ez_fikstur;`);
 
   console.log('\n=== SENARYO RAPORU ===');
   for (const r of rapor) {
-    console.log(`${r.test}: A=${r.a} | B=${r.b} | bariyer=${r.bariyer}`);
-    console.log(`        kazanan=${r.kazanan} | kaybeden=${r.kaybeden} | oda=${r.oda} | gorev=${r.gorev}`);
+    console.log(`${r.test} [matris ${r.matris||'-'}]: A=${r.a} | B=${r.b} | bariyer=${r.bariyer}`);
+    console.log(`        kazanan=${r.kazanan} | kaybeden=${r.kaybeden}`);
+    console.log(`        oda=${r.oda} | gorev=${r.gorev} | denetim=${r.denetim||'-'}`);
   }
   console.log(`\nES ZAMANLILIK SONUC: ${ok} OK / ${fail} FAIL`);
   process.exit(fail > 0 ? 1 : 0);
