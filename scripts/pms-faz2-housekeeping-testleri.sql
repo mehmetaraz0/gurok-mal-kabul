@@ -42,6 +42,7 @@ declare
   v_oda2   uuid;
   v_gorev  uuid;
   v_calisan uuid;
+  v_auth   uuid := gen_random_uuid();
   v_h      text := encode(sha256('sozlesme'::bytea), 'hex');
   v_ok     int := 0;
   v_fail   int := 0;
@@ -51,9 +52,16 @@ begin
   -- artı bir test çalışanı. Şema-only dökümde `kullanicilar` BOŞTUR;
   -- atanan/olusturan FK'leri gerçek bir satır ister.
   -- --------------------------------------------------------------------
-  insert into public.kullanicilar (ad, rol, otel_id, aktif)
-  values ('T2 Test Calisani', 'depo', '810', true)
+  -- Artım 3'ün denetim tetikleyicisi görev tablosuna yapılan HER yazımda
+  -- aktif ERP personeli şart koşar (Faz 0 kuralı). Bu katman KAPATILMAZ;
+  -- fikstür gerçek bir kimlik üstlenir, böylece denetim yolu canlı kalır.
+  insert into auth.users (id) values (v_auth);
+  insert into public.kullanicilar (ad, rol, otel_id, aktif, auth_user_id, tum_oteller)
+  values ('T2 Test Calisani', 'depo', '810', true, v_auth, true)
   returning id into v_calisan;
+
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform set_config('request.jwt.claim.sub', v_auth::text, true);
 
   insert into public.pms_oda_tipleri (otel_id, kod, ad, azami_kisi, azami_yetiskin, azami_cocuk)
   values ('810','t2test','Test Tipi',2,2,1), ('811','t2test','Test Tipi',2,2,1)

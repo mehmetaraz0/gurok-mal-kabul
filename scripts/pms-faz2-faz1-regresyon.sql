@@ -25,8 +25,9 @@ declare
   v_ok int := 0; v_fail int := 0;
   v_rol uuid; v_auth uuid := gen_random_uuid(); v_kul uuid;
   v_tip uuid; v_oda uuid; v_oda2 uuid;
-  v_misafir uuid; v_rez uuid; v_rez2 uuid;
-  v_n int; v_durum text; v_kullanim text;
+  v_misafir uuid; v_rez uuid; v_rez2 uuid; v_rez3 uuid;
+  v_oda3 uuid; v_oda4 uuid; v_rez4 uuid; v_folio uuid; v_folio4 uuid; v_hareket uuid; v_menu uuid; v_siparis uuid;
+  v_n int; v_n2 int; v_durum text; v_kullanim text;
 begin
   -- ---- FİKSTÜR: tam yetkili resepsiyon kullanicisi -------------------
   insert into public.roller (ad, seviye) values ('R1 Resepsiyon','otel') returning id into v_rol;
@@ -178,6 +179,152 @@ begin
   exception when others then
     execute 'reset role';
     raise notice 'R6  FAIL  %', sqlerrm; v_fail:=v_fail+1;
+  end;
+
+  -- ==================================================================
+  -- R7  REZERVASYON DURUM MAKINESI hala kapali
+  -- Giris yapilmamis bir rezervasyon DOGRUDAN `cikis_yapildi` olamaz.
+  -- ==================================================================
+  insert into public.pms_rezervasyonlar
+    (otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, yetiskin_sayisi, durum, gecelik_fiyat)
+  values ('810', v_misafir, v_tip, public.pms_bugun()+10, public.pms_bugun()+20, 1, 'onaylandi', 900)
+  returning id into v_rez3;
+
+  begin
+    update public.pms_rezervasyonlar set durum='cikis_yapildi' where id=v_rez3;
+    raise notice 'R7  FAIL  onaylandi->cikis_yapildi gecti'; v_fail:=v_fail+1;
+  exception when others then
+    raise notice 'R7  OK    gecersiz rezervasyon gecisi reddedildi (%)', sqlstate; v_ok:=v_ok+1;
+  end;
+
+  -- ==================================================================
+  -- R8  CIFT REZERVASYON: cakisan atama REDDEDILIR, BITISIK atama GECER
+  -- `pms_oda_atamalari_cakisma` GiST dislama kisiti (aktif atamalarda).
+  -- ==================================================================
+  insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no)
+  values ('810', v_tip, 'R103') returning id into v_oda3;
+
+  insert into public.pms_oda_atamalari (otel_id, rezervasyon_id, oda_id, baslangic, bitis, aktif)
+  values ('810', v_rez3, v_oda3, public.pms_bugun()+10, public.pms_bugun()+12, true);
+
+  begin
+    -- [10,12) ile [11,13) CAKISIR
+    insert into public.pms_oda_atamalari (otel_id, rezervasyon_id, oda_id, baslangic, bitis, aktif)
+    values ('810', v_rez3, v_oda3, public.pms_bugun()+11, public.pms_bugun()+13, true);
+    raise notice 'R8a FAIL  cakisan atama kabul edildi'; v_fail:=v_fail+1;
+  exception when others then
+    if sqlstate = '23P01' then
+      raise notice 'R8a OK    cakisan atama dislama kisitiyla reddedildi'; v_ok:=v_ok+1;
+    else
+      raise notice 'R8a FAIL  beklenen 23P01, gelen % (%)', sqlstate, sqlerrm; v_fail:=v_fail+1;
+    end if;
+  end;
+
+  begin
+    -- [12,14) BITISIK: yarim acik aralik, cakisma YOK
+    insert into public.pms_oda_atamalari (otel_id, rezervasyon_id, oda_id, baslangic, bitis, aktif)
+    values ('810', v_rez3, v_oda3, public.pms_bugun()+12, public.pms_bugun()+14, true);
+    raise notice 'R8b OK    bitisik atama kabul edildi (yarim acik aralik)'; v_ok:=v_ok+1;
+  exception when others then
+    raise notice 'R8b FAIL  bitisik atama reddedildi: %', sqlerrm; v_fail:=v_fail+1;
+  end;
+
+  -- ==================================================================
+  -- R9  IPTAL/GELMEDI atamayi SERBEST birakir
+  -- ==================================================================
+  begin
+    update public.pms_rezervasyonlar set durum='iptal' where id=v_rez3;
+    select count(*) into v_n from public.pms_oda_atamalari
+     where rezervasyon_id=v_rez3 and aktif;
+    if v_n = 0 then
+      raise notice 'R9  OK    iptal tum aktif atamalari serbest birakti'; v_ok:=v_ok+1;
+    else raise notice 'R9  FAIL  % aktif atama kaldi', v_n; v_fail:=v_fail+1; end if;
+  exception when others then
+    raise notice 'R9  FAIL  %', sqlerrm; v_fail:=v_fail+1;
+  end;
+
+  -- ==================================================================
+  -- R10 FOLYO otomatik aciliyor (onaylandi rezervasyonda)
+  -- ==================================================================
+  select id into v_folio from public.pms_folyolar where rezervasyon_id=v_rez limit 1;
+  if v_folio is not null then
+    raise notice 'R10 OK    folyo otomatik acildi'; v_ok:=v_ok+1;
+  else
+    raise notice 'R10 FAIL  rezervasyon icin folyo yok'; v_fail:=v_fail+1;
+  end if;
+
+  -- ==================================================================
+  -- R11 MALI KAYIT EKLE-ONLY: folyo hareketi guncellenemez/silinemez
+  -- ==================================================================
+  insert into public.pms_folio_hareketleri
+    (otel_id, folio_id, tarih, tip, aciklama, tutar)
+  values ('810', v_folio, public.pms_bugun(), 'ekstra', 'regresyon kalemi', 50)
+  returning id into v_hareket;
+
+  begin
+    update public.pms_folio_hareketleri set tutar = 999 where id=v_hareket;
+    raise notice 'R11a FAIL  mali kayit guncellendi'; v_fail:=v_fail+1;
+  exception when others then
+    raise notice 'R11a OK    mali kayit guncellemesi reddedildi'; v_ok:=v_ok+1;
+  end;
+
+  begin
+    delete from public.pms_folio_hareketleri where id=v_hareket;
+    raise notice 'R11b FAIL  mali kayit silindi'; v_fail:=v_fail+1;
+  exception when others then
+    raise notice 'R11b OK    mali kayit silinmesi reddedildi'; v_ok:=v_ok+1;
+  end;
+
+  -- ==================================================================
+  -- R12 BAR -> FOLYO KOPRUSU hala calisiyor (DAVRANISSAL)
+  -- Katalog kontrolu degil: gercek bir siparis teslim edilir ve folyoda
+  -- `bar` hareketi olusup olusmadigi olculur.
+  -- ==================================================================
+  -- Kopru SUREN konaklama ve ACIK folyo sart kosar (bu da Faz 1 korumasidir).
+  -- Bu yuzden once temiz bir odaya gercek bir check-in yapilir.
+  insert into public.pms_odalar (otel_id, oda_tipi_id, oda_no)
+  values ('810', v_tip, 'R104') returning id into v_oda4;
+  update public.pms_odalar set temizlik_durumu='temiz' where id=v_oda4;
+
+  insert into public.pms_rezervasyonlar
+    (otel_id, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, yetiskin_sayisi, durum, gecelik_fiyat)
+  values ('810', v_misafir, v_tip, public.pms_bugun(), public.pms_bugun()+1, 1, 'onaylandi', 1000)
+  returning id into v_rez4;
+
+  execute 'set local role authenticated';
+  perform public.pms_check_in(v_rez4, v_oda4);
+  execute 'reset role';
+
+  select id into v_folio4 from public.pms_folyolar where rezervasyon_id=v_rez4 limit 1;
+
+  begin
+    insert into public.menu_urunler (ad, kategori, otel_id, fiyat, aktif, ucretli, tip)
+    values ('R12 Test Icecek','bar','810', 120, true, true, 'direkt')
+    returning id into v_menu;
+
+    insert into public.bar_siparisleri (otel_id, depo_id, oda_no, durum)
+    values ('810', 'BAR', 'R104', 'yeni') returning id into v_siparis;
+
+    insert into public.bar_siparis_kalemleri (siparis_id, menu_urun_id, adet)
+    values (v_siparis, v_menu, 2);
+
+    select count(*) into v_n from public.pms_folio_hareketleri
+     where folio_id=v_folio4 and tip='bar';
+
+    update public.bar_siparisleri set durum='teslim_edildi' where id=v_siparis;
+
+    select count(*) into v_n2 from public.pms_folio_hareketleri
+     where folio_id=v_folio4 and tip='bar';
+
+    if v_n2 > v_n then
+      raise notice 'R12 OK    bar->folyo koprusu calisiyor (% -> % hareket)', v_n, v_n2;
+      v_ok:=v_ok+1;
+    else
+      raise notice 'R12 FAIL  teslimden sonra folyoya bar hareketi dusmedi (%)', v_n2;
+      v_fail:=v_fail+1;
+    end if;
+  exception when others then
+    raise notice 'R12 FAIL  %', sqlerrm; v_fail:=v_fail+1;
   end;
 
   raise notice '--------------------------------------------------';

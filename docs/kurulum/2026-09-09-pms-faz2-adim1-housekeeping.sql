@@ -1855,6 +1855,495 @@ end;
 $$;
 
 
+
+-- ============================================================================
+-- 22) DENETİM İZİ GENİŞLETMESİ  (mimari §18)
+-- ----------------------------------------------------------------------------
+-- Mevcut `erp_islem_audit` YENİDEN KULLANILIR; ikinci denetim tablosu YOK.
+--
+-- Sorun: mevcut satırlar "görev güncellendi" der ama kimin kimden devraldığını
+-- ya da tamamlama ile iptali AYIRT EDEMEZ. Çözüm, tam satır kopyası değil,
+-- İZİN VERİLEN LİSTEDEN oluşan küçük bir semantik ayrıntı nesnesidir.
+--
+-- Geriye uyum: `islem_audit()` argümansız çağrıldığında DAVRANIŞI AYNIDIR ve
+-- `islem_detayi` NULL kalır. Mevcut tetikleyicilerin hiçbiri değişmez.
+-- ============================================================================
+alter table public.erp_islem_audit
+  add column if not exists islem_detayi jsonb;
+
+create or replace function phase0_private.islem_audit()
+returns trigger language plpgsql security definer
+set search_path = pg_catalog, public, pg_temp as $fn$
+declare
+  v_row jsonb; v_old jsonb; v_new jsonb;
+  v_role text; v_hotel text; v_entity text;
+  v_detay jsonb := null;
+  v_alanlar text[] := '{}';
+begin
+  v_role := auth.role();
+  -- Aktif ERP personeli şartı. service_role (QR köprüsü, Edge Function) muaf.
+  if v_role is distinct from 'service_role' then
+    if v_role is distinct from 'authenticated'
+       or public.auth_erp_kullanicisi() is not true then
+      raise exception 'Aktif ERP personeli gerekli' using errcode = '42501';
+    end if;
+  end if;
+
+  v_row    := case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(new) end;
+  v_hotel  := v_row->>'otel_id';
+  v_entity := coalesce(v_row->>'id', v_row->>'siparis_no', v_row->>'mk_no');
+
+  -- ---- OPT-IN SEMANTİK AYRINTI ----
+  -- Yalnız tetikleyici argümanı 'housekeeping' ise doldurulur. Argümansız
+  -- her mevcut çağrı ESKİ davranışı korur.
+  if tg_nargs > 0 and tg_argv[0] = 'housekeeping' then
+    v_old := case when tg_op = 'INSERT' then '{}'::jsonb else to_jsonb(old) end;
+    v_new := case when tg_op = 'DELETE' then '{}'::jsonb else to_jsonb(new) end;
+
+    -- Not/öncelik/hedef DEĞİŞTİYSE yalnız ALAN ADI kaydedilir; içerik ASLA.
+    if (v_old->>'notlar')       is distinct from (v_new->>'notlar')       then v_alanlar := array_append(v_alanlar, 'notlar'::text); end if;
+    if (v_old->>'oncelik')      is distinct from (v_new->>'oncelik')      then v_alanlar := array_append(v_alanlar, 'oncelik'::text); end if;
+    if (v_old->>'hedef_zamani') is distinct from (v_new->>'hedef_zamani') then v_alanlar := array_append(v_alanlar, 'hedef_zamani'::text); end if;
+
+    v_detay := jsonb_strip_nulls(jsonb_build_object(
+      -- görev alanları
+      'eski_durum',        v_old->>'durum',
+      'yeni_durum',        v_new->>'durum',
+      'eski_atanan',       v_old->>'atanan_kullanici_id',
+      'yeni_atanan',       v_new->>'atanan_kullanici_id',
+      'eski_surum',        v_old->>'surum',
+      'yeni_surum',        v_new->>'surum',
+      'oda_id',            coalesce(v_new->>'oda_id', v_old->>'oda_id'),
+      'kaynak_atama_id',   coalesce(v_new->>'kaynak_atama_id', v_old->>'kaynak_atama_id'),
+      'oncul_id',          coalesce(v_new->>'onceki_gorev_id', v_old->>'onceki_gorev_id'),
+      'olusturma_kaynagi', coalesce(v_new->>'olusturma_kaynagi', v_old->>'olusturma_kaynagi'),
+      'iptal_nedeni',      v_new->>'iptal_nedeni',
+      'komut_anahtari',    v_new->>'son_islem_anahtari',
+      -- oda alanları
+      'eski_temizlik',     v_old->>'temizlik_durumu',
+      'yeni_temizlik',     v_new->>'temizlik_durumu',
+      'eski_gosterge',     v_old->>'temizlik_gorevi_id',
+      'yeni_gosterge',     v_new->>'temizlik_gorevi_id',
+      'eski_kullanim',     v_old->>'kullanim_durumu',
+      'yeni_kullanim',     v_new->>'kullanim_durumu',
+      'degisen_alanlar',   case when v_alanlar = '{}' then null else to_jsonb(v_alanlar) end
+    ));
+    -- Misafir verisi, not gövdesi, kimlik bilgisi ve tam satır anlık görüntüsü
+    -- YOK: yukarıdaki liste kapalı bir izin listesidir.
+  end if;
+
+  insert into public.erp_islem_audit(
+    hotel_id, actor_user_id, actor_role, event_type,
+    entity_type, entity_id, transaction_id, islem_detayi)
+  values (case when v_hotel = any(enum_range(null::public.otel_id)::text[])
+               then v_hotel::public.otel_id else null end,
+          auth.uid(), v_role, tg_op, tg_table_name,
+          coalesce(v_entity, '(kimliksiz)'), pg_current_xact_id()::text, v_detay);
+
+  if tg_op = 'DELETE' then return old; end if;
+  return null;
+end;
+$fn$;
+
+-- Görev tablosu: her etkin olay denetlenir.
+drop trigger if exists phase0_islem_audit on public.pms_housekeeping_gorevleri;
+create trigger phase0_islem_audit
+  after insert or update on public.pms_housekeeping_gorevleri
+  for each row execute function phase0_private.islem_audit('housekeeping');
+
+-- Oda: YALNIZ hazırlık/doluluk/gösterge geçişleri. Sıradan açıklama, kat,
+-- blok gibi meta güncellemeleri denetim izini gürültüye boğmaz — Faz 1'in
+-- "oda meta değişikliği denetlenmez" kararı bu WHEN yan tümcesiyle korunur.
+drop trigger if exists phase0_islem_audit on public.pms_odalar;
+create trigger phase0_islem_audit
+  after update on public.pms_odalar
+  for each row
+  when (old.temizlik_durumu   is distinct from new.temizlik_durumu
+     or old.temizlik_gorevi_id is distinct from new.temizlik_gorevi_id
+     or old.kullanim_durumu    is distinct from new.kullanim_durumu)
+  execute function phase0_private.islem_audit('housekeeping');
+
+
+-- ============================================================================
+-- 23) SİSTEM İPTALİ — özel yardımcı  (mimari §10, §24.2)
+-- ----------------------------------------------------------------------------
+-- Yaşam döngüsü üreticilerinin kullandığı tek iptal yolu. Alındıyı SUNUCUDA
+-- üretir; çağıranın verdiği anahtar/aktör kanıt sayılmaz.
+-- ============================================================================
+create or replace function phase0_private.hk_iptal_sistem(
+  p_gorev_id uuid, p_neden text)
+returns void
+language plpgsql security definer
+set search_path = pg_catalog, public, pg_temp as $fn$
+declare
+  g public.pms_housekeeping_gorevleri;
+  v_anahtar uuid := gen_random_uuid();
+  v_simdi timestamptz := clock_timestamp();
+begin
+  if p_neden not in ('cikis_ile_yenilendi','oda_bloke','oda_ariza','oda_pasif') then
+    raise exception 'Sistem iptali icin gecersiz neden: %', p_neden using errcode = '42501';
+  end if;
+
+  select * into g from public.pms_housekeeping_gorevleri where id = p_gorev_id for update;
+  if not found or g.durum not in ('bekliyor','temizleniyor') then
+    return;                                    -- bitmemis is yok: yapacak sey yok
+  end if;
+
+  update public.pms_housekeeping_gorevleri
+     set durum = 'iptal',
+         iptal_zamani = v_simdi,
+         iptal_nedeni = p_neden,
+         surum = g.surum + 1,
+         guncelleme_tarihi = v_simdi,
+         son_islem_anahtari = v_anahtar,
+         son_islem_ozeti = phase0_private.hk_ozet(jsonb_build_object(
+           'eylem','sistem_iptal','neden',p_neden,'gorev',p_gorev_id,
+           'surum',g.surum,'anahtar',v_anahtar))
+   where id = g.id;
+end;
+$fn$;
+
+
+-- ============================================================================
+-- 24) ODA YAŞAM DÖNGÜSÜ GEÇERSİZLEŞTİRİCİSİ  (mimari §10, §24.2)
+-- ----------------------------------------------------------------------------
+-- HER ZAMAN AÇIK. Modül kapalıyken de çalışır: iş ÜRETMEZ, ama tutarsız
+-- durumu temizler. Kapalı modül, çalışan işin odada asılı kalması demek
+-- olmamalıdır.
+--
+-- Yalnız GERÇEK kullanım/aktiflik geçişlerinde ateşlenir (WHEN yan tümcesi);
+-- kendi temizlik/gösterge yazmaları onu yeniden tetiklemez.
+-- ============================================================================
+create or replace function public.pms_housekeeping_oda_yasam_dongusu()
+returns trigger language plpgsql security definer
+set search_path = pg_catalog, public, pg_temp as $fn$
+declare
+  v_guncel public.pms_housekeeping_gorevleri;
+  v_neden text;
+begin
+  select * into v_guncel from public.pms_housekeeping_gorevleri
+   where id = new.temizlik_gorevi_id;
+
+  -- ---- 1) ÇIKIŞ: dolu -> bos --------------------------------------------
+  if old.kullanim_durumu = 'dolu' and new.kullanim_durumu = 'bos' then
+    if v_guncel.id is not null and v_guncel.durum in ('bekliyor','temizleniyor') then
+      -- Bitmemis onceki deneme YENILENIR; gostergesi KALIR ki uretici
+      -- oncul olarak bulabilsin.
+      perform phase0_private.hk_iptal_sistem(v_guncel.id, 'cikis_ile_yenilendi');
+    elsif v_guncel.id is not null then
+      -- Terminal gorev: yeni misafir dongusu icin gosterge EMEKLI edilir.
+      update public.pms_odalar set temizlik_gorevi_id = null where id = new.id;
+    end if;
+    return null;
+  end if;
+
+  -- ---- 2) KULLANILAMAZ HALE GELME ---------------------------------------
+  v_neden := case
+    when new.aktif is false and old.aktif is true then 'oda_pasif'
+    when new.kullanim_durumu = 'bloke' and old.kullanim_durumu <> 'bloke' then 'oda_bloke'
+    when new.kullanim_durumu = 'ariza' and old.kullanim_durumu <> 'ariza' then 'oda_ariza'
+    else null end;
+
+  if v_neden is not null then
+    -- Calisan is her durumda iptal edilir ve oda KIRLI kalir: yarim kalmis
+    -- temizlik odayi hazir yapmaz.
+    if v_guncel.id is not null and v_guncel.durum = 'temizleniyor' then
+      perform phase0_private.hk_iptal_sistem(v_guncel.id, v_neden);
+      update public.pms_odalar set temizlik_durumu = 'kirli' where id = new.id;
+
+    elsif v_neden = 'oda_ariza' then
+      -- ARIZA hazirligi GECERSIZLESTIRIR. Bekleyen is varsa korunur
+      -- (oda zaten kirli); yoksa tamamlanmis/denetlenmis sertifika emekli
+      -- edilir ve oda kirlenir.
+      if v_guncel.id is null or v_guncel.durum not in ('bekliyor') then
+        update public.pms_odalar
+           set temizlik_durumu = 'kirli', temizlik_gorevi_id = null
+         where id = new.id;
+      end if;
+
+    -- SIRADAN BLOKE: fiziksel kirlilik iddiasi DEGILDIR. Temizlik korunur.
+    end if;
+    return null;
+  end if;
+
+  return null;
+end;
+$fn$;
+
+drop trigger if exists pms_housekeeping_oda_yasam_dongusu on public.pms_odalar;
+create trigger pms_housekeeping_oda_yasam_dongusu
+  after update on public.pms_odalar
+  for each row
+  when (old.kullanim_durumu is distinct from new.kullanim_durumu
+     or old.aktif           is distinct from new.aktif)
+  execute function public.pms_housekeeping_oda_yasam_dongusu();
+
+
+-- ============================================================================
+-- 25) ÇIKIŞ ÜRETİCİSİ  (mimari §8)
+-- ----------------------------------------------------------------------------
+-- SEÇENEK B: rezervasyon üzerinde AFTER tetikleyici. Gerçek iş olayına
+-- bağlıdır, aynı transaction'dadır ve ön yüz sırasından bağımsızdır.
+--
+-- Faz 1 `pms_check_out` DEĞİŞTİRİLMEZ; canlı çekirdek fonksiyon kopyalanmaz.
+-- Bu tetikleyici, oda zaten `bos + kirli` yazıldıktan ve yaşam döngüsü
+-- geçersizleştiricisi önceki bitmemiş işi iptal ettikten SONRA çalışır.
+-- ============================================================================
+create or replace function public.pms_housekeeping_cikis_uret()
+returns trigger language plpgsql security definer
+set search_path = pg_catalog, public, pg_temp as $fn$
+declare
+  o public.pms_odalar;
+  v_kaynak uuid;
+  v_mevcut public.pms_housekeeping_gorevleri;
+  v_oncul  uuid;
+  v_aktor  uuid;
+  v_yeni   uuid;
+  v_anahtar uuid := gen_random_uuid();
+  v_simdi timestamptz := clock_timestamp();
+  v_ozet text;
+begin
+  -- Yetkilendirme: cikis MESRU bir is olayi olmali. Kat hizmeti yazma
+  -- yetkisi ARANMAZ; resepsiyonun rezervasyon yetkisi yeterlidir.
+  if public.auth_yetki_var('pms_rezervasyon','kayit') is not true then
+    raise exception 'Cikis icin rezervasyon kayit yetkisi gerekli' using errcode = '42501';
+  end if;
+  if public.auth_otel_erisim(new.otel_id::text) is not true then
+    raise exception 'Otel erisimi yok' using errcode = '42501';
+  end if;
+
+  -- TAM BIR aktif kaynak atama. 0 ya da >1 veri bozulmasidir.
+  select a.id into v_kaynak
+    from public.pms_oda_atamalari a
+   where a.rezervasyon_id = new.id and a.otel_id = new.otel_id and a.aktif;
+  if v_kaynak is null then
+    raise exception 'Cikis kaynagi bulunamadi (rezervasyon %)', new.id;
+  end if;
+
+  select * into o from public.pms_odalar
+   where id = (select oda_id from public.pms_oda_atamalari where id = v_kaynak)
+   for update;
+  if o.kullanim_durumu <> 'bos' or o.temizlik_durumu <> 'kirli' then
+    raise exception 'Cikis sonrasi oda bos+kirli olmali (%/%)',
+      o.kullanim_durumu, o.temizlik_durumu;
+  end if;
+
+  -- ---- IDEMPOTENCY: kaynak basina TEK cikis temizligi -------------------
+  -- Kalici kaynak benzersizligi; gorev tamamlanmis/iptal olmus olsa bile
+  -- ikinci bir tane URETILMEZ.
+  select * into v_mevcut from public.pms_housekeeping_gorevleri
+   where otel_id = new.otel_id and kaynak_atama_id = v_kaynak
+     and gorev_tipi = 'cikis_temizligi';
+  if found then
+    if v_mevcut.oda_id <> o.id then
+      raise exception 'Butunluk hatasi: cikis gorevi baska odaya bagli';
+    end if;
+    return null;                       -- ic no-op; gosterge GECMISE cevrilmez
+  end if;
+
+  -- ---- Yasam dongusu geride bir IPTAL birakti mi? -----------------------
+  if o.temizlik_gorevi_id is not null then
+    select * into v_mevcut from public.pms_housekeeping_gorevleri
+     where id = o.temizlik_gorevi_id;
+    if v_mevcut.durum in ('bekliyor','temizleniyor') then
+      raise exception
+        'Butunluk hatasi: cikista bitmemis gorev kalmis (%). Yasam dongusu '
+        'gecersizlestiricisi calismamis.', v_mevcut.id;
+    end if;
+    if v_mevcut.durum = 'iptal' and v_mevcut.iptal_nedeni = 'cikis_ile_yenilendi'
+       and v_mevcut.kaynak_atama_id is not distinct from v_kaynak then
+      v_oncul := v_mevcut.id;          -- yalnizca AYNI konaklamanin devri
+    end if;
+  end if;
+
+  -- ---- MODUL KAPALI: is URETME, gostergeyi temizle ----------------------
+  if phase0_private.hk_modul_acik() is not true then
+    update public.pms_odalar set temizlik_gorevi_id = null where id = o.id;
+    return null;
+  end if;
+
+  -- ---- AKTOR: cozulebiliyorsa gercek ERP kullanicisi, yoksa NULL --------
+  -- Sentinel kullanici UYDURULMAZ (mimari §4.1.1).
+  select k.id into v_aktor from public.kullanicilar k
+   where k.auth_user_id = auth.uid() and k.aktif is true;
+
+  v_ozet := phase0_private.hk_ozet(jsonb_build_object(
+    'eylem','cikis_uret','otel',new.otel_id::text,'oda',o.id,
+    'kaynak',v_kaynak,'rezervasyon',new.id,'anahtar',v_anahtar));
+
+  insert into public.pms_housekeeping_gorevleri
+    (otel_id, oda_id, gorev_tipi, durum, kaynak_atama_id, onceki_gorev_id,
+     oncelik, olusturma_kaynagi, olusturan,
+     olusturma_tarihi, guncelleme_tarihi, surum,
+     istek_anahtari, istek_ozeti, son_islem_anahtari, son_islem_ozeti)
+  values (new.otel_id, o.id, 'cikis_temizligi', 'bekliyor', v_kaynak, v_oncul,
+          2, 'checkout', v_aktor,
+          v_simdi, v_simdi, 1,
+          v_anahtar, v_ozet, v_anahtar, v_ozet)
+  returning id into v_yeni;
+
+  update public.pms_odalar set temizlik_gorevi_id = v_yeni where id = o.id;
+  return null;
+end;
+$fn$;
+
+drop trigger if exists pms_housekeeping_cikis_uret on public.pms_rezervasyonlar;
+create trigger pms_housekeeping_cikis_uret
+  after update of durum on public.pms_rezervasyonlar
+  for each row
+  when (old.durum = 'giris_yapildi' and new.durum = 'cikis_yapildi')
+  execute function public.pms_housekeeping_cikis_uret();
+
+
+-- ============================================================================
+-- 26) KİRLİ ODA SERBEST BIRAKMA ÜRETİCİSİ  (mimari §10)
+-- ----------------------------------------------------------------------------
+-- Bloke/arıza biten oda `bos`a dönerken kirliyse ve bitmemiş iş yoksa TEK bir
+-- `ekstra_temizlik` açar. Modül kapalıyken ÜRETMEZ — geçersizleştiriciden
+-- ayrı ve yalnız-etkinken çalışan bir sorumluluktur.
+--
+-- `olusturma_kaynagi = 'sistem'`, `olusturan` NULL olabilir: bu yol bir ERP
+-- aktörüne bağlı değildir ve sahte kullanıcı üretilmez.
+-- ============================================================================
+create or replace function public.pms_housekeeping_serbest_uret()
+returns trigger language plpgsql security definer
+set search_path = pg_catalog, public, pg_temp as $fn$
+declare
+  o public.pms_odalar;
+  v_var boolean;
+  v_yeni uuid;
+  v_anahtar uuid := gen_random_uuid();
+  v_simdi timestamptz := clock_timestamp();
+  v_ozet text;
+begin
+  if phase0_private.hk_modul_acik() is not true then
+    return null;                                   -- kapali: uretim yok
+  end if;
+
+  select * into o from public.pms_odalar where id = new.id for update;
+  if not o.aktif or o.kullanim_durumu <> 'bos' or o.temizlik_durumu <> 'kirli' then
+    return null;
+  end if;
+
+  -- Zaten bitmemis is varsa YENIDEN URETME (oda kilidi + benzersiz indeks).
+  select exists (select 1 from public.pms_housekeeping_gorevleri
+                  where otel_id = o.otel_id and oda_id = o.id
+                    and durum in ('bekliyor','temizleniyor')) into v_var;
+  if v_var then
+    return null;
+  end if;
+
+  v_ozet := phase0_private.hk_ozet(jsonb_build_object(
+    'eylem','serbest_uret','otel',o.otel_id::text,'oda',o.id,'anahtar',v_anahtar));
+
+  insert into public.pms_housekeeping_gorevleri
+    (otel_id, oda_id, gorev_tipi, durum, oncelik,
+     olusturma_kaynagi, olusturan,
+     olusturma_tarihi, guncelleme_tarihi, surum,
+     istek_anahtari, istek_ozeti, son_islem_anahtari, son_islem_ozeti)
+  values (o.otel_id, o.id, 'ekstra_temizlik', 'bekliyor', 2,
+          'sistem', null,
+          v_simdi, v_simdi, 1,
+          v_anahtar, v_ozet, v_anahtar, v_ozet)
+  returning id into v_yeni;
+
+  update public.pms_odalar set temizlik_gorevi_id = v_yeni where id = o.id;
+  return null;
+end;
+$fn$;
+
+drop trigger if exists pms_housekeeping_serbest_uret on public.pms_odalar;
+create trigger pms_housekeeping_serbest_uret
+  after update on public.pms_odalar
+  for each row
+  when (old.kullanim_durumu in ('bloke','ariza') and new.kullanim_durumu = 'bos')
+  execute function public.pms_housekeeping_serbest_uret();
+
+
+-- ============================================================================
+-- 27) pms_odalar ACL DARALTMASI  (mimari §13.4.1)
+-- ----------------------------------------------------------------------------
+-- Mevcut gerçek: `authenticated` tablo düzeyinde ALL taşıyor (Faz 1 Adım 1
+-- yalnız `public, anon`'dan revoke ettiği için varsayılan ALL kaldı).
+--
+-- KANIT (repo taraması + Faz 1 regresyonu):
+--   SELECT / INSERT / UPDATE  -> KULLANILIYOR, korunur
+--   DELETE                    -> ön yüzde hiçbir çağrı yok; emeklilik
+--                                `aktif=false` ile yapılır
+--   TRUNCATE / REFERENCES / TRIGGER -> PostgREST açmıyor, çağıran yok
+--
+-- TRUNCATE satır tetikleyicisi ÇALIŞTIRMAZ; bekçileri tamamen atlar. Bugün
+-- uygulama üzerinden erişilebilir değil, ama gereksiz ayrıcalıktır.
+--
+-- Faz 1 dosyası DEĞİŞTİRİLMEZ; bu ileri yönlü bir daraltmadır.
+-- ============================================================================
+revoke truncate, references, trigger on table public.pms_odalar from authenticated;
+revoke delete on table public.pms_odalar from authenticated;
+
+-- service_role da aynı daraltmayı alır: kat hizmeti API'si Adım 1'de yok.
+revoke truncate, references, trigger on table public.pms_odalar from service_role;
+
+
+-- ============================================================================
+-- 28) FONKSİYON ACL — ARTIM 3
+-- ============================================================================
+revoke all on function phase0_private.hk_iptal_sistem(uuid, text) from public, anon, authenticated, service_role;
+
+-- Tetikleyici fonksiyonlari cagrilamaz; yine de PUBLIC/anon acikca kapatilir.
+revoke all on function public.pms_housekeeping_oda_yasam_dongusu() from public, anon;
+revoke all on function public.pms_housekeeping_cikis_uret()        from public, anon;
+revoke all on function public.pms_housekeeping_serbest_uret()      from public, anon;
+
+
+-- ============================================================================
+-- 29) ARTIM 3 DOĞRULAMASI — COMMIT'TEN ÖNCE
+-- ============================================================================
+do $$
+declare n int;
+begin
+  -- Denetim izi sutunu
+  if not exists (select 1 from information_schema.columns
+                  where table_name='erp_islem_audit' and column_name='islem_detayi') then
+    raise exception 'DOGRULAMA: islem_detayi sutunu yok'; end if;
+
+  -- Denetim tetikleyicileri opt-in argumanla bagli mi?
+  select count(*) into n from pg_trigger
+   where tgname='phase0_islem_audit' and not tgisinternal
+     and tgrelid in ('public.pms_housekeeping_gorevleri'::regclass, 'public.pms_odalar'::regclass);
+  if n <> 2 then raise exception 'DOGRULAMA: kat hizmeti denetim tetikleyicisi % (2 bekleniyor)', n; end if;
+
+  -- Uretici ve gecersizlestirici bagli mi?
+  if not exists (select 1 from pg_trigger where tgname='pms_housekeeping_cikis_uret' and not tgisinternal) then
+    raise exception 'DOGRULAMA: cikis ureticisi bagli degil'; end if;
+  if not exists (select 1 from pg_trigger where tgname='pms_housekeeping_oda_yasam_dongusu' and not tgisinternal) then
+    raise exception 'DOGRULAMA: yasam dongusu gecersizlestiricisi bagli degil'; end if;
+  if not exists (select 1 from pg_trigger where tgname='pms_housekeeping_serbest_uret' and not tgisinternal) then
+    raise exception 'DOGRULAMA: serbest birakma ureticisi bagli degil'; end if;
+
+  -- ACL daraltmasi gercekten uygulandi mi?
+  if has_table_privilege('authenticated','public.pms_odalar','TRUNCATE')
+     or has_table_privilege('authenticated','public.pms_odalar','REFERENCES')
+     or has_table_privilege('authenticated','public.pms_odalar','TRIGGER')
+     or has_table_privilege('authenticated','public.pms_odalar','DELETE') then
+    raise exception 'DOGRULAMA: pms_odalar fazla ayricalik tasimaya devam ediyor'; end if;
+
+  -- Faz 1 icin ZORUNLU haklar KORUNMALI
+  if not (has_table_privilege('authenticated','public.pms_odalar','SELECT')
+          and has_table_privilege('authenticated','public.pms_odalar','INSERT')
+          and has_table_privilege('authenticated','public.pms_odalar','UPDATE')) then
+    raise exception 'DOGRULAMA: Faz 1 icin gerekli oda haklari kaybedilmis'; end if;
+
+  -- Pinsiz definer olmamali
+  select count(*) into n from pg_proc p join pg_namespace ns on ns.oid=p.pronamespace
+   where ns.nspname in ('public','phase0_private')
+     and (p.proname like 'pms\_housekeeping\_%' or p.proname like 'hk\_%')
+     and p.prosecdef
+     and (p.proconfig is null or not exists (select 1 from unnest(p.proconfig) k where k like 'search_path=%'));
+  if n <> 0 then raise exception 'DOGRULAMA: % pinsiz SECURITY DEFINER', n; end if;
+
+  raise notice 'DOGRULAMA (artim 3): tum kontroller gecti.';
+end;
+$$;
 commit;
 
 
