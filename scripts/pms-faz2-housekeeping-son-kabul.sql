@@ -421,7 +421,122 @@ begin
   update public.moduller set aktif=true where kod='pms_housekeeping';
 
   -- =====================================================================
-  -- H4, H6, H7, H8, H9, H10 — EKSIK NEGATIF SONDALAR
+  -- H9  BAYAT (GUNCEL OLMAYAN) GOREV YENI DONGUYU SERTIFIKA EDEMEZ
+  -- ---------------------------------------------------------------------
+  -- SOZLESME: eski/gecmis bir gorev, odanin GUNCEL temizlik durumunu ya da
+  -- gosterge sahipligini YENI dongu adina degistiremez.
+  --
+  -- Sonda BILEREK dar secildi: A gorevi `tamamlandi` durumunda birakilir,
+  -- denetleyen atanandan FARKLI bir kullanicidir ve `tamamlandi ->
+  -- kontrol_edildi` DURUM MAKINESINE GORE GECERLI bir gecistir. Yani bu
+  -- islemi durduracak TEK sey gosterge sahipligi kontroludur; H1/H2/H4
+  -- gibi baska bir koruma ON-KESEMEZ.
+  --
+  -- Tetikleyiciler ACIK, gercek RPC'ler kullanilir (guvenilir yazar YOK).
+  -- =====================================================================
+  declare
+    v_odaF uuid; v_gA uuid; v_gB uuid; v_rr jsonb;
+    v_oncePtr uuid; v_onceTemiz text;
+  begin
+    insert into public.pms_odalar (otel_id,oda_tipi_id,oda_no)
+    values ('810',v_tip,'SKF-'||v_ek) returning id into v_odaF;
+
+    -- ---- ESKI DONGU: gorev A olusur, calisir ve TAMAMLANIR --------------
+    perform set_config('request.jwt.claim.sub', v_a::text, true);
+    v_gA := (public.pms_housekeeping_gorev_olustur(v_odaF,'ekstra_temizlik','bos',
+               gen_random_uuid())->>'gorev_id')::uuid;
+    perform public.pms_housekeeping_sahiplen(v_gA,
+      (select surum from public.pms_housekeeping_gorevleri where id=v_gA), gen_random_uuid());
+    perform public.pms_housekeeping_baslat(v_gA,
+      (select surum from public.pms_housekeeping_gorevleri where id=v_gA), gen_random_uuid());
+    perform public.pms_housekeeping_tamamla(v_gA,
+      (select surum from public.pms_housekeeping_gorevleri where id=v_gA), gen_random_uuid());
+
+    -- ---- YENI DONGU: A yeniden acilir, ARDIL B olusur -------------------
+    perform set_config('request.jwt.claim.sub', v_a2::text, true);
+    v_rr := public.pms_housekeeping_yeniden_ac(v_gA, 'yeniden temizlik gerekti',
+              (select surum from public.pms_housekeeping_gorevleri where id=v_gA),
+              gen_random_uuid());
+    v_gB := (v_rr->>'gorev_id')::uuid;
+
+    select temizlik_gorevi_id, temizlik_durumu::text
+      into v_oncePtr, v_onceTemiz from public.pms_odalar where id=v_odaF;
+
+    -- ON KOSUL: A GECMISTE kaldi, gosterge YENI dongudedir.
+    if not (v_oncePtr = v_gB and v_onceTemiz = 'kirli'
+            and (select durum from public.pms_housekeeping_gorevleri where id=v_gA) = 'tamamlandi'
+            and (select durum from public.pms_housekeeping_gorevleri where id=v_gB) = 'bekliyor') then
+      raise notice 'H9  KURULUM HATASI  gosterge=% temizlik=% A=% B=%',
+        v_oncePtr = v_gB, v_onceTemiz,
+        (select durum from public.pms_housekeeping_gorevleri where id=v_gA),
+        (select durum from public.pms_housekeeping_gorevleri where id=v_gB);
+      v_fail:=v_fail+1;
+    else
+      -- ---- H9b NEGATIF: BAYAT A denetlenemez ---------------------------
+      begin
+        perform public.pms_housekeeping_kontrol_et(v_gA,
+          (select surum from public.pms_housekeeping_gorevleri where id=v_gA),
+          gen_random_uuid());
+        raise notice 'H9b FAIL  BAYAT gorev A denetlendi (yeni donguyu sertifika etti)';
+        v_fail:=v_fail+1;
+      exception when others then
+        if sqlerrm like '%guncel dongusu degil%' then
+          -- Oda durumu ve gosterge YENI dongunun elinde KALDI mi?
+          select temizlik_gorevi_id, temizlik_durumu::text
+            into v_oncePtr, v_onceTemiz from public.pms_odalar where id=v_odaF;
+          if v_oncePtr = v_gB and v_onceTemiz = 'kirli'
+             and (select durum from public.pms_housekeeping_gorevleri where id=v_gA) = 'tamamlandi'
+             and (select durum from public.pms_housekeeping_gorevleri where id=v_gB) = 'bekliyor' then
+            raise notice 'H9b OK    bayat denetim reddedildi (%); oda=% gosterge=B, A=tamamlandi, B=bekliyor',
+              sqlstate, v_onceTemiz;
+            v_ok:=v_ok+1;
+          else
+            raise notice 'H9b FAIL  reddedildi ama durum kaydi: gosterge=B? % temizlik=%',
+              v_oncePtr = v_gB, v_onceTemiz;
+            v_fail:=v_fail+1;
+          end if;
+        else
+          raise notice 'H9b FAIL  BASKA bir koruma on-kesti: % / %', sqlstate, left(sqlerrm,60);
+          v_fail:=v_fail+1;
+        end if;
+      end;
+
+      -- ---- H9a POZITIF: YENI dongunun KENDI gorevi sertifika EDEBILIR ---
+      begin
+        perform set_config('request.jwt.claim.sub', v_a::text, true);
+        perform public.pms_housekeeping_sahiplen(v_gB,
+          (select surum from public.pms_housekeeping_gorevleri where id=v_gB), gen_random_uuid());
+        perform public.pms_housekeeping_baslat(v_gB,
+          (select surum from public.pms_housekeeping_gorevleri where id=v_gB), gen_random_uuid());
+        perform public.pms_housekeeping_tamamla(v_gB,
+          (select surum from public.pms_housekeeping_gorevleri where id=v_gB), gen_random_uuid());
+        perform set_config('request.jwt.claim.sub', v_a2::text, true);
+        perform public.pms_housekeeping_kontrol_et(v_gB,
+          (select surum from public.pms_housekeeping_gorevleri where id=v_gB), gen_random_uuid());
+
+        select temizlik_gorevi_id, temizlik_durumu::text
+          into v_oncePtr, v_onceTemiz from public.pms_odalar where id=v_odaF;
+        if v_oncePtr = v_gB and v_onceTemiz = 'kontrol_edildi'
+           and (select durum from public.pms_housekeeping_gorevleri where id=v_gA) = 'tamamlandi' then
+          raise notice 'H9a OK    YENI dongu kendi gorevi ile odayi sertifika etti (oda=%, gosterge=B); A gecmiste kaldi',
+            v_onceTemiz;
+          v_ok:=v_ok+1;
+        else
+          raise notice 'H9a FAIL  gosterge=B? % temizlik=% A=%',
+            v_oncePtr = v_gB, v_onceTemiz,
+            (select durum from public.pms_housekeeping_gorevleri where id=v_gA);
+          v_fail:=v_fail+1;
+        end if;
+      exception when others then
+        raise notice 'H9a FAIL  mesru yeni dongu isi reddedildi: %', left(sqlerrm,70);
+        v_fail:=v_fail+1;
+      end;
+    end if;
+    perform set_config('request.jwt.claim.sub', v_a::text, true);
+  end;
+
+  -- =====================================================================
+  -- H4, H6, H7, H8, H10 — EKSIK NEGATIF SONDALAR
   -- ---------------------------------------------------------------------
   -- H1/H2/H3/H5 icin negatif kanit BASKA dosyalarda mevcut (artim 2
   -- testleri ve sabotaj S1/S7). Burada YALNIZ eksik olanlar kapatilir.
@@ -518,35 +633,10 @@ begin
     else raise notice 'H8  FAIL  beklenmeyen: % %', sqlstate, left(sqlerrm,50); v_fail:=v_fail+1; end if;
   end;
 
-  -- H9: GUNCEL OLMAYAN gorev calisir durumda
-  declare v_h uuid; v_hg uuid; begin
-    insert into public.pms_odalar (otel_id,oda_tipi_id,oda_no)
-    values ('810',v_tip,'H9-'||v_ek) returning id into v_h;
-    insert into public.pms_housekeeping_gorevleri
-      (otel_id, oda_id, gorev_tipi, durum, olusturma_kaynagi, olusturan,
-       atanan_kullanici_id, baslama_zamani,
-       istek_anahtari, istek_ozeti, son_islem_anahtari, son_islem_ozeti)
-    values ('810', v_h, 'ekstra_temizlik', 'temizleniyor', 'kullanici', v_k,
-            v_k, now(),
-            gen_random_uuid(), encode(sha256('h9'::bytea),'hex'),
-            gen_random_uuid(), encode(sha256('h9'::bytea),'hex'))
-    returning id into v_hg;
-    -- Gosterge KASITLI olarak bos birakilir: gorev calisiyor ama GUNCEL DEGIL
-    update public.pms_odalar set temizlik_durumu='temizleniyor' where id=v_h;
-    set constraints all immediate;
-    raise notice 'H9  FAIL  guncel olmayan calisan gorev kabul edildi'; v_fail:=v_fail+1;
-    set constraints all deferred;
-  exception when others then
-    set constraints all deferred;
-    -- DURUST NOT: H9'un ihlal durumu TEK BASINA kurulamiyor. Ayni odada
-    -- ikinci bir bitmemis gorev H1'in kismi benzersiz indeksine, gosterge
-    -- tutarsizligi ise H2/H4'e takiliyor. Yani H9 REDUNDANT savunma altinda;
-    -- hangi katmanin konustugu ASAGIDA aynen yazilir, H9 diye YUTULMAZ.
-    if sqlerrm like 'H9:%' or sqlerrm like 'H2:%' or sqlerrm like 'H4:%' then
-      raise notice 'H9  OK    ihlal engellendi — konusan katman: %', left(sqlerrm,50);
-      v_ok:=v_ok+1;
-    else raise notice 'H9  FAIL  beklenmeyen: %', left(sqlerrm,60); v_fail:=v_fail+1; end if;
-  end;
+  -- H9: bu blokta DEGIL. H9 davranissal olarak YUKARIDA H9a/H9b ile
+  -- kanitlanir. Guvenilir yazarla kurulan "guncel olmayan calisan gorev"
+  -- sondasi H4 tarafindan ON-KESILIYORDU, yani H9 iddiasini hic sinamiyordu;
+  -- yanlis sebeple yesil olan o sonda KALDIRILDI.
 
   -- H10: ARIZALI odada CALISAN is commit edilemez
   declare v_h uuid; v_hg uuid; begin
