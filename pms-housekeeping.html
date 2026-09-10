@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<script src="auth-guard.js"></script>
+<script src="supabase-config.js"></script>
+<script src="nav-drawer.js"></script>
+<script src="otel-config.js"></script>
+<script src="ortak.js"></script>
+<script src="pms-housekeeping.js"></script>
+<link rel="stylesheet" href="theme.css">
+<script>
+let CU = requireLogin();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Dornevi — Kat Hizmetleri</title>
+<meta name="theme-color" content="#1a2744">
+<style>
+/* ---------------------------------------------------------------------------
+   MOBİL ÖNCELİKLİ. Birincil cihaz kat görevlisinin telefonu (360–430 px).
+   Masaüstü genişliğinde kart ızgarası açılır; masaüstü tablosu KÜÇÜLTÜLMEZ.
+   --------------------------------------------------------------------------- */
+:root{--accent:#c9a24b}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100)}
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:var(--primary);color:white;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:56px;box-shadow:var(--shadow)}
+.header h1{font-size:15px;font-weight:700;flex:1}
+.header .sub{font-size:11px;opacity:.7;display:block;margin-top:1px}
+.hbtn{background:rgba(255,255,255,.15);border:none;color:white;min-width:40px;height:40px;border-radius:50%;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-decoration:none}
+
+/* Sekmeler: tek elle erişim için geniş dokunma hedefi (>=44px) */
+.sekmeler{display:flex;background:white;border-bottom:1px solid var(--gray-200);flex-shrink:0;overflow-x:auto}
+.sekme{flex:1;min-width:84px;min-height:46px;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--gray-600);cursor:pointer;padding:10px 6px;border-bottom:3px solid transparent;white-space:nowrap}
+.sekme[aria-selected="true"]{color:var(--primary);border-bottom-color:var(--accent)}
+.sekme .sayi{display:inline-block;min-width:18px;padding:1px 5px;margin-left:4px;border-radius:9px;background:var(--gray-200);color:var(--gray-700);font-size:11px}
+.sekme[aria-selected="true"] .sayi{background:var(--accent);color:white}
+
+.sc{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 10px 28px}
+.card{background:white;border-radius:var(--radius);padding:12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.filtre-ac{width:100%;min-height:40px;border:1px solid var(--gray-300);background:white;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;color:var(--gray-700);cursor:pointer;margin-bottom:10px}
+.filtreler{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+select,input,textarea{width:100%;padding:10px;border:1px solid var(--gray-300);border-radius:8px;font-size:15px;font-family:inherit;background:white}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+
+/* GÖREV KARTI — operasyonel bilgi hiyerarşisi: oda > iş > durum */
+.gorevler{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:700px){.gorevler{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}}
+.gk{background:white;border-radius:12px;box-shadow:var(--shadow);border-left:5px solid var(--gray-300);padding:12px}
+.gk.d-bekliyor{border-left-color:#dc2626}
+.gk.d-temizleniyor{border-left-color:#d97706}
+.gk.d-tamamlandi{border-left-color:#16a34a}
+.gk.d-kontrol_edildi{border-left-color:#4f46e5}
+.gk.d-iptal{border-left-color:var(--gray-400);opacity:.7}
+.gk-ust{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.gk-oda{font-size:22px;font-weight:800;color:var(--primary);line-height:1.1}
+.gk-kat{font-size:11px;color:var(--gray-500)}
+.gk-tip{font-size:13px;font-weight:600;color:var(--gray-700);margin-top:2px}
+.gk-satir{font-size:12px;color:var(--gray-600);margin-top:6px;display:flex;flex-wrap:wrap;gap:5px 10px}
+.rozet{font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+/* Durum RENKTEN BAĞIMSIZ okunur: her rozet metin + simge taşır. */
+.r-bekliyor{background:#fee2e2;color:#991b1b}
+.r-temizleniyor{background:#fef3c7;color:#92400e}
+.r-tamamlandi{background:#dcfce7;color:#166534}
+.r-kontrol_edildi{background:#e0e7ff;color:#3730a3}
+.r-iptal{background:var(--gray-200);color:var(--gray-600)}
+.r-oncelik1{background:#fee2e2;color:#991b1b}
+.r-oncelik3{background:var(--gray-100);color:var(--gray-600)}
+.r-benim{background:#dbeafe;color:#1e40af}
+.gk-alt{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.btn{min-height:40px;padding:9px 14px;border:none;border-radius:9px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-p{background:var(--primary);color:white}
+.btn-g{background:#16a34a;color:white}
+.btn-s{background:var(--gray-200);color:var(--gray-700)}
+.btn-r{background:#fee2e2;color:#991b1b}
+.btn-blok{flex:1 1 120px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+.bos{text-align:center;padding:36px 14px;color:var(--gray-500);font-size:14px;line-height:1.6}
+.bos .ikon{font-size:34px;display:block;margin-bottom:8px}
+.uyari{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:var(--radius);padding:11px 13px;margin-bottom:10px;font-size:12px;line-height:1.5}
+.uyari b{display:block;margin-bottom:3px}
+.ozet{font-size:11px;color:var(--gray-600);margin:2px 2px 8px}
+
+/* Alt sayfa (bottom sheet) — tek elle ulaşılır, telefonda alttan açılır */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:100}
+.modal.open{display:flex}
+.modal-ic{background:white;width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto}
+@media(min-width:700px){.modal{align-items:center}.modal-ic{border-radius:16px}}
+.modal-baslik{font-size:15px;font-weight:700;color:var(--primary);margin-bottom:4px}
+.modal-alt{font-size:12px;color:var(--gray-500);margin-bottom:12px}
+.alan{margin-bottom:12px}
+.alan label{display:block;font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:5px}
+.tutamac{width:38px;height:4px;background:var(--gray-300);border-radius:2px;margin:0 auto 12px}
+
+#ld{position:fixed;inset:0;background:rgba(255,255,255,.6);display:none;align-items:center;justify-content:center;z-index:99}
+#ld.show{display:flex}
+.spin{width:34px;height:34px;border:3px solid var(--gray-300);border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:11px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;max-width:92vw;text-align:center;line-height:1.4}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div id="app" style="display:none">
+  <div class="header">
+    <a class="hbtn" href="on-buro.html" title="Ön Büro" aria-label="Ön Büro'ya dön">←</a>
+    <div style="flex:1"><h1>Kat Hizmetleri<span class="sub" id="hdrOtel"></span></h1></div>
+    <button class="hbtn" onclick="tazele(true)" title="Yenile" aria-label="Listeyi yenile">⟳</button>
+  </div>
+
+  <div class="sekmeler" role="tablist" aria-label="Görev kuyrukları">
+    <button class="sekme" role="tab" id="tb-islerim"  aria-selected="false" onclick="sekmeSec('islerim')">İşlerim<span class="sayi" id="sy-islerim">0</span></button>
+    <button class="sekme" role="tab" id="tb-bekleyen" aria-selected="false" onclick="sekmeSec('bekleyen')">Bekleyen<span class="sayi" id="sy-bekleyen">0</span></button>
+    <button class="sekme" role="tab" id="tb-kontrol"  aria-selected="false" onclick="sekmeSec('kontrol')">Kontrol<span class="sayi" id="sy-kontrol">0</span></button>
+    <button class="sekme" role="tab" id="tb-tumu"     aria-selected="false" onclick="sekmeSec('tumu')">Tümü<span class="sayi" id="sy-tumu">0</span></button>
+  </div>
+
+  <div class="sc">
+    <div id="uyari" class="uyari" style="display:none" role="status"></div>
+
+    <button class="filtre-ac" id="filtreAc" aria-expanded="false" onclick="filtrePanel()">⚙︎ Filtreler</button>
+    <div class="card" id="filtreKart" style="display:none">
+      <div class="filtreler">
+        <select id="fKat" onchange="ciz()" aria-label="Kat"><option value="">Tüm katlar</option></select>
+        <select id="fDurum" onchange="ciz()" aria-label="Durum">
+          <option value="">Tüm durumlar</option>
+          <option value="bekliyor">Bekliyor</option>
+          <option value="temizleniyor">Temizleniyor</option>
+          <option value="tamamlandi">Tamamlandı</option>
+          <option value="kontrol_edildi">Kontrol edildi</option>
+          <option value="iptal">İptal</option>
+        </select>
+        <select id="fTip" onchange="ciz()" aria-label="Görev tipi">
+          <option value="">Tüm tipler</option>
+          <option value="cikis_temizligi">Çıkış temizliği</option>
+          <option value="konaklama_temizligi">Konaklama temizliği</option>
+          <option value="ekstra_temizlik">Ekstra temizlik</option>
+        </select>
+        <select id="fCalisan" onchange="ciz()" aria-label="Çalışan"><option value="">Tüm çalışanlar</option></select>
+        <select id="fOncelik" onchange="ciz()" aria-label="Öncelik">
+          <option value="">Tüm öncelikler</option>
+          <option value="1">Yüksek</option><option value="2">Normal</option><option value="3">Düşük</option>
+        </select>
+        <select id="fOda" onchange="ciz()" aria-label="Oda"><option value="">Tüm odalar</option></select>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn btn-s btn-blok" onclick="filtreTemizle()">Filtreleri temizle</button>
+        <button class="btn btn-p btn-blok" id="btnYeni" style="display:none" onclick="yeniGorevAc()">+ Görev aç</button>
+      </div>
+    </div>
+
+    <div class="ozet" id="ozet"></div>
+    <div class="gorevler" id="liste"></div>
+  </div>
+</div>
+
+<!-- Eylem alt sayfası -->
+<div class="modal" id="mEylem" role="dialog" aria-modal="true" aria-labelledby="eylemBaslik">
+  <div class="modal-ic">
+    <div class="tutamac"></div>
+    <div class="modal-baslik" id="eylemBaslik">İşlem</div>
+    <div class="modal-alt" id="eylemAlt"></div>
+    <div id="eylemGovde"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-s btn-blok" onclick="kModal('mEylem')">Vazgeç</button>
+      <button class="btn btn-p btn-blok" id="eylemOnay" onclick="eylemUygula()">Onayla</button>
+    </div>
+  </div>
+</div>
+
+<!-- Yeni görev alt sayfası -->
+<div class="modal" id="mYeni" role="dialog" aria-modal="true" aria-labelledby="yeniBaslik">
+  <div class="modal-ic">
+    <div class="tutamac"></div>
+    <div class="modal-baslik" id="yeniBaslik">Yeni görev aç</div>
+    <div class="modal-alt">Çıkış temizliği check-out sırasında sunucuda otomatik açılır; buradan açılamaz.</div>
+    <div class="alan">
+      <label for="yOda">Oda</label>
+      <select id="yOda" onchange="yeniOdaDegisti()"></select>
+    </div>
+    <div class="alan">
+      <label for="yTip">Görev tipi</label>
+      <select id="yTip">
+        <option value="ekstra_temizlik">Ekstra temizlik</option>
+        <option value="konaklama_temizligi">Konaklama temizliği (yalnız dolu oda)</option>
+      </select>
+    </div>
+    <div class="alan">
+      <label for="yOncelik">Öncelik</label>
+      <select id="yOncelik"><option value="1">Yüksek</option><option value="2" selected>Normal</option><option value="3">Düşük</option></select>
+    </div>
+    <div class="alan">
+      <label for="yNot">Not (isteğe bağlı)</label>
+      <textarea id="yNot" rows="2" maxlength="500" placeholder="Operasyonel not"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="btn btn-s btn-blok" onclick="kModal('mYeni')">Vazgeç</button>
+      <button class="btn btn-p btn-blok" onclick="yeniGorevKaydet()">Görevi aç</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="ld"><div class="spin"></div></div>
+
+<script>
+// ===========================================================================
+// KAT HİZMETLERİ ÇALIŞMA EKRANI
+// ---------------------------------------------------------------------------
+// GÜVENLİK: bu ekranda gizlenen hiçbir düğme bir koruma DEĞİLDİR. Yetki,
+// otel kapsamı ve durum makinesi SUNUCUDADIR (RLS + RPC yetkilendirmesi +
+// tetikleyiciler). Buradaki yetki okuması yalnızca kullanıcıya baştan
+// reddedilecek eylemi göstermemek içindir.
+//
+// MAHREMİYET (mimari §10): kat hizmetleri kartları misafir adı, telefon,
+// folyo ya da rezervasyon bilgisi GÖSTERMEZ. Bu veriler ekranda gizlenmiyor
+// — sunucudan HİÇ İSTENMİYOR: `pms_housekeeping_listele` sözleşmesinde
+// misafir alanı yoktur.
+// ===========================================================================
+const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+const BENIM_ID = CU && CU.id ? String(CU.id) : null;
+
+let YETKI = null;          // 'yok' | 'goruntule' | 'kayit' | 'tam'
+let GOREVLER = [];         // son okunan kuyruk
+let CALISAN = new Map();   // kullanici_id -> ad  (TEK sefer okunur)
+let ODA_SECENEK = [];      // yeni görev için oda listesi (yalnız `tam`)
+let SEKME = 'islerim';
+let SUNUCU_ZAMANI = null;
+let UCUSTA = false;        // üst üste binen istekleri engeller
+let POLL = null;
+const POLL_MS = 30000;     // mimari §19: görünürken ~30 sn
+
+(function init(){
+  if(!CU) return;
+  document.getElementById('app').style.display='';
+  document.getElementById('hdrOtel').textContent =
+    TEK_OTEL ? ('🏨 ' + (OTEL_KISA[TEK_OTEL] || TEK_OTEL)) : '🏨 Otel seçili değil';
+  sekmeSec('islerim', true);
+  baslat();
+})();
+
+async function baslat(){
+  // Yetki fail-closed okunur: hata olursa 'yok' sayılır.
+  try{
+    const harita = await kullaniciYetkileriGetir();
+    YETKI = harita['pms_housekeeping'] || 'yok';
+  }catch(e){ YETKI = 'yok'; }
+
+  if(YETKI === 'yok'){
+    document.body.innerHTML = KAPALI_EKRAN_HTML(CU);
+    return;
+  }
+  if(!TEK_OTEL){
+    uyariGoster(['Otel seçili değil — kat hizmetleri otel kapsamında çalışır.']);
+    return;
+  }
+  if(hkEnAz(YETKI,'tam')) document.getElementById('btnYeni').style.display='';
+
+  await calisanlariYukle();
+  await tazele(false);
+  pollBasla();
+  document.addEventListener('visibilitychange', gorunurlukDegisti);
+  window.addEventListener('focus', ()=>{ if(!document.hidden) tazele(false); });
+}
+
+// Çalışan adları TEK istekte alınır ve önbelleklenir. Görev başına
+// çalışan sorgusu YOKTUR (N+1 yasak).
+async function calisanlariYukle(){
+  try{
+    const liste = await HK.calisanlar(TEK_OTEL);
+    CALISAN = new Map((liste||[]).map(c=>[c.kullanici_id, c.ad]));
+    const f = document.getElementById('fCalisan');
+    f.innerHTML = '<option value="">Tüm çalışanlar</option>'
+      + [...CALISAN.entries()].map(([id,ad])=>
+          '<option value="'+escapeHtml(id)+'">'+escapeHtml(ad)+'</option>').join('');
+  }catch(e){
+    // Çalışan listesi okunamazsa ekran çalışmaya DEVAM eder; adlar kimlikle
+    // gösterilir. Sessizce yutmuyoruz.
+    console.warn('Çalışan listesi okunamadı:', e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SEKMELER — her sekme kendi SUNUCU KUYRUĞUNU kullanır (sınırlı sorgu).
+// ---------------------------------------------------------------------------
+const SEKME_KUYRUK = { islerim:'bitmemis', bekleyen:'bitmemis', kontrol:'kontrol', tumu:'tumu' };
+
+function sekmeSec(ad, sessiz){
+  SEKME = ad;
+  for(const s of ['islerim','bekleyen','kontrol','tumu']){
+    document.getElementById('tb-'+s).setAttribute('aria-selected', String(s===ad));
+  }
+  if(!sessiz) tazele(false);
+}
+
+function gorunurlukDegisti(){
+  if(document.hidden){ pollDurdur(); }
+  else { tazele(false); pollBasla(); }
+}
+function pollBasla(){ pollDurdur(); POLL = setInterval(()=>{ if(!document.hidden) tazele(false); }, POLL_MS); }
+function pollDurdur(){ if(POLL){ clearInterval(POLL); POLL = null; } }
+
+// ---------------------------------------------------------------------------
+// VERİ OKUMA — tek istek, sınırlı sonuç.
+// ---------------------------------------------------------------------------
+async function tazele(elle){
+  if(UCUSTA) return;                       // üst üste binen istek YOK
+  if(!TEK_OTEL || YETKI === 'yok') return;
+  UCUSTA = true;
+  if(elle) sLD();
+  const uyarilar = [];
+  try{
+    const satirlar = await HK.listele(TEK_OTEL, SEKME_KUYRUK[SEKME], 100);
+    GOREVLER = satirlar || [];
+    SUNUCU_ZAMANI = GOREVLER.length ? GOREVLER[0].sunucu_zamani : null;
+    if(GOREVLER.length === 100)
+      uyarilar.push('Liste sunucu sınırında (100 kayıt). Filtre kullanarak daraltın.');
+  }catch(e){
+    GOREVLER = [];
+    uyarilar.push(hkHataMesaji(e));
+  }
+  if(elle) hLD();
+  UCUSTA = false;
+  uyariGoster(uyarilar);
+  secenekleriDoldur();
+  ciz();
+}
+
+function uyariGoster(list){
+  const u = document.getElementById('uyari');
+  if(list && list.length){ u.style.display=''; u.innerHTML = '<b>Dikkat</b>' + list.map(escapeHtml).join('<br>'); }
+  else { u.style.display='none'; u.textContent=''; }
+}
+
+function secenekleriDoldur(){
+  const fk = document.getElementById('fKat'), onceki = fk.value;
+  const katlar = [...new Set(GOREVLER.map(g=>g.kat).filter(Boolean))].sort();
+  fk.innerHTML = '<option value="">Tüm katlar</option>'
+    + katlar.map(k=>'<option value="'+escapeHtml(k)+'">Kat '+escapeHtml(k)+'</option>').join('');
+  fk.value = onceki;
+
+  const fo = document.getElementById('fOda'), oncekiO = fo.value;
+  const odalar = [...new Map(GOREVLER.map(g=>[g.oda_id, g.oda_no])).entries()]
+    .sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'tr'));
+  fo.innerHTML = '<option value="">Tüm odalar</option>'
+    + odalar.map(([id,no])=>'<option value="'+escapeHtml(id)+'">'+escapeHtml(no)+'</option>').join('');
+  fo.value = oncekiO;
+}
+
+// ---------------------------------------------------------------------------
+// ÇİZİM
+// ---------------------------------------------------------------------------
+function sekmeSuz(g){
+  if(SEKME === 'islerim')  return g.atanan_kullanici_id === BENIM_ID;
+  if(SEKME === 'bekleyen') return g.durum === 'bekliyor';
+  return true;
+}
+
+function ciz(){
+  const fKat = document.getElementById('fKat').value;
+  const fDurum = document.getElementById('fDurum').value;
+  const fTip = document.getElementById('fTip').value;
+  const fCalisan = document.getElementById('fCalisan').value;
+  const fOncelik = document.getElementById('fOncelik').value;
+  const fOda = document.getElementById('fOda').value;
+
+  const suzgec = (g)=>{
+    if(!sekmeSuz(g)) return false;
+    if(fKat && g.kat !== fKat) return false;
+    if(fDurum && g.durum !== fDurum) return false;
+    if(fTip && g.gorev_tipi !== fTip) return false;
+    if(fCalisan && g.atanan_kullanici_id !== fCalisan) return false;
+    if(fOncelik && String(g.oncelik) !== fOncelik) return false;
+    if(fOda && g.oda_id !== fOda) return false;
+    return true;
+  };
+  const liste = GOREVLER.filter(suzgec);
+
+  // SAYAÇ YALNIZ ETKİN SEKMEDE gösterilir.
+  // Her sekme KENDİ sunucu kuyruğunu okur; bellekteki liste yalnız o
+  // kuyruğu içerir. Diğer sekmeler için buradan sayı üretmek YANLIŞ olurdu
+  // (ör. "bitmemis" kuyruğu okunurken Kontrol sekmesi hep 0 görünürdü).
+  // Doğru sayı ancak o kuyruk okunduğunda bilinir.
+  for(const s of ['islerim','bekleyen','kontrol','tumu']){
+    const el = document.getElementById('sy-'+s);
+    if(s === SEKME){ el.textContent = String(liste.length); el.style.display=''; }
+    else { el.textContent = ''; el.style.display='none'; }
+  }
+
+  document.getElementById('ozet').textContent =
+    liste.length + ' görev' + (liste.length !== GOREVLER.length ? ' (' + GOREVLER.length + ' içinden)' : '');
+
+  const el = document.getElementById('liste');
+  if(!liste.length){
+    el.innerHTML = '<div class="bos"><span class="ikon" aria-hidden="true">🧹</span>'
+      + escapeHtml(SEKME==='islerim' ? 'Üzerinize atanmış görev yok.'
+        : SEKME==='bekleyen' ? 'Bekleyen görev yok.'
+        : SEKME==='kontrol' ? 'Kontrol bekleyen görev yok.'
+        : 'Görev yok.') + '</div>';
+    return;
+  }
+  el.innerHTML = liste.map(kart).join('');
+}
+
+const EYLEM_AD = {
+  sahiplen:'Sahiplen', birak:'Bırak', baslat:'Başlat', tamamla:'Tamamla',
+  kontrol_et:'Kontrol Et', ata:'Ata', duzenle:'Düzenle', iptal:'İptal',
+  yeniden_ac:'Yeniden Aç', devret:'Devret'
+};
+const EYLEM_SINIF = {
+  sahiplen:'btn-p', baslat:'btn-p', tamamla:'btn-g', kontrol_et:'btn-p',
+  birak:'btn-s', ata:'btn-s', duzenle:'btn-s', devret:'btn-s',
+  yeniden_ac:'btn-s', iptal:'btn-r'
+};
+const DURUM_IKON = { bekliyor:'⏳', temizleniyor:'🧽', tamamlandi:'✅', kontrol_edildi:'🔎', iptal:'✖' };
+
+function calisanAdi(id){
+  if(!id) return null;
+  return CALISAN.get(id) || 'Çalışan';
+}
+
+function kart(g){
+  const benim = g.atanan_kullanici_id && g.atanan_kullanici_id === BENIM_ID;
+  const eylemler = hkEylemler(g, YETKI, BENIM_ID);
+  const atanan = calisanAdi(g.atanan_kullanici_id);
+
+  // Geçen süre yalnız anlamlı olduğu yerde: çalışan iş ve bekleyen iş.
+  let sure = '';
+  if(g.durum === 'temizleniyor' || g.durum === 'bekliyor'){
+    const s = hkGecenSure(g.olusturma_tarihi, SUNUCU_ZAMANI || g.sunucu_zamani);
+    if(s) sure = (g.durum==='temizleniyor' ? 'süren iş · ' : 'bekliyor · ') + s;
+  }
+
+  const rozetler = [
+    '<span class="rozet r-'+escapeHtml(g.durum)+'">'
+      + '<span aria-hidden="true">'+(DURUM_IKON[g.durum]||'')+'</span>'
+      + escapeHtml(HK.DURUM_AD[g.durum] || g.durum) + '</span>',
+    benim ? '<span class="rozet r-benim">👤 Bende</span>' : '',
+    Number(g.oncelik) === 1 ? '<span class="rozet r-oncelik1">▲ Yüksek</span>' : '',
+    Number(g.oncelik) === 3 ? '<span class="rozet r-oncelik3">▼ Düşük</span>' : '',
+    g.guncel_dongu === false ? '<span class="rozet r-iptal">geçmiş kayıt</span>' : ''
+  ].filter(Boolean).join(' ');
+
+  const dugmeler = eylemler.map(a=>
+    '<button class="btn '+EYLEM_SINIF[a]+' btn-blok" onclick="eylemAc(\''
+    + jsAttrStr(g.gorev_id) + '\',\'' + jsAttrStr(a) + '\')">'
+    + escapeHtml(EYLEM_AD[a]) + '</button>').join('');
+
+  return '<article class="gk d-'+escapeHtml(g.durum)+'" aria-label="'
+      + escapeHtml('Oda ' + g.oda_no + ', ' + (HK.TIP_AD[g.gorev_tipi]||g.gorev_tipi)
+        + ', ' + (HK.DURUM_AD[g.durum]||g.durum)) + '">'
+    + '<div class="gk-ust"><span class="gk-oda">'+escapeHtml(g.oda_no)+'</span>'
+      + (g.kat ? '<span class="gk-kat">Kat '+escapeHtml(g.kat)+'</span>' : '') + '</div>'
+    + '<div class="gk-tip">'+escapeHtml(HK.TIP_AD[g.gorev_tipi] || g.gorev_tipi)+'</div>'
+    + '<div class="gk-satir">'+rozetler+'</div>'
+    + '<div class="gk-satir">'
+      + (atanan ? '<span>👷 '+escapeHtml(atanan)+'</span>' : '<span>👷 atanmamış</span>')
+      + (g.hedef_zamani ? '<span>🎯 '+escapeHtml(yerelTarihStr(g.hedef_zamani))+'</span>' : '')
+      + (sure ? '<span>⏱ '+escapeHtml(sure)+'</span>' : '')
+      + '</div>'
+    + (dugmeler ? '<div class="gk-alt">'+dugmeler+'</div>' : '')
+    + '</article>';
+}
+
+function filtrePanel(){
+  const k = document.getElementById('filtreKart'), b = document.getElementById('filtreAc');
+  const acik = k.style.display === '';
+  k.style.display = acik ? 'none' : '';
+  b.setAttribute('aria-expanded', String(!acik));
+}
+function filtreTemizle(){
+  for(const id of ['fKat','fDurum','fTip','fCalisan','fOncelik','fOda'])
+    document.getElementById(id).value = '';
+  ciz();
+}
+
+// ---------------------------------------------------------------------------
+// EYLEMLER
+// ---------------------------------------------------------------------------
+let EYLEM = null;   // {gorev, ad}
+
+function eylemAc(gorevId, ad){
+  const g = GOREVLER.find(x=>x.gorev_id===gorevId);
+  if(!g){ toast('Görev listede yok — yenileyin'); return; }
+  EYLEM = { gorev:g, ad };
+
+  document.getElementById('eylemBaslik').textContent =
+    EYLEM_AD[ad] + ' — Oda ' + g.oda_no;
+  document.getElementById('eylemAlt').textContent =
+    (HK.TIP_AD[g.gorev_tipi]||g.gorev_tipi) + ' · ' + (HK.DURUM_AD[g.durum]||g.durum);
+
+  const gov = document.getElementById('eylemGovde');
+  if(ad === 'ata'){
+    gov.innerHTML = '<div class="alan"><label for="eCalisan">Çalışan</label>'
+      + '<select id="eCalisan">'
+      + [...CALISAN.entries()].map(([id,adx])=>
+          '<option value="'+escapeHtml(id)+'"'+(id===g.atanan_kullanici_id?' selected':'')+'>'
+          + escapeHtml(adx)+'</option>').join('')
+      + '</select>'
+      + (CALISAN.size ? '' : '<div style="font-size:12px;color:#991b1b;margin-top:6px">Uygun çalışan bulunamadı.</div>')
+      + '</div>';
+  }else if(ad === 'duzenle'){
+    gov.innerHTML = '<div class="alan"><label for="eOncelik">Öncelik</label>'
+      + '<select id="eOncelik"><option value="1"'+(g.oncelik==1?' selected':'')+'>Yüksek</option>'
+      + '<option value="2"'+(g.oncelik==2?' selected':'')+'>Normal</option>'
+      + '<option value="3"'+(g.oncelik==3?' selected':'')+'>Düşük</option></select></div>'
+      + '<div class="alan"><label for="eHedef">Hedef zamanı</label>'
+      + '<input type="datetime-local" id="eHedef" value="'
+      + (g.hedef_zamani ? escapeHtml(String(g.hedef_zamani).slice(0,16)) : '') + '"></div>'
+      + '<div class="alan"><label for="eNot">Not</label>'
+      + '<textarea id="eNot" rows="2" maxlength="500" placeholder="Operasyonel not"></textarea></div>';
+  }else if(ad === 'iptal' || ad === 'yeniden_ac' || ad === 'devret'){
+    gov.innerHTML = '<div class="alan"><label for="eAciklama">Açıklama (zorunlu)</label>'
+      + '<textarea id="eAciklama" rows="2" maxlength="300" placeholder="Sebep"></textarea></div>';
+  }else{
+    gov.innerHTML = '<div style="font-size:13px;color:var(--gray-600);line-height:1.5">'
+      + escapeHtml('Bu işlem uygulanacak: ' + EYLEM_AD[ad] + '.') + '</div>';
+  }
+  document.getElementById('eylemOnay').textContent = EYLEM_AD[ad];
+  aModal('mEylem');
+}
+
+async function eylemUygula(){
+  if(!EYLEM) return;
+  const { gorev:g, ad } = EYLEM;
+  const surum = g.surum;
+  let cagri;
+
+  try{
+    if(ad === 'sahiplen')        cagri = () => HK.sahiplen(g.gorev_id, surum);
+    else if(ad === 'birak')      cagri = () => HK.birak(g.gorev_id, surum);
+    else if(ad === 'baslat')     cagri = () => HK.baslat(g.gorev_id, surum);
+    else if(ad === 'tamamla')    cagri = () => HK.tamamla(g.gorev_id, surum);
+    else if(ad === 'kontrol_et') cagri = () => HK.kontrolEt(g.gorev_id, surum);
+    else if(ad === 'ata'){
+      const hedef = document.getElementById('eCalisan').value;
+      if(!hedef){ toast('Çalışan seçin'); return; }
+      cagri = () => HK.ata(g.gorev_id, hedef, surum);
+    }
+    else if(ad === 'duzenle'){
+      const yuk = { oncelik: Number(document.getElementById('eOncelik').value) };
+      const h = document.getElementById('eHedef').value;
+      if(h) yuk.hedef_zamani = new Date(h).toISOString();
+      const n = document.getElementById('eNot').value.trim();
+      if(n) yuk.notlar = n;
+      cagri = () => HK.duzenle(g.gorev_id, yuk, surum);
+    }
+    else if(ad === 'iptal' || ad === 'yeniden_ac' || ad === 'devret'){
+      const a = document.getElementById('eAciklama').value.trim();
+      if(!a){ toast('Açıklama zorunlu'); return; }
+      if(ad === 'iptal')           cagri = () => HK.iptal(g.gorev_id, a, surum);
+      else if(ad === 'yeniden_ac') cagri = () => HK.yenidenAc(g.gorev_id, a, surum);
+      else                         cagri = () => HK.devret(g.gorev_id, a, surum);
+    }
+    else return;
+  }catch(e){ toast('Form okunamadı'); return; }
+
+  sLD();
+  try{
+    const sonuc = await cagri();
+    kModal('mEylem'); EYLEM = null;
+    hLD();
+    // Sunucu "tekrar" makbuzu döndüyse komut İKİNCİ KEZ UYGULANMADI.
+    toast((sonuc && sonuc.tekrar)
+      ? EYLEM_AD[ad] + ' zaten uygulanmıştı'
+      : EYLEM_AD[ad] + ' tamam');
+    await tazele(false);
+  }catch(e){
+    hLD();
+    // BAŞARI MESAJI YOK. Hata türüne göre davran.
+    const mesaj = hkHataMesaji(e);
+    if(e instanceof HK.Hata && e.tazelemeGerek){
+      kModal('mEylem'); EYLEM = null;
+      toast(mesaj, 5000);
+      await tazele(false);          // güncel durumu getir — OTOMATİK YENİDEN GÖNDERME YOK
+    }else{
+      toast(mesaj, 5000);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// YENİ GÖREV (yalnız `tam`)
+// ---------------------------------------------------------------------------
+let YENI_NIYET = null;
+
+async function yeniGorevAc(){
+  if(!hkEnAz(YETKI,'tam')) return;
+  // Oda listesi: kat hizmetleri kartlarında olmayan odalar da açılabilmeli.
+  // Bu ekranda oda envanteri AYRI bir modül yetkisidir; okunamazsa
+  // yalnız listedeki odalar sunulur.
+  if(!ODA_SECENEK.length){
+    try{
+      const r = await fetch(SB_URL + '/rest/v1/pms_odalar?select=id,oda_no,kat,kullanim_durumu,aktif'
+        + '&aktif=eq.true&order=oda_no&limit=500', { headers: SB_HEADERS });
+      ODA_SECENEK = r.ok ? await r.json() : [];
+    }catch(e){ ODA_SECENEK = []; }
+    if(!ODA_SECENEK.length){
+      ODA_SECENEK = [...new Map(GOREVLER.map(g=>[g.oda_id,
+        {id:g.oda_id, oda_no:g.oda_no, kat:g.kat, kullanim_durumu:g.oda_kullanim}])).values()];
+    }
+  }
+  const s = document.getElementById('yOda');
+  s.innerHTML = ODA_SECENEK.map(o=>
+    '<option value="'+escapeHtml(o.id)+'" data-kullanim="'+escapeHtml(o.kullanim_durumu||'')+'">'
+    + escapeHtml(o.oda_no) + (o.kat ? ' · K'+escapeHtml(o.kat) : '')
+    + ' — ' + escapeHtml(o.kullanim_durumu||'') + '</option>').join('');
+  // Kullanıcı niyeti BURADA doğar: anahtar bir kez üretilir ve ağ tekrarında
+  // KORUNUR. Yeni bir görev açma niyeti YENİ anahtar alır.
+  YENI_NIYET = 'olustur:' + HK.yeniUuid();
+  yeniOdaDegisti();
+  aModal('mYeni');
+}
+
+function yeniOdaDegisti(){
+  const s = document.getElementById('yOda');
+  const kullanim = s.selectedOptions.length ? s.selectedOptions[0].dataset.kullanim : '';
+  const t = document.getElementById('yTip');
+  // konaklama_temizligi YALNIZ dolu odada açılabilir (sunucu kuralı).
+  t.querySelector('option[value="konaklama_temizligi"]').disabled = (kullanim !== 'dolu');
+  if(kullanim !== 'dolu' && t.value === 'konaklama_temizligi') t.value = 'ekstra_temizlik';
+}
+
+async function yeniGorevKaydet(){
+  const s = document.getElementById('yOda');
+  if(!s.value){ toast('Oda seçin'); return; }
+  const kullanim = s.selectedOptions[0].dataset.kullanim || '';
+  const tip = document.getElementById('yTip').value;
+  const yuk = { oncelik: Number(document.getElementById('yOncelik').value) };
+  const n = document.getElementById('yNot').value.trim();
+  if(n) yuk.notlar = n;
+
+  sLD();
+  try{
+    await HK.gorevOlustur(s.value, tip, kullanim, yuk, YENI_NIYET);
+    hLD(); kModal('mYeni');
+    YENI_NIYET = null;
+    toast('Görev açıldı');
+    await tazele(false);
+  }catch(e){
+    hLD();
+    toast(hkHataMesaji(e), 5000);
+    if(e instanceof HK.Hata && e.tazelemeGerek) await tazele(false);
+  }
+}
+</script>
+</body>
+</html>
