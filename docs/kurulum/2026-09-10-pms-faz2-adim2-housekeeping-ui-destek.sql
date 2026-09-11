@@ -31,7 +31,12 @@
 -- UYGULAMA NOTU: modül üretimde KAPALIDIR ve bu migration onu AÇMAZ.
 -- ============================================================================
 
-\set ON_ERROR_STOP on
+-- SQL EDITOR UYUMU (düzeltme 2026-09-11): bu dosyada psql meta komutu
+-- KULLANILMAZ. Supabase SQL Editor metni olduğu gibi sunucuya gönderir ve
+-- meta komutu sözdizimi hatası sayar; o durumda hiçbir şey uygulanmaz.
+-- psql ile çalıştırırken hata durdurmayı komut satırında verin:
+--   psql -v ON_ERROR_STOP=1 -f <bu dosya>
+-- Tutarlılık zaten `begin ... commit` bloğuyla sağlanır.
 
 -- ---------------------------------------------------------------------------
 -- 0) ÖN KOŞULLAR
