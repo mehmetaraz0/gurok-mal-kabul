@@ -132,10 +132,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
         </select>
       </div>
       <div class="field"><label>Temizlik durumu</label>
-        <select id="mTemizlik">
-          <option value="kirli">Kirli</option><option value="temiz">Temiz</option>
-          <option value="temizleniyor">Temizleniyor</option><option value="kontrol_edildi">Kontrol edildi</option>
-        </select>
+        <!-- SALT OKUNUR (PMS Faz 2): temizlik, kat hizmetleri gorev motorunun
+             izdusumudur. Bu formdan YAZILMAZ; sunucudaki oda bekcisi dogrudan
+             degisikligi reddeder ve yeni oda sunucuda "kirli" dogar. -->
+        <div id="mTemizlikGoster" aria-live="polite" style="padding:8px 0"></div>
+        <div style="font-size:11px;color:var(--gray-500);line-height:1.4">Temizlik Kat Hizmetleri ekranından ilerler.</div>
       </div>
     </div>
     <div class="field"><label>Açıklama</label><textarea id="mAciklama" rows="2"></textarea></div>
@@ -313,6 +314,15 @@ function ciz(){
   ).join('');
 }
 
+// Temizlik SALT OKUNUR gosterilir (PMS Faz 2). Yeni oda sunucuda "kirli" dogar;
+// temizlik yalniz kat hizmetleri akisiyla (sahiplen/baslat/tamamla/kontrol) ilerler.
+function temizlikGoster(durum, yeni){
+  const el = document.getElementById('mTemizlikGoster');
+  el.innerHTML = '<span class="rozet t-'+escapeHtml(durum)+'">'
+    + escapeHtml(TEMIZLIK_AD[durum]||durum) + '</span>'
+    + (yeni ? ' <span style="font-size:11px;color:var(--gray-500)">yeni oda kirli olarak açılır</span>' : '');
+}
+
 function yeniAc(){
   DUZENLENEN = null;
   document.getElementById('formBaslik').textContent = 'Yeni Oda';
@@ -320,7 +330,7 @@ function yeniAc(){
   document.getElementById('mKat').value='';
   document.getElementById('mBlok').value='';
   document.getElementById('mKullanim').value='bos';
-  document.getElementById('mTemizlik').value='kirli';
+  temizlikGoster('kirli', true);
   document.getElementById('mAciklama').value='';
   document.getElementById('mAktif').checked = true;
   tipSecenekleriDoldur();
@@ -339,7 +349,7 @@ function duzenleAc(id){
   document.getElementById('mKat').value = o.kat || '';
   document.getElementById('mBlok').value = o.blok || '';
   document.getElementById('mKullanim').value = o.kullanim_durumu;
-  document.getElementById('mTemizlik').value = o.temizlik_durumu;
+  temizlikGoster(o.temizlik_durumu, false);
   document.getElementById('mAciklama').value = o.aciklama || '';
   document.getElementById('mAktif').checked = !!o.aktif;
   aModal('mForm');
@@ -357,7 +367,10 @@ async function kaydet(){
     kat:  document.getElementById('mKat').value.trim()  || null,
     blok: document.getElementById('mBlok').value.trim() || null,
     kullanim_durumu: document.getElementById('mKullanim').value,
-    temizlik_durumu: document.getElementById('mTemizlik').value,
+    // temizlik_durumu BILEREK GONDERILMIYOR (PMS Faz 2): olusturmada sunucu
+    // varsayilani "kirli"dir; duzenlemede alan hic degismez. Onceden bu form
+    // temizligi dogrudan PATCH ediyordu; oda bekcisi etkinken degisiklik 42501
+    // ile reddediliyor, "temiz" baslangicli yeni oda da reddediliyordu.
     aciklama: document.getElementById('mAciklama').value.trim() || null,
     aktif: document.getElementById('mAktif').checked
   };
