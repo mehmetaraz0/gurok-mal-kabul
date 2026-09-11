@@ -44,6 +44,7 @@ const DOSYA = {
   adim3: join(kok, 'docs/kurulum/2026-09-06-pms-faz1-adim3-checkin-checkout.sql'),
   adim4: join(kok, 'docs/kurulum/2026-09-06-pms-faz1-adim4-folio.sql'),
   faz2:    join(kok, 'docs/kurulum/2026-09-09-pms-faz2-adim1-housekeeping.sql'),
+  faz2b:   join(kok, 'docs/kurulum/2026-09-10-pms-faz2-adim2-housekeeping-ui-destek.sql'),
   overlay: join(kok, 'scripts/yerel-staging-overlay.sql'),
   hk:      join(kok, 'scripts/yerel-staging-housekeeping.sql'),
 };
@@ -56,6 +57,7 @@ const PINLER = {
   '444444': 'a0000000-0000-0000-0000-0000000000a4',  // QA Kat Gorevlisi (kayit)
   '555555': 'a0000000-0000-0000-0000-0000000000a5',  // QA Yetkisiz (kat hizmetleri YOK)
   '666666': 'a0000000-0000-0000-0000-0000000000a6',  // QA Kat Gorevlisi 2 (kayit)
+  '777777': 'a0000000-0000-0000-0000-0000000000a7',  // QA HK-only Sef (tam, pms_oda YOK)
 };
 
 function calistir(komut, args, girdi) {
@@ -115,7 +117,7 @@ const dh = r.err.split('\n').filter((l) => l.startsWith('ERROR:'))
 if (dh.length) { console.error('dokum:\n' + dh.slice(0, 5).join('\n')); temizle(); process.exit(1); }
 console.log('  [3/6] uretim sema kopyasi');
 
-for (const ad of ['adim1', 'adim2', 'adim3', 'adim4', 'faz2']) {
+for (const ad of ['adim1', 'adim2', 'adim3', 'adim4', 'faz2', 'faz2b']) {
   r = psql(readFileSync(DOSYA[ad], 'utf8'));
   if (!r.ok) {
     console.error(ad + ':\n' + r.err.split('\n').filter((l) => l.startsWith('ERROR:')).slice(0, 4).join('\n'));

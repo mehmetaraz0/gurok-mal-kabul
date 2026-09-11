@@ -127,3 +127,26 @@ end $$;
 
 select set_config('request.jwt.claim.sub','',false);
 select set_config('request.jwt.claim.role','',false);
+
+-- ---------------------------------------------------------------------------
+-- 5) YALNIZ KAT HIZMETLERI yetkisi olan sef (PIN 777777)
+--    Oda secici testinin konusu: pms_oda modul yetkisi YOK, buna karsin
+--    kat hizmetleri tam. Gorev acabilmeli ve oda secebilmelidir.
+-- ---------------------------------------------------------------------------
+insert into public.roller (id, ad, seviye, kod, aktif) values
+  ('b0000000-0000-0000-0000-0000000000a7','QA Kat Sefi (yalniz HK)','otel','qa_hk_only',true)
+on conflict (id) do nothing;
+
+insert into public.yetki_matrisi (rol_id, modul_id, yetki)
+select 'b0000000-0000-0000-0000-0000000000a7', id, 'tam'
+  from public.moduller where kod = 'pms_housekeeping'
+on conflict do nothing;
+
+insert into auth.users (id, email) values
+  ('a0000000-0000-0000-0000-0000000000a7','qa-hk-only@ornek.gecersiz')
+on conflict (id) do nothing;
+
+insert into public.kullanicilar (id, auth_user_id, rol, rol_id, otel_id, aktif, tum_oteller, ad) values
+  ('c0000000-0000-0000-0000-0000000000a7','a0000000-0000-0000-0000-0000000000a7',
+   'yonetici','b0000000-0000-0000-0000-0000000000a7','810', true, false, 'QA Kat Sefi')
+on conflict (id) do nothing;

@@ -264,7 +264,9 @@ async function baslat(){
   await tazele(false);
   pollBasla();
   document.addEventListener('visibilitychange', gorunurlukDegisti);
-  window.addEventListener('focus', ()=>{ if(!document.hidden) tazele(false); });
+  window.addEventListener('focus', odakGeldi);
+  // Sayfadan ayrılırken zamanlayıcı ve dinleyiciler bırakılır.
+  window.addEventListener('pagehide', temizle, { once:true });
 }
 
 // Çalışan adları TEK istekte alınır ve önbelleklenir. Görev başına
@@ -287,7 +289,9 @@ async function calisanlariYukle(){
 // ---------------------------------------------------------------------------
 // SEKMELER — her sekme kendi SUNUCU KUYRUĞUNU kullanır (sınırlı sorgu).
 // ---------------------------------------------------------------------------
-const SEKME_KUYRUK = { islerim:'bitmemis', bekleyen:'bitmemis', kontrol:'kontrol', tumu:'tumu' };
+// 'benim' SUNUCU tarafinda suzulur — 100 satirlik pencere calisanin kendi
+// isini gizleyemez (bkz. 2026-09-10 adim 2 migration'i).
+const SEKME_KUYRUK = { islerim:'benim', bekleyen:'bitmemis', kontrol:'kontrol', tumu:'tumu' };
 
 function sekmeSec(ad, sessiz){
   SEKME = ad;
@@ -301,8 +305,16 @@ function gorunurlukDegisti(){
   if(document.hidden){ pollDurdur(); }
   else { tazele(false); pollBasla(); }
 }
+// pollBasla ÖNCE mevcut zamanlayıcıyı düşürür: art arda görünürlük/odak
+// olayları birden çok zamanlayıcı biriktiremez.
 function pollBasla(){ pollDurdur(); POLL = setInterval(()=>{ if(!document.hidden) tazele(false); }, POLL_MS); }
 function pollDurdur(){ if(POLL){ clearInterval(POLL); POLL = null; } }
+function odakGeldi(){ if(!document.hidden) tazele(false); }
+function temizle(){
+  pollDurdur();
+  document.removeEventListener('visibilitychange', gorunurlukDegisti);
+  window.removeEventListener('focus', odakGeldi);
+}
 
 // ---------------------------------------------------------------------------
 // VERİ OKUMA — tek istek, sınırlı sonuç.
@@ -310,6 +322,16 @@ function pollDurdur(){ if(POLL){ clearInterval(POLL); POLL = null; } }
 async function tazele(elle){
   if(UCUSTA) return;                       // üst üste binen istek YOK
   if(!TEK_OTEL || YETKI === 'yok') return;
+  // OTURUM BİTTİYSE YOKLAMA DURUR.
+  // QA'da görüldü: oturum süresi dolduktan sonra sayfa açık kalınca yoklama
+  // sürüyor ve her istek 401 dönüyordu — sunucuya sürekli boş istek gider,
+  // kullanıcı da neden veri gelmediğini anlamaz. Artık zamanlayıcı durur ve
+  // sebep açıkça yazılır.
+  if(!oturumGetir()){
+    pollDurdur();
+    uyariGoster(['Oturumunuz sona erdi. Yenilemek için tekrar giriş yapın.']);
+    return;
+  }
   UCUSTA = true;
   if(elle) sLD();
   const uyarilar = [];
@@ -322,6 +344,11 @@ async function tazele(elle){
   }catch(e){
     GOREVLER = [];
     uyarilar.push(hkHataMesaji(e));
+    // Kimlik/yetki reddi tekrar denemekle düzelmez: yoklamayı durdur.
+    if(e instanceof HK.Hata && (e.http === 401 || e.tur === 'yetki')){
+      pollDurdur();
+      uyarilar.push('Otomatik yenileme durduruldu. Yeniden giriş yapıp sayfayı tazeleyin.');
+    }
   }
   if(elle) hLD();
   UCUSTA = false;
@@ -355,7 +382,7 @@ function secenekleriDoldur(){
 // ÇİZİM
 // ---------------------------------------------------------------------------
 function sekmeSuz(g){
-  if(SEKME === 'islerim')  return g.atanan_kullanici_id === BENIM_ID;
+  // 'islerim' SUNUCUDA suzuldu; burada tekrar suzmek gereksiz ve yanilticidir.
   if(SEKME === 'bekleyen') return g.durum === 'bekliyor';
   return true;
 }
@@ -590,25 +617,37 @@ let YENI_NIYET = null;
 
 async function yeniGorevAc(){
   if(!hkEnAz(YETKI,'tam')) return;
-  // Oda listesi: kat hizmetleri kartlarında olmayan odalar da açılabilmeli.
-  // Bu ekranda oda envanteri AYRI bir modül yetkisidir; okunamazsa
-  // yalnız listedeki odalar sunulur.
+  // Oda listesi KAT HİZMETLERİ sözleşmesinden gelir.
+  //
+  // Eskiden burada `pms_odalar` DOĞRUDAN okunuyordu. Bu, kat hizmetleri
+  // yöneticisinden ayrıca `pms_oda` modül yetkisi istiyordu: yetkisi
+  // olmayan yönetici görev AÇABİLİYOR ama odayı SEÇEMİYORDU (ölçüldü:
+  // görünen oda 0, görev açma başarılı). Görevi olmayan odalar da hiç
+  // listelenemiyordu.
+  //
+  // `pms_housekeeping_odalar` dar, sınırlı ve otel kapsamlı bir izdüşümdür;
+  // yetki eşiği görev açmanın eşiğiyle aynıdır, misafir/rezervasyon verisi
+  // döndürmez.
   if(!ODA_SECENEK.length){
     try{
-      const r = await fetch(SB_URL + '/rest/v1/pms_odalar?select=id,oda_no,kat,kullanim_durumu,aktif'
-        + '&aktif=eq.true&order=oda_no&limit=500', { headers: SB_HEADERS });
-      ODA_SECENEK = r.ok ? await r.json() : [];
-    }catch(e){ ODA_SECENEK = []; }
-    if(!ODA_SECENEK.length){
-      ODA_SECENEK = [...new Map(GOREVLER.map(g=>[g.oda_id,
-        {id:g.oda_id, oda_no:g.oda_no, kat:g.kat, kullanim_durumu:g.oda_kullanim}])).values()];
+      const satirlar = await HK.odalar(TEK_OTEL, 500);
+      ODA_SECENEK = (satirlar || []).map(o=>({
+        id:o.oda_id, oda_no:o.oda_no, kat:o.kat,
+        kullanim_durumu:o.kullanim_durumu, acik_gorev:!!o.acik_gorev_id }));
+    }catch(e){
+      toast(hkHataMesaji(e), 5000);
+      return;
     }
+    if(!ODA_SECENEK.length){ toast('Bu otelde uygun oda bulunamadı'); return; }
   }
   const s = document.getElementById('yOda');
+  // Açık görevi olan oda seçilebilir ama işaretlenir: sunucu ikinci bitmemiş
+  // görevi zaten reddeder (aktif_oda_uniq), kullanıcı baştan bilsin.
   s.innerHTML = ODA_SECENEK.map(o=>
     '<option value="'+escapeHtml(o.id)+'" data-kullanim="'+escapeHtml(o.kullanim_durumu||'')+'">'
     + escapeHtml(o.oda_no) + (o.kat ? ' · K'+escapeHtml(o.kat) : '')
-    + ' — ' + escapeHtml(o.kullanim_durumu||'') + '</option>').join('');
+    + ' — ' + escapeHtml(o.kullanim_durumu||'')
+    + (o.acik_gorev ? ' (açık görev var)' : '') + '</option>').join('');
   // Kullanıcı niyeti BURADA doğar: anahtar bir kez üretilir ve ağ tekrarında
   // KORUNUR. Yeni bir görev açma niyeti YENİ anahtar alır.
   YENI_NIYET = 'olustur:' + HK.yeniUuid();

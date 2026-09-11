@@ -461,7 +461,11 @@ const MODULLER = [
   },
   {
     id: 'onburo', ad: 'Ön Büro', desc: 'Rezervasyon, oda planı, misafir hesabı',
-    url: 'on-buro.html', moduller: ['pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio'], durum: 'aktif',
+    // `pms_housekeeping` eklendi: yalnız kat hizmetleri yetkisi olan personel
+    // (temizlik görevlisi) portalda Ön Büro kutucuğunu GÖREMİYOR ve kendi
+    // çalışma ekranına ulaşamıyordu. Kutucuk görünürlüğü zaten "listedeki
+    // modüllerden EN AZ BİRİ" kuralına dayanır; erişim denetimi sunucudadır.
+    url: 'on-buro.html', moduller: ['pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio','pms_housekeeping'], durum: 'aktif',
     svg: '<path d="M3 20V9l9-5 9 5v11"/><path d="M9 20v-6h6v6"/><path d="M3 20h18"/>'
   }
 ];

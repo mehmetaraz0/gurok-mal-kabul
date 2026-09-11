@@ -166,11 +166,25 @@ const HK = {
   yeniUuid: hkYeniUuid,
   anahtarDusur: hkAnahtarDusur,
 
-  // Kuyruklar sunucuda tanımlıdır: 'tumu' | 'bitmemis' | 'kontrol'.
+  // Kuyruklar sunucuda tanımlıdır: 'tumu' | 'bitmemis' | 'kontrol' | 'benim'.
   // Limit sunucuda 1..100 arasına KIRPILIR; sınırsız indirme YOKTUR.
+  //
+  // 'benim' SUNUCUDA süzülür ve çağıranın kimliğinden türetilir. İstemci
+  // süzgeci kullanılmaz: 100 satırlık pencere, otelde çok iş varken
+  // çalışanın KENDİ görevini gizleyebiliyordu (ölçüldü: 116 görev -> 0).
   listele(otel, kuyruk, limit) {
     return hkRpc('pms_housekeeping_listele', {
       p_otel: String(otel), p_kuyruk: kuyruk || 'tumu', p_limit: limit || 50,
+    });
+  },
+
+  // Oda seçici için DAR operasyonel izdüşüm. Yetki eşiği görev açmayla
+  // aynıdır (`tam`); misafir/rezervasyon verisi DÖNMEZ. `pms_oda` modül
+  // yetkisi GEREKMEZ — kat hizmetleri yöneticisi oda yönetimi yetkisi
+  // olmadan da oda seçebilmelidir.
+  odalar(otel, limit) {
+    return hkRpc('pms_housekeeping_odalar', {
+      p_otel: String(otel), p_limit: limit || 200,
     });
   },
 
