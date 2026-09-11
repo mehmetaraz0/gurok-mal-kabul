@@ -321,8 +321,19 @@ grant all   on sequence public.ornek_no_seq to service_role;
 -- 10a) ACIK KARAR — cagrilabilir her fonksiyon icin, imzasiyla birlikte.
 --      Bunu YAZMAK zorunludur: hangi rolun neyi cagirabilecegi bir KARARDIR
 --      ve kararin dosyada gorunmesi gerekir.
-revoke all on function public.ornek_kapat(uuid) from public, anon;
-grant execute on function public.ornek_kapat(uuid) to authenticated, service_role;
+--
+--      service_role DA revoke listesindedir. public/postgres varsayilan ACL'si
+--      (P3) YENI fonksiyona service_role EXECUTE verir; yalniz public/anon'u
+--      geri almak bu mirasi SESSIZCE birakir. 2026-09-10'da PMS Faz 2 Adim 2'nin
+--      yeni fonksiyonu tam olarak bunu yapti: statik denetim temiz gecti, yalniz
+--      REST baypas testi (X16) yakaladi. CREATE OR REPLACE var olan fonksiyonun
+--      ACL'sini korur; denetleyici yeniyi eskiden ayiramaz, bu yuzden karar HER
+--      tanimda yazilir (kural R11-SERVICE-ROLE-KARARI-YOK).
+revoke all on function public.ornek_kapat(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.ornek_kapat(uuid) to authenticated;
+-- service_role GERCEKTEN cagiracaksa (Edge Function, servis koprusu) asagidaki
+-- satiri GEREKCESIYLE ac. Acik GRANT bir karardir; varsayilandan miras degildir.
+-- grant execute on function public.ornek_kapat(uuid) to service_role;  -- gerekce: ...
 
 -- 10b) SUPURGE — bu migration'in yarattigi TUM fonksiyonlardan PUBLIC/anon
 --      icin EXECUTE geri alinir. 10a'nin yerine gecmez, ustune biner.
@@ -459,6 +470,12 @@ begin
   -- anon RPC cagiramamali.
   if has_function_privilege('anon', 'public.ornek_kapat(uuid)', 'EXECUTE') then
     raise exception 'DOGRULAMA: anon RPC cagirabiliyor';
+  end if;
+
+  -- service_role RPC'yi varsayilan ACL MIRASIYLA cagiramamali (R11).
+  -- 10a'da service_role'a acik GRANT karari verdiysen bu kontrolu kaldir.
+  if has_function_privilege('service_role', 'public.ornek_kapat(uuid)', 'EXECUTE') then
+    raise exception 'DOGRULAMA: service_role RPC cagirabiliyor (varsayilan ACL mirasi)';
   end if;
 
   -- Supurge tuttu mu: anon'a acik TEK BIR fonksiyon kalmamali.

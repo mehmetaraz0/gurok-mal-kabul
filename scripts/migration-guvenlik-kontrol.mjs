@@ -212,6 +212,21 @@ function nesneleriBul(sql) {
 //    Duz metin regex'i bunlari GOREMEZ ve yanlis alarm uretirdi; bu yuzden
 //    format sablonlari, donguden okunan nesne adlariyla acilir.
 // ---------------------------------------------------------------------------
+function doBloklariniBul(sql) {
+  const doBloklari = [];
+  const reDo = /\bdo\s*(\$[A-Za-z_][A-Za-z0-9_]*\$|\$\$)/gi;
+  let m;
+  while ((m = reDo.exec(sql))) {
+    const etiket = m[1];
+    const bas = m.index + m[0].length;
+    const son = sql.indexOf(etiket, bas);
+    const bitis = son === -1 ? sql.length : son;
+    doBloklari.push({ bas: m.index, bitis, govde: sql.slice(bas, bitis) });
+    reDo.lastIndex = bitis;
+  }
+  return doBloklari;
+}
+
 function ifadeleriTopla(sql, nesneAdlari) {
   const ifadeler = [];
 
@@ -237,17 +252,7 @@ function ifadeleriTopla(sql, nesneAdlari) {
   }
 
   // DO bloklarini ayikla
-  const doBloklari = [];
-  const reDo = /\bdo\s*(\$[A-Za-z_][A-Za-z0-9_]*\$|\$\$)/gi;
-  let m;
-  while ((m = reDo.exec(sql))) {
-    const etiket = m[1];
-    const bas = m.index + m[0].length;
-    const son = sql.indexOf(etiket, bas);
-    const bitis = son === -1 ? sql.length : son;
-    doBloklari.push({ bas: m.index, bitis, govde: sql.slice(bas, bitis) });
-    reDo.lastIndex = bitis;
-  }
+  const doBloklari = doBloklariniBul(sql);
 
   for (const blok of doBloklari) {
     // Blok icinde gecen ve gercekten olusturulan nesne adlari: dongu
@@ -295,6 +300,69 @@ function ifadeleriTopla(sql, nesneAdlari) {
   }
 
   return ifadeler;
+}
+
+// ---------------------------------------------------------------------------
+// 4b) LIKE SUPURGELERI — YALNIZ R11 icin
+//
+// PMS Faz 2 Adim 1 service_role'u acik revoke'la degil, pg_proc uzerinde
+//   where ns.nspname = 'public' and p.proname like 'pms\_housekeeping\_%'
+// ile donen bir supurgeyle dusurur. Govdede nesne adi gecmedigi icin
+// ifadeleriTopla bu donguyu acmaz — acmamali da: supurge R9'un "acik karar"
+// sartini KARSILAMAZ (standart: supurge acik kararin yerine gecmez). Bu
+// yuzden LIKE supurgeleri AYRI toplanir; R1-R10 onlari hic gormez.
+//
+// Dar yorum:
+//  - execute, kendisinden onceki en yakin "for <degisken> in ... loop"
+//    basligina baglanir; arada "end loop" varsa baglanmaz.
+//  - Baslik public disinda bir semaya kilitliyse kapsamaz: denetleyici yalniz
+//    public fonksiyonlarini kesfeder.
+//  - Govde yorumlari once silinir: yorumdaki execute karar degildir.
+// ---------------------------------------------------------------------------
+function likeRegex(desen) {
+  const kacir = c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let re = '';
+  for (let i = 0; i < desen.length; i++) {
+    const c = desen[i];
+    if (c === '\\' && i + 1 < desen.length) re += kacir(desen[++i]);
+    else if (c === '%') re += '.*';
+    else if (c === '_') re += '.';
+    else re += kacir(c);
+  }
+  return new RegExp('^' + re + '$', 'i');
+}
+
+function likeSupurgeleriTopla(sql) {
+  const supurgeler = [];
+  for (const blok of doBloklariniBul(sql)) {
+    const govde = yorumlariSil(blok.govde);
+
+    const basliklar = [];
+    const reBaslik = /\bfor\s+[a-z_][a-z0-9_]*\s+in\s+([\s\S]*?)\bloop\b/gi;
+    let b;
+    while ((b = reBaslik.exec(govde))) basliklar.push({ son: reBaslik.lastIndex, sorgu: b[1] });
+
+    const reExec = /\bexecute\s+(?:format\s*\(\s*)?(?:'((?:[^']|'')*)'|\$([A-Za-z_][A-Za-z0-9_]*)?\$([\s\S]*?)\$\2\$)/gi;
+    let e;
+    while ((e = reExec.exec(govde))) {
+      const sablon = e[1] !== undefined ? e[1].replace(/''/g, "'") : e[3];
+      if (!/%I|%s/.test(sablon)) continue;
+
+      const baslik = basliklar.filter(x => x.son <= e.index).pop();
+      if (!baslik || /\bend\s+loop\b/i.test(govde.slice(baslik.son, e.index))) continue;
+      const desen = /\bproname\s+like\s+'((?:[^']|'')*)'/i.exec(baslik.sorgu);
+      if (!desen) continue;
+      const sema = /\bnspname\s*=\s*'([^']*)'/i.exec(baslik.sorgu);
+      if (sema && sema[1].toLowerCase() !== 'public') continue;
+
+      const { revokes } = aclCoz([{ metin: sablon.replace(/%I|%s/g, 'x') }]);
+      for (const r of revokes) {
+        if (!/^function\b/.test(r.nesne)) continue;
+        supurgeler.push({ desen: likeRegex(desen[1].replace(/''/g, "'")), roller: r.roller });
+      }
+    }
+  }
+  return supurgeler;
 }
 
 // ---------------------------------------------------------------------------
@@ -462,6 +530,31 @@ function dosyayiDenetle(yol) {
     } else if (!rev.some(r => rolIcerir(r.roller, 'public')) || !rev.some(r => rolIcerir(r.roller, 'anon'))) {
       ekle('HATA', 'R9-FONKSIYON-REVOKE-EKSIK', f.ad,
         'EXECUTE, PUBLIC ve anon icin acikca geri alinmamis.');
+    }
+  }
+
+  // --- R11: fonksiyon service_role karari ---
+  // public/postgres varsayilan ACL'si (P3) YENI fonksiyona service_role
+  // EXECUTE verir. CREATE OR REPLACE var olanin ACL'sini korur; denetleyici
+  // ikisini ayiramaz, bu yuzden karar her tanimda aranir. Kabul edilen karar:
+  // service_role'u adiyla anan REVOKE (dogrudan, isim listeli supurge ya da
+  // public LIKE supurgesi) veya service_role'a ACIK GRANT. Hic ACL karari
+  // olmayan fonksiyon zaten R9-FONKSIYON-ACL-KARARI-YOK'a duser.
+  // Gercek olay: 2026-09-10, pms_housekeeping_odalar (yalniz X16 yakaladi).
+  const likeSupurgeleri = likeSupurgeleriTopla(sql);
+  for (const f of fonksiyonlar) {
+    if (f.tetikleyici || atlanir(f.ad)) continue;
+    const rev = revokes.filter(r => nesneEslesir(r.nesne, f.ad));
+    const gra = grants.filter(g => nesneEslesir(g.nesne, f.ad));
+    if (rev.length === 0 && gra.length === 0) continue;
+    const karar =
+      rev.some(r => rolIcerir(r.roller, 'service_role')) ||
+      gra.some(g => rolIcerir(g.roller, 'service_role')) ||
+      likeSupurgeleri.some(s => s.desen.test(f.ad) && rolIcerir(s.roller, 'service_role'));
+    if (!karar) {
+      ekle('HATA', 'R11-SERVICE-ROLE-KARARI-YOK', f.ad,
+        'service_role icin EXECUTE karari yok (satir ' + f.satir + '). Varsayilan ACL (P3) yeni fonksiyona ' +
+        'service_role EXECUTE verir: REVOKE ... FROM ..., service_role yazin; kasitliysa GRANT ... TO service_role.');
     }
   }
 

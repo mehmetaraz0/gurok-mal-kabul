@@ -203,10 +203,10 @@ test('I: REVOKE authenticated icermiyor -> R2', () => {
 // ---------------------------------------------------------------------------
 test('J: fonksiyon EXECUTE karari yok -> R9 (UYARI)', () => {
   let bozuk = boz(sablon,
-    'revoke all on function public.ornek_kapat(uuid) from public, anon;',
+    'revoke all on function public.ornek_kapat(uuid) from public, anon, authenticated, service_role;',
     '-- (sabotaj: revoke silindi)');
   bozuk = boz(bozuk,
-    'grant execute on function public.ornek_kapat(uuid) to authenticated, service_role;',
+    'grant execute on function public.ornek_kapat(uuid) to authenticated;',
     '-- (sabotaj: grant silindi)');
   const r = denetle(bozuk, 'j-fonksiyon-acl-yok');
   assert.equal(r.kod, 0, 'UYARI varsayilan olarak cikis kodunu bozmamali');
@@ -263,6 +263,134 @@ test('N: @append-only, @erisim-yok ve gerekceli @acl-istisna okunur', () => {
   assert.doesNotMatch(r.cikti, /R3-GRANT-KARARI-YOK\s+n_ic/);
   // gerekceli @acl-istisna okundu: n_eski hic denetlenmemeli
   assert.doesNotMatch(r.cikti, /n_eski/);
+});
+
+// ---------------------------------------------------------------------------
+// O) YENI FONKSIYON service_role EXECUTE'unu VARSAYILAN ACL'DEN MIRAS ALIR
+//
+//    Gercek olay (2026-09-10): adim 2 migration'i YENI bir fonksiyon
+//    (pms_housekeeping_odalar) yaratti ve yalniz public/anon'dan revoke etti.
+//    public/postgres varsayilan ACL'si (P3) yeni fonksiyona service_role
+//    EXECUTE verdi. Denetleyici 0 HATA 0 UYARI dedi; yalniz REST baypas
+//    testi X16 yakaladi. Mevcut fonksiyonun CREATE OR REPLACE'i ACL'yi
+//    korudugu icin listele etkilenmedi.
+//
+//    Sabotaj, duzeltilmis dosyadan olayin ORIJINAL halini geri uretir.
+// ---------------------------------------------------------------------------
+const ADIM1 = path.join(kok, 'docs', 'kurulum', '2026-09-09-pms-faz2-adim1-housekeeping.sql');
+const ADIM2 = path.join(kok, 'docs', 'kurulum', '2026-09-10-pms-faz2-adim2-housekeeping-ui-destek.sql');
+
+function denetleYol(yol, ...ekArgumanlar) {
+  const r = spawnSync(process.execPath, [KONTROL, yol, ...ekArgumanlar], { encoding: 'utf8', cwd: kok });
+  return { kod: r.status, cikti: (r.stdout || '') + (r.stderr || '') };
+}
+
+const r11Adedi = cikti => (cikti.match(/R11-SERVICE-ROLE-KARARI-YOK/g) || []).length;
+
+function adim2OlayOncesi() {
+  let m = fs.readFileSync(ADIM2, 'utf8');
+  m = boz(m, 'revoke all on function public.pms_housekeeping_odalar(text, integer) from authenticated;\n', '');
+  m = boz(m, 'revoke all on function public.pms_housekeeping_odalar(text, integer) from service_role;\n', '');
+  m = boz(m,
+    "execute format('revoke all on function %s from public, anon, authenticated, service_role', r.imza);",
+    "execute format('revoke all on function %s from public, anon', r.imza);");
+  return m;
+}
+
+test('O-a: yeni fonksiyon service_role revoke etmiyor -> R11 (2026-09-10 olayi)', () => {
+  const r = denetle(adim2OlayOncesi(), 'o-a-service-role-miras');
+  assert.equal(r.kod, 1, r.cikti);
+  assert.match(r.cikti, /R11-SERVICE-ROLE-KARARI-YOK\s+pms_housekeeping_odalar/);
+  assert.doesNotMatch(r.cikti, /R11-SERVICE-ROLE-KARARI-YOK\s+pms_housekeeping_listele/,
+    'listele service_role icin acik revoke tasiyor; bulgu uretmemeli');
+  assert.equal(r11Adedi(r.cikti), 1, r.cikti);
+  assert.match(r.cikti, /1 HATA \| 0 UYARI/, 'yalniz R11 beklenir, baska kural degil');
+});
+
+test('O-b: duzeltilmis 2026-09-10 migration TEMIZ (--uyari-da-hata)', () => {
+  const r = denetleYol(ADIM2, '--uyari-da-hata');
+  assert.equal(r.kod, 0, r.cikti);
+  assert.match(r.cikti, /0 HATA \| 0 UYARI/);
+  assert.equal(r11Adedi(r.cikti), 0, r.cikti);
+});
+
+// NEGATIF KONTROL: service_role'a ACIK grant bir karardir, miras degildir.
+test('O-c: service_role icin acik GRANT karari -> R11 YOK', () => {
+  const bozuk = boz(adim2OlayOncesi(),
+    'grant execute on function public.pms_housekeeping_odalar(text, integer) to authenticated;\n',
+    'grant execute on function public.pms_housekeeping_odalar(text, integer) to authenticated;\n' +
+    '-- Kasitli: servis koprusu cagirir.\n' +
+    'grant execute on function public.pms_housekeeping_odalar(text, integer) to service_role;\n');
+  const r = denetle(bozuk, 'o-c-acik-grant');
+  assert.equal(r.kod, 0, r.cikti);
+  assert.equal(r11Adedi(r.cikti), 0, r.cikti);
+  assert.match(r.cikti, /0 HATA \| 0 UYARI/);
+});
+
+// ---------------------------------------------------------------------------
+// P) LIKE SUPURGESI service_role'u adiyla anarsa kapsar
+//    Adim 1'in acik revoke'lari yalniz public/anon'dur; service_role
+//    "proname like 'pms\_housekeeping\_%'" supurgesiyle dusurulur.
+// ---------------------------------------------------------------------------
+test('P: adim 1 LIKE supurgesi service_role icermezse -> R11 (yalniz cagrilabilirler)', () => {
+  const temiz = denetleYol(ADIM1, '--uyari-da-hata');
+  assert.equal(temiz.kod, 0, temiz.cikti);
+  assert.equal(r11Adedi(temiz.cikti), 0, temiz.cikti);
+
+  const bozuk = boz(fs.readFileSync(ADIM1, 'utf8'),
+    "    execute format('revoke all on function %s from public, anon, authenticated, service_role', v.f);\n" +
+    "    execute format('grant execute on function %s to authenticated', v.f);",
+    "    execute format('revoke all on function %s from public, anon, authenticated', v.f);\n" +
+    "    execute format('grant execute on function %s to authenticated', v.f);");
+  const r = denetle(bozuk, 'o-like-supurge');
+  assert.equal(r.kod, 1, r.cikti);
+  assert.match(r.cikti, /R11-SERVICE-ROLE-KARARI-YOK\s+pms_housekeeping_listele/);
+  // 14 cagrilabilir genel RPC; 7 tetikleyici fonksiyonu kapsam disi.
+  assert.equal(r11Adedi(r.cikti), 14, r.cikti);
+  assert.doesNotMatch(r.cikti, /R11-SERVICE-ROLE-KARARI-YOK\s+pms_housekeeping_gorev_koruma/);
+  assert.match(r.cikti, /14 HATA \| 0 UYARI/, 'yalniz R11 beklenir, baska kural degil');
+});
+
+// ---------------------------------------------------------------------------
+// Q) Supurge kapsami DAR yorumlanir: baska semanin supurgesi ya da yorum
+//    satirindaki execute, genel fonksiyonun service_role kararini VERMEZ.
+// ---------------------------------------------------------------------------
+test('Q: supurge semasi ve yorum satiri service_role kararini vermez', () => {
+  const sql = String.raw`
+create or replace function public.hk_deneme(p int)
+returns int language sql as $$ select p $$;
+
+revoke all on function public.hk_deneme(int) from public, anon;
+grant execute on function public.hk_deneme(int) to authenticated;
+
+do $$
+declare v record;
+begin
+  for v in select p.oid::regprocedure as f
+             from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+            where ns.nspname = 'phase0_private' and p.proname like 'hk\_%'
+  loop
+    execute format('revoke all on function %s from public, anon, authenticated, service_role', v.f);
+  end loop;
+end;
+$$;
+`;
+  const baskaSema = denetle(sql, 'p-baska-sema');
+  assert.equal(baskaSema.kod, 1, baskaSema.cikti);
+  assert.match(baskaSema.cikti, /R11-SERVICE-ROLE-KARARI-YOK\s+hk_deneme/);
+
+  const genelSema = boz(sql, "ns.nspname = 'phase0_private'", "ns.nspname = 'public'");
+  const r = denetle(genelSema, 'p-genel-sema');
+  assert.equal(r.kod, 0, r.cikti);
+  assert.match(r.cikti, /0 HATA \| 0 UYARI/);
+
+  const yorumda = boz(genelSema,
+    "    execute format('revoke all on function %s from public, anon, authenticated, service_role', v.f);",
+    "    -- execute format('revoke all on function %s from public, anon, authenticated, service_role', v.f);\n" +
+    "    execute format('revoke all on function %s from public, anon', v.f);");
+  const y = denetle(yorumda, 'p-yorumda');
+  assert.equal(y.kod, 1, y.cikti);
+  assert.match(y.cikti, /R11-SERVICE-ROLE-KARARI-YOK\s+hk_deneme/);
 });
 
 // ---------------------------------------------------------------------------

@@ -131,13 +131,44 @@ belge numaraları çakışır ve `unique` kısıt üretimde patlar.
 ### Fonksiyon
 
 ```sql
-REVOKE ALL ON FUNCTION public.x(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.x(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.x(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.x(uuid) TO authenticated;
+-- service_role gerçekten çağıracaksa: AÇIK karar, gerekçesiyle.
+-- GRANT EXECUTE ON FUNCTION public.x(uuid) TO service_role;  -- gerekçe: ...
 ```
 
 PostgreSQL yeni fonksiyona `PUBLIC` için EXECUTE verir — bu, dilin
 varsayılanıdır ve unutulması kolaydır. Her **çağrılabilir** fonksiyon için
 açıkça geri alınır.
+
+#### `service_role` neden listede
+
+`public`/`postgres` varsayılan ACL'si (P3,
+[`2026-09-07-varsayilan-acl-bulgusu.md`](2026-09-07-varsayilan-acl-bulgusu.md))
+**yeni** fonksiyona `service_role` için EXECUTE verir. Yalnız `PUBLIC, anon`
+revoke etmek bu mirası **sessizce** bırakır.
+
+Bu ders 2026-09-10'da ödendi: PMS Faz 2 Adım 2 **yeni**
+`pms_housekeeping_odalar(text, integer)` fonksiyonunu yarattı, yalnız
+`public` ve `anon`'dan geri aldı, `authenticated`'a verdi. Fiili ACL
+`postgres=X, authenticated=X, service_role=X` oldu. Statik denetleyici
+**0 HATA / 0 UYARI** verdi; açığı yalnız REST baypas testi X16 yakaladı
+(16/17). Aynı dosyadaki `pms_housekeeping_listele` etkilenmedi, çünkü
+`CREATE OR REPLACE` **var olan** fonksiyonun ACL'sini korur.
+
+Denetleyici yeni fonksiyonu yerine konandan ayıramaz. Bu yüzden `R11` her
+çağrılabilir fonksiyon **tanımına** uygulanır ve iki karardan birini ister:
+
+1. `service_role`'ü **adıyla anan** bir `REVOKE`: tek satırda, rol
+   listesinde, isim listeli süpürgede (`proname in ('a','b')`) ya da
+   `public` şemasını tarayan `proname like '<önek>'` süpürgesinde.
+2. `service_role`'e **açık** `GRANT`: miras değil, karardır; gerekçesi
+   yanına yazılır.
+
+`R11`, süpürgeyi yalnız **kendi** kararı için sayar. Süpürge `R9`'un açık
+karar şartını karşılamaz; bu değişmedi. Başka şemayı tarayan süpürge
+(`nspname = 'phase0_private'`) ve yorum satırındaki `execute` karar sayılmaz.
+Tetikleyici fonksiyonları ve `@acl-istisna` `R9`'daki gibi kapsam dışıdır.
 
 **Tetikleyici fonksiyonları (`returns trigger`) istisnadır**: doğrudan
 çağrılamazlar (`can only be called as a trigger`), ACL kararı gerekmez.
@@ -238,6 +269,7 @@ node scripts/migration-guvenlik-kontrol.mjs --uyari-da-hata            # UYARI d
 | `R9-FONKSIYON-REVOKE-EKSIK` | HATA | EXECUTE, PUBLIC/anon için geri alınmamış |
 | `R10-GORUNUM-ACL-KARARI-YOK` | UYARI | Görünüm için ACL kararı yok |
 | `R10-GORUNUM-INVOKER-YOK` | HATA | Görünümde `security_invoker = true` yok |
+| `R11-SERVICE-ROLE-KARARI-YOK` | HATA | Çağrılabilir fonksiyonun ACL kararı var, ama `service_role` ne adıyla revoke ediliyor ne açıkça grant ediliyor: varsayılan ACL mirası (P3) sessizce kalır |
 
 **HATA** çıkış kodunu 1 yapar. **UYARI** yapmaz — `--uyari-da-hata` ile
 yaptırılabilir.
@@ -290,6 +322,15 @@ sıfır bulgu üretir; Adım 1–2'de altı `R2` ve Adım 3'te bir `R9` bulur �
 elle bulunmuş bilinen boşlukların **tamamını ve yalnız onları** yeniden
 keşfeder.
 
+**`R11` kalibrasyonu (2026-09-11):** varsayılan kapsamdaki 8 dosyada sıfır
+bulgu (Faz 2 Adım 1 `like` süpürgesiyle, Adım 2 açık revoke'la temiz). Olay
+öncesi Adım 2 yeniden üretildiğinde **yalnız** `pms_housekeeping_odalar`
+bulunur (test O-a). `--tumu` raporunda R1–R10 sayıları değişmedi (577 → 577
+HATA); `R11` taban tarihinden **önceki** 14 dosyada 27 fonksiyon tanımı
+raporlar.
+Bunlar tarihsel kanıttır, kapı değildir (bölüm 5); üretimdeki fiili
+`service_role` EXECUTE hakkı ayrıca, salt-okuma ölçülür.
+
 ---
 
 ## 4. Sabotaj testleri
@@ -320,12 +361,19 @@ hedefini bulamazsa test **kurulum hatası** verir, sessizce yeşile dönmez.
 | I | REVOKE'tan `authenticated` düşürüldü | `R2` |
 | J | fonksiyon EXECUTE kararı silindi | `R9` (UYARI) + `--uyari-da-hata` ile kırmızı |
 | K | sekans REVOKE silindi | `R8` |
+| N | CRLF dosyada yönerge satırı okunmuyor | `@append-only`/`@erisim-yok`/`@acl-istisna` **yok sayılmaz** (R6 atlanması regresyonu) |
+| O-a | 2026-09-10 Adım 2'nin olay öncesi hâli: yeni fonksiyondan `service_role` revoke'u silindi | `R11`, **yalnız** `pms_housekeeping_odalar` |
+| O-b | *(düzeltilmiş 2026-09-10 dosyası, `--uyari-da-hata`)* | **yeşil**, 0 HATA 0 UYARI |
+| O-c | O-a + `service_role`'e açık GRANT (negatif kontrol) | `R11` **yok**, yeşil |
+| P | Faz 2 Adım 1'in `like` süpürgesinden `service_role` düşürüldü | tam 14 `R11` (7 tetikleyici kapsam dışı) |
+| Q | başka şemanın süpürgesi / yorumdaki `execute` | `R11`; `public` süpürgesi ise yeşil |
 | M | dize içinde `CREATE TABLE AS` | sahte nesne **üretmez** (yanlış alarm regresyonu) |
 | L | argümansız çalıştırma | tarihî dosyalar **kırmızı yapmaz** |
 
-I, J ve M gerçek olaylardır: I, PMS Adım 1–2'nin yaptığı şeydir; J, Adım
+I, J, M ve O gerçek olaylardır: I, PMS Adım 1–2'nin yaptığı şeydir; J, Adım
 3'teki `pms_bugun` fonksiyonudur; M, denetleyicinin 2026-09-08'de kendi
-ürettiği yanlış alarmdır.
+ürettiği yanlış alarmdır; O, 2026-09-10'da denetleyicinin **temiz** dediği,
+yalnız REST baypas testi X16'nın yakaladığı `service_role` mirasıdır.
 
 ---
 
