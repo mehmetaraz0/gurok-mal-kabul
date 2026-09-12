@@ -199,6 +199,15 @@ Yazmaları yargılayan bekçi fonksiyonu `public.pms_housekeeping_oda_koruma()` 
 
 ---
 
+### GÜNCELLEME — 2026-09-12 17:55 (İstanbul)
+
+Yukarıdaki "12 Eylül 10:00–12:00" aralığı geçti. Güncel iki seçenek:
+
+- **Seçenek A — bugün akşam (12 Eylül, ~19:00–21:00).** Oda 102'nin planlı çıkışından (13 Eylül) önce biter; o çıkış modül açıkken ilk gerçek çıkış üreticisi olayı olur. Koşul: E-3 (güncel döküm ve prova) ile E-4/E-5 kararlarının aynı akşam tamamlanması. Prova yaklaşık 15 dakika sürer.
+- **Seçenek B — 13 Eylül, oda 102'nin çıkışından sonra (önerilen).** Çıkış eski akışla tamamlanır; oda kirli kalır ve yayından sonra şef tek bir `ekstra_temizlik` görevi açar (§1.9). Pencerede hiç dolu oda kalmadığı için temizlik yolu kapalı süresinin iş etkisi sıfırdır. Hazırlık kararlarına da bir gün daha tanır.
+
+Her iki seçenekte de 1.2'deki "öncesi" fotoğrafı pencere başında yeniden alınır: bu belgedeki canlı değerler 11 Eylül 23:30 ölçümüdür.
+
 ## 4. Yayın planı
 
 Sıra mimari §16'yı izler: **migration → roller → uyumlu arayüz → modülü açma.**
