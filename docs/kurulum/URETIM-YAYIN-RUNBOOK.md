@@ -320,3 +320,24 @@ küçük olursa olsun, aynı gün dosyaya dönüştürülmelidir.
 > `Success. No rows returned` bir DO bloğunun her zaman verdiği çıktıdır ve
 > **hiçbir şey kanıtlamaz** — kaç revoke çalıştığını söylemez. Bu yüzden
 > uygulama sonrası ölçüm ayrıca yapıldı.
+
+---
+
+## 7. DÜZELTME — yedek gerçeği (2026-09-12)
+
+Bölüm 5'teki PMS Faz 1 kaydında **"Otomatik günlük yedek, 2026-09-07 (Supabase Pro)"** yazıyor.
+2026-09-12'de Supabase panelinden ölçüldü:
+
+- Proje **Free plan**da: *"Free Plan does not include project backups. Upgrade to the Pro Plan for up to 7 days of scheduled backups."*
+- **Proje yedeği yok.** Zamanlanmış yedek listesi boş; point-in-time kurtarma da yok.
+- Veritabanı parolası oluşturulduktan sonra **görüntülenemiyor**; yalnız sıfırlanabiliyor ("Resetting it will break any existing connections").
+
+Sonuçlar:
+
+1. **2.4'teki "Yedek" adımı otomatik yedeğe dayanamaz.** Yayın öncesi yedek, kullanıcının elle aldığı
+   dökümdür: şema + referans veri için `docs/kurulum/dokum-al.ps1`, veri için ayrıca
+   `pg_dump --data-only`. Yedeğin alındığı saat ve dosya yolu kayda geçer.
+2. **Geri alma tablolarındaki "yedekten dönüş" satırı, elde elle alınmış bir yedek yoksa mevcut
+   değildir.** Faz 2 yayın planının geri dönüş bölümü bu gerçeğe göre okunmalıdır.
+3. 2026-09-07 kaydındaki ifade tarihsel kayıt olarak **silinmedi**; bu not onun üstüne eklendi.
+   O tarihte planın Pro olup olmadığı ayrıca doğrulanmadı; bugünkü ölçüm Free'dir.

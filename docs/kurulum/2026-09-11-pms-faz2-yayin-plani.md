@@ -71,14 +71,16 @@ SQL Editor, rol `postgres`, "main PRODUCTION". Dosyalar elle yazılmadı; yerel 
 
 **Üretim durumu:** otel 810'da iki oda (`101` boş/temiz, `102` dolu/kontrol_edildi); oda 102'de 07→13 Eylül konaklaması; onaylı gelecek rezervasyon 0; `erp_islem_audit` 22 satır; PMS yetkisi yalnız `IT / Sistem Yöneticisi` ve `Sistem Yöneticisi` rollerinde; kat hizmetleri modülü ve yetkisi yok; PostgreSQL 17.6.
 
-### 1.3 İzole prova ve test paketleri (yayın baytlarıyla, 2026-09-12)
+### 1.3 İzole prova ve test paketleri (yayın baytları + güncel döküm, 2026-09-12)
 
-Taban: 09-07 POST-FAZ1 dökümü + referans veri + 09-08 ACL temizliği; ağsız, tek kullanımlık PostgreSQL 17. Migration'lar SQL Editor'ün yaptığı gibi tek sorgu metni olarak uygulandı.
+**Güncel döküm alındı (E-1 kapandı).** `docs/kurulum/2026-09-12-pre-faz2-sema-dokumu.sql` (340.833 bayt, sha256 `5cdef40e…`) ve `2026-09-12-pre-faz2-referans-veri.sql` (110.508 bayt). Döküm doğrulaması: hatasız yüklendi, **28/28 fonksiyon gövdesi eşleşti**, 234 politika / 75 tablo, 40 kısıtlayıcı → 09-07 tabanına göre **sapma yok**. Referans veri de değişmemiş (37 rol, 675 yetki satırı, aynı PMS yetkileri).
+
+Taban: **2026-09-12 dökümü** + referans veri + 09-08 ACL temizliği; ağsız, tek kullanımlık PostgreSQL 17. Migration'lar SQL Editor'ün yaptığı gibi tek sorgu metni olarak uygulandı. Aynı zincir 09-07 dökümüyle de koşuldu ve sonuçlar birebir aynı çıktı.
 
 | Prova / paket | Sonuç |
 |---|---|
 | Adım 1 (tek sorgu metni) | Başarılı; dört doğrulama bloğu geçti |
-| Adım 2, `e10a806` öncesi | Başarısız: `syntax error at or near "\"`, hiçbir şey uygulanmadı |
+| Adım 2, `e10a806` öncesi (09-07 dökümünde ölçüldü) | Başarısız: `syntax error at or near "\"`, hiçbir şey uygulanmadı |
 | Adım 2, `e10a806` | Başarılı |
 | İkinci kez uygulama | Başarılı (idempotent) |
 | Preflight: tabanda / migration sonrası | 50 GECTI, 0 SAPMA / tam olarak beklenen 19 SAPMA |
@@ -89,7 +91,7 @@ Taban: 09-07 POST-FAZ1 dökümü + referans veri + 09-08 ACL temizliği; ağsız
 
 **Uygulama sonrası beklenen değerler:** 76 tablo · 236 politika · 41 kısıtlayıcı · `pms_*` 44 (22'si `pms_housekeeping_*`) · `hk_*` 8 · tetikleyici 90 · anon EXECUTE 0 · `pms_odalar` authenticated `INSERT,SELECT,UPDATE` · modül `sira=49 aktif=false`.
 
-**Prova kopyasının güncelliği:** 09-07 dökümü 11 Eylül'de canlıya karşı yeniden doğrulandı (28/28 definer gövdesi, preflight C1–C10, tüm taban sayıları). Bayt düzeyinde güncel döküm **henüz alınmadı** (E-1).
+**Prova kopyasının güncelliği:** Prova, 2026-09-12 tarihli üretim dökümüyle koşuldu. Aynı döküm canlıya karşı doğrulandı (28/28 gövde, 234/75, 40). 09-07 dökümüyle yapılan ilk koşunun sonuçları birebir aynıdır; bu, aradaki beş günde şemanın değişmediğini ikinci kez gösterir.
 
 ### 1.4 Eski arayüzün yazma yolları (migration sonrası)
 
@@ -143,7 +145,18 @@ C1 müdahalesi (arayüzü GitHub Pages yerine yerel bir kaynaktan sunmak) provad
 - `tam` yetkili kullanıcıda "+ Görev aç" göründü; **oda seçici doldu** (`pms_housekeeping_odalar` RPC'si) ve oda 101 için **gerçek bir görev açıldı**; kart listeye düştü.
 - Tek konsol hatası: service worker kaydı bu ortamda başarısız oldu. Uygulama etkilenmedi (network-first tasarım); C1 için engel değildir, kayda geçer.
 
-### 1.8 Diğer bulgular
+### 1.8 Yedek gerçeği — ölçüldü (2026-09-12)
+
+Supabase panelinden okundu:
+
+- Proje **Free plan**da: *"Free Plan does not include project backups."* **Zamanlanmış proje yedeği yok**; point-in-time kurtarma da yok.
+- Veritabanı parolası oluşturulduktan sonra **görüntülenemiyor**, yalnız sıfırlanabiliyor ("Resetting it will break any existing connections").
+
+Bu, runbook §5'teki "Otomatik günlük yedek (Supabase Pro)" ifadesiyle çelişiyor. Tarihsel kayıt silinmedi; runbook'a tarihli DÜZELTME (§7) eklendi.
+
+**Plana etkisi:** yayın öncesi yedek, **kullanıcının elle aldığı dökümdür** (şema + referans veri için `dokum-al.ps1`, veri için `pg_dump --data-only`). Elde böyle bir yedek yoksa "yedekten dönüş" seçeneği **yoktur** (§7).
+
+### 1.9 Diğer bulgular
 
 1. Modülü kapatmak engeli kaldırmaz (§24.1; kanıt M1/M2–M4/M5/M7 ve 1.5/S1–S3).
 2. `service_role` yedi tetikleyici fonksiyonunda EXECUTE taşıyor (varsayılan ACL mirası); `returns trigger` oldukları için RPC yüzeyi 0. Kayda geçer.
@@ -167,10 +180,11 @@ Yayın penceresinin **başlayabilmesi** için aşağıdakilerin tamamı sağlanm
 | K-5 | **Gerçek rol seviyeleriyle negatif yetki testleri** | ✅ 1.6 (32 OK / 0 FAIL) |
 | K-6 | **Yerel arayüz kurtarma provası** | ✅ 1.7 (görev açma dahil uçtan uca) |
 | K-7 | **Yayın başlangıcı preflight'ı**: pencere başında, Adım 1'den hemen önce preflight yeniden çalıştırılır ve `SAPMA` = 0 ile `E1 = 0` görülür | ⏳ Pencerede yapılacak (6.1.2). Sonucu görülmeden Adım 1 çalıştırılmaz. |
-| K-8 | Güncel dökümle prova | ⏳ E-1 |
+| K-8 | Güncel dökümle prova | ✅ 1.3 (2026-09-12 dökümü; döküm doğrulaması sapmasız, dokuz paket yeşil, preflight öncesi/sonrası beklenen) |
 | K-9 | Yetki matrisi ve iki ayrı test kullanıcısı onayı | ⏳ E-2 |
 | K-10 | Operasyonun pencere ve zaman çizelgesi onayı | ⏳ E-3 |
 | K-11 | "Adım 1 commit'inden sonra eski akışa dönüş yok" riskinin kabulü | ⏳ E-4 |
+| K-12 | **Yayın öncesi elle yedek**: otomatik yedek olmadığı için (1.8) veri yedeği elle alınır; dosya yolu ve saati kayda geçer | ⏳ E-5 |
 
 ---
 
@@ -178,7 +192,8 @@ Yayın penceresinin **başlayabilmesi** için aşağıdakilerin tamamı sağlanm
 
 | # | Tür | Konu | Kapanma ölçütü |
 |---|---|---|---|
-| E-1 | Önkoşul | Bayt düzeyinde güncel döküm yok (en yenisi 09-07) | Kullanıcı `.\docs\kurulum\dokum-al.ps1 -Etiket <tarih>-pre-faz2` çalıştırır (parola istemle alınır, ajana verilmez). Ajan `dokum-dogrula.mjs` ile sapma olmadığını doğrular; iki migration'ı LF baytlarıyla uygular; preflight'ı öncesi/sonrası çalıştırır; dokuz paketi ve 1.6 negatif yetki sondasını o döküm üzerinde tekrarlar. |
+| E-1 | ~~Önkoşul~~ | Bayt düzeyinde güncel dökümle prova | ✅ **Kapandı** (2026-09-12): döküm alındı, doğrulandı ve tüm zincir onunla tekrarlandı — 1.3 |
+| E-5 | Önkoşul | **Elle veri yedeği** — otomatik yedek yok (1.8) | Kullanıcı pencere öncesi `pg_dump` ile veri yedeği alır; dosya yolu ve saati runbook kaydına yazılır. Alınmazsa §7'deki "yedekten dönüş" satırı geçersizdir. |
 | E-2 | Karar | Yetki matrisi ve iki ayrı test kullanıcısı | §4 matrisi onaylanır; şef ve çalışan rolünde **iki farklı aktif kullanıcı** adıyla belirlenir. |
 | E-3 | Onay | Operasyon onayı | §5.1 penceresi ve §5.2 zaman çizelgesi, operasyondan sorumlu kişi tarafından adı ve saatiyle onaylanır. |
 | E-4 | Risk kabulü | Adım 1 commit'inden sonra eski temizlik akışına dönüş yok | Kullanıcı kabul eder (§5, §7). |
@@ -282,7 +297,7 @@ Sıra mimari §16'dır: **migration → roller → uyumlu arayüz → modülü a
 | Güncel dökümle prova | ⏳ E-1 |
 | Yetki matrisi ve kullanıcılar | ⏳ E-2 |
 | Pencere ve zaman çizelgesi onayı | ⏳ E-3 |
-| Yedek | Pencere başında son otomatik yedeğin saati kayda geçer |
+| Yedek (E-5) | **Otomatik yedek yok** (1.8). Pencere öncesi elle alınan veri yedeğinin dosya yolu ve saati kayda geçer |
 
 ### 6.1 Pencere (`CANLIYA UYGULA` şart)
 
@@ -370,7 +385,7 @@ Runbook §4 geçmişi ve §1'in 12 alanı; kesinti süresi ve ara kontrol saatle
 | 6.1.8 sonrası | §24.1 olağan kapatma: yalnız `moduller.aktif=false` içeren transaction; uçuştaki komutları bekler. Komutlar kapanır, check-out sürer ama görev üretmez, geçmiş korunur. | **Hayır.** Kirli odalar hazır hâle getirilemez. |
 | Üretici hatalıysa | §24.2: modülü kapat, uçuşu boşalt, **yalnız** `pms_housekeeping_cikis_uret` ve `pms_housekeeping_serbest_uret` tetikleyicilerini devre dışı bırak; bütünlük, denetim ve yaşam döngüsü tetikleyicilerine dokunma; önce staging'de doğrula; ileri yönlü migration ile onar; üreticileri modülden önce aç. | Hayır |
 | Yeniden açma | §24.3 değişmez raporu temiz olmalı (aşağıda) | — |
-| Her aşama | Yedekten dönüş | Evet, ama yedekten sonraki tüm rezervasyon, folyo ve ödeme yazmaları kaybolur; özellik geri alma yöntemi değildir |
+| Her aşama | Yedekten dönüş — **yalnız elle alınmış yedek varsa** (proje Free planda, otomatik yedek yok; 1.8) | Evet, ama yedekten sonraki tüm rezervasyon, folyo ve ödeme yazmaları kaybolur; özellik geri alma yöntemi değildir |
 
 **Yasak (§24.2):** `DISABLE TRIGGER ALL`, `ensure_rls`'i kapatmak, FK düşürmek, denetimi düşürmek, uygulama rollerine doğrudan görev/temizlik DML hakkı vermek.
 
