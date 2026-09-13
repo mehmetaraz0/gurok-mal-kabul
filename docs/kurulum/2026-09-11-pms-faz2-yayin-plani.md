@@ -73,7 +73,7 @@ SQL Editor, rol `postgres`, "main PRODUCTION". Dosyalar elle yazılmadı; yerel 
 
 ### 1.3 İzole prova ve test paketleri (yayın baytları + güncel döküm, 2026-09-12)
 
-**Güncel döküm alındı (E-1 kapandı).** `docs/kurulum/2026-09-12-pre-faz2-sema-dokumu.sql` (340.833 bayt, sha256 `5cdef40e…`) ve `2026-09-12-pre-faz2-referans-veri.sql` (110.508 bayt). Döküm doğrulaması: hatasız yüklendi, **28/28 fonksiyon gövdesi eşleşti**, 234 politika / 75 tablo, 40 kısıtlayıcı → 09-07 tabanına göre **sapma yok**. Referans veri de değişmemiş (37 rol, 675 yetki satırı, aynı PMS yetkileri).
+**Güncel döküm alındı (E-1 kapandı).** Dökümler **repo dışında** tutulur: `C:/Users/USER/ERP-Yedek` (erişim yalnız kullanıcı ve SYSTEM; kalıtım kaldırıldı). `2026-09-12-pre-faz2-sema-dokumu.sql` (340.833 bayt, sha256 `5cdef40e…`) ve `2026-09-12-pre-faz2-referans-veri.sql` (110.508 bayt, sha256 `12919335…`). Depo herkese açık olduğu için döküm **commit edilmez**; `.gitignore` yeni dökümleri engeller ve `dokum-al.ps1` varsayılan olarak repo dışına yazar (`-Hedef`, `GUROK_YEDEK`). Döküm doğrulaması: hatasız yüklendi, **28/28 fonksiyon gövdesi eşleşti**, 234 politika / 75 tablo, 40 kısıtlayıcı → 09-07 tabanına göre **sapma yok**. Referans veri de değişmemiş (37 rol, 675 yetki satırı, aynı PMS yetkileri).
 
 Taban: **2026-09-12 dökümü** + referans veri + 09-08 ACL temizliği; ağsız, tek kullanımlık PostgreSQL 17. Migration'lar SQL Editor'ün yaptığı gibi tek sorgu metni olarak uygulandı. Aynı zincir 09-07 dökümüyle de koşuldu ve sonuçlar birebir aynı çıktı.
 
@@ -154,6 +154,10 @@ Supabase panelinden okundu:
 
 Bu, runbook §5'teki "Otomatik günlük yedek (Supabase Pro)" ifadesiyle çelişiyor. Tarihsel kayıt silinmedi; runbook'a tarihli DÜZELTME (§7) eklendi.
 
+**Geri yükleme ölçümü (2026-09-13, izole konteyner):** şema dökümü 0,5 sn, referans veri 0,2 sn, Supabase iskelesi 0,2 sn → **toplam ~0,9 sn**, 75 tablo. Bu, *şema* geri yüklemesidir. **Veri yedeğinin** geri yükleme süresi ancak yedek alındıktan sonra ölçülebilir; üretimdeki veri hacmi bugün çok küçük olduğu için saniyeler mertebesinde beklenir ve E-5 provasında gerçek değer ölçülüp rapora yazılır.
+
+**Olası veri kaybı (RPO):** otomatik yedek olmadığı için kayıp aralığı = **yedeğin alındığı an ile olay anı arasındaki süre**. Sabit bir üst sınır yoktur; yedek ne kadar eskiyse kayıp o kadar büyüktür. Yayın penceresinde bu aralık, yedeğin pencere başında alınmasıyla pencere süresine (hedef ≤ 35 dk, müdahale eşiği 45 dk) indirgenir.
+
 **Plana etkisi:** yayın öncesi yedek, **kullanıcının elle aldığı dökümdür** (şema + referans veri için `dokum-al.ps1`, veri için `pg_dump --data-only`). Elde böyle bir yedek yoksa "yedekten dönüş" seçeneği **yoktur** (§7).
 
 ### 1.9 Diğer bulgular
@@ -184,7 +188,20 @@ Yayın penceresinin **başlayabilmesi** için aşağıdakilerin tamamı sağlanm
 | K-9 | Yetki matrisi ve iki ayrı test kullanıcısı onayı | ⏳ E-2 |
 | K-10 | Operasyonun pencere ve zaman çizelgesi onayı | ⏳ E-3 |
 | K-11 | "Adım 1 commit'inden sonra eski akışa dönüş yok" riskinin kabulü | ⏳ E-4 |
-| K-12 | **Yayın öncesi elle yedek**: otomatik yedek olmadığı için (1.8) veri yedeği elle alınır; dosya yolu ve saati kayda geçer | ⏳ E-5 |
+| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği alınır, **izole kopyaya geri yüklenir**, üretim sayaçlarıyla satır satır karşılaştırılır ve tutarlılık sorguları 0 verir; geri yükleme süresi ölçülür. Dosyanın var olması yeterli değildir. | ⏳ E-5 |
+
+---
+
+## 2b. Kalıcı testler (repoda)
+
+Kabul koşullarını üreten sondalar tek kullanımlık betik olmaktan çıkarıldı; repoda çalıştırılabilir testlerdir. Dökümler repo dışında olduğu için yol dışarıdan verilir.
+
+| Betik | Ne kanıtlar | Çalıştırma |
+|---|---|---|
+| `scripts/pms-faz2-yetki-negatif.mjs` | Gerçek rol adlarıyla yetki matrisinin sınırları (K-5) | `PMS_DOKUM=… PMS_REFERANS=… node scripts/pms-faz2-yetki-negatif.mjs` → 32 OK / 0 FAIL |
+| `scripts/pms-faz2-dogrudan-yazma-sondasi.mjs` | Migration sonrası doğrudan temizlik yazmanın hangi yolla mümkün olduğu (1.5, §5.5) | Aynı değişkenlerle → 6 OK / 0 FAIL |
+| `scripts/pms-yedek-geri-yukleme-provasi.mjs` | Yedeğin gerçekten geri yüklenebildiği ve verinin tuttuğu (E-5) | `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json>` |
+| `docs/kurulum/2026-09-13-yedek-dogrulama-sayaclari.sql` | Üretim tarafı beklenen sayaçlar (salt okuma) | SQL Editor |
 
 ---
 
@@ -193,7 +210,7 @@ Yayın penceresinin **başlayabilmesi** için aşağıdakilerin tamamı sağlanm
 | # | Tür | Konu | Kapanma ölçütü |
 |---|---|---|---|
 | E-1 | ~~Önkoşul~~ | Bayt düzeyinde güncel dökümle prova | ✅ **Kapandı** (2026-09-12): döküm alındı, doğrulandı ve tüm zincir onunla tekrarlandı — 1.3 |
-| E-5 | Önkoşul | **Elle veri yedeği** — otomatik yedek yok (1.8) | Kullanıcı pencere öncesi `pg_dump` ile veri yedeği alır; dosya yolu ve saati runbook kaydına yazılır. Alınmazsa §7'deki "yedekten dönüş" satırı geçersizdir. |
+| E-5 | Önkoşul | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | Üç adım birlikte: (1) kullanıcı veri yedeği alır (`pg_dump`, repo dışına); (2) yedekle **aynı dakikada** `docs/kurulum/2026-09-13-yedek-dogrulama-sayaclari.sql` çalıştırılıp çıktısı `<etiket>-sayaclar.json` olarak saklanır; (3) ajan `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json>` ile izole kopyaya geri yükler. **Kapanma ölçütü:** yükleme hatası 0, tüm tablolarda satır sayısı farkı 0, üç tutarlılık sorgusu 0, ve ölçülen geri yükleme süresi rapora yazılmış. Bunlardan biri tutmazsa yedek **kanıt sayılmaz** ve §7'deki "yedekten dönüş" satırı geçersizdir. |
 | E-2 | Karar | Yetki matrisi ve iki ayrı test kullanıcısı | §4 matrisi onaylanır; şef ve çalışan rolünde **iki farklı aktif kullanıcı** adıyla belirlenir. |
 | E-3 | Onay | Operasyon onayı | §5.1 penceresi ve §5.2 zaman çizelgesi, operasyondan sorumlu kişi tarafından adı ve saatiyle onaylanır. |
 | E-4 | Risk kabulü | Adım 1 commit'inden sonra eski temizlik akışına dönüş yok | Kullanıcı kabul eder (§5, §7). |

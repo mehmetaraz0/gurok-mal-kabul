@@ -21,3 +21,9 @@ node_modules/
 # Yuk testi ciktilari — her kosuda degisir, surumlenmesi anlamsiz
 scripts/yuk-testi/sonuc-*.md
 scripts/yuk-testi/sonuc-*.json
+
+# Veritabani dokumleri REPO DISINDA tutulur (docs/kurulum/dokum-al.ps1 -Hedef).
+# Depo PUBLIC: yeni sema dokumu ve referans veri buraya konmaz.
+# Daha once commit'lenmis eski dokumler tarihsel kanit olarak izlenmeye devam eder.
+docs/kurulum/*-sema-dokumu.sql
+docs/kurulum/*-referans-veri.sql

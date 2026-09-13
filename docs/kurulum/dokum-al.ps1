@@ -7,10 +7,10 @@
 # Sifre ekranda gorunmez, PowerShell gecmisine yazilmaz ve komut satirina
 # gecirilmez (pg_dump onu PGPASSWORD ortam degiskeninden okur).
 #
-# Uretilen dosyalar:
-#   docs\kurulum\<Etiket>-sema-dokumu.sql   - tablolar, RLS, fonksiyonlar,
+# Uretilen dosyalar (REPO DISINDA, varsayilan C:\Users\USER\ERP-Yedek):
+#   <Hedef>\<Etiket>-sema-dokumu.sql        - tablolar, RLS, fonksiyonlar,
 #                                             GRANT'ler, varsayilan ACL (VERI YOK)
-#   docs\kurulum\<Etiket>-referans-veri.sql - yalniz roller/moduller/yetki_matrisi
+#   <Hedef>\<Etiket>-referans-veri.sql      - yalniz roller/moduller/yetki_matrisi
 #
 # ---------------------------------------------------------------------------
 # BU DOSYA SALT ASCII OLMALI.
@@ -40,7 +40,10 @@
 # ---------------------------------------------------------------------------
 
 param(
-  [string]$Etiket = (Get-Date -Format 'yyyy-MM-dd')
+  [string]$Etiket = (Get-Date -Format 'yyyy-MM-dd'),
+  # Dokumler REPO DISINA yazilir. Depo PUBLIC oldugu icin sema dokumu ve
+  # referans veri repoya KONMAZ. Ortam degiskeni: GUROK_YEDEK
+  [string]$Hedef = $(if ($env:GUROK_YEDEK) { $env:GUROK_YEDEK } else { 'C:\Users\USER\ERP-Yedek' })
 )
 
 $ErrorActionPreference = 'Stop'
@@ -54,7 +57,9 @@ if (-not (Test-Path $pgDump)) {
 $projectRef = 'xwytofysmgqtqjzkplfi'
 $region     = 'ap-northeast-1'
 
-$hedef = $PSScriptRoot
+$hedef = $Hedef
+if (-not (Test-Path $hedef)) { New-Item -ItemType Directory -Path $hedef | Out-Null }
+Write-Host ("Hedef klasor (repo disi): " + $hedef) -ForegroundColor Cyan
 $sema  = Join-Path $hedef ($Etiket + '-sema-dokumu.sql')
 $veri  = Join-Path $hedef ($Etiket + '-referans-veri.sql')
 
