@@ -23,13 +23,19 @@
 # URETILEN DOSYALAR (REPO DISI, varsayilan C:\Users\USER\ERP-Yedek):
 #   <Etiket>-veri-yedegi.sql   public + phase0_private VERISI (--data-only)
 #   <Etiket>-sayaclar.json     ayni durumu temsil eden uretim sayaclari
+#   <Etiket>-auth-yedegi.sql   auth semasi VERISI  *** SIR TASIR ***
+#   <Etiket>-auth-sema.sql     auth semasi YAPISI  (sir tasimaz, prova icin)
 #
-# KURTARMA KAPSAMI - SINIRLIDIR. Bu yedek YALNIZ public + phase0_private
-# semalarinin VERISINI icerir. Icermedikleri: auth semasi (auth.users,
-# kimlikler, oturumlar), storage, realtime, veritabani rolleri ve uzantilar,
-# proje ayarlari. Bos bir projeye geri yuklendiginde KIMSE GIRIS YAPAMAZ:
-# kullanicilar.auth_user_id -> auth.users(id) yabanci anahtari karsiliksiz kalir.
-# Gecerli kurtarma senaryosu: AYNI projede veri kaybini geri almak.
+# *** AUTH YEDEGI SIR TASIR ***  Parola hash'leri, e-postalar ve CANLI oturum /
+# yenileme tokenlari icerir. Paylasilmaz, repoya konmaz, e-posta ile
+# gonderilmez. SAKLAMA: yalniz EN YENI auth yedegi durur; yeni yedek alinirken
+# hedef klasordeki eski *-auth-*.sql dosyalari SILINIR.
+#
+# KURTARMA KAPSAMI. Yedek public + phase0_private VERISINI ve auth semasini
+# kapsar; kimlikler kapsamdadir, yani bos bir projeye geri yuklendiginde giris
+# kurtarilabilir (hedef projenin auth SEMASI platformdan gelir; bu dosyadaki
+# sema yalniz izole prova icindir). Kapsam disi: storage, realtime, veritabani
+# rolleri ve uzantilar, proje ayarlari.
 #
 # ---------------------------------------------------------------------------
 # BU DOSYA SALT ASCII OLMALI (dokum-al.ps1 basindaki aciklamaya bakin).
@@ -84,8 +90,13 @@ $veriYedegi = Join-Path $Hedef ($Etiket + '-veri-yedegi.sql')
 $sayacDosya = Join-Path $Hedef ($Etiket + '-sayaclar.json')
 $sayacOnce  = Join-Path $Hedef ($Etiket + '-sayaclar-once.json')
 $sayacSonra = Join-Path $Hedef ($Etiket + '-sayaclar-sonra.json')
+# Auth yedegi SIR TASIR (parola hash'i, e-posta, canli oturum ve yenileme
+# tokenlari). Sema dosyasi yalniz yapidir ve sir tasimaz; izole provanin
+# gercek auth tablolarini kurabilmesi icin gerekir.
+$authVeri = Join-Path $Hedef ($Etiket + '-auth-yedegi.sql')
+$authSema = Join-Path $Hedef ($Etiket + '-auth-sema.sql')
 
-foreach ($f in @($veriYedegi, $sayacDosya)) {
+foreach ($f in @($veriYedegi, $sayacDosya, $authVeri, $authSema)) {
   if ((Test-Path $f) -and -not $YalnizBaglanti) {
     Write-Host "HATA: $f zaten var. Uzerine YAZILMAZ; farkli bir -Etiket verin." -ForegroundColor Red
     exit 1
@@ -95,7 +106,7 @@ foreach ($f in @($veriYedegi, $sayacDosya)) {
 Write-Host ''
 Write-Host ('Hedef klasor (repo disi) : ' + $Hedef) -ForegroundColor Cyan
 Write-Host ('Yontem                   : ' + $(if ($Duraklatma) { 'B - dogrulanmis yazma duraklatmasi' } else { 'A - ayni snapshot' })) -ForegroundColor Cyan
-Write-Host  'Kapsam                   : public + phase0_private VERISI (auth/storage HARIC)' -ForegroundColor Cyan
+Write-Host  'Kapsam                   : public + phase0_private VERISI + auth semasi (storage HARIC)' -ForegroundColor Cyan
 
 if ($Duraklatma) {
   Write-Host ''
@@ -209,6 +220,11 @@ if ($YalnizBaglanti) {
         continue
       }
       Write-Host '    veri yedegi alindi' -ForegroundColor Green
+      & $pgDump -h $h -p $Port -U $Kullanici -d $Veritabani --data-only --no-owner --schema=auth -f $authVeri
+      if ($LASTEXITCODE -ne 0) { Write-Host '    auth veri yedegi basarisiz' -ForegroundColor Yellow; continue }
+      & $pgDump -h $h -p $Port -U $Kullanici -d $Veritabani --schema-only --no-owner --no-privileges --schema=auth -f $authSema
+      if ($LASTEXITCODE -ne 0) { Write-Host '    auth sema dokumu basarisiz' -ForegroundColor Yellow; continue }
+      Write-Host '    auth yedegi alindi' -ForegroundColor Green
       if (-not (Sayac-Oku $h $sayacSonra)) { Write-Host '    sayac (sonra) alinamadi' -ForegroundColor Yellow; continue }
       $duraklatmaSn = [math]::Round(((Get-Date) - $t0).TotalSeconds, 1)
 
@@ -232,12 +248,16 @@ if ($YalnizBaglanti) {
       $env:PMS_USER = $Kullanici
       $env:PMS_DB   = $Veritabani
       $env:PMS_VERI = $veriYedegi
+      $env:PMS_AUTH_VERI = $authVeri
+      $env:PMS_AUTH_SEMA = $authSema
       & $psqlExe -h $h -p $Port -U $Kullanici -d $Veritabani -X -A -t -v ON_ERROR_STOP=1 -v ("sayac_dosyasi=" + $sayacDosya) -v ("sayac_sorgusu=" + $sayacSql) -f $surucu
       $kod = $LASTEXITCODE
-      if ($kod -ne 0 -or -not (Yedek-Gecerli $veriYedegi) -or -not (Sayac-Gecerli $sayacDosya)) {
+      if ($kod -ne 0 -or -not (Yedek-Gecerli $veriYedegi) -or -not (Sayac-Gecerli $sayacDosya) -or -not (Yedek-Gecerli $authVeri) -or -not (Yedek-Gecerli $authSema)) {
         Write-Host "    (A) basarisiz (psql cikis kodu $kod)" -ForegroundColor Yellow
         if (-not (Yedek-Gecerli $veriYedegi)) { Write-Host '    veri yedegi eksik/yarim' -ForegroundColor Yellow }
-        foreach ($f in @($veriYedegi, $sayacDosya)) { if (Test-Path $f) { [System.IO.File]::Delete($f) } }
+        if (-not (Yedek-Gecerli $authVeri))   { Write-Host '    auth veri yedegi eksik/yarim' -ForegroundColor Yellow }
+        if (-not (Yedek-Gecerli $authSema))   { Write-Host '    auth sema dokumu eksik/yarim' -ForegroundColor Yellow }
+        foreach ($f in @($veriYedegi, $sayacDosya, $authVeri, $authSema)) { if (Test-Path $f) { [System.IO.File]::Delete($f) } }
         continue
       }
     }
@@ -258,6 +278,16 @@ if ($YalnizBaglanti) {
     exit 1
   }
 
+  # SAKLAMA KURALI: auth yedegi canli oturum anahtari tasir; yalniz EN YENISI
+  # durur. Veri yedekleri ve sayaclar birikmeye devam eder (sir tasimazlar).
+  $silinen = 0
+  Get-ChildItem -Path $Hedef -Filter '*-auth-*.sql' -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($_.FullName -ne $authVeri -and $_.FullName -ne $authSema) {
+      try { [System.IO.File]::Delete($_.FullName); $silinen++ }
+      catch { Write-Host ('  UYARI: eski auth yedegi silinemedi: ' + $_.Name) -ForegroundColor Yellow }
+    }
+  }
+
   $vy = Get-Item $veriYedegi
   $sy = Get-Item $sayacDosya
   $hash = (Get-FileHash $veriYedegi -Algorithm SHA256).Hash
@@ -266,7 +296,14 @@ if ($YalnizBaglanti) {
   Write-Host ('  veri yedegi : ' + $vy.FullName + '  (' + $vy.Length + ' bayt)')
   Write-Host ('  SHA-256     : ' + $hash)
   Write-Host ('  sayaclar    : ' + $sy.FullName + '  (' + $sy.Length + ' bayt)')
+  Write-Host ('  auth yedegi : ' + $authVeri + '  (' + (Get-Item $authVeri).Length + ' bayt)')
+  Write-Host ('  auth SHA-256: ' + (Get-FileHash $authVeri -Algorithm SHA256).Hash)
+  Write-Host ('  auth semasi : ' + $authSema + '  (' + (Get-Item $authSema).Length + ' bayt)')
+  if ($silinen -gt 0) { Write-Host ('  eski auth yedegi silindi : ' + $silinen + ' dosya') -ForegroundColor DarkGray }
   Write-Host ('  sure        : ' + $sureSn + ' sn')
+  Write-Host ''
+  Write-Host 'DIKKAT: auth yedegi PAROLA HASH LERI ve CANLI OTURUM TOKENLARI tasir.' -ForegroundColor Yellow
+  Write-Host 'Bu dosyayi paylasmayin, repoya koymayin, e-posta ile gondermeyin.' -ForegroundColor Yellow
   if ($Duraklatma) { Write-Host ('  duraklatma penceresi : ' + $duraklatmaSn + ' sn') }
   Write-Host ''
   Write-Host 'Sonraki adim - geri yukleme provasi (E-5):' -ForegroundColor Cyan
@@ -275,7 +312,7 @@ if ($YalnizBaglanti) {
 }
 finally {
   Remove-Item Env:\PGPASSWORD -ErrorAction SilentlyContinue
-  foreach ($v in 'PMS_PGDUMP','PMS_HOST','PMS_PORT','PMS_USER','PMS_DB','PMS_VERI','PMS_SNAPSHOT') {
+  foreach ($v in 'PMS_PGDUMP','PMS_HOST','PMS_PORT','PMS_USER','PMS_DB','PMS_VERI','PMS_AUTH_VERI','PMS_AUTH_SEMA','PMS_SNAPSHOT') {
     Remove-Item ('Env:\' + $v) -ErrorAction SilentlyContinue
   }
   $plain = $null

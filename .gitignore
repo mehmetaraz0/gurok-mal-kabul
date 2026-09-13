@@ -29,3 +29,4 @@ docs/kurulum/*-sema-dokumu.sql
 docs/kurulum/*-referans-veri.sql
 docs/kurulum/*-veri-yedegi.sql
 docs/kurulum/*-sayaclar*.json
+docs/kurulum/*-auth-*.sql
