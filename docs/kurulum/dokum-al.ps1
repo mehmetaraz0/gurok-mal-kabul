@@ -64,7 +64,7 @@ $hedef = $Hedef
 if (-not (Test-Path $hedef)) { New-Item -ItemType Directory -Path $hedef | Out-Null }
 Write-Host ("Hedef klasor (repo disi): " + $hedef) -ForegroundColor Cyan
 $sema  = Join-Path $hedef ($Etiket + '-sema-dokumu.sql')
-$veri  = Join-Path $hedef ($Etiket + '-referans-veri.sql')
+$referansVeri  = Join-Path $hedef ($Etiket + '-referans-veri.sql')
 
 if (Test-Path $sema) {
   Write-Host "HATA: $sema zaten var. Mevcut baseline'in uzerine YAZILMAZ." -ForegroundColor Red
@@ -98,7 +98,7 @@ try {
 
     & $pgDump -h $h -p 5432 -U "postgres.$projectRef" -d postgres `
         --data-only --no-owner `
-        --table=public.roller --table=public.moduller --table=public.yetki_matrisi -f $veri
+        --table=public.roller --table=public.moduller --table=public.yetki_matrisi -f $referansVeri
     if ($LASTEXITCODE -ne 0) {
       Write-Host "    referans veri dokumu basarisiz (cikis kodu $LASTEXITCODE)" -ForegroundColor Yellow
       continue
@@ -130,7 +130,7 @@ try {
 
   Write-Host ''
   Write-Host 'TAMAM. Olusan dosyalar:' -ForegroundColor Green
-  Get-Item $sema, $veri | Select-Object Name, Length
+  Get-Item $sema, $referansVeri | Select-Object Name, Length
 
   # Dokumun gercekten yeterli oldugunu SAYARAK goster - "olustu" yetmez.
   $icerik = Get-Content $sema -Raw
