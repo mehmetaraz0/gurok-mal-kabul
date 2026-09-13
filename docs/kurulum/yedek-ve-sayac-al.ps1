@@ -280,8 +280,11 @@ if ($YalnizBaglanti) {
 
   # SAKLAMA KURALI: auth yedegi canli oturum anahtari tasir; yalniz EN YENISI
   # durur. Veri yedekleri ve sayaclar birikmeye devam eder (sir tasimazlar).
+  # DIKKAT: desen SONEK olmali. '*-auth-*.sql' kullanilirsa, etiketi 'auth' ile
+  # biten bir kosuda VERI yedegi de eslesir ve silinir (2026-09-13'te oldu).
   $silinen = 0
-  Get-ChildItem -Path $Hedef -Filter '*-auth-*.sql' -ErrorAction SilentlyContinue | ForEach-Object {
+  @(Get-ChildItem -Path $Hedef -Filter '*-auth-yedegi.sql' -ErrorAction SilentlyContinue) +
+  @(Get-ChildItem -Path $Hedef -Filter '*-auth-sema.sql'   -ErrorAction SilentlyContinue) | ForEach-Object {
     if ($_.FullName -ne $authVeri -and $_.FullName -ne $authSema) {
       try { [System.IO.File]::Delete($_.FullName); $silinen++ }
       catch { Write-Host ('  UYARI: eski auth yedegi silinemedi: ' + $_.Name) -ForegroundColor Yellow }
