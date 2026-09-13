@@ -82,6 +82,22 @@ select jsonb_pretty(jsonb_build_object(
          where n.nspname in ('public','phase0_private') and c.relkind = 'r'
       ) t
   ),
+  -- KURTARMA KAPSAMI: yedek YALNIZ public + phase0_private VERISIDIR.
+  -- auth semasi (auth.users, kimlikler, oturumlar), storage, realtime, roller
+  -- ve uzantilar KAPSAM DISIDIR. Asagidaki alanlar bu bosluğu SAYIYA ceviriyor:
+  -- kac kimlik gerekiyor ve auth tarafinda bugun ne var (katalog tahmini).
+  'kurtarma_kapsami', jsonb_build_object(
+    'yedek_semalari', jsonb_build_array('public', 'phase0_private'),
+    'auth_semasi_dahil', false,
+    'auth_tablo_sayisi', (select count(*) from pg_class c
+                            join pg_namespace n on n.oid = c.relnamespace
+                           where n.nspname = 'auth' and c.relkind = 'r'),
+    'auth_users_tahmini_satir', (select nullif(reltuples, -1)::bigint from pg_class
+                                  where oid = to_regclass('auth.users')),
+    'gereken_kimlik', (select count(distinct auth_user_id) from public.kullanicilar
+                        where auth_user_id is not null),
+    'aktif_kullanici_kimligi', (select count(distinct auth_user_id) from public.kullanicilar
+                                 where aktif is true and auth_user_id is not null)),
   'denetim_izi_satir', (select count(*) from public.erp_islem_audit),
   'denetim_izi_son_kayit', (select max(server_timestamp) from public.erp_islem_audit),
   'pms_ozet', jsonb_build_object(

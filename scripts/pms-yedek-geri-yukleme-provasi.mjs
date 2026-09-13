@@ -19,11 +19,18 @@
 //
 // DOGRULANANLAR (sureleri AYRI olculur ve ayri raporlanir):
 //   1) Geri yukleme            — dosya yuklenir, hata sayisi 0 olmali
-//   2) Satir sayilari          — uretim sayaclariyla BIREBIR karsilastirma
+//   2) Auth kapsami            — yedek auth semasini ICERMEZ; kac kimlik
+//                                gerektigi ve yedekten kacinin geldigi olculur
+//   3) FK butunlugu            — her yabanci anahtar yeniden DOGRULANIR
+//   4) Satir sayilari          — uretim sayaclariyla BIREBIR karsilastirma
 //                                (kapsam: public + phase0_private semalari)
-//   3) Veri tutarliligi        — uc kontrol, hepsi 0 olmali
-//   4) Temel uygulama erisimi  — gercek bir ERP kullanicisinin kimligiyle
+//   5) Veri tutarliligi        — uc kontrol, hepsi 0 olmali
+//   6) Temel uygulama erisimi  — gercek bir ERP kullanicisinin kimligiyle
 //                                authenticated rolunde okuma; anon'a kapali
+//
+// KURTARMA KAPSAMI: bu yedek public + phase0_private VERISIDIR. auth, storage,
+// realtime, roller ve uzantilar KAPSAM DISIDIR. Gecerli senaryo, AYNI projede
+// veri kaybini geri almaktir; bos bir projede kimse giris yapamaz.
 // ============================================================================
 import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync, statSync } from 'node:fs';
@@ -56,6 +63,8 @@ const tek = (q) => d(psql(['-At', '-v', 'ON_ERROR_STOP=1']), q).out.trim();
 const yukHatalari = (s) => s.split('\n')
   .filter((l) => l.includes('ERROR:'))
   .filter((l) => !/schema "public" already exists/.test(l));
+const ilkHata = (s) => (String(s).split('\n').find((l) => l.includes('ERROR:')) || '')
+  .replace(/^.*ERROR:\s*/, '').slice(0, 160);
 const sn = (t) => ((Date.now() - t) / 1000).toFixed(1);
 
 // Kapsam, yedegin kapsamiyla AYNI: public + phase0_private (dokum-al.ps1).
@@ -116,15 +125,85 @@ let yuklemeHatalari = [];
 if (/\.dump$/i.test(yedek)) {
   const kopya = d(['cp', yedek, K + ':/tmp/yedek.dump']);
   if (!kopya.ok) { console.error('Konteynere kopyalanamadi: ' + kopya.err.slice(0, 200)); spawnSync('docker', ['rm', '-f', K]); process.exit(1); }
-  r = d(['exec', K, 'pg_restore', '-U', 'postgres', '-d', 'geri', '--no-owner', '--no-privileges', '/tmp/yedek.dump']);
+  r = d(['exec', K, 'pg_restore', '-U', 'postgres', '-d', 'geri', '--no-owner', '--no-privileges',
+    '--disable-triggers', '/tmp/yedek.dump']);
   yuklemeHatalari = r.err.split('\n').filter((l) => /error:/i.test(l));
 } else {
-  r = d(psql(), readFileSync(yedek, 'utf8'));
+  // session_replication_role = replica ZORUNLUDUR, iki ayri nedenle:
+  //   1) --data-only yedekte tablo sirasi FK'lari tatmin etmez (pg_dump'in
+  //      kendi uyarisi: hesap_plani uzerinde dairesel FK var) ve kullanicilar
+  //      tablosunun auth.users'a FK'si bu kopyada KARSILIKSIZDIR (asagida
+  //      olculur: auth semasi yedegin kapsaminda degildir).
+  //   2) Tetikleyiciler acik kalirsa yukleme phase0_private denetim izine
+  //      SATIR YAZAR; o zaman satir sayilari uretimle tutmaz.
+  // Butunluk varsayilmaz: asagida her FK yeniden dogrulanir (asama 5).
+  r = d(psql(), 'set session_replication_role = replica;\n' + readFileSync(yedek, 'utf8'));
   yuklemeHatalari = yukHatalari(r.err);
 }
 const yuklemeSn = sn(tYukleme);
 console.log('3) GERI YUKLEME      : ' + yuklemeSn + ' sn · ' + yuklemeHatalari.length + ' hata');
 for (const h of yuklemeHatalari.slice(0, 5)) console.log('   ' + h.slice(0, 180));
+
+// --- KURTARMA KAPSAMI: AUTH ------------------------------------------------
+// Yedek YALNIZ public + phase0_private VERISIDIR. auth semasi (auth.users,
+// kimlikler, oturumlar) KAPSAM DISIDIR. Bu asama bunu olcer ve raporlar:
+// kac kimlik gerekiyor, yedekten kaci geldi (beklenen: 0).
+const tAuth = Date.now();
+const gerekenKimlik = Number(tek(
+  'select count(distinct auth_user_id) from public.kullanicilar where auth_user_id is not null;'));
+const yedektenGelenKimlik = Number(tek('select count(*) from auth.users;'));
+console.log('4) AUTH KAPSAMI      : kullanicilar ' + gerekenKimlik + ' kimlik istiyor · yedekten gelen '
+  + yedektenGelenKimlik + ' (auth semasi yedege DAHIL DEGIL)');
+if (gerekenKimlik > yedektenGelenKimlik) {
+  // Gercek kurtarmada bu kimlikler AYNI projenin auth semasinda zaten durur.
+  // Provada onlari temsilen uretiyoruz; sayisi yukarida raporlanir.
+  const e = d(psql(['-v', 'ON_ERROR_STOP=1']),
+    `insert into auth.users (id) select distinct auth_user_id from public.kullanicilar
+       where auth_user_id is not null
+         and not exists (select 1 from auth.users u where u.id = auth_user_id);`);
+  console.log('   ' + (e.ok ? 'eksik kimlikler PROVA ICIN uretildi (yedekte yok): '
+    + (gerekenKimlik - yedektenGelenKimlik) : 'HATA ' + ilkHata(e.err)));
+}
+const authSn = sn(tAuth);
+
+// --- YABANCI ANAHTAR BUTUNLUGU ---------------------------------------------
+// Yukleme tetikleyicisiz yapildi; bu yuzden butunluk SONRADAN kanitlanir:
+// her FK dusurulur, NOT VALID olarak geri eklenir ve VALIDATE edilir.
+const tFk = Date.now();
+const fkCikti = d(psql(['-At', '-v', 'ON_ERROR_STOP=1']), `
+set client_min_messages = notice;
+do $prova$
+declare r record; ihlal int := 0; toplam int := 0;
+begin
+  for r in select c.conname, c.conrelid::regclass::text as t, pg_get_constraintdef(c.oid) as def
+             from pg_constraint c
+             join pg_class k on k.oid = c.conrelid
+             join pg_namespace n on n.oid = k.relnamespace
+            where c.contype = 'f' and n.nspname in ('public','phase0_private')
+            order by 2, 1
+  loop
+    toplam := toplam + 1;
+    begin
+      execute format('alter table %s drop constraint %I', r.t, r.conname);
+      execute format('alter table %s add constraint %I %s not valid', r.t, r.conname, r.def);
+      execute format('alter table %s validate constraint %I', r.t, r.conname);
+    exception when others then
+      ihlal := ihlal + 1;
+      raise notice 'FK IHLALI %.% -> %', r.t, r.conname, sqlerrm;
+    end;
+  end loop;
+  raise notice 'FK SONUC % / %', ihlal, toplam;
+end $prova$;`);
+const fkSatiri = (fkCikti.err || '').split('\n').find((l) => l.includes('FK SONUC')) || '';
+const fkEslesme = fkSatiri.match(/FK SONUC (\d+) \/ (\d+)/);
+const fkIhlal = fkEslesme ? Number(fkEslesme[1]) : -1;
+const fkToplam = fkEslesme ? Number(fkEslesme[2]) : 0;
+const fkSn = sn(tFk);
+console.log('5) FK BUTUNLUGU      : ' + fkSn + ' sn · dogrulanan ' + fkToplam + ' · ihlal '
+  + (fkIhlal < 0 ? '(olculemedi)' : fkIhlal));
+for (const l of (fkCikti.err || '').split('\n').filter((l) => l.includes('FK IHLALI')).slice(0, 5)) {
+  console.log('   ' + l.replace(/^.*NOTICE:\s*/, '').slice(0, 180));
+}
 
 // --- 2) SATIR SAYILARI -----------------------------------------------------
 const tSayac = Date.now();
@@ -163,7 +242,7 @@ if (sayacDosyasi && existsSync(sayacDosyasi)) {
   fark = -1;
 }
 const sayacSn = sn(tSayac);
-console.log('4) SATIR SAYILARI    : ' + sayacSn + ' sn · karsilastirilan tablo ' + karsilastirilan + ' · fark ' + (fark < 0 ? '(olculemedi)' : fark));
+console.log('6) SATIR SAYILARI    : ' + sayacSn + ' sn · karsilastirilan tablo ' + karsilastirilan + ' · fark ' + (fark < 0 ? '(olculemedi)' : fark));
 
 // --- 3) VERI TUTARLILIGI ---------------------------------------------------
 const tTutarlilik = Date.now();
@@ -189,7 +268,7 @@ for (const [ad, sorgu] of kontroller) {
   if (sayi !== 0) tutarsiz++;
 }
 const tutarlilikSn = sn(tTutarlilik);
-console.log('5) VERI TUTARLILIGI  : ' + tutarlilikSn + ' sn · sorunlu kontrol ' + tutarsiz);
+console.log('7) VERI TUTARLILIGI  : ' + tutarlilikSn + ' sn · sorunlu kontrol ' + tutarsiz);
 
 // --- 4) TEMEL UYGULAMA ERISIMI ---------------------------------------------
 const tErisim = Date.now();
@@ -200,7 +279,7 @@ const aktorSatiri = tek(`select k.auth_user_id::text || '|' || coalesce(k.otel_i
   order by k.tum_oteller desc, k.olusturma_tarihi limit 1;`);
 if (!aktorSatiri || !aktorSatiri.includes('|')) {
   erisimAtlandi = true;
-  console.log('6) UYGULAMA ERISIMI  : ATLANDI — geri yuklenen kopyada aktif ERP kullanicisi yok'
+  console.log('8) UYGULAMA ERISIMI  : ATLANDI — geri yuklenen kopyada aktif ERP kullanicisi yok'
     + (mekanik ? ' (mekanik deneme)' : ' — KABUL ICIN YETERSIZ'));
   if (!mekanik) erisimSorun++;
 } else {
@@ -215,11 +294,14 @@ if (!aktorSatiri || !aktorSatiri.includes('|')) {
     console.log((gecti ? '   OK   ' : '   FAIL ') + ad + ' -> ' + (x.ok ? cikti : 'HATA'));
     if (!gecti) erisimSorun++;
   };
-  console.log('6) UYGULAMA ERISIMI  : aktor ' + uid.slice(0, 8) + '… (otel ' + otel + ', tum_oteller=' + tumOteller + ')');
-  kontrol('auth_erp_kullanicisi()', 'select public.auth_erp_kullanicisi()::text;', (c) => c === 't');
+  console.log('8) UYGULAMA ERISIMI  : aktor ' + uid.slice(0, 8) + '… (otel ' + otel + ', tum_oteller=' + tumOteller + ')');
+  // boolean::text 'true'/'false' verir ('t'/'f' DEGIL) — ikisini de kabul et.
+  const dogru = (c) => c === 'true' || c === 't';
+  const mantiksal = (c) => dogru(c) || c === 'false' || c === 'f';
+  kontrol('auth_erp_kullanicisi()', 'select public.auth_erp_kullanicisi()::text;', dogru);
   kontrol('modul listesi okunuyor', 'select count(*)::text from public.moduller;', (c) => Number(c) > 0);
   kontrol('oda listesi okunuyor (RLS altinda)', 'select count(*)::text from public.pms_odalar;', (c) => !Number.isNaN(Number(c)));
-  kontrol('yetki motoru cevap veriyor', "select public.auth_yetki_var('pms_oda','goruntule')::text;", (c) => c === 't' || c === 'f');
+  kontrol('yetki motoru cevap veriyor', "select public.auth_yetki_var('pms_oda','goruntule')::text;", mantiksal);
   const anon = d(psql(['-At', '-v', 'ON_ERROR_STOP=1']),
     'reset role; select set_config(\'request.jwt.claim.sub\', \'\', false), set_config(\'request.jwt.claim.role\', \'anon\', false);\n'
     + 'set role anon;\nselect count(*)::text from public.kullanicilar;');
@@ -233,14 +315,31 @@ const erisimSn = sn(tErisim);
 
 // --- SONUC -----------------------------------------------------------------
 const gecti = yuklemeHatalari.length === 0 && semaHatalari.length === 0 && fark === 0
-  && tutarsiz === 0 && erisimSorun === 0;
+  && tutarsiz === 0 && erisimSorun === 0 && fkIhlal === 0;
 console.log('\n' + '='.repeat(72));
 console.log('SURELER (ayri olculdu)');
 console.log('  hazirlik (iskele' + (semaDosyasi ? ' + sema' : '') + ') : ' + hazirlikSn + ' sn');
 console.log('  geri yukleme                  : ' + yuklemeSn + ' sn');
+console.log('  auth kapsami                  : ' + authSn + ' sn');
+console.log('  fk butunlugu                  : ' + fkSn + ' sn');
 console.log('  satir sayilari                : ' + sayacSn + ' sn');
 console.log('  veri tutarliligi              : ' + tutarlilikSn + ' sn');
 console.log('  uygulama erisimi              : ' + erisimSn + ' sn' + (erisimAtlandi ? ' (atlandi)' : ''));
+console.log('-'.repeat(72));
+// Kanitin hangi kaynaktan geldigi ciktinin kendisinde dursun: yerel bir deneme
+// ile uretim provasi sonradan birbirine karistirilmasin.
+if (sayacDosyasi && existsSync(sayacDosyasi)) {
+  try {
+    const b = JSON.parse(readFileSync(sayacDosyasi, 'utf8'));
+    console.log('SAYAC KAYNAGI: ' + sayacDosyasi);
+    console.log('  alinma zamani ' + (b.alinma_zamani || '?') + ' · sunucu ' + (b.sunucu_surumu || '?')
+      + ' · rol ' + (b.rol || '?'));
+  } catch { /* yukarida zaten karsilastirildi */ }
+}
+console.log('KURTARMA KAPSAMI: yedek public + phase0_private VERISIDIR.');
+console.log('  auth semasi KAPSAM DISI — kullanicilar tablosu ' + gerekenKimlik
+  + ' kimlik istiyor, yedekten ' + yedektenGelenKimlik + ' geldi.');
+console.log('  Bos projeye geri yukleme GIRIS SAGLAMAZ; gecerli senaryo ayni projede veri kaybini geri almaktir.');
 console.log('-'.repeat(72));
 if (mekanik) {
   console.log('SONUC: ' + (gecti

@@ -156,7 +156,27 @@ Bu, runbook §5'teki "Otomatik günlük yedek (Supabase Pro)" ifadesiyle çeliş
 
 **Kapsam ve görünürlük eşitlendi:** sayaç sorgusu, yedeğin kapsadığı iki şemayı (`public` + `phase0_private`) sayar ve çıktısına sayımın yapıldığı rolü, `bypassrls` bayrağını ve FORCE RLS tablo sayısını yazar; geri yükleme provası aynı sorguyu aynı kapsamla çalıştırır. Bugün `phase0_private` şemasında tablo yoktur (yalnız fonksiyon), üretimde FORCE RLS tablo 0'dır ve her iki taraf da `postgres` rolüyle sayar.
 
-**Mekanizma denemesi (2026-09-13):** gerçek veri yedeği henüz yok; betik, şema dökümü + referans veriyle `--mekanik` modunda koşuldu. 75 tablo karşılaştırıldı, fark 0, üç tutarlılık kontrolü 0. Süreler: hazırlık 0,7 sn · geri yükleme 0,2 sn · sayaç karşılaştırması 0,2 sn · tutarlılık 0,6 sn. Uygulama erişimi kontrolü, referans veride ERP kullanıcısı olmadığı için atlandı; bu mod **kabul kanıtı değildir** ve betik bunu çıktısında açıkça yazar.
+**Yedeğin kurtarma kapsamı — ölçüldü (2026-09-13).** Yedek `--schema=public --schema=phase0_private` ile alınır; 2026-09-12 şema dökümünde bu iki şemadan başkası yoktur. Kapsam dışında kalanlar: **`auth` şeması** (`auth.users`, kimlikler, oturumlar), `storage`, `realtime`, veritabanı rolleri, uzantılar ve proje ayarları. Ölçülebilir sonucu: şema dökümünün 6349. satırındaki `kullanicilar_auth_user_id_fkey` `auth.users(id)`'ye bakar, veri yedeğinde o satırların karşılığı **yoktur**.
+
+| Senaryo | Bu yedek ne sağlar |
+|---|---|
+| **Aynı projede veri kaybı** (yanlış silme, bozulan tablo) | Tam: `public` + `phase0_private` verisi geri yüklenir; `auth` yerinde durduğu için **girişler çalışır**. Geçerli kurtarma senaryosu budur. |
+| **Proje/veritabanı tümden kaybı** | Kısmi: iş verisi geri gelir, **kimse giriş yapamaz**. Kimliklerin yeniden oluşturulması ve `kullanicilar.auth_user_id` eşlemesinin elle kurulması gerekir. Bu yedek **felaket kurtarma yedeği değildir**. |
+
+Sayaç dosyası bu boşluğu sayıya çevirir (`kurtarma_kapsami`): kaç ayrı kimlik gerekiyor, kaçı aktif kullanıcıya ait, `auth` şemasında bugün kaç tablo var. Prova aynı ölçümü geri yüklenen kopyada tekrarlar ve **yedekten kaç kimlik geldiğini** (beklenen: 0) yazar; eksik kimlikleri yalnız provayı yürütebilmek için üretir ve ürettiğini raporlar.
+
+**Yedek alma otomatikleştirildi (2026-09-13).** `docs/kurulum/yedek-ve-sayac-al.ps1` veri yedeğini ve sayaçları **tek parola istemiyle** üretir; parola komut satırına ve PowerShell geçmişine yazılmaz. Varsayılan yol (A) `yedek-snapshot-surucu.sql` ile aynı snapshot'tır: `begin isolation level repeatable read` → `pg_export_snapshot()` → işlem AÇIKKEN `pg_dump --snapshot=<kimlik>` → sayaçlar aynı işlemden. `-Duraklatma` ile yol (B) sayaçları yedekten önce ve sonra okur ve **eşit değillerse yedeği reddeder**. Mekanizma yerel bir PostgreSQL 17 kopyasına karşı uçtan uca doğrulandı (snapshot dışa aktarımı, `--snapshot` ile pg_dump, aynı işlemden sayaç okuma, `commit`). Pooler snapshot dışa aktarımını desteklemezse (A) hata verir; betik bunu söyler ve (B)'yi önerir — tahmin etmez.
+
+**Geri yükleme provası iki yeni ölçüm kazandı (2026-09-13).** Yerel denemeler iki gerçek sorunu ortaya çıkardı:
+
+1. `--data-only` yedek FK sırasına uymaz (pg_dump'ın kendi uyarısı: `hesap_plani` üzerinde dairesel FK) ve `kullanicilar` satırları `auth.users` boş olduğu için reddedilirdi. Yükleme artık `session_replication_role = replica` ile yapılır.
+2. Tetikleyiciler açık kalsaydı yükleme **denetim izine satır yazardı**; satır sayıları üretimle tutmazdı.
+
+Bütünlük bu yüzden varsayılmaz, **sonradan kanıtlanır**: prova `public` + `phase0_private` şemalarındaki her yabancı anahtarı düşürür, `not valid` olarak geri ekler ve `validate constraint` çalıştırır. Yerel denemede **61 FK doğrulandı, ihlal 0**.
+
+**Mekanizma denemesi (2026-09-13, yerel sentetik veri):** şema dökümü + referans veri + iki sentetik kullanıcı içeren yerel kopyadan yukarıdaki otomasyonla yedek alındı ve prova tam koştu. 75 tablo → fark 0; auth kapsamı → 2 kimlik gerekiyor, yedekten 0 geldi; 61 FK → ihlal 0; üç tutarlılık kontrolü → 0; uygulama erişimi → 5/5 geçti (`anon` kapalı). Süreler: hazırlık 0,8 sn · geri yükleme 0,2 sn · auth kapsamı 0,6 sn · FK bütünlüğü 0,3 sn · satır sayıları 0,2 sn · tutarlılık 0,6 sn · uygulama erişimi 1,2 sn. **Bu bir kabul kanıtı değildir**: veri üretimden gelmemiştir. Çıktı hangi sayaç dosyasından beslendiğini (`alinma_zamani`, sunucu sürümü, rol) kendi içinde yazar ki yerel deneme ile üretim provası karıştırılmasın.
+
+**Hazırlık betikleri sabitlendi (2026-09-13).** Yayın penceresinde çalışacak ve kanıt üreten 11 dosyanın LF içeriği üzerinden SHA-256'ları `docs/kurulum/2026-09-13-hazirlik-kilidi.json` dosyasına yazıldı; `node scripts/hazirlik-kilidi.mjs` sapmayı gösterir. Kilitteki Adım 1 ve Adım 2 özetleri §0'daki yayın özetleriyle aynıdır. Bir dosya bilinçli değişirse kilit yenilenir ve **ilgili provalar tekrarlanır**.
 
 **Geri yükleme ölçümü (2026-09-13, izole konteyner):** şema dökümü 0,5 sn, referans veri 0,2 sn, Supabase iskelesi 0,2 sn → **toplam ~0,9 sn**, 75 tablo. Bu, *şema* geri yüklemesidir. **Veri yedeğinin** geri yükleme süresi ancak yedek alındıktan sonra ölçülebilir; üretimdeki veri hacmi bugün çok küçük olduğu için saniyeler mertebesinde beklenir ve E-5 provasında gerçek değer ölçülüp rapora yazılır.
 
@@ -192,7 +212,7 @@ Yayın penceresinin **başlayabilmesi** için aşağıdakilerin tamamı sağlanm
 | K-9 | Yetki matrisi ve iki ayrı test kullanıcısı onayı | ⏳ E-2 |
 | K-10 | Operasyonun pencere ve zaman çizelgesi onayı | ⏳ E-3 |
 | K-11 | "Adım 1 commit'inden sonra eski akışa dönüş yok" riskinin kabulü | ⏳ E-4 |
-| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği izole kopyaya geri yüklenir; satır sayıları üretim sayaçlarıyla (aynı kapsam ve görünürlük) birebir tutar; üç tutarlılık kontrolü 0 verir; temel uygulama erişimi çalışır; süreler ayrı ayrı raporlanır. Dosyanın var olması yeterli değildir. | ⏳ E-5 |
+| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği izole kopyaya geri yüklenir; satır sayıları üretim sayaçlarıyla (aynı kapsam ve görünürlük) birebir tutar; **her yabancı anahtar yeniden doğrulanır (ihlal 0)**; üç tutarlılık kontrolü 0 verir; temel uygulama erişimi çalışır; **yedeğin kurtarma kapsamı (auth dahil değil) sayıyla raporlanır**; süreler ayrı ayrı raporlanır. Dosyanın var olması yeterli değildir. | ⏳ E-5 |
 
 ---
 
@@ -204,7 +224,8 @@ Kabul koşullarını üreten sondalar tek kullanımlık betik olmaktan çıkarı
 |---|---|---|
 | `scripts/pms-faz2-yetki-negatif.mjs` | Gerçek rol adlarıyla yetki matrisinin sınırları (K-5) | `PMS_DOKUM=… PMS_REFERANS=… node scripts/pms-faz2-yetki-negatif.mjs` → 32 OK / 0 FAIL |
 | `scripts/pms-faz2-dogrudan-yazma-sondasi.mjs` | Migration sonrası doğrudan temizlik yazmanın hangi yolla mümkün olduğu (1.5, §5.5) | Aynı değişkenlerle → 6 OK / 0 FAIL |
-| `scripts/pms-yedek-geri-yukleme-provasi.mjs` | Yedeğin gerçekten geri yüklenebildiği ve verinin tuttuğu (E-5) | `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json>` |
+| `scripts/pms-yedek-geri-yukleme-provasi.mjs` | Yedeğin gerçekten geri yüklenebildiği, verinin ve FK bütünlüğünün tuttuğu (E-5) | `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json> --sema <sema.sql>` |
+| `scripts/hazirlik-kilidi.mjs` | Yayın penceresinde çalışacak 11 dosyanın kanıt üretildiği andan beri değişmediği | `node scripts/hazirlik-kilidi.mjs` |
 | `docs/kurulum/2026-09-13-yedek-dogrulama-sayaclari.sql` | Üretim tarafı beklenen sayaçlar (salt okuma) | SQL Editor |
 
 ---
@@ -214,7 +235,7 @@ Kabul koşullarını üreten sondalar tek kullanımlık betik olmaktan çıkarı
 | # | Tür | Konu | Kapanma ölçütü |
 |---|---|---|---|
 | E-1 | ~~Önkoşul~~ | Bayt düzeyinde güncel dökümle prova | ✅ **Kapandı** (2026-09-12): döküm alındı, doğrulandı ve tüm zincir onunla tekrarlandı — 1.3 |
-| E-5 | Önkoşul | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | Üç adım birlikte: (1) kullanıcı veri yedeği alır (`pg_dump`, repo dışına); (2) sayaçlar yedekle **aynı durumu görecek biçimde** alınır — ya **aynı snapshot** (`begin isolation level repeatable read` + `pg_export_snapshot()`, `pg_dump --snapshot=<kimlik>`), ya da **doğrulanmış yazma duraklatması** (yazmalar durdurulur; sayaçlar yedekten önce ve sonra iki kez çalıştırılır ve **değişmediği ölçülür**). Çıktı `<etiket>-sayaclar.json` olarak saklanır; (3) ajan `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json>` ile izole kopyaya geri yükler. **Kapanma ölçütü:** yükleme hatası 0; **kapsamı yedekle eşitlenmiş** (public + phase0_private) tüm tablolarda satır sayısı farkı 0; üç tutarlılık sorgusu 0; **temel uygulama erişimi** doğrulanmış (gerçek bir ERP kullanıcısının kimliğiyle `authenticated` rolünde okuma çalışıyor, `anon` kapalı); hazırlık, geri yükleme, sayaç karşılaştırması, tutarlılık ve erişim **süreleri ayrı ayrı** ölçülüp rapora yazılmış. Bunlardan biri tutmazsa yedek **kanıt sayılmaz** ve §7'deki "yedekten dönüş" satırı geçersizdir. |
+| E-5 | Önkoşul | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | İki adım: (1) kullanıcı `.\docs\kurulum\yedek-ve-sayac-al.ps1 -Etiket <etiket>` komutunu çalıştırıp **yalnız parolayı** girer; betik yedeği ve sayaçları **aynı snapshot** ile üretir (pooler desteklemezse `-Duraklatma` ile **doğrulanmış yazma duraklatması**: sayaçlar yedekten önce ve sonra okunur, eşit değillerse yedek reddedilir). Dosyalar repo dışına (`C:\Users\USER\ERP-Yedek`) yazılır; (2) ajan `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json> --sema <sema-dokumu.sql>` ile izole kopyaya geri yükler. **Kapanma ölçütü:** yükleme hatası 0; **kapsamı yedekle eşitlenmiş** (public + phase0_private) tüm tablolarda satır sayısı farkı 0; **her yabancı anahtar `validate constraint` ile doğrulanmış, ihlal 0**; üç tutarlılık sorgusu 0; **temel uygulama erişimi** doğrulanmış (gerçek bir ERP kullanıcısının kimliğiyle `authenticated` rolünde okuma çalışıyor, `anon` kapalı); **kurtarma kapsamı** raporlanmış (kaç kimlik gerekiyor, yedekten kaçı geldi); hazırlık, geri yükleme, auth kapsamı, FK bütünlüğü, sayaç karşılaştırması, tutarlılık ve erişim **süreleri ayrı ayrı** ölçülüp rapora yazılmış. Bunlardan biri tutmazsa yedek **kanıt sayılmaz** ve §7'deki "yedekten dönüş" satırı geçersizdir. Atlanan kontrol varsa E-5 **kapanmaz**. |
 | E-2 | Karar | Yetki matrisi ve iki ayrı test kullanıcısı | §4 matrisi onaylanır; şef ve çalışan rolünde **iki farklı aktif kullanıcı** adıyla belirlenir. |
 | E-3 | Onay | Operasyon onayı | §5.1 penceresi ve §5.2 zaman çizelgesi, operasyondan sorumlu kişi tarafından adı ve saatiyle onaylanır. |
 | E-4 | Risk kabulü | Adım 1 commit'inden sonra eski temizlik akışına dönüş yok | Kullanıcı kabul eder (§5, §7). |
@@ -406,7 +427,7 @@ Runbook §4 geçmişi ve §1'in 12 alanı; kesinti süresi ve ara kontrol saatle
 | 6.1.8 sonrası | §24.1 olağan kapatma: yalnız `moduller.aktif=false` içeren transaction; uçuştaki komutları bekler. Komutlar kapanır, check-out sürer ama görev üretmez, geçmiş korunur. | **Hayır.** Kirli odalar hazır hâle getirilemez. |
 | Üretici hatalıysa | §24.2: modülü kapat, uçuşu boşalt, **yalnız** `pms_housekeeping_cikis_uret` ve `pms_housekeeping_serbest_uret` tetikleyicilerini devre dışı bırak; bütünlük, denetim ve yaşam döngüsü tetikleyicilerine dokunma; önce staging'de doğrula; ileri yönlü migration ile onar; üreticileri modülden önce aç. | Hayır |
 | Yeniden açma | §24.3 değişmez raporu temiz olmalı (aşağıda) | — |
-| Her aşama | Yedekten dönüş — **yalnız elle alınmış yedek varsa** (proje Free planda, otomatik yedek yok; 1.8) | Evet, ama yedekten sonraki tüm rezervasyon, folyo ve ödeme yazmaları kaybolur; özellik geri alma yöntemi değildir |
+| Her aşama | Yedekten dönüş — **yalnız elle alınmış yedek varsa** (proje Free planda, otomatik yedek yok; 1.8) | Evet, ama yedekten sonraki tüm rezervasyon, folyo ve ödeme yazmaları kaybolur; özellik geri alma yöntemi değildir. Kapsam `public` + `phase0_private` **verisidir**: aynı projede veri kaybını geri alır, `auth` kapsam dışı olduğu için **proje tümden kaybında giriş sağlamaz** (1.8) |
 
 **Yasak (§24.2):** `DISABLE TRIGGER ALL`, `ensure_rls`'i kapatmak, FK düşürmek, denetimi düşürmek, uygulama rollerine doğrudan görev/temizlik DML hakkı vermek.
 
