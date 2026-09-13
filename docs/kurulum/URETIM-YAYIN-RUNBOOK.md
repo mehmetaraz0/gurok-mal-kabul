@@ -388,8 +388,10 @@ Sonuçlar:
    Ekran otel kapsamını `CU.otelId`'den alır; otel seçici yoktur. `tum_oteller = true`
    ama `otel_id` boş olan kullanıcı ekranı **hiç kullanamaz** ("Otel seçili değil").
    DB tarafındaki `hk_calisan_uygun` "tüm oteller"i kabul ettiği için bu bir arayüz
-   kısıtıdır. Test kullanıcılarına geçici `otel_id = '810'` verildi ve test sonrası
-   geri alındı. **Açık madde:** ya ekrana otel seçici eklenmeli ya da kat hizmetleri
+   kısıtıdır. Test kullanıcılarına (`MEHMET ARAZ`, `Sistem Test`) `otel_id = '810'`
+   verildi; `tum_oteller` yetkileri değişmedi. Kapsam geçici verilmişti, **kullanıcı
+   kararıyla kalıcı bırakıldı** (tek otelli demo; ekranın bu kullanıcılarda çalışır
+   kalması istendi). **Açık madde:** ya ekrana otel seçici eklenmeli ya da kat hizmetleri
    kullanıcılarının `otel_id`'si dolu olmalıdır.
 2. **Tarayıcı otomasyonu yayın kanalı olarak güvenilmezdir.** SQL Editor'e yapıştırma
    yöntemi pencere ortasında çöktü (JS çalışıyor, tıklama/tuş ulaşmıyor). Aynı baytlar
@@ -409,3 +411,5 @@ Sonuçlar:
 - Oda 101: `ekstra_temizlik` görevi `bekliyor` (atanmamış), oda `boş + kirli`.
   **Bu oda temizlik akışı tamamlanana kadar satılabilir değildir.**
 - `erp_islem_audit`: 22 → 36 satır.
+- `kullanicilar.otel_id`: `MEHMET ARAZ` ve `Sistem Test` için `810` (kalıcı, kullanıcı kararı).
+- Oda 101'in bekleyen görevini kullanıcı kapatacağını bildirdi; kapanana kadar oda satılabilir değildir.
