@@ -46,46 +46,48 @@
 
 Bu makinede ajan kendiliğinden başlamadı; anahtar üretimi "No agent running" ile düştü. Önce:
 
-```bash
-"/c/Program Files/Git/usr/bin/gpg-connect-agent.exe" /bye
+```powershell
+& 'C:\Program Files\Git\usr\bin\gpg-connect-agent.exe' /bye
 ```
 
 Beklenen: "starting '/usr/bin/gpg-agent'" ve ardından istem geri gelir.
 
+**Not:** bu adımlar **PowerShell** içindir. Yol tırnaklıysa başına `&` (çağırma operatörü) konmalıdır; `"C:\...\gpg.exe" /bye` biçimi PowerShell'de ayrıştırma hatası verir.
+
 - [ ] **Step 2: Anahtarı üret (parolalı)**
 
-```bash
-"/c/Program Files/Git/usr/bin/gpg.exe" --quick-generate-key "Gurok ERP Yedek <yedek@dornevi.local>" default default never
+```powershell
+& 'C:\Program Files\Git\usr\bin\gpg.exe' --quick-generate-key 'Gurok ERP Yedek <yedek@dornevi.local>' default default never
 ```
 
 GPG bir **parola** soracak: bu, gizli anahtarın kendi parolasıdır. Parola yöneticisinde saklanacak; buraya, konuşmaya ya da bir dosyaya yazılmaz.
 
 - [ ] **Step 3: Genel anahtarı repoya çıkar**
 
-```bash
-cd /c/Users/USER/Projects/gurok-mal-kabul-faz2-yayin && "/c/Program Files/Git/usr/bin/gpg.exe" --armor --export "yedek@dornevi.local" > docs/kurulum/yedek-anahtari.pub.asc && wc -c < docs/kurulum/yedek-anahtari.pub.asc
+```powershell
+cd C:\Users\USER\Projects\gurok-mal-kabul-faz2-yayin; & 'C:\Program Files\Git\usr\bin\gpg.exe' --armor --export 'yedek@dornevi.local' | Out-File -Encoding ascii docs\kurulum\yedek-anahtari.pub.asc; (Get-Item docs\kurulum\yedek-anahtari.pub.asc).Length
 ```
 
-Beklenen: sıfırdan büyük bir bayt sayısı (tipik olarak birkaç yüz bayt).
+Beklenen: sıfırdan büyük bir bayt sayısı (tipik olarak birkaç yüz bayt). `Out-File -Encoding ascii` bilinçlidir: PowerShell'in varsayılan yönlendirmesi BOM ekler ve anahtar dosyasını bozabilir.
 
 - [ ] **Step 4: Gizli anahtarı parola yöneticisine al**
 
-```bash
-"/c/Program Files/Git/usr/bin/gpg.exe" --armor --export-secret-keys "yedek@dornevi.local" > "$env:TEMP\gurok-yedek-gizli.asc"
+```powershell
+& 'C:\Program Files\Git\usr\bin\gpg.exe' --armor --export-secret-keys 'yedek@dornevi.local' | Out-File -Encoding ascii $env:TEMP\gurok-yedek-gizli.asc
 ```
 
 Bu dosyayı **parola yöneticisine ek olarak** yükleyin, parolasını da aynı kayda yazın, sonra diskteki kopyayı silin. Dosya repoya, buluta ya da e-postaya **konmaz**.
 
 - [ ] **Step 5: Gizli anahtarı makineden sil**
 
-```bash
-"/c/Program Files/Git/usr/bin/gpg.exe" --list-keys --with-colons | grep "^fpr" | head -1
+```powershell
+(& 'C:\Program Files\Git\usr\bin\gpg.exe' --list-keys --with-colons | Select-String '^fpr' | Select-Object -First 1).ToString().Split(':')[9]
 ```
 
 çıkan parmak iziyle:
 
-```bash
-"/c/Program Files/Git/usr/bin/gpg.exe" --delete-secret-keys <PARMAK_IZI>
+```powershell
+& 'C:\Program Files\Git\usr\bin\gpg.exe' --delete-secret-keys <PARMAK_IZI>
 ```
 
 Beklenen: genel anahtar anahtarlıkta kalır (şifreleme için yeterli), gizli anahtar gider. Doğrulama: `gpg --list-secret-keys` çıktısı boş.
