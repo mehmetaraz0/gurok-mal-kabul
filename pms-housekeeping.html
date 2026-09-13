@@ -221,7 +221,14 @@ select:focus,input:focus,textarea:focus{outline:2px solid var(--accent);outline-
 // — sunucudan HİÇ İSTENMİYOR: `pms_housekeeping_listele` sözleşmesinde
 // misafir alanı yoktur.
 // ===========================================================================
-const TEK_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+// OTEL KAPSAMI. Atanmış oteli olan kullanıcı ona KİLİTLİDİR. Ataması olmayan
+// kullanıcı, çapraz otel yetkisi VARSA (auth_tum_oteller) otelini seçer.
+// Seçim yalnız tarayıcıda durur; kullanıcı kaydı DEĞİŞMEZ.
+const SABIT_OTEL = CU && CU.otelId ? String(CU.otelId) : null;
+const OTEL_KODLARI = Object.keys(OTEL_KISA);
+const OTEL_ANAHTARI = CU && CU.id ? ('hk-otel:' + CU.id) : null;
+let AKTIF_OTEL = SABIT_OTEL;   // RPC'lere giden otel kapsamı
+let SECILEBILIR = false;       // seçici gösterilecek mi
 const BENIM_ID = CU && CU.id ? String(CU.id) : null;
 
 let YETKI = null;          // 'yok' | 'goruntule' | 'kayit' | 'tam'
@@ -234,11 +241,72 @@ let UCUSTA = false;        // üst üste binen istekleri engeller
 let POLL = null;
 const POLL_MS = 30000;     // mimari §19: görünürken ~30 sn
 
+function otelGecerli(k){ return !!k && OTEL_KODLARI.indexOf(String(k)) >= 0; }
+
+// localStorage özel pencerede ya da depolama kapalıyken PATLAR; okumak da
+// yazmak da try/catch içindedir ve hata sessizce yok sayılır.
+function otelHatirla(){
+  if(!OTEL_ANAHTARI) return null;
+  try{
+    const v = localStorage.getItem(OTEL_ANAHTARI);
+    return otelGecerli(v) ? String(v) : null;
+  }catch(e){ return null; }
+}
+function otelSakla(kod){
+  if(!OTEL_ANAHTARI) return;
+  try{ localStorage.setItem(OTEL_ANAHTARI, String(kod)); }catch(e){}
+}
+
+// Oda planından gelen derin bağlantı: #otel=811&oda=101
+function otelBaglantidan(){
+  const m = String(location.hash || '').match(/[#&]otel=([^&]+)/);
+  let k = null;
+  try{ k = m ? decodeURIComponent(m[1]) : null; }catch(e){ k = null; }
+  return otelGecerli(k) ? String(k) : null;
+}
+
+function otelBasligiCiz(){
+  const h = document.getElementById('hdrOtel');
+  if(!SECILEBILIR){
+    h.textContent = AKTIF_OTEL
+      ? ('🏨 ' + (OTEL_KISA[AKTIF_OTEL] || AKTIF_OTEL))
+      : '🏨 Otel seçili değil';
+    return;
+  }
+  h.innerHTML = '🏨 <select id="otelSec" aria-label="Otel seçin" '
+    + 'style="font:inherit;color:inherit;background:transparent;border:0;'
+    + 'border-bottom:1px dotted currentColor;padding:0 2px;cursor:pointer">'
+    + OTEL_KODLARI.map(function(k){
+        return '<option value="' + escapeHtml(k) + '"'
+          + (k === AKTIF_OTEL ? ' selected' : '') + '>'
+          + escapeHtml(OTEL_KISA[k] || k) + '</option>';
+      }).join('')
+    + '</select>';
+  document.getElementById('otelSec').addEventListener('change', otelDegistir);
+}
+
+// Otel değişince EKRANIN TAMAMI sıfırlanır: kuyruk, çalışan haritası ve oda
+// seçici otel kapsamlıdır; eskisinden satır sızarsa kullanıcı yanlış otelin
+// verisine bakar.
+async function otelDegistir(ev){
+  const yeni = String(ev.target.value || '');
+  if(!otelGecerli(yeni) || yeni === AKTIF_OTEL) return;
+  if(UCUSTA){ ev.target.value = AKTIF_OTEL; return; }  // uçuşta komut varken kilitli
+  pollDurdur();
+  AKTIF_OTEL = yeni;
+  otelSakla(yeni);
+  GOREVLER = [];
+  CALISAN = new Map();
+  ODA_SECENEK = [];
+  await calisanlariYukle();
+  await tazele(false);
+  pollBasla();
+}
+
 (function init(){
   if(!CU) return;
   document.getElementById('app').style.display='';
-  document.getElementById('hdrOtel').textContent =
-    TEK_OTEL ? ('🏨 ' + (OTEL_KISA[TEK_OTEL] || TEK_OTEL)) : '🏨 Otel seçili değil';
+  otelBasligiCiz();
   sekmeSec('islerim', true);
   baslat();
 })();
@@ -254,7 +322,19 @@ async function baslat(){
     document.body.innerHTML = KAPALI_EKRAN_HTML(CU);
     return;
   }
-  if(!TEK_OTEL){
+  // Çapraz otel hakkı ön yüzde YOKTUR (kullanicilar_genel görünümünde
+  // tum_oteller alanı yok). Sunucuya sorulur ve HATA DURUMUNDA 'yok' sayılır.
+  if(!SABIT_OTEL){
+    try{ SECILEBILIR = (await hkRpc('auth_tum_oteller', {})) === true; }
+    catch(e){ SECILEBILIR = false; }
+    if(SECILEBILIR){
+      AKTIF_OTEL = otelBaglantidan() || otelHatirla() || OTEL_KODLARI[0];
+      otelSakla(AKTIF_OTEL);
+    }
+    otelBasligiCiz();
+  }
+
+  if(!AKTIF_OTEL){
     uyariGoster(['Otel seçili değil — kat hizmetleri otel kapsamında çalışır.']);
     return;
   }
@@ -273,7 +353,7 @@ async function baslat(){
 // çalışan sorgusu YOKTUR (N+1 yasak).
 async function calisanlariYukle(){
   try{
-    const liste = await HK.calisanlar(TEK_OTEL);
+    const liste = await HK.calisanlar(AKTIF_OTEL);
     CALISAN = new Map((liste||[]).map(c=>[c.kullanici_id, c.ad]));
     const f = document.getElementById('fCalisan');
     f.innerHTML = '<option value="">Tüm çalışanlar</option>'
@@ -321,7 +401,7 @@ function temizle(){
 // ---------------------------------------------------------------------------
 async function tazele(elle){
   if(UCUSTA) return;                       // üst üste binen istek YOK
-  if(!TEK_OTEL || YETKI === 'yok') return;
+  if(!AKTIF_OTEL || YETKI === 'yok') return;
   // OTURUM BİTTİYSE YOKLAMA DURUR.
   // QA'da görüldü: oturum süresi dolduktan sonra sayfa açık kalınca yoklama
   // sürüyor ve her istek 401 dönüyordu — sunucuya sürekli boş istek gider,
@@ -336,7 +416,7 @@ async function tazele(elle){
   if(elle) sLD();
   const uyarilar = [];
   try{
-    const satirlar = await HK.listele(TEK_OTEL, SEKME_KUYRUK[SEKME], 100);
+    const satirlar = await HK.listele(AKTIF_OTEL, SEKME_KUYRUK[SEKME], 100);
     GOREVLER = satirlar || [];
     SUNUCU_ZAMANI = GOREVLER.length ? GOREVLER[0].sunucu_zamani : null;
     if(GOREVLER.length === 100)
@@ -630,7 +710,7 @@ async function yeniGorevAc(){
   // döndürmez.
   if(!ODA_SECENEK.length){
     try{
-      const satirlar = await HK.odalar(TEK_OTEL, 500);
+      const satirlar = await HK.odalar(AKTIF_OTEL, 500);
       ODA_SECENEK = (satirlar || []).map(o=>({
         id:o.oda_id, oda_no:o.oda_no, kat:o.kat,
         kullanim_durumu:o.kullanim_durumu, acik_gorev:!!o.acik_gorev_id }));
