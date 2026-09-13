@@ -419,3 +419,50 @@ Sonuçlar:
 - `erp_islem_audit`: 22 → 36 satır.
 - `kullanicilar.otel_id`: `MEHMET ARAZ` ve `Sistem Test` için `810` (kalıcı, kullanıcı kararı).
 - Oda 101'in bekleyen görevini kullanıcı kapatacağını bildirdi; kapanana kadar oda satılabilir değildir.
+
+---
+
+## 9. Kat hizmetleri otel seçici — 2026-09-13 (arayüz yayını)
+
+### Zorunlu kayıt (§1)
+
+| Alan | Değer |
+|---|---|
+| Tarih / saat | 2026-09-13T19:13:25+03:00 push · 19:14:14 canlıda |
+| Release owner | Claude (ajan) |
+| Kullanıcı onayı | **VAR** — `CANLIYA UYGULA`, 2026-09-13 |
+| Git commit hash | `e0b986e` (`origin/main` `77e98ef` → `e0b986e`, hızlı ileri alma; çalışma ağacı temiz) |
+| Migration dosyası | **Yok.** Şema, yetki ve veri değişmedi |
+| Preflight sonucu | Gerekmedi (veritabanına dokunulmuyor). `check.mjs` yeşil; hazırlık kilidi 11/11 aynı |
+| Yedek / geri alma | Geri alma `git revert e0b986e` + push; veritabanında iz yok |
+| Uygulama sonucu | **Başarılı.** İki dosyanın canlı SHA-256'sı yayın baytıyla aynı: `pms-housekeeping.html` `acd53b89…4d15c`, `pms-oda-plani.html` `35b15b72…61ee7`; ikisi de HTTP 200 |
+| Smoke test | Yayın öncesi yerel izole ortamda sekiz kontrol (aşağıda); yayın sonrası canlı dosya içeriği doğrulandı |
+| Yayın sonrası parmak izi | Canlı `pms-housekeeping.html` içinde `auth_tum_oteller` / `AKTIF_OTEL` geçişleri mevcut |
+| Geri alma gerekti mi | **Hayır** |
+
+### Ne değişti
+
+Kat hizmetleri ekranı otel kapsamını artık yalnız `kullanicilar.otel_id`'den almıyor. Otel ataması olmayan kullanıcının çapraz otel hakkı `public.auth_tum_oteller()` ile **sunucudan** okunuyor (hata durumunda `false`, yani ekran eski uyarısına düşüyor) ve hakkı olan kullanıcı oteli başlıktaki listeden seçiyor. Seçim yalnız tarayıcıda (`hk-otel:<kullanici_id>`) duruyor. Oda planındaki "Kat Hizmetlerinde Aç" bağlantısı artık `#otel=<id>&oda=<no>` taşıyor.
+
+**Otel atamalı kullanıcının davranışı değişmedi:** seçici görünmez, kendi oteline kilitlidir ve bağlantıdaki `#otel=` yok sayılır.
+
+### Yayın öncesi doğrulama (yerel izole ortam)
+
+| # | Kontrol | Sonuç |
+|---|---|---|
+| 1 | Otel atamalı kullanıcı | Seçici yok, ekran eskisi gibi |
+| 2 | Çapraz otel kullanıcısı | Seçici var, ilk otel seçili, komut düğmeleri var |
+| 3 | Otel değiştirme | Kuyruk yeni otelin verisiyle geldi, eskisinden satır kalmadı |
+| 4 | Oda seçici | Yalnız seçili otelin odaları |
+| 5 | Sayfa yenileme | Son seçim hatırlandı |
+| 6 | `#otel=` derin bağlantı | Hatırlanan seçimi geçersiz kıldı |
+| 7 | Aynı bağlantı, otel atamalı kullanıcıda | Yok sayıldı |
+| 8 | Kat hizmetleri yetkisi olmayan kullanıcı | Kapalı ekran, seçici yok |
+
+Ayrıca RPC adı bilerek bozularak **fail-closed** davranış ölçüldü: seçici çıkmadı, ekran eski uyarıya düştü; geçici değişiklik commit'e girmedi.
+
+### Kayda geçen not
+
+Yayın öncesi QA'da kullanılan çapraz otel rolünde `pms_oda` yetkisi yoktur; o kullanıcı oda planını boş görür. Kat hizmetlerini etkilemez (oda seçici ayrı RPC kullanır). Üretimde çapraz otelli bir kullanıcının oda planını da görmesi isteniyorsa ilgili role `pms_oda` yetkisi ayrıca verilmelidir.
+
+§8'deki "otel seçici" açık maddesi bu yayınla kapanmıştır. Faz 2 yayınında iki test kullanıcısına verilen `otel_id = '810'` **kalıcı bırakılmıştı**; seçici geldiği için artık gerekli değildir, ancak kaldırılması ayrı bir karardır (kaldırılırsa o kullanıcılar çapraz otel seçebilir hâle gelir).
