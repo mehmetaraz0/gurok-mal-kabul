@@ -341,3 +341,71 @@ Sonuçlar:
    değildir.** Faz 2 yayın planının geri dönüş bölümü bu gerçeğe göre okunmalıdır.
 3. 2026-09-07 kaydındaki ifade tarihsel kayıt olarak **silinmedi**; bu not onun üstüne eklendi.
    O tarihte planın Pro olup olmadığı ayrıca doğrulanmadı; bugünkü ölçüm Free'dir.
+
+---
+
+## 8. PMS Faz 2 — Kat Hizmetleri yayını — 2026-09-13 (tam kayıt)
+
+### Zorunlu kayıt (§1)
+
+| Alan | Değer |
+|---|---|
+| Tarih / saat | 2026-09-13T16:08–16:53+03:00 (kesinti); duman testleri 18:01–18:16+03:00 |
+| Release owner | Claude (ajan) — komutları kullanıcı çalıştırdı (parola yalnız kullanıcıda) |
+| Kullanıcı onayı | **VAR** — `CANLIYA UYGULA`, 2026-09-13; ortam demo, aktif operasyon yok |
+| Git commit hash | `45b162ed57143d83f4902cfd9bd179315d4425b9` (çalışma ağacı temiz; `origin/main` `d0bd734` → `45b162e`) |
+| Migration dosyası | `docs/kurulum/2026-09-09-pms-faz2-adim1-housekeeping.sql` (SHA-256 `e5a560cd…11e8f`), `docs/kurulum/2026-09-10-pms-faz2-adim2-housekeeping-ui-destek.sql` (SHA-256 `7d987dd9…88380`) |
+| Preflight sonucu | `2026-09-11-pms-faz2-yayin-oncesi-preflight.sql` — **50 GEÇTİ / 0 SAPMA / 10 BİLGİ**, E1 = 0, taban `erp_islem_audit` 22 satır. Uygulama sonrası aynı dosya: **19 SAPMA** (beklenen liste ile birebir) |
+| Yedek / geri alma | `C:\Users\USER\ERP-Yedek\2026-09-13-pre-faz2-veri-yedegi.sql` (757.033 bayt, SHA-256 `7D3AFF78…56DA`), sayaçlar `2026-09-13-pre-faz2-sayaclar.json`, yedeğin okuduğu an 2026-09-13T07:40:53Z. Geri yükleme provası geçti (E-5). **Auth kapsam dışı** |
+| Uygulama sonucu | **Başarılı.** Adım 1: 36,7 sn; Adım 2: 6,8 sn; her ikisinin kendi doğrulama blokları "tüm kontroller geçti" dedi. Hata yok, geri alma gerekmedi |
+| Smoke test | D1 denetim döngüsü ✅, D2 çıkış üreticisi ✅, D3 Faz 2 dışı denetim regresyonu ✅, D4 ⏳ (aşağıda) |
+| Yayın sonrası parmak izi | Preflight 19 SAPMA listesi; `erp_islem_audit` 22 → 36 satır (12'si `islem_detayi` taşıyor) |
+| Geri alma gerekti mi | **Hayır** |
+
+### Sıra ve saatler
+
+| Adım | Saat (+03:00) | Sonuç |
+|---|---|---|
+| 6.1.1 Kod dondurma | 15:5x | LF yayın baytları §0.1 ile birebir; hazırlık kilidi 11/11 aynı |
+| 6.1.2 Yayın başlangıcı preflight'ı | 16:0x | 50 GEÇTİ / 0 SAPMA / E1 = 0 |
+| 6.1.3 Adım 1 | **16:08 (T0)** | Uygulandı (36,7 sn); tetikleyici sırası doğrulandı |
+| 6.1.4 Adım 2 | 16:1x | Uygulandı (6,8 sn); `odalar=t`, `definer_pinli=2`, `anon_veya_service=0` |
+| 6.1.5 Uygulama sonrası doğrulama | 16:4x | 19 SAPMA (beklenen) |
+| 6.1.6 Yetkiler | 16:4x | 9 rol satırı (4 `tam`, 1 `kayit`, 4 `goruntule`); modül kapalı kaldı |
+| 6.1.7 Arayüz yayını | 16:50:57 push · 16:51:33 canlıda | Altı dosyanın canlı SHA-256'sı yayın commit'iyle aynı; HTTP 200 |
+| 6.1.8 Modülü açma | **16:53** | `aktif = t` · **kesinti 45 dakika** |
+
+### Duman testleri (üretimde gerçek kayıtlar)
+
+- **D1 — denetim döngüsü.** Oda 102 çıkış temizliği görevi: Sistem Test başlattı (15:14:23Z) ve tamamladı (15:14:52Z); **MEHMET ARAZ denetledi** (15:16:14Z). `durum = kontrol_edildi`, `surum = 5`. Yapan ile denetleyen **farklı kullanıcı** — denetim bağımsızlığı üretimde kanıtlandı.
+- **D2 — çıkış üreticisi.** Oda 102'nin gerçek check-out'u yapıldı; oda `boş + kirli` oldu ve `cikis_temizligi` görevi `bekliyor` durumunda, `olusturma_kaynagi = 'checkout'` ile **kendiliğinden** doğdu. Oda planında rozet ve "Kat Hizmetlerinde Aç" bağlantısı da çalıştı.
+- **D3 — Faz 2 dışı denetim regresyonu.** Taban sonrası 14 denetim satırı: `pms_housekeeping_gorevleri` (6) ve `pms_odalar` (6) satırlarının **hepsi** `islem_detayi` taşıyor; `pms_rezervasyonlar` (2) satırının **hiçbiri** taşımıyor. Değiştirilen ortak denetim fonksiyonu diğer tetikleyiciler için eski davranışını koruyor.
+- **D4 — yetki sınırı.** `goruntule` seviyesinde tek aday kullanıcı var (WWWWWW / Genel Müdür). Yayın penceresinde **yapılmadı**; izole kopyadaki 32 negatif yetki testi bu sınırı davranışsal olarak kanıtlıyor (yayın planı 1.6).
+
+### Yayın sırasında öğrenilenler
+
+1. **Arayüz, veritabanından daha katı: kat hizmetleri ekranı `kullanicilar.otel_id` ister.**
+   Ekran otel kapsamını `CU.otelId`'den alır; otel seçici yoktur. `tum_oteller = true`
+   ama `otel_id` boş olan kullanıcı ekranı **hiç kullanamaz** ("Otel seçili değil").
+   DB tarafındaki `hk_calisan_uygun` "tüm oteller"i kabul ettiği için bu bir arayüz
+   kısıtıdır. Test kullanıcılarına geçici `otel_id = '810'` verildi ve test sonrası
+   geri alındı. **Açık madde:** ya ekrana otel seçici eklenmeli ya da kat hizmetleri
+   kullanıcılarının `otel_id`'si dolu olmalıdır.
+2. **Tarayıcı otomasyonu yayın kanalı olarak güvenilmezdir.** SQL Editor'e yapıştırma
+   yöntemi pencere ortasında çöktü (JS çalışıyor, tıklama/tuş ulaşmıyor). Aynı baytlar
+   psql ile `--single-transaction` altında uygulandı; dosya özeti uygulamadan önce
+   karşılaştırıldı. Bundan sonraki yayınlarda **birincil kanal psql olmalı**; SQL Editor
+   yedek kanaldır.
+3. **Parola girişi kesintiyi uzatabilir.** İki başarısız parola denemesi kesintiye
+   yaklaşık 6 dakika ekledi. Pencere başında `-YalnizBaglanti` ile parola bir kez
+   sınanmalıdır.
+4. **Kesinti 45 dakika oldu** — plandaki müdahale eşiğine denk. Migration'ların kendisi
+   toplam 44 saniye sürdü; kalan süre kanal değişikliği, parola denemeleri ve adımlar
+   arası doğrulamalardır.
+
+### Üretimde kalan kalıcı iz
+
+- Oda 102: `cikis_temizligi` görevi `kontrol_edildi` (terminal), oda `boş + kontrol_edildi`.
+- Oda 101: `ekstra_temizlik` görevi `bekliyor` (atanmamış), oda `boş + kirli`.
+  **Bu oda temizlik akışı tamamlanana kadar satılabilir değildir.**
+- `erp_islem_audit`: 22 → 36 satır.

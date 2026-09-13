@@ -1,7 +1,10 @@
 # PMS Faz 2 — Kat Hizmetleri: Yayın Öncesi İnceleme ve Yayın Planı
 
+> **YAYIN TAMAMLANDI — 2026-09-13.** Bu belge yayın *öncesi* karar belgesidir ve tarihsel kayıt olarak korunur. Uygulanan yayının tam kaydı, ölçülen saatleri, duman testi sonuçları ve yayın sırasında bulunan maddeler: docs/kurulum/URETIM-YAYIN-RUNBOOK.md §8. Kesinti 16:08–16:53 (45 dk); origin/main d0bd734 → 45b162e.
+
+
 **Belge tarihi:** 2026-09-11 · **Güncelleme:** 2026-09-12 (kabul koşulları, zaman çizelgesi, acil müdahale ayrımı).
-**Durum:** Teknik değerlendirme olumlu; canlı uygulama onayı **yok**. Üretime hiçbir şey uygulanmadı; merge, push, deploy yapılmadı; modül ayarı değişmedi.
+**Durum (belge yazıldığında):** Teknik değerlendirme olumlu; canlı uygulama onayı **yok**. Üretime hiçbir şey uygulanmadı; merge, push, deploy yapılmadı; modül ayarı değişmedi. — *Bu satır 2026-09-11/12 durumudur ve tarihsel kayıt olarak korunuyor; yayın 2026-09-13'te onaylanıp uygulandı (yukarıdaki nota bakınız).*
 **Kapsam:** `docs/kurulum/2026-09-09-pms-faz2-adim1-housekeeping.sql`, `docs/kurulum/2026-09-10-pms-faz2-adim2-housekeeping-ui-destek.sql` ve `pms-faz2-housekeeping-ui` dalındaki arayüz.
 **Salt okuma preflight:** `docs/kurulum/2026-09-11-pms-faz2-yayin-oncesi-preflight.sql`
 **Yetkili şartname:** `docs/PMS-FAZ2-HOUSEKEEPING-ARCHITECTURE.md` (§16 yetki ve etkinleştirme sırası, §24 geri alma). Bu plan onunla çelişirse şartname geçerlidir.
