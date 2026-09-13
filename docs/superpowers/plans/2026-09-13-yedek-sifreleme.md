@@ -29,11 +29,13 @@
 
 - [ ] **Step 1: Anahtar çiftini üret (parolalı)**
 
+OpenSSL'in kendi parola istemi bu terminalde **okuyamıyor** (ölçüldü: `UI routines:UI_process:processing error`). Parola PowerShell'in güvenli istemiyle alınır ve ortam değişkeniyle verilir; komut satırına ve geçmişe yazılmaz, iş biter bitmez ortamdan silinir.
+
 ```powershell
-cd C:\Users\USER\Projects\gurok-mal-kabul-faz2-yayin; & 'C:\Program Files\Git\mingw64\bin\openssl.exe' req -x509 -newkey rsa:4096 -keyout $env:TEMP\gurok-yedek-gizli.pem -out docs\kurulum\yedek-anahtari.pem -days 36500 -subj "/CN=Gurok ERP Yedek"
+$p = Read-Host 'Gizli anahtar parolasi' -AsSecureString; $env:PMS_KEY_PASS = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($p)); & 'C:\Program Files\Git\mingw64\bin\openssl.exe' req -x509 -newkey rsa:4096 -keyout $env:TEMP\gurok-yedek-gizli.pem -out docs\kurulum\yedek-anahtari.pem -days 36500 -subj "/CN=Gurok ERP Yedek" -passout env:PMS_KEY_PASS; Remove-Item Env:\PMS_KEY_PASS
 ```
 
-OpenSSL iki kez **parola** soracak: bu, gizli anahtarın parolasıdır. Parola yöneticisine yazılır; konuşmaya ya da dosyaya değil.
+Bu parola gizli anahtarın parolasıdır; parola yöneticisine yazılır, konuşmaya ya da dosyaya değil. Aynı kalıp provada çözme için de kullanılır (`-passin env:`).
 
 - [ ] **Step 2: Üretileni doğrula**
 
