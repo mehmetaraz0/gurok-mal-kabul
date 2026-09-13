@@ -192,6 +192,21 @@ Bütünlük bu yüzden varsayılmaz, **sonradan kanıtlanır**: prova `public` +
 
 Uygulama erişiminde seçilen aktör (`tum_oteller=true`) `auth_yetki_var('pms_oda','goruntule')` için **false** aldığı için oda listesini 0 satır gördü; bu tutarlıdır (yetkisi yok), sessiz RLS hatası değildir.
 
+**Girdi bütünlüğü (2026-09-13'te yeniden doğrulandı).** Prova, kilitli betikle (`scripts/pms-yedek-geri-yukleme-provasi.mjs`, kilit: 11 dosya AYNI) ve ağı kapalı, geçici belleğe kurulan tek kullanımlık bir konteynerde (`--network none`, `--tmpfs`) çalıştırıldı; üretime bağlanmadı. Girdi dosyalarının SHA-256'ları:
+
+| Dosya | Bayt | SHA-256 |
+|---|---|---|
+| `2026-09-13-pre-faz2-veri-yedegi.sql` | 757.033 | `7D3AFF78B5F1807460157A2766AE59BF019981EE4E973D32D60555B3B77456DA` |
+| `2026-09-13-pre-faz2-sayaclar.json` | 3.785 | `286D2B3447DC92AFE4FF1FF32695DA9F0F6C9F5AC396DCEF227C8370F7432125` |
+| `2026-09-12-pre-faz2-sema-dokumu.sql` | 340.833 | `5CDEF40EE6BCE7AD7F25BEE589974CCDCFB5D932D9277300C5EABC6A2F49671D` |
+
+Veri yedeğinin özeti, yedek alınırken `yedek-ve-sayac-al.ps1`'in yazdırdığı değerle aynıdır; şema dökümünün özeti 2026-09-12'de kaydedilenle aynıdır. Yani prova, üretimden alınan dosyaların **değişmemiş** hâliyle koştu.
+
+**Auth kimliklerinin kaynağı — ve bunun sınırı.** Erişim kontrolündeki 13 kimlik **yedekten gelmedi**; `auth.users` boş geldiği için provanın kendisi, geri yüklenen `kullanicilar.auth_user_id` değerlerinden **sentetik** olarak üretti (yalnız izole kopyada; parola, e-posta ya da oturum verisi yoktur). Bunun anlamı açıktır:
+
+- **Kanıtlanan:** veri geri yüklendikten sonra RLS, yetki motoru ve `anon` kapalılığı doğru çalışıyor — yani *veri katmanı* sağlam geri geliyor.
+- **Kanıtlanmayan:** gerçek kullanıcıların **giriş yapabilmesi**. Sentetik kimlikle geçen erişim testi giriş kurtarma kanıtı **değildir** ve bu yedekle böyle bir kanıt üretilemez; `auth` şeması kapsam dışıdır. Giriş kurtarma, ancak `auth` şemasını da kapsayan ayrı bir yedekle (hassas veri içerdiği için ayrı karar) ya da kimliklerin elle yeniden kurulmasıyla ele alınabilir. Bugün **açık risktir**, §7'de kayıtlıdır.
+
 **Olası veri kaybı aralığı (bu yedek için):** yedeğin okuduğu an **2026-09-13T07:40:53Z**'den sonra üretime yazılan her şey. Yayın penceresi bu yedekten belirgin biçimde sonra açılırsa, pencere başında yedek **yenilenir**; aksi hâlde aradaki tüm yazmalar kayıp aralığındadır.
 
 **Hazırlık betikleri sabitlendi (2026-09-13).** Yayın penceresinde çalışacak ve kanıt üreten 11 dosyanın LF içeriği üzerinden SHA-256'ları `docs/kurulum/2026-09-13-hazirlik-kilidi.json` dosyasına yazıldı; `node scripts/hazirlik-kilidi.mjs` sapmayı gösterir. Kilitteki Adım 1 ve Adım 2 özetleri §0'daki yayın özetleriyle aynıdır. Bir dosya bilinçli değişirse kilit yenilenir ve **ilgili provalar tekrarlanır**.
@@ -230,7 +245,7 @@ Yayın penceresinin **başlayabilmesi** için aşağıdakilerin tamamı sağlanm
 | K-9 | Yetki matrisi ve iki ayrı test kullanıcısı onayı | ⏳ E-2 |
 | K-10 | Operasyonun pencere ve zaman çizelgesi onayı | ⏳ E-3 |
 | K-11 | "Adım 1 commit'inden sonra eski akışa dönüş yok" riskinin kabulü | ⏳ E-4 |
-| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği izole kopyaya geri yüklenir; satır sayıları üretim sayaçlarıyla (aynı kapsam ve görünürlük) birebir tutar; **her yabancı anahtar yeniden doğrulanır (ihlal 0)**; üç tutarlılık kontrolü 0 verir; temel uygulama erişimi çalışır; **yedeğin kurtarma kapsamı (auth dahil değil) sayıyla raporlanır**; süreler ayrı ayrı raporlanır. Dosyanın var olması yeterli değildir. | ✅ 1.8 (2026-09-13, üretim yedeğiyle) |
+| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği izole kopyaya geri yüklenir; satır sayıları üretim sayaçlarıyla (aynı kapsam ve görünürlük) birebir tutar; **her yabancı anahtar yeniden doğrulanır (ihlal 0)**; üç tutarlılık kontrolü 0 verir; temel uygulama erişimi çalışır; **yedeğin kurtarma kapsamı (auth dahil değil) sayıyla raporlanır**; süreler ayrı ayrı raporlanır. Dosyanın var olması yeterli değildir. | ✅ 1.8 (2026-09-13, üretim yedeğiyle; **giriş kurtarma hariç**) |
 
 ---
 
@@ -253,7 +268,7 @@ Kabul koşullarını üreten sondalar tek kullanımlık betik olmaktan çıkarı
 | # | Tür | Konu | Kapanma ölçütü |
 |---|---|---|---|
 | E-1 | ~~Önkoşul~~ | Bayt düzeyinde güncel dökümle prova | ✅ **Kapandı** (2026-09-12): döküm alındı, doğrulandı ve tüm zincir onunla tekrarlandı — 1.3 |
-| E-5 | ~~Önkoşul~~ | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | ✅ **Kapandı** (2026-09-13): yedek `yedek-ve-sayac-al.ps1` ile **aynı snapshot** yolundan alındı; izole kopyada **hiçbir kontrol atlanmadan** doğrulandı — yükleme hatası 0, 75 tabloda satır farkı 0, 61 FK doğrulandı (ihlal 0), üç tutarlılık kontrolü 0, uygulama erişimi 5/5. Ölçümler ve kurtarma kapsamı 1.8'de. |
+| E-5 | ~~Önkoşul~~ | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | ✅ **Kapandı — VERİ kurtarma için** (2026-09-13): yedek `yedek-ve-sayac-al.ps1` ile **aynı snapshot** yolundan alındı; kilitli betikle, ağı kapalı izole kopyada, **hiçbir kontrol atlanmadan** doğrulandı — yükleme hatası 0, 75 tabloda satır farkı 0, 61 FK doğrulandı (ihlal 0), üç tutarlılık kontrolü 0, erişim 5/5; girdi dosyalarının SHA-256'ları doğrulandı. **Giriş (auth) kurtarma kapsam dışıdır ve kanıtlanmamıştır**: erişim testindeki 13 kimlik yedekten değil, provanın kendisinden gelir (1.8). |
 | E-2 | Karar | Yetki matrisi ve iki ayrı test kullanıcısı | §4 matrisi onaylanır; şef ve çalışan rolünde **iki farklı aktif kullanıcı** adıyla belirlenir. |
 | E-3 | Onay | Operasyon onayı | §5.1 penceresi ve §5.2 zaman çizelgesi, operasyondan sorumlu kişi tarafından adı ve saatiyle onaylanır. |
 | E-4 | Risk kabulü | Adım 1 commit'inden sonra eski temizlik akışına dönüş yok | Kullanıcı kabul eder (§5, §7). |
@@ -445,7 +460,7 @@ Runbook §4 geçmişi ve §1'in 12 alanı; kesinti süresi ve ara kontrol saatle
 | 6.1.8 sonrası | §24.1 olağan kapatma: yalnız `moduller.aktif=false` içeren transaction; uçuştaki komutları bekler. Komutlar kapanır, check-out sürer ama görev üretmez, geçmiş korunur. | **Hayır.** Kirli odalar hazır hâle getirilemez. |
 | Üretici hatalıysa | §24.2: modülü kapat, uçuşu boşalt, **yalnız** `pms_housekeeping_cikis_uret` ve `pms_housekeeping_serbest_uret` tetikleyicilerini devre dışı bırak; bütünlük, denetim ve yaşam döngüsü tetikleyicilerine dokunma; önce staging'de doğrula; ileri yönlü migration ile onar; üreticileri modülden önce aç. | Hayır |
 | Yeniden açma | §24.3 değişmez raporu temiz olmalı (aşağıda) | — |
-| Her aşama | Yedekten dönüş — **yalnız elle alınmış yedek varsa** (proje Free planda, otomatik yedek yok; 1.8) | Evet, ama yedekten sonraki tüm rezervasyon, folyo ve ödeme yazmaları kaybolur; özellik geri alma yöntemi değildir. Kapsam `public` + `phase0_private` **verisidir**: aynı projede veri kaybını geri alır, `auth` kapsam dışı olduğu için **proje tümden kaybında giriş sağlamaz** (1.8) |
+| Her aşama | Yedekten dönüş — 2026-09-13T07:40:53Z yedeği var ve provası geçti (1.8) | Evet, ama yedekten sonraki tüm rezervasyon, folyo ve ödeme yazmaları kaybolur; özellik geri alma yöntemi değildir. Kapsam `public` + `phase0_private` **verisidir**: aynı projede veri kaybını geri alır. `auth` kapsam dışı olduğu için **proje tümden kaybında giriş sağlamaz** ve bu senaryo **prova edilmemiştir** — açık risk (1.8) |
 
 **Yasak (§24.2):** `DISABLE TRIGGER ALL`, `ensure_rls`'i kapatmak, FK düşürmek, denetimi düşürmek, uygulama rollerine doğrudan görev/temizlik DML hakkı vermek.
 
