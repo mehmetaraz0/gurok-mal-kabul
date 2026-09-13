@@ -43,7 +43,10 @@ param(
   [string]$Etiket = (Get-Date -Format 'yyyy-MM-dd'),
   # Dokumler REPO DISINA yazilir. Depo PUBLIC oldugu icin sema dokumu ve
   # referans veri repoya KONMAZ. Ortam degiskeni: GUROK_YEDEK
-  [string]$Hedef = $(if ($env:GUROK_YEDEK) { $env:GUROK_YEDEK } else { 'C:\Users\USER\ERP-Yedek' })
+  [string]$Hedef = $(if ($env:GUROK_YEDEK) { $env:GUROK_YEDEK } else { 'C:\Users\USER\ERP-Yedek' }),
+  # -Veri: SEMA yerine VERI yedegi de alir (--data-only). Geri yukleme
+  # provasi bu dosyayi ister: scripts/pms-yedek-geri-yukleme-provasi.mjs
+  [switch]$Veri
 )
 
 $ErrorActionPreference = 'Stop'
@@ -99,6 +102,19 @@ try {
     if ($LASTEXITCODE -ne 0) {
       Write-Host "    referans veri dokumu basarisiz (cikis kodu $LASTEXITCODE)" -ForegroundColor Yellow
       continue
+    }
+
+    if ($Veri) {
+      $veriYedegi = Join-Path $hedef ($Etiket + '-veri-yedegi.sql')
+      if (Test-Path $veriYedegi) { Write-Host "HATA: $veriYedegi zaten var." -ForegroundColor Red; exit 1 }
+      & $pgDump -h $h -p 5432 -U "postgres.$projectRef" -d postgres `
+          --data-only --no-owner --schema=public --schema=phase0_private -f $veriYedegi
+      if ($LASTEXITCODE -ne 0) {
+        Write-Host "    veri yedegi basarisiz (cikis kodu $LASTEXITCODE)" -ForegroundColor Yellow
+        if (Test-Path $veriYedegi) { [System.IO.File]::Delete($veriYedegi) }
+        continue
+      }
+      Write-Host ("    veri yedegi: " + $veriYedegi) -ForegroundColor Green
     }
 
     $basarili = $true

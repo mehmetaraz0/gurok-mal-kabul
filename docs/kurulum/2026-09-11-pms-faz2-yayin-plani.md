@@ -154,9 +154,13 @@ Supabase panelinden okundu:
 
 Bu, runbook §5'teki "Otomatik günlük yedek (Supabase Pro)" ifadesiyle çelişiyor. Tarihsel kayıt silinmedi; runbook'a tarihli DÜZELTME (§7) eklendi.
 
+**Kapsam ve görünürlük eşitlendi:** sayaç sorgusu, yedeğin kapsadığı iki şemayı (`public` + `phase0_private`) sayar ve çıktısına sayımın yapıldığı rolü, `bypassrls` bayrağını ve FORCE RLS tablo sayısını yazar; geri yükleme provası aynı sorguyu aynı kapsamla çalıştırır. Bugün `phase0_private` şemasında tablo yoktur (yalnız fonksiyon), üretimde FORCE RLS tablo 0'dır ve her iki taraf da `postgres` rolüyle sayar.
+
+**Mekanizma denemesi (2026-09-13):** gerçek veri yedeği henüz yok; betik, şema dökümü + referans veriyle `--mekanik` modunda koşuldu. 75 tablo karşılaştırıldı, fark 0, üç tutarlılık kontrolü 0. Süreler: hazırlık 0,7 sn · geri yükleme 0,2 sn · sayaç karşılaştırması 0,2 sn · tutarlılık 0,6 sn. Uygulama erişimi kontrolü, referans veride ERP kullanıcısı olmadığı için atlandı; bu mod **kabul kanıtı değildir** ve betik bunu çıktısında açıkça yazar.
+
 **Geri yükleme ölçümü (2026-09-13, izole konteyner):** şema dökümü 0,5 sn, referans veri 0,2 sn, Supabase iskelesi 0,2 sn → **toplam ~0,9 sn**, 75 tablo. Bu, *şema* geri yüklemesidir. **Veri yedeğinin** geri yükleme süresi ancak yedek alındıktan sonra ölçülebilir; üretimdeki veri hacmi bugün çok küçük olduğu için saniyeler mertebesinde beklenir ve E-5 provasında gerçek değer ölçülüp rapora yazılır.
 
-**Olası veri kaybı (RPO):** otomatik yedek olmadığı için kayıp aralığı = **yedeğin alındığı an ile olay anı arasındaki süre**. Sabit bir üst sınır yoktur; yedek ne kadar eskiyse kayıp o kadar büyüktür. Yayın penceresinde bu aralık, yedeğin pencere başında alınmasıyla pencere süresine (hedef ≤ 35 dk, müdahale eşiği 45 dk) indirgenir.
+**Olası veri kaybı (RPO):** otomatik yedek olmadığı için kayıp aralığı = **yedeğin okuduğu an ile olay anı arasında yapılan tüm yazmalar**. Sabit bir üst sınır yoktur ve yayın penceresinin zaman çizelgesinden türetilemez: pencere hedefleri kesinti süresini yönetir, yedeğin yaşını değil. Aralığı küçültmenin tek yolu yedeği olaya yakın bir zamanda almaktır; alınan yedeğin okuduğu an, sayaç dosyasındaki `alinma_zamani` ile kayda geçer.
 
 **Plana etkisi:** yayın öncesi yedek, **kullanıcının elle aldığı dökümdür** (şema + referans veri için `dokum-al.ps1`, veri için `pg_dump --data-only`). Elde böyle bir yedek yoksa "yedekten dönüş" seçeneği **yoktur** (§7).
 
@@ -188,7 +192,7 @@ Yayın penceresinin **başlayabilmesi** için aşağıdakilerin tamamı sağlanm
 | K-9 | Yetki matrisi ve iki ayrı test kullanıcısı onayı | ⏳ E-2 |
 | K-10 | Operasyonun pencere ve zaman çizelgesi onayı | ⏳ E-3 |
 | K-11 | "Adım 1 commit'inden sonra eski akışa dönüş yok" riskinin kabulü | ⏳ E-4 |
-| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği alınır, **izole kopyaya geri yüklenir**, üretim sayaçlarıyla satır satır karşılaştırılır ve tutarlılık sorguları 0 verir; geri yükleme süresi ölçülür. Dosyanın var olması yeterli değildir. | ⏳ E-5 |
+| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği izole kopyaya geri yüklenir; satır sayıları üretim sayaçlarıyla (aynı kapsam ve görünürlük) birebir tutar; üç tutarlılık kontrolü 0 verir; temel uygulama erişimi çalışır; süreler ayrı ayrı raporlanır. Dosyanın var olması yeterli değildir. | ⏳ E-5 |
 
 ---
 
@@ -210,7 +214,7 @@ Kabul koşullarını üreten sondalar tek kullanımlık betik olmaktan çıkarı
 | # | Tür | Konu | Kapanma ölçütü |
 |---|---|---|---|
 | E-1 | ~~Önkoşul~~ | Bayt düzeyinde güncel dökümle prova | ✅ **Kapandı** (2026-09-12): döküm alındı, doğrulandı ve tüm zincir onunla tekrarlandı — 1.3 |
-| E-5 | Önkoşul | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | Üç adım birlikte: (1) kullanıcı veri yedeği alır (`pg_dump`, repo dışına); (2) yedekle **aynı dakikada** `docs/kurulum/2026-09-13-yedek-dogrulama-sayaclari.sql` çalıştırılıp çıktısı `<etiket>-sayaclar.json` olarak saklanır; (3) ajan `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json>` ile izole kopyaya geri yükler. **Kapanma ölçütü:** yükleme hatası 0, tüm tablolarda satır sayısı farkı 0, üç tutarlılık sorgusu 0, ve ölçülen geri yükleme süresi rapora yazılmış. Bunlardan biri tutmazsa yedek **kanıt sayılmaz** ve §7'deki "yedekten dönüş" satırı geçersizdir. |
+| E-5 | Önkoşul | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | Üç adım birlikte: (1) kullanıcı veri yedeği alır (`pg_dump`, repo dışına); (2) sayaçlar yedekle **aynı durumu görecek biçimde** alınır — ya **aynı snapshot** (`begin isolation level repeatable read` + `pg_export_snapshot()`, `pg_dump --snapshot=<kimlik>`), ya da **doğrulanmış yazma duraklatması** (yazmalar durdurulur; sayaçlar yedekten önce ve sonra iki kez çalıştırılır ve **değişmediği ölçülür**). Çıktı `<etiket>-sayaclar.json` olarak saklanır; (3) ajan `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json>` ile izole kopyaya geri yükler. **Kapanma ölçütü:** yükleme hatası 0; **kapsamı yedekle eşitlenmiş** (public + phase0_private) tüm tablolarda satır sayısı farkı 0; üç tutarlılık sorgusu 0; **temel uygulama erişimi** doğrulanmış (gerçek bir ERP kullanıcısının kimliğiyle `authenticated` rolünde okuma çalışıyor, `anon` kapalı); hazırlık, geri yükleme, sayaç karşılaştırması, tutarlılık ve erişim **süreleri ayrı ayrı** ölçülüp rapora yazılmış. Bunlardan biri tutmazsa yedek **kanıt sayılmaz** ve §7'deki "yedekten dönüş" satırı geçersizdir. |
 | E-2 | Karar | Yetki matrisi ve iki ayrı test kullanıcısı | §4 matrisi onaylanır; şef ve çalışan rolünde **iki farklı aktif kullanıcı** adıyla belirlenir. |
 | E-3 | Onay | Operasyon onayı | §5.1 penceresi ve §5.2 zaman çizelgesi, operasyondan sorumlu kişi tarafından adı ve saatiyle onaylanır. |
 | E-4 | Risk kabulü | Adım 1 commit'inden sonra eski temizlik akışına dönüş yok | Kullanıcı kabul eder (§5, §7). |
