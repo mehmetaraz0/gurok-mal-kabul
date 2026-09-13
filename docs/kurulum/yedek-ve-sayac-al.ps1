@@ -39,6 +39,8 @@ param(
   [string]$Etiket = (Get-Date -Format 'yyyy-MM-dd'),
   [string]$Hedef = $(if ($env:GUROK_YEDEK) { $env:GUROK_YEDEK } else { 'C:\Users\USER\ERP-Yedek' }),
   [switch]$Duraklatma,
+  # Yalniz baglantiyi ve parolayi sinar; hicbir dosya uretmez.
+  [switch]$YalnizBaglanti,
   # Yalniz yerel mekanizma denemesi icin: parola istemez, var olan PGPASSWORD
   # degerini kullanir ve YALNIZ localhost ile calisir. Uretimde kullanilmaz.
   [switch]$YerelDeneme,
@@ -84,7 +86,7 @@ $sayacOnce  = Join-Path $Hedef ($Etiket + '-sayaclar-once.json')
 $sayacSonra = Join-Path $Hedef ($Etiket + '-sayaclar-sonra.json')
 
 foreach ($f in @($veriYedegi, $sayacDosya)) {
-  if (Test-Path $f) {
+  if ((Test-Path $f) -and -not $YalnizBaglanti) {
     Write-Host "HATA: $f zaten var. Uzerine YAZILMAZ; farkli bir -Etiket verin." -ForegroundColor Red
     exit 1
   }
@@ -128,7 +130,66 @@ function Sayac-Gecerli([string]$f) {
   return ($null -ne $j.satir_sayilari -and $null -ne $j.tablo_sayisi)
 }
 
+# Once UCUZ bir baglanti denemesi yapilir: parola yanlissa yedek/sayac zinciri
+# hic baslamaz ve hatayi DOGRU adlandiririz. (2026-09-13: parola hatasi,
+# "pooler snapshot desteklemiyor" gibi yanlis yonlendiriliyordu.)
+#   DURUM: TAMAM | PAROLA | KIRACI | AG | BILINMEYEN
+function Baglanti-Dene([string]$h) {
+  $gecici = [System.IO.Path]::GetTempFileName()
+  $cikti  = [System.IO.Path]::GetTempFileName()
+  $hataD  = [System.IO.Path]::GetTempFileName()
+  [System.IO.File]::WriteAllText($gecici, 'select 1;')
+  $p = Start-Process -FilePath $psqlExe -NoNewWindow -Wait -PassThru -RedirectStandardOutput $cikti -RedirectStandardError $hataD `
+       -ArgumentList @('-h', $h, '-p', "$Port", '-U', $Kullanici, '-d', $Veritabani, '-X', '-A', '-t', '-v', 'ON_ERROR_STOP=1', '-f', $gecici)
+  $hata = ''
+  try { $hata = [System.IO.File]::ReadAllText($hataD) } catch { }
+  foreach ($x in @($gecici, $cikti, $hataD)) { try { [System.IO.File]::Delete($x) } catch { } }
+  $durum = 'BILINMEYEN'
+  if ($p.ExitCode -eq 0) { $durum = 'TAMAM' }
+  elseif ($hata -match 'password authentication failed') { $durum = 'PAROLA' }
+  elseif ($hata -match 'ENOTFOUND|Tenant or user not found') { $durum = 'KIRACI' }
+  elseif ($hata -match 'could not translate host name|Connection refused|timeout expired|No route to host') { $durum = 'AG' }
+  return [pscustomobject]@{ Durum = $durum; Kod = $p.ExitCode; Hata = ($hata -replace "`r?`n", ' ').Trim() }
+}
+
 try {
+
+$calisan = @()
+$parolaHatasi = $false
+foreach ($h in $sunucular) {
+  $b = Baglanti-Dene $h
+  switch ($b.Durum) {
+    'TAMAM'  { Write-Host ("  baglanti TAMAM  : " + $h) -ForegroundColor Green; $calisan += $h }
+    'PAROLA' { Write-Host ("  PAROLA HATALI   : " + $h) -ForegroundColor Red; $parolaHatasi = $true }
+    'KIRACI' { Write-Host ("  bu havuzda yok  : " + $h + " (proje baska bolgede)") -ForegroundColor DarkGray }
+    'AG'     { Write-Host ("  aga ulasilamadi : " + $h) -ForegroundColor Yellow }
+    default  { Write-Host ("  bilinmeyen hata : " + $h + " -> " + $b.Hata.Substring(0, [Math]::Min(160, $b.Hata.Length))) -ForegroundColor Yellow }
+  }
+}
+
+if ($calisan.Count -eq 0) {
+  Write-Host ''
+  if ($parolaHatasi) {
+    Write-Host 'PAROLA DOGRULANAMADI. Hicbir dosya olusturulmadi.' -ForegroundColor Red
+    Write-Host 'Sunucu projeyi buldu ama parolayi reddetti; bu bir snapshot ya da havuz sorunu DEGILDIR.' -ForegroundColor Red
+    Write-Host 'Dogru parolayla tekrar deneyin. Parolayi hatirlamiyorsaniz Supabase panelinden' -ForegroundColor Yellow
+    Write-Host 'sifirlamaniz gerekir (sifirlama mevcut baglantilari koparir).' -ForegroundColor Yellow
+    Write-Host 'Yalniz baglantiyi sinamak icin: -YalnizBaglanti' -ForegroundColor Yellow
+  } else {
+    Write-Host 'HICBIR SUNUCUYA BAGLANILAMADI. Hicbir dosya olusturulmadi.' -ForegroundColor Red
+    Write-Host 'Supabase panelindeki Session pooler adresini ve bolgeyi kontrol edin.' -ForegroundColor Yellow
+  }
+  exit 1
+}
+$sunucular = $calisan
+
+if ($YalnizBaglanti) {
+  Write-Host ''
+  Write-Host ('Baglanti dogrulandi: ' + ($calisan -join ', ')) -ForegroundColor Green
+  Write-Host 'Yedek alinmadi (-YalnizBaglanti).' -ForegroundColor Cyan
+  exit 0
+}
+
   $basarili = $false
   $sureSn = 0
   $duraklatmaSn = 0
@@ -189,9 +250,9 @@ try {
   if (-not $basarili) {
     Write-Host ''
     Write-Host 'BASARISIZ. Hicbir sunucuda yedek + sayac ciftini alamadim.' -ForegroundColor Red
+    Write-Host 'Baglanti ve parola dogrulanmisti; sorun yedek/sayac adimindadir.' -ForegroundColor Red
     if (-not $Duraklatma) {
-      Write-Host 'Pooler snapshot disari vermeyi desteklemiyorsa (A) calismaz.' -ForegroundColor Red
-      Write-Host 'Yazmalari durdurup (B) ile tekrar deneyin:' -ForegroundColor Yellow
+      Write-Host 'Havuz snapshot disari vermeyi desteklemiyorsa (A) calismaz. (B) ile tekrar deneyin:' -ForegroundColor Yellow
       Write-Host ('  .\docs\kurulum\yedek-ve-sayac-al.ps1 -Etiket ' + $Etiket + ' -Duraklatma') -ForegroundColor Yellow
     }
     exit 1

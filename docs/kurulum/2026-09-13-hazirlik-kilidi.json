@@ -30,7 +30,7 @@
     {
       "yol": "docs/kurulum/yedek-ve-sayac-al.ps1",
       "ne": "Yedek alma otomasyonu",
-      "sha256": "4930152e74a6667122dbd3996314c7479c3deb6b0d80f2755b60f2a648697a88"
+      "sha256": "16e8a7512fe63541e2a6adfd4096fb6eb5613085aa11ea67768cfe4743b0e8d6"
     },
     {
       "yol": "docs/kurulum/dokum-al.ps1",
