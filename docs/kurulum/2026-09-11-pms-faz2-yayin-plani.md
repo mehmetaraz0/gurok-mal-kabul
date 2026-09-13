@@ -176,6 +176,24 @@ Bütünlük bu yüzden varsayılmaz, **sonradan kanıtlanır**: prova `public` +
 
 **Mekanizma denemesi (2026-09-13, yerel sentetik veri):** şema dökümü + referans veri + iki sentetik kullanıcı içeren yerel kopyadan yukarıdaki otomasyonla yedek alındı ve prova tam koştu. 75 tablo → fark 0; auth kapsamı → 2 kimlik gerekiyor, yedekten 0 geldi; 61 FK → ihlal 0; üç tutarlılık kontrolü → 0; uygulama erişimi → 5/5 geçti (`anon` kapalı). Süreler: hazırlık 0,8 sn · geri yükleme 0,2 sn · auth kapsamı 0,6 sn · FK bütünlüğü 0,3 sn · satır sayıları 0,2 sn · tutarlılık 0,6 sn · uygulama erişimi 1,2 sn. **Bu bir kabul kanıtı değildir**: veri üretimden gelmemiştir. Çıktı hangi sayaç dosyasından beslendiğini (`alinma_zamani`, sunucu sürümü, rol) kendi içinde yazar ki yerel deneme ile üretim provası karıştırılmasın.
 
+**E-5 provası — ÜRETİM YEDEĞİYLE, 2026-09-13.** Yedek `yedek-ve-sayac-al.ps1` ile aynı snapshot yolundan alındı (`aws-0-ap-northeast-1`, tek parola istemi, 54,7 sn). Üretilenler repo dışında: `C:\Users\USER\ERP-Yedek\2026-09-13-pre-faz2-veri-yedegi.sql` (757.033 bayt, SHA-256 `7D3AFF78B5F1807460157A2766AE59BF019981EE4E973D32D60555B3B77456DA`) ve `2026-09-13-pre-faz2-sayaclar.json`. Sayaçların okuduğu an: **2026-09-13T07:40:53Z** (sunucu 17.6, rol `postgres`, `bypassrls` true, FORCE RLS tablo 0). Üretim büyüklüğü: 75 tablonun 57'si dolu, toplam 6.512 satır; denetim izi 22 satır (son kayıt 2026-09-08T19:24:44Z); PMS özeti oda 2 / dolu oda 1 / devam eden konaklama 1 / aktif atama 2 / açık folyo 0.
+
+İzole kopyada **hiçbir kontrol atlanmadı**:
+
+| Aşama | Süre | Sonuç |
+|---|---|---|
+| Hazırlık (iskele + 2026-09-12 şema dökümü) | 0,7 sn | 0 hata |
+| **Geri yükleme** (veri yedeği) | **0,3 sn** | 0 hata |
+| Auth kapsamı | 0,6 sn | 13 kimlik gerekiyor, **yedekten 0 geldi** (prova için üretildi) |
+| FK bütünlüğü | 0,3 sn | 61 FK `validate constraint`, **ihlal 0** |
+| Satır sayıları | 0,2 sn | 75 tablo, **fark 0** |
+| Veri tutarlılığı | 0,6 sn | üç kontrol de 0 |
+| Uygulama erişimi | 1,3 sn | 5/5 — kimlik çözüldü, modüller okundu, `anon` kapalı |
+
+Uygulama erişiminde seçilen aktör (`tum_oteller=true`) `auth_yetki_var('pms_oda','goruntule')` için **false** aldığı için oda listesini 0 satır gördü; bu tutarlıdır (yetkisi yok), sessiz RLS hatası değildir.
+
+**Olası veri kaybı aralığı (bu yedek için):** yedeğin okuduğu an **2026-09-13T07:40:53Z**'den sonra üretime yazılan her şey. Yayın penceresi bu yedekten belirgin biçimde sonra açılırsa, pencere başında yedek **yenilenir**; aksi hâlde aradaki tüm yazmalar kayıp aralığındadır.
+
 **Hazırlık betikleri sabitlendi (2026-09-13).** Yayın penceresinde çalışacak ve kanıt üreten 11 dosyanın LF içeriği üzerinden SHA-256'ları `docs/kurulum/2026-09-13-hazirlik-kilidi.json` dosyasına yazıldı; `node scripts/hazirlik-kilidi.mjs` sapmayı gösterir. Kilitteki Adım 1 ve Adım 2 özetleri §0'daki yayın özetleriyle aynıdır. Bir dosya bilinçli değişirse kilit yenilenir ve **ilgili provalar tekrarlanır**.
 
 **Geri yükleme ölçümü (2026-09-13, izole konteyner):** şema dökümü 0,5 sn, referans veri 0,2 sn, Supabase iskelesi 0,2 sn → **toplam ~0,9 sn**, 75 tablo. Bu, *şema* geri yüklemesidir. **Veri yedeğinin** geri yükleme süresi ancak yedek alındıktan sonra ölçülebilir; üretimdeki veri hacmi bugün çok küçük olduğu için saniyeler mertebesinde beklenir ve E-5 provasında gerçek değer ölçülüp rapora yazılır.
@@ -212,7 +230,7 @@ Yayın penceresinin **başlayabilmesi** için aşağıdakilerin tamamı sağlanm
 | K-9 | Yetki matrisi ve iki ayrı test kullanıcısı onayı | ⏳ E-2 |
 | K-10 | Operasyonun pencere ve zaman çizelgesi onayı | ⏳ E-3 |
 | K-11 | "Adım 1 commit'inden sonra eski akışa dönüş yok" riskinin kabulü | ⏳ E-4 |
-| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği izole kopyaya geri yüklenir; satır sayıları üretim sayaçlarıyla (aynı kapsam ve görünürlük) birebir tutar; **her yabancı anahtar yeniden doğrulanır (ihlal 0)**; üç tutarlılık kontrolü 0 verir; temel uygulama erişimi çalışır; **yedeğin kurtarma kapsamı (auth dahil değil) sayıyla raporlanır**; süreler ayrı ayrı raporlanır. Dosyanın var olması yeterli değildir. | ⏳ E-5 |
+| K-12 | **Yedek, geri yükleme provasıyla kanıtlanır**: veri yedeği izole kopyaya geri yüklenir; satır sayıları üretim sayaçlarıyla (aynı kapsam ve görünürlük) birebir tutar; **her yabancı anahtar yeniden doğrulanır (ihlal 0)**; üç tutarlılık kontrolü 0 verir; temel uygulama erişimi çalışır; **yedeğin kurtarma kapsamı (auth dahil değil) sayıyla raporlanır**; süreler ayrı ayrı raporlanır. Dosyanın var olması yeterli değildir. | ✅ 1.8 (2026-09-13, üretim yedeğiyle) |
 
 ---
 
@@ -235,7 +253,7 @@ Kabul koşullarını üreten sondalar tek kullanımlık betik olmaktan çıkarı
 | # | Tür | Konu | Kapanma ölçütü |
 |---|---|---|---|
 | E-1 | ~~Önkoşul~~ | Bayt düzeyinde güncel dökümle prova | ✅ **Kapandı** (2026-09-12): döküm alındı, doğrulandı ve tüm zincir onunla tekrarlandı — 1.3 |
-| E-5 | Önkoşul | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | İki adım: (1) kullanıcı `.\docs\kurulum\yedek-ve-sayac-al.ps1 -Etiket <etiket>` komutunu çalıştırıp **yalnız parolayı** girer; betik yedeği ve sayaçları **aynı snapshot** ile üretir (pooler desteklemezse `-Duraklatma` ile **doğrulanmış yazma duraklatması**: sayaçlar yedekten önce ve sonra okunur, eşit değillerse yedek reddedilir). Dosyalar repo dışına (`C:\Users\USER\ERP-Yedek`) yazılır; (2) ajan `node scripts/pms-yedek-geri-yukleme-provasi.mjs <yedek> <sayaclar.json> --sema <sema-dokumu.sql>` ile izole kopyaya geri yükler. **Kapanma ölçütü:** yükleme hatası 0; **kapsamı yedekle eşitlenmiş** (public + phase0_private) tüm tablolarda satır sayısı farkı 0; **her yabancı anahtar `validate constraint` ile doğrulanmış, ihlal 0**; üç tutarlılık sorgusu 0; **temel uygulama erişimi** doğrulanmış (gerçek bir ERP kullanıcısının kimliğiyle `authenticated` rolünde okuma çalışıyor, `anon` kapalı); **kurtarma kapsamı** raporlanmış (kaç kimlik gerekiyor, yedekten kaçı geldi); hazırlık, geri yükleme, auth kapsamı, FK bütünlüğü, sayaç karşılaştırması, tutarlılık ve erişim **süreleri ayrı ayrı** ölçülüp rapora yazılmış. Bunlardan biri tutmazsa yedek **kanıt sayılmaz** ve §7'deki "yedekten dönüş" satırı geçersizdir. Atlanan kontrol varsa E-5 **kapanmaz**. |
+| E-5 | ~~Önkoşul~~ | **Yedek + geri yükleme provası** — otomatik yedek yok (1.8) | ✅ **Kapandı** (2026-09-13): yedek `yedek-ve-sayac-al.ps1` ile **aynı snapshot** yolundan alındı; izole kopyada **hiçbir kontrol atlanmadan** doğrulandı — yükleme hatası 0, 75 tabloda satır farkı 0, 61 FK doğrulandı (ihlal 0), üç tutarlılık kontrolü 0, uygulama erişimi 5/5. Ölçümler ve kurtarma kapsamı 1.8'de. |
 | E-2 | Karar | Yetki matrisi ve iki ayrı test kullanıcısı | §4 matrisi onaylanır; şef ve çalışan rolünde **iki farklı aktif kullanıcı** adıyla belirlenir. |
 | E-3 | Onay | Operasyon onayı | §5.1 penceresi ve §5.2 zaman çizelgesi, operasyondan sorumlu kişi tarafından adı ve saatiyle onaylanır. |
 | E-4 | Risk kabulü | Adım 1 commit'inden sonra eski temizlik akışına dönüş yok | Kullanıcı kabul eder (§5, §7). |
@@ -339,7 +357,7 @@ Sıra mimari §16'dır: **migration → roller → uyumlu arayüz → modülü a
 | Güncel dökümle prova | ⏳ E-1 |
 | Yetki matrisi ve kullanıcılar | ⏳ E-2 |
 | Pencere ve zaman çizelgesi onayı | ⏳ E-3 |
-| Yedek (E-5) | **Otomatik yedek yok** (1.8). Pencere öncesi elle alınan veri yedeğinin dosya yolu ve saati kayda geçer |
+| Yedek (E-5) | **Otomatik yedek yok** (1.8). Elde 2026-09-13T07:40:53Z yedeği var ve provası geçti. Pencere bu tarihten sonraya kalırsa yedek **pencere başında yenilenir** (`yedek-ve-sayac-al.ps1`) ve yeni dosyanın yolu, SHA-256'sı, `alinma_zamani`'si kayda geçer |
 
 ### 6.1 Pencere (`CANLIYA UYGULA` şart)
 
