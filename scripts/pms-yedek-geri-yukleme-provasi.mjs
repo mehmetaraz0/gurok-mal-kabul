@@ -21,8 +21,8 @@
 //
 // DOGRULANANLAR (sureleri AYRI olculur ve ayri raporlanir):
 //   1) Geri yukleme            — dosya yuklenir, hata sayisi 0 olmali
-//   2) Auth kapsami            — yedek auth semasini ICERMEZ; kac kimlik
-//                                gerektigi ve yedekten kacinin geldigi olculur
+//   2) Auth kapsami            — VERI yedeginin kimlik icermedigi olculur; kac
+//                                kimlik gerektigi raporlanir (auth ayri dosyada)
 //   3) FK butunlugu            — her yabanci anahtar yeniden DOGRULANIR
 //   4) Satir sayilari          — uretim sayaclariyla BIREBIR karsilastirma
 //                                (kapsam: public + phase0_private semalari)
@@ -164,8 +164,9 @@ const tAuth = Date.now();
 const gerekenKimlik = Number(tek(
   'select count(distinct auth_user_id) from public.kullanicilar where auth_user_id is not null;'));
 const yedektenGelenKimlik = Number(tek('select count(*) from auth.users;'));
-console.log('4) AUTH KAPSAMI      : kullanicilar ' + gerekenKimlik + ' kimlik istiyor · yedekten gelen '
-  + yedektenGelenKimlik + ' (auth semasi yedege DAHIL DEGIL)');
+console.log('4) AUTH KAPSAMI      : kullanicilar ' + gerekenKimlik + ' kimlik istiyor · VERI yedeginden gelen '
+  + yedektenGelenKimlik
+  + (authVeri ? ' (auth AYRI dosyada; asama 9 dogrular)' : ' (auth semasi yedege DAHIL DEGIL)'));
 if (gerekenKimlik > yedektenGelenKimlik) {
   // Gercek kurtarmada bu kimlikler AYNI projenin auth semasinda zaten durur.
   // Provada onlari temsilen uretiyoruz; sayisi yukarida raporlanir.
@@ -174,7 +175,8 @@ if (gerekenKimlik > yedektenGelenKimlik) {
        where auth_user_id is not null
          and not exists (select 1 from auth.users u where u.id = auth_user_id);`);
   console.log('   ' + (e.ok ? 'eksik kimlikler PROVA ICIN uretildi (yedekte yok): '
-    + (gerekenKimlik - yedektenGelenKimlik) : 'HATA ' + ilkHata(e.err)));
+    + (gerekenKimlik - yedektenGelenKimlik) + (authVeri ? ' (gecici; asama 9 gercegini yukler)' : '')
+    : 'HATA ' + ilkHata(e.err)));
 }
 const authSn = sn(tAuth);
 

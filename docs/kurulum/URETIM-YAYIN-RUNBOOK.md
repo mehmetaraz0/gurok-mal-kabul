@@ -465,3 +465,74 @@ Ayrıca RPC adı bilerek bozularak **fail-closed** davranış ölçüldü: seçi
 Yayın öncesi QA'da kullanılan çapraz otel rolünde `pms_oda` yetkisi yoktur; o kullanıcı oda planını boş görür. Kat hizmetlerini etkilemez (oda seçici ayrı RPC kullanır). Üretimde çapraz otelli bir kullanıcının oda planını da görmesi isteniyorsa ilgili role `pms_oda` yetkisi ayrıca verilmelidir.
 
 §8'deki "otel seçici" açık maddesi bu yayınla kapanmıştır. Faz 2 yayınında iki test kullanıcısına verilen `otel_id = '810'` **kalıcı bırakılmıştı**; seçici geldikten sonra da **kalması kullanıcı kararıdır** (2026-09-13). Yani o iki kullanıcı 810'a kilitli kalır ve otel seçici onlarda görünmez; çapraz otel seçebilmeleri istenirse `otel_id` boşaltılmalıdır.
+
+---
+
+## 10. Auth yedeği — 2026-09-13
+
+### Ne değişti
+
+Elle alınan yedek artık `auth` şemasını da kapsıyor. `yedek-ve-sayac-al.ps1`
+tek parola istemiyle ve **veri yedeğiyle aynı snapshot'tan** iki dosya daha
+üretiyor:
+
+| Dosya | İçerik | Sır taşır mı |
+|---|---|---|
+| `<etiket>-auth-yedegi.sql` | auth şeması VERİSİ (`--data-only`) | **Evet** — parola hash'leri, e-postalar, canlı oturum ve yenileme token'ları |
+| `<etiket>-auth-sema.sql` | auth şeması YAPISI (`--schema-only --no-privileges`) | Hayır — izole prova içindir; gerçek kurtarmada hedef projenin auth şeması platformdan gelir |
+
+Kapsam kararı kullanıcınındır: **tüm `auth` şeması**. Bedeli ölçülüp kabul
+edildi — dosya 143 oturum, 143 yenileme token'ı ve 143 MFA kaydı taşıyor.
+Daha dar bir kapsam (`users` + `identities`) da kurtarmaya yeterdi ve
+önerilmişti.
+
+**Saklama:** yalnız **en yeni** auth yedeği durur; yeni yedek alınırken
+hedef klasördeki eski `*-auth-yedegi.sql` ve `*-auth-sema.sql` silinir. Veri
+yedekleri ve sayaçlar birikmeye devam eder. `.gitignore` bu dosyaların repoya
+girmesini engeller.
+
+### Prova — yedinci aşama
+
+Mevcut altı aşama korunur; auth yedeği verildiğinde sonlarına bir aşama
+eklenir. Sıra zorunludur: izole kopyadaki `auth` şeması bizim iskelemizdir ve
+`auth.uid()` sözleşmesini o taşır. Gerçek auth onun üstüne yüklenirse ilk altı
+aşamanın kanıtı geçersizleşir. Bu yüzden iskele `auth_iskele` adına alınır,
+gerçek auth ayrı kurulur ve `kullanicilar.auth_user_id` eşleşmesi ölçülür.
+
+### Ölçüm (üretim yedeğiyle, 2026-09-13)
+
+Yedek: `2026-09-13-tam-*` (veri 771.125 bayt, auth verisi 99.495 bayt, auth
+şeması 50.818 bayt). Taban: aynı gün alınan **POST-FAZ2** şema dökümü
+(`2026-09-13-post-faz2-sema-dokumu.sql`, 425.762 bayt).
+
+| Aşama | Süre | Sonuç |
+|---|---|---|
+| Hazırlık (iskele + şema) | 0,8 sn | 0 hata |
+| Geri yükleme | 0,3 sn | 0 hata |
+| Auth kapsamı (veri yedeği) | 0,6 sn | 13 kimlik gerekiyor, veri yedeğinden 0 (beklenen) |
+| FK bütünlüğü | 0,3 sn | **68 FK** doğrulandı, ihlal 0 |
+| Satır sayıları | 0,2 sn | **76 tablo, fark 0** |
+| Veri tutarlılığı | 0,6 sn | üç kontrol de 0 |
+| Uygulama erişimi | 1,3 sn | 5/5 |
+| **Auth kurtarma** | **1,1 sn** | **13/13 kimlik yedekten geldi, yükleme hatası 0** |
+
+Sonuç: **GERİ YÜKLEME PROVASI GEÇTİ.** Giriş kurtarması artık ölçülmüş bir
+kanıta dayanıyor; yayın planı §1.8'deki "kimse giriş yapamaz" tespitine tarihli
+düzeltme düşüldü.
+
+### Bu iş sırasında öğrenilenler
+
+1. **Saklama temizliği kendi ürettiği dosyayı sildi.** Desen `*-auth-*.sql`
+   idi; etiketi `auth` ile biten koşuda VERİ yedeğinin adı da (`<etiket>-veri-yedegi.sql`)
+   bu desene uydu ve dosya silindi. Üretimde bir kez yaşandı; veri kaybı
+   olmadı (üretime dokunulmaz, dosya yeniden alındı). Ders: **adı kullanıcı
+   girdisinden türeyen dosyalarda joker desenle temizlik yapma; sonek eşleştir.**
+   Düzeltildi: `*-auth-yedegi.sql` ve `*-auth-sema.sql` ayrı ayrı taranıyor.
+2. **PowerShell'de parametre adı yerel değişkenle çakışabiliyor.** `dokum-al.ps1`'e
+   eklenen `-Veri` anahtarı, dosyadaki `$veri` değişkeniyle çakıştı (büyük/küçük
+   harf ayrılmıyor) ve betik ilk çalıştırmada patladı. Ders: **kilitli bir betiğe
+   anahtar eklendiğinde betik en az bir kez baştan sona koşturulmalı.**
+3. **Prova, eski tabana yeni veriyi yüklemeyi reddetti ve bu doğruydu.** İlk koşu
+   Faz 2 öncesi şema dökümüyle yapıldığı için başarısız oldu (eksik kolon ve
+   tablo). Yayından sonra **yeni taban dökümü almak** bu yüzden bir formalite
+   değil, provanın önkoşuludur.

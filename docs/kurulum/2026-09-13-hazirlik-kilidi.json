@@ -25,17 +25,17 @@
     {
       "yol": "docs/kurulum/yedek-snapshot-surucu.sql",
       "ne": "Yedek + sayac surucusu (ayni snapshot)",
-      "sha256": "55dfa2791d837f7f1ca93389572dbc75eefc7083d7e119b5b4639708633341cf"
+      "sha256": "0c674dd6fe61044b03c61aa13d67d0708aa26cf9b468abdb901f2b88b80cc718"
     },
     {
       "yol": "docs/kurulum/yedek-ve-sayac-al.ps1",
       "ne": "Yedek alma otomasyonu",
-      "sha256": "16e8a7512fe63541e2a6adfd4096fb6eb5613085aa11ea67768cfe4743b0e8d6"
+      "sha256": "c1f55231a5ac140efff2673aab7bfc04733e65a9e3e64e9dd9ece2d28a61a469"
     },
     {
       "yol": "docs/kurulum/dokum-al.ps1",
       "ne": "Sema/referans dokumu alma",
-      "sha256": "af6f15dd2ec9a2a87fd31081bfeecbc37ff788f300b5256f94624b67a6160277"
+      "sha256": "ce837392b1382353094a51df6f90b82823d939fd1a7b4a3d497c6d9d2f14351f"
     },
     {
       "yol": "scripts/supabase-shim.sql",
@@ -45,7 +45,7 @@
     {
       "yol": "scripts/pms-yedek-geri-yukleme-provasi.mjs",
       "ne": "E-5 geri yukleme provasi",
-      "sha256": "b0c8ef85ce4ebe1dab2b67c5b252a2ab283165261d0ac9fdb25de2b0b21eb342"
+      "sha256": "9ae9a007d4c673da90f383281ea4b42cb0bc553aa6fab7999fc6b0cb98d57545"
     },
     {
       "yol": "scripts/pms-faz2-yetki-negatif.mjs",
