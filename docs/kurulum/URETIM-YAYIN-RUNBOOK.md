@@ -380,7 +380,7 @@ Sonuçlar:
 - **D1 — denetim döngüsü.** Oda 102 çıkış temizliği görevi: Sistem Test başlattı (15:14:23Z) ve tamamladı (15:14:52Z); **MEHMET ARAZ denetledi** (15:16:14Z). `durum = kontrol_edildi`, `surum = 5`. Yapan ile denetleyen **farklı kullanıcı** — denetim bağımsızlığı üretimde kanıtlandı.
 - **D2 — çıkış üreticisi.** Oda 102'nin gerçek check-out'u yapıldı; oda `boş + kirli` oldu ve `cikis_temizligi` görevi `bekliyor` durumunda, `olusturma_kaynagi = 'checkout'` ile **kendiliğinden** doğdu. Oda planında rozet ve "Kat Hizmetlerinde Aç" bağlantısı da çalıştı.
 - **D3 — Faz 2 dışı denetim regresyonu.** Taban sonrası 14 denetim satırı: `pms_housekeeping_gorevleri` (6) ve `pms_odalar` (6) satırlarının **hepsi** `islem_detayi` taşıyor; `pms_rezervasyonlar` (2) satırının **hiçbiri** taşımıyor. Değiştirilen ortak denetim fonksiyonu diğer tetikleyiciler için eski davranışını koruyor.
-- **D4 — yetki sınırı.** `goruntule` seviyesinde tek aday kullanıcı var (WWWWWW / Genel Müdür). Yayın penceresinde **yapılmadı**; izole kopyadaki 32 negatif yetki testi bu sınırı davranışsal olarak kanıtlıyor (yayın planı 1.6).
+- **D4 — yetki sınırı.** Yayın penceresinde yapılamamıştı; **2026-09-13 akşamı canlıda gözlendi.** `goruntule` seviyesindeki kullanıcı (Genel Müdür) kat hizmetleri listesini görüyor, kartlarda **hiçbir komut düğmesi yok**. Karşılaştırma: aynı durumdaki (`kontrol_edildi`) kartta `tam` yetkili kullanıcı "Yeniden Aç" düğmesini görüyor. İzole kopyadaki 32 negatif yetki testi (yayın planı 1.6) bu sınırı ayrıca davranışsal olarak kanıtlıyor.
 
 ### Yayın sırasında öğrenilenler
 
@@ -414,8 +414,7 @@ Sonuçlar:
 ### Üretimde kalan kalıcı iz
 
 - Oda 102: `cikis_temizligi` görevi `kontrol_edildi` (terminal), oda `boş + kontrol_edildi`.
-- Oda 101: `ekstra_temizlik` görevi `bekliyor` (atanmamış), oda `boş + kirli`.
-  **Bu oda temizlik akışı tamamlanana kadar satılabilir değildir.**
+- Oda 101: `ekstra_temizlik` görevi **2026-09-13 akşamı tamamlandı ve denetlendi** (`kontrol_edildi`, denetleyen MEHMET ARAZ). Oda yeniden satılabilir durumdadır.
 - `erp_islem_audit`: 22 → 36 satır.
 - `kullanicilar.otel_id`: `MEHMET ARAZ` ve `Sistem Test` için `810` (kalıcı, kullanıcı kararı).
 - Oda 101'in bekleyen görevini kullanıcı kapatacağını bildirdi; kapanana kadar oda satılabilir değildir.
