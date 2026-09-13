@@ -56,15 +56,19 @@ Bugün `tum_oteller = true` olan bir QA kullanıcısı yok; hata yerelde göster
 -- ---------------------------------------------------------------------------
 -- ÇAPRAZ OTEL KULLANICISI — otel seçici QA'sı için.
 -- otel_id BOŞ, tum_oteller TRUE: ekranın otel seçmesi gereken durum budur.
+-- Rol b0…a7, bu dosyada pms_housekeeping için `tam` yetkisi verilen QA rolüdür.
 -- ---------------------------------------------------------------------------
-insert into auth.users (id) values ('a0000000-0000-0000-0000-0000000000a8')
-  on conflict (id) do nothing;
+insert into auth.users (id, email) values
+  ('a0000000-0000-0000-0000-0000000000a8','qa-tum-oteller@ornek.gecersiz')
+on conflict (id) do nothing;
 
 insert into public.kullanicilar (id, auth_user_id, rol, rol_id, otel_id, aktif, tum_oteller, ad) values
-  ('a0000000-0000-0000-0000-0000000000a8', 'a0000000-0000-0000-0000-0000000000a8',
-   'yonetici', 'b0000000-0000-0000-0000-0000000000a7', null, true, true, 'QA Tüm Oteller')
-  on conflict (id) do nothing;
+  ('c0000000-0000-0000-0000-0000000000a8','a0000000-0000-0000-0000-0000000000a8',
+   'yonetici','b0000000-0000-0000-0000-0000000000a7', null, true, true, 'QA Tüm Oteller')
+on conflict (id) do nothing;
 ```
+
+`kullanicilar.id` ile `auth_user_id` bu dosyada **ayrı** uuid uzaylarıdır (`c0…` ve `a0…`); PIN haritası `auth_user_id` değerini kullanır.
 
 `b0000000-…a7` rolü, aynı dosyada `pms_housekeeping` için `tam` yetkisi verilen QA rolüdür (bkz. `QA Kat Sefi` kaydı).
 

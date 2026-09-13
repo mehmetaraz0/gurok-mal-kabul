@@ -58,6 +58,7 @@ const PINLER = {
   '555555': 'a0000000-0000-0000-0000-0000000000a5',  // QA Yetkisiz (kat hizmetleri YOK)
   '666666': 'a0000000-0000-0000-0000-0000000000a6',  // QA Kat Gorevlisi 2 (kayit)
   '777777': 'a0000000-0000-0000-0000-0000000000a7',  // QA HK-only Sef (tam, pms_oda YOK)
+  '888888': 'a0000000-0000-0000-0000-0000000000a8',  // QA Tum Oteller (otel_id YOK, tum_oteller)
 };
 
 function calistir(komut, args, girdi) {
