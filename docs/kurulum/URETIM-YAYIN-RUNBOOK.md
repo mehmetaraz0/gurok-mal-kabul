@@ -393,6 +393,12 @@ Sonuçlar:
    kararıyla kalıcı bırakıldı** (tek otelli demo; ekranın bu kullanıcılarda çalışır
    kalması istendi). **Açık madde:** ya ekrana otel seçici eklenmeli ya da kat hizmetleri
    kullanıcılarının `otel_id`'si dolu olmalıdır.
+   **Çözüldü (2026-09-13, yayın bekliyor):** ekrana otel seçici eklendi; çapraz otel
+   hakkı `auth_tum_oteller()` ile sunucudan **fail-closed** okunuyor, şema değişmedi.
+   Tasarım `docs/superpowers/specs/2026-09-13-kat-hizmetleri-otel-secici-design.md`,
+   plan `docs/superpowers/plans/2026-09-13-kat-hizmetleri-otel-secici.md`. Otel atamalı
+   kullanıcının davranışı aynı kaldı. Yerel izole ortamda sekiz kontrolle doğrulandı;
+   üretime yayın ayrı bir `CANLIYA UYGULA` onayına bağlıdır.
 2. **Tarayıcı otomasyonu yayın kanalı olarak güvenilmezdir.** SQL Editor'e yapıştırma
    yöntemi pencere ortasında çöktü (JS çalışıyor, tıklama/tuş ulaşmıyor). Aynı baytlar
    psql ile `--single-transaction` altında uygulandı; dosya özeti uygulamadan önce
