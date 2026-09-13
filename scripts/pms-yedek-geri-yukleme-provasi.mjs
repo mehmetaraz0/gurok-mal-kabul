@@ -13,6 +13,8 @@
 //   [sayaclar.json]   docs/kurulum/2026-09-13-yedek-dogrulama-sayaclari.sql ciktisi
 //   --sema <dosya>    Yedek VERI-ONLY ise once yuklenecek sema dokumu
 //                     (ya da PMS_SEMA ortam degiskeni)
+//   --auth-veri <d>   Auth VERI yedegi (SIR TASIR) — yedinci asamayi acar
+//   --auth-sema <d>   Auth SEMA yapisi — --auth-veri ile birlikte zorunlu
 //   --mekanik         Yalniz mekanizma denemesi: gercek veri yedegi yoksa
 //                     uygulama erisimi kontrolu ATLANIR ve cikis kodu bundan
 //                     etkilenmez. Kabul kanitinda KULLANILMAZ.
@@ -27,10 +29,15 @@
 //   5) Veri tutarliligi        — uc kontrol, hepsi 0 olmali
 //   6) Temel uygulama erisimi  — gercek bir ERP kullanicisinin kimligiyle
 //                                authenticated rolunde okuma; anon'a kapali
+//   7) Auth kurtarma           — YALNIZ --auth-veri verildiginde. Iskele auth
+//                                semasi KENARA ALINIR (auth_iskele), gercek
+//                                auth yuklenir ve kullanicilar.auth_user_id
+//                                eslesmesi olculur: eksik 0 olmali.
 //
-// KURTARMA KAPSAMI: bu yedek public + phase0_private VERISIDIR. auth, storage,
-// realtime, roller ve uzantilar KAPSAM DISIDIR. Gecerli senaryo, AYNI projede
-// veri kaybini geri almaktir; bos bir projede kimse giris yapamaz.
+// KURTARMA KAPSAMI: auth yedegi VERILMEZSE bu yedek public + phase0_private
+// VERISIDIR ve bos projede kimse giris yapamaz. Auth yedegi verilir ve yedinci
+// asama gecerse kimlikler de kapsamdadir. storage, realtime, roller ve
+// uzantilar her durumda kapsam disidir.
 // ============================================================================
 import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync, statSync } from 'node:fs';
@@ -40,11 +47,16 @@ const kok = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$
 const argv = process.argv.slice(2);
 const bayrak = (ad) => argv.includes(ad);
 const deger = (ad) => { const i = argv.indexOf(ad); return i >= 0 ? argv[i + 1] : undefined; };
-const konum = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--sema');
+const konum = argv.filter((a, i) => !a.startsWith('--')
+  && argv[i - 1] !== '--sema' && argv[i - 1] !== '--auth-veri' && argv[i - 1] !== '--auth-sema');
 
 const yedek = konum[0];
 const sayacDosyasi = konum[1];
 const semaDosyasi = deger('--sema') || process.env.PMS_SEMA;
+// Auth kurtarma asamasi (7). Iki dosya birlikte verilir: yapi olmadan veri
+// yuklenemez. Verilmezse asama atlanir ve cikti bugunku kapsam uyarisini yazar.
+const authVeri = deger('--auth-veri') || process.env.PMS_AUTH_VERI;
+const authSema = deger('--auth-sema') || process.env.PMS_AUTH_SEMA;
 const mekanik = bayrak('--mekanik');
 
 if (!yedek || !existsSync(yedek)) {
@@ -313,9 +325,54 @@ if (!aktorSatiri || !aktorSatiri.includes('|')) {
 }
 const erisimSn = sn(tErisim);
 
+// --- 7) AUTH KURTARMA ------------------------------------------------------
+// SIRA ONEMLI: buraya kadarki alti asama, ISKELE auth semasindaki auth.uid()
+// sozlesmesiyle kanitlandi. Gercek auth semasi onun USTUNE yuklenirse o kanit
+// gecersizlesir; bu yuzden iskele KENARA ALINIR ve gercek auth ayri kurulur.
+const tAuth2 = Date.now();
+let authDurum = 'atlandi';
+let authGereken = 0;
+let authEslesen = 0;
+let authHatalari = [];
+if (authVeri) {
+  if (!authSema) {
+    console.log('9) AUTH KURTARMA    : BASARISIZ — --auth-sema verilmedi; yapi olmadan veri yuklenemez');
+    authDurum = 'basarisiz';
+  } else if (!existsSync(authVeri) || !existsSync(authSema)) {
+    console.log('9) AUTH KURTARMA    : BASARISIZ — auth dosyalarindan biri bulunamadi');
+    authDurum = 'basarisiz';
+  } else {
+    // Iskele kenara alinir. Semayi burada YARATMIYORUZ: auth sema dokumu kendi
+    // `CREATE SCHEMA auth` satirini tasir. Tasimayan bir dokum de calissin diye
+    // "zaten var" hatasi asagida yok sayilir.
+    d(psql(['-v', 'ON_ERROR_STOP=1']), 'alter schema auth rename to auth_iskele;');
+    const authHata = (s) => yukHatalari(s).filter((l) => !/schema "auth" already exists/.test(l));
+    let ra = d(psql(), 'create schema if not exists auth;\n' + readFileSync(authSema, 'utf8'));
+    authHatalari = authHata(ra.err);
+    ra = d(psql(), 'set session_replication_role = replica;\n' + readFileSync(authVeri, 'utf8'));
+    authHatalari = authHatalari.concat(authHata(ra.err));
+    authGereken = Number(tek('select count(*) from public.kullanicilar where auth_user_id is not null;'));
+    authEslesen = Number(tek('select count(*) from public.kullanicilar k where k.auth_user_id is not null'
+      + ' and exists (select 1 from auth.users u where u.id = k.auth_user_id);'));
+    const eksik = authGereken - authEslesen;
+    authDurum = (authHatalari.length === 0 && eksik === 0) ? 'gecti' : 'basarisiz';
+    console.log('9) AUTH KURTARMA    : ' + authEslesen + '/' + authGereken
+      + ' kimlik YEDEKTEN geldi · yukleme hatasi ' + authHatalari.length);
+    for (const h of authHatalari.slice(0, 5)) console.log('   ' + h.slice(0, 160));
+    if (eksik > 0) {
+      // Kimlik degeri DEGIL, ERP adi yazilir: cikti sir tasimaz.
+      const adlar = tek("select string_agg(k.ad, ', ') from public.kullanicilar k"
+        + ' where k.auth_user_id is not null'
+        + ' and not exists (select 1 from auth.users u where u.id = k.auth_user_id);');
+      console.log('   YEDEKTE KARSILIGI OLMAYAN ERP KULLANICISI: ' + adlar);
+    }
+  }
+}
+const auth2Sn = sn(tAuth2);
+
 // --- SONUC -----------------------------------------------------------------
 const gecti = yuklemeHatalari.length === 0 && semaHatalari.length === 0 && fark === 0
-  && tutarsiz === 0 && erisimSorun === 0 && fkIhlal === 0;
+  && tutarsiz === 0 && erisimSorun === 0 && fkIhlal === 0 && authDurum !== 'basarisiz';
 console.log('\n' + '='.repeat(72));
 console.log('SURELER (ayri olculdu)');
 console.log('  hazirlik (iskele' + (semaDosyasi ? ' + sema' : '') + ') : ' + hazirlikSn + ' sn');
@@ -325,6 +382,7 @@ console.log('  fk butunlugu                  : ' + fkSn + ' sn');
 console.log('  satir sayilari                : ' + sayacSn + ' sn');
 console.log('  veri tutarliligi              : ' + tutarlilikSn + ' sn');
 console.log('  uygulama erisimi              : ' + erisimSn + ' sn' + (erisimAtlandi ? ' (atlandi)' : ''));
+if (authVeri) console.log('  auth kurtarma                 : ' + auth2Sn + ' sn');
 console.log('-'.repeat(72));
 // Kanitin hangi kaynaktan geldigi ciktinin kendisinde dursun: yerel bir deneme
 // ile uretim provasi sonradan birbirine karistirilmasin.
@@ -336,10 +394,17 @@ if (sayacDosyasi && existsSync(sayacDosyasi)) {
       + ' · rol ' + (b.rol || '?'));
   } catch { /* yukarida zaten karsilastirildi */ }
 }
-console.log('KURTARMA KAPSAMI: yedek public + phase0_private VERISIDIR.');
-console.log('  auth semasi KAPSAM DISI — kullanicilar tablosu ' + gerekenKimlik
-  + ' kimlik istiyor, yedekten ' + yedektenGelenKimlik + ' geldi.');
-console.log('  Bos projeye geri yukleme GIRIS SAGLAMAZ; gecerli senaryo ayni projede veri kaybini geri almaktir.');
+if (authDurum === 'gecti') {
+  console.log('KURTARMA KAPSAMI: public + phase0_private VERISI + auth semasi.');
+  console.log('  Kimlikler KAPSAMDA — ' + authEslesen + '/' + authGereken
+    + ' ERP kullanicisinin karsiligi YEDEKTEN geldi; sentetik kimlik gerekmedi.');
+  console.log('  Bos projeye geri yuklemede giris kurtarilabilir; hedef projenin auth SEMASI platformdan gelir.');
+} else {
+  console.log('KURTARMA KAPSAMI: yedek public + phase0_private VERISIDIR.');
+  console.log('  auth semasi KAPSAM DISI — kullanicilar tablosu ' + gerekenKimlik
+    + ' kimlik istiyor, yedekten ' + yedektenGelenKimlik + ' geldi.');
+  console.log('  Bos projeye geri yukleme GIRIS SAGLAMAZ; gecerli senaryo ayni projede veri kaybini geri almaktir.');
+}
 console.log('-'.repeat(72));
 if (mekanik) {
   console.log('SONUC: ' + (gecti
