@@ -462,7 +462,10 @@ async function checkOutYap(rezId, odaNo){
 // ekranına yönlendirir.
 function katHizmetleriAc(odaId){
   const o = ODALAR.find(x=>x.id===odaId);
-  location.href = 'pms-housekeeping.html' + (o ? '#oda=' + encodeURIComponent(o.oda_no) : '');
+  // Otel de taşınır: oda planı iki oteli birden gösterebilir, kat hizmetleri
+  // ekranı ise TEK otele kilitlidir. Otel atamalı kullanıcıda YOK SAYILIR.
+  location.href = 'pms-housekeeping.html'
+    + (o ? '#otel=' + encodeURIComponent(o.otel_id) + '&oda=' + encodeURIComponent(o.oda_no) : '');
 }
 </script>
 </body>
