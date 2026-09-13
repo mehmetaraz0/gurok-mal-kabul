@@ -465,4 +465,4 @@ Ayrıca RPC adı bilerek bozularak **fail-closed** davranış ölçüldü: seçi
 
 Yayın öncesi QA'da kullanılan çapraz otel rolünde `pms_oda` yetkisi yoktur; o kullanıcı oda planını boş görür. Kat hizmetlerini etkilemez (oda seçici ayrı RPC kullanır). Üretimde çapraz otelli bir kullanıcının oda planını da görmesi isteniyorsa ilgili role `pms_oda` yetkisi ayrıca verilmelidir.
 
-§8'deki "otel seçici" açık maddesi bu yayınla kapanmıştır. Faz 2 yayınında iki test kullanıcısına verilen `otel_id = '810'` **kalıcı bırakılmıştı**; seçici geldiği için artık gerekli değildir, ancak kaldırılması ayrı bir karardır (kaldırılırsa o kullanıcılar çapraz otel seçebilir hâle gelir).
+§8'deki "otel seçici" açık maddesi bu yayınla kapanmıştır. Faz 2 yayınında iki test kullanıcısına verilen `otel_id = '810'` **kalıcı bırakılmıştı**; seçici geldikten sonra da **kalması kullanıcı kararıdır** (2026-09-13). Yani o iki kullanıcı 810'a kilitli kalır ve otel seçici onlarda görünmez; çapraz otel seçebilmeleri istenirse `otel_id` boşaltılmalıdır.
