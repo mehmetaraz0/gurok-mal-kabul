@@ -40,7 +40,9 @@
 // uzantilar her durumda kapsam disidir.
 // ============================================================================
 import { spawnSync } from 'node:child_process';
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout as bekle } from 'node:timers/promises';
 
 const kok = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
@@ -48,7 +50,8 @@ const argv = process.argv.slice(2);
 const bayrak = (ad) => argv.includes(ad);
 const deger = (ad) => { const i = argv.indexOf(ad); return i >= 0 ? argv[i + 1] : undefined; };
 const konum = argv.filter((a, i) => !a.startsWith('--')
-  && argv[i - 1] !== '--sema' && argv[i - 1] !== '--auth-veri' && argv[i - 1] !== '--auth-sema');
+  && argv[i - 1] !== '--sema' && argv[i - 1] !== '--auth-veri' && argv[i - 1] !== '--auth-sema'
+  && argv[i - 1] !== '--gizli-anahtar');
 
 const yedek = konum[0];
 const sayacDosyasi = konum[1];
@@ -78,6 +81,60 @@ const yukHatalari = (s) => s.split('\n')
 const ilkHata = (s) => (String(s).split('\n').find((l) => l.includes('ERROR:')) || '')
   .replace(/^.*ERROR:\s*/, '').slice(0, 160);
 const sn = (t) => ((Date.now() - t) / 1000).toFixed(1);
+
+// --- SIFRELI GIRDI ---------------------------------------------------------
+// Yedekler diskte sifreli durur (OpenSSL CMS). Prova onlari GECICI klasore
+// cozer ve cikista siler; duz kopya yedek klasorune ya da repoya DUSMEZ.
+// Gizli anahtar bu makinede durmaz: parola yoneticisinden gelir. Bu yuzden
+// her prova ayni zamanda bir ANAHTAR TATBIKATIDIR.
+const OPENSSL = 'C:\\Program Files\\Git\\mingw64\\bin\\openssl.exe';
+const gizliAnahtar = deger('--gizli-anahtar') || process.env.YEDEK_GIZLI_ANAHTAR;
+const gecici = [];
+let cozmeSn = 0;
+
+function cozmeYonergesi() {
+  console.error('  Sifreli yedegi acmak icin gizli anahtar ve parolasi gerekir:');
+  console.error('    1) Parola yoneticinizden gizli anahtari gecici bir dosyaya kaydedin');
+  console.error('    2) PowerShell: $env:YEDEK_ANAHTAR_PAROLA = <parola>   (ya da Read-Host ile)');
+  console.error('    3) Provaya yolu verin: --gizli-anahtar <yol>');
+  console.error('    4) Prova bittikten sonra anahtar dosyasini SILIN.');
+}
+
+function coz(yol) {
+  if (!yol || !/\.enc$/i.test(yol)) return yol;
+  if (!gizliAnahtar || !existsSync(gizliAnahtar)) {
+    console.error('COZME BASARISIZ: sifreli girdi var ama gizli anahtar verilmedi -> ' + yol);
+    cozmeYonergesi();
+    process.exit(1);
+  }
+  const t0 = Date.now();
+  const hedef = join(tmpdir(), 'pms-coz-' + process.pid + '-' + gecici.length + '.sql');
+  const ek = process.env.YEDEK_ANAHTAR_PAROLA ? ['-passin', 'env:YEDEK_ANAHTAR_PAROLA'] : [];
+  const r = spawnSync(OPENSSL, ['smime', '-decrypt', '-binary', '-inform', 'DER',
+    '-in', yol, '-out', hedef, '-inkey', gizliAnahtar, ...ek],
+  { encoding: 'utf8', timeout: 900000 });
+  if (r.status !== 0 || !existsSync(hedef)) {
+    const hata = String(r.stderr || '');
+    console.error('COZME BASARISIZ: ' + yol);
+    if (/wrong password|bad decrypt|PKCS12|passphrase/i.test(hata)) {
+      console.error('  Anahtar parolasi yanlis ya da verilmedi (YEDEK_ANAHTAR_PAROLA).');
+    }
+    console.error('  ' + hata.split('\n').filter((l) => l.trim()).slice(-2).join(' | '));
+    cozmeYonergesi();
+    process.exit(1);
+  }
+  gecici.push(hedef);
+  cozmeSn += Number(sn(t0));
+  return hedef;
+}
+
+// Cozulmus duz kopyalar HER CIKISTA silinir (hata, basari, kesinti).
+process.on('exit', () => {
+  for (const g of gecici) {
+    try { unlinkSync(g); }
+    catch (e) { console.error('UYARI: cozulmus gecici dosya silinemedi: ' + g); }
+  }
+});
 
 // Kapsam, yedegin kapsamiyla AYNI: public + phase0_private (dokum-al.ps1).
 const SAYAC_SORGUSU = `
@@ -127,15 +184,21 @@ if (semaDosyasi) {
 }
 const hazirlikSn = sn(tHazirlik);
 
+// Boyut ve tarih DISKTEKI dosyayi gosterir (sifreliyse sifreli olani);
+// yukleme ise cozulmus gecici kopyadan yapilir.
 const ist = statSync(yedek);
-console.log('2) Yedek dosyasi     : ' + yedek);
+console.log('2) Yedek dosyasi     : ' + yedek + (/\.enc$/i.test(yedek) ? '  (SIFRELI)' : ''));
 console.log('   boyut             : ' + ist.size.toLocaleString('tr-TR') + ' bayt · dosya tarihi ' + ist.mtime.toISOString());
+
+const yedekYolu = coz(yedek);
+const authVeriYolu = coz(authVeri);
+if (gecici.length) console.log('   cozuldu           : ' + gecici.length + ' dosya · ' + cozmeSn.toFixed(1) + ' sn');
 
 // --- 1) GERI YUKLEME -------------------------------------------------------
 const tYukleme = Date.now();
 let yuklemeHatalari = [];
-if (/\.dump$/i.test(yedek)) {
-  const kopya = d(['cp', yedek, K + ':/tmp/yedek.dump']);
+if (/\.dump$/i.test(yedekYolu)) {
+  const kopya = d(['cp', yedekYolu, K + ':/tmp/yedek.dump']);
   if (!kopya.ok) { console.error('Konteynere kopyalanamadi: ' + kopya.err.slice(0, 200)); spawnSync('docker', ['rm', '-f', K]); process.exit(1); }
   r = d(['exec', K, 'pg_restore', '-U', 'postgres', '-d', 'geri', '--no-owner', '--no-privileges',
     '--disable-triggers', '/tmp/yedek.dump']);
@@ -149,7 +212,7 @@ if (/\.dump$/i.test(yedek)) {
   //   2) Tetikleyiciler acik kalirsa yukleme phase0_private denetim izine
   //      SATIR YAZAR; o zaman satir sayilari uretimle tutmaz.
   // Butunluk varsayilmaz: asagida her FK yeniden dogrulanir (asama 5).
-  r = d(psql(), 'set session_replication_role = replica;\n' + readFileSync(yedek, 'utf8'));
+  r = d(psql(), 'set session_replication_role = replica;\n' + readFileSync(yedekYolu, 'utf8'));
   yuklemeHatalari = yukHatalari(r.err);
 }
 const yuklemeSn = sn(tYukleme);
@@ -340,7 +403,7 @@ if (authVeri) {
   if (!authSema) {
     console.log('9) AUTH KURTARMA    : BASARISIZ — --auth-sema verilmedi; yapi olmadan veri yuklenemez');
     authDurum = 'basarisiz';
-  } else if (!existsSync(authVeri) || !existsSync(authSema)) {
+  } else if (!existsSync(authVeriYolu) || !existsSync(authSema)) {
     console.log('9) AUTH KURTARMA    : BASARISIZ — auth dosyalarindan biri bulunamadi');
     authDurum = 'basarisiz';
   } else {
@@ -351,7 +414,7 @@ if (authVeri) {
     const authHata = (s) => yukHatalari(s).filter((l) => !/schema "auth" already exists/.test(l));
     let ra = d(psql(), 'create schema if not exists auth;\n' + readFileSync(authSema, 'utf8'));
     authHatalari = authHata(ra.err);
-    ra = d(psql(), 'set session_replication_role = replica;\n' + readFileSync(authVeri, 'utf8'));
+    ra = d(psql(), 'set session_replication_role = replica;\n' + readFileSync(authVeriYolu, 'utf8'));
     authHatalari = authHatalari.concat(authHata(ra.err));
     authGereken = Number(tek('select count(*) from public.kullanicilar where auth_user_id is not null;'));
     authEslesen = Number(tek('select count(*) from public.kullanicilar k where k.auth_user_id is not null'
@@ -385,6 +448,7 @@ console.log('  satir sayilari                : ' + sayacSn + ' sn');
 console.log('  veri tutarliligi              : ' + tutarlilikSn + ' sn');
 console.log('  uygulama erisimi              : ' + erisimSn + ' sn' + (erisimAtlandi ? ' (atlandi)' : ''));
 if (authVeri) console.log('  auth kurtarma                 : ' + auth2Sn + ' sn');
+if (gecici.length) console.log('  cozme (' + gecici.length + ' sifreli dosya)      : ' + cozmeSn.toFixed(1) + ' sn');
 console.log('-'.repeat(72));
 // Kanitin hangi kaynaktan geldigi ciktinin kendisinde dursun: yerel bir deneme
 // ile uretim provasi sonradan birbirine karistirilmasin.
