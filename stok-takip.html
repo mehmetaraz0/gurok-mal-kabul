@@ -9,6 +9,7 @@
 <script src="ortak.js"></script>
 <script src="ortak-excel.js"></script>
 <script src="filtre.js"></script>
+<script src="stok-veri.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Dornevi — Stok Takip</title>
@@ -484,52 +485,47 @@ const ROL_IKON={yonetici:'👔',depo:'📦',satinalma:'🛒',kalite:'🔍'};
 // ============================================================
 // FIREBASE
 // ============================================================
+// stok-veri.js: her okuma ya EKSIKSIZ veri doner ya da firlatir.
+// Sayfa boyutu 500; sunucu tavani daha dusukse Content-Range'e gore ilerler.
+const SV=StokVeri.kur({url:SB_URL,headers:SB_HEADERS,fetch:(u,o)=>fetch(u,o)});
+
+// Acilista ARTIK tum stok ve tum hareket gecmisi indirilmez.
+//   * stok       -> renderStok sunucudan SAYFALI ceker (stok_liste gorunumu)
+//   * hareketler -> istek uzerine, urun/depo bazinda sayfali gelir
+// Burada yalnizca kucuk ve ekranin her yerinde lazim olan referanslar yuklenir;
+// onlar da EKSIKSIZ okunur (hata olursa kullaniciya gorunur, sessizce bos kalmaz).
+let _veriEksikUyarisi='';
 async function loadDB(){
   showLoading();
+  const eksikler=[];
+  db.stok=db.stok||{};
+  db.hareketler=db.hareketler||{};
   try{
-    const [stokR,harR,minR,urunR,cariR,kul]=await Promise.all([
-      fetch(SB_URL+'/rest/v1/stok?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/stok_hareketleri?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/stok_minimumlar?select=*',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/urunler?select=kod,ad,birim',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)&silindi=eq.false',{headers:SB_HEADERS}),
+    const [urun,min,cari,kul]=await Promise.all([
+      SV.tumSayfalariCek('/rest/v1/urunler?select=kod,ad,birim&order=kod.asc').catch(e=>{eksikler.push('ürün kataloğu');throw e;}),
+      SV.tumSayfalariCek('/rest/v1/stok_minimumlar?select=urun_kodu,min_miktar&order=urun_kodu.asc').catch(e=>{eksikler.push('minimumlar');throw e;}),
+      SV.tumSayfalariCek('/rest/v1/cariler?select=id,kod,ad,tip&tip=in.(tedarikci,her_ikisi)&silindi=eq.false&order=ad.asc').catch(e=>{eksikler.push('cariler');throw e;}),
       loadKullanicilarFromSupabase(),
-    ]);
-    // Ürün kataloğunu önce yükle — stok satırlarına ad/birim eklemek için lazım
-    db.urunler=urunR.ok?await urunR.json():[];
-    const katalogMap={};
-    db.urunler.forEach(u=>{katalogMap[u.kod]={ad:u.ad,birim:u.birim};});
+    ].map(p=>Promise.resolve(p).catch(e=>({_hata:e}))));
 
-    db.stok={};
-    if(stokR.ok){
-      (await stokR.json()).forEach(r=>{
-        if(!db.stok[r.depo_kodu])db.stok[r.depo_kodu]={};
-        const kat=katalogMap[r.urun_kodu]||{};
-        db.stok[r.depo_kodu][r.urun_kodu]={
-          miktar:parseFloat(r.miktar)||0,_id:r.id,
-          lnKod:r.urun_kodu,urunAd:kat.ad||r.urun_kodu,birim:kat.birim||r.birim||''
-        };
-      });
-    }
-    db.hareketler={};
-    if(harR.ok){
-      (await harR.json()).forEach(r=>{
-        db.hareketler[r.id]={id:r.id,lnKod:r.urun_kodu,depoId:r.depo_kodu,tip:r.tip,miktar:parseFloat(r.miktar)||0,
-          belge:r.belge_no||'',tarih:r.tarih?new Date(r.tarih).getTime():Date.now(),aciklama:r.aciklama||'',
-          kaynakDepoId:r.kaynak_depo_kodu||undefined,hedefDepoId:r.tip==='transfer'?r.depo_kodu:undefined};
-      });
-    }
-    db.minimumlar={};
-    if(minR.ok){
-      (await minR.json()).forEach(r=>{
-        // Firebase'de tek global minimum tutuluyordu (depo ayrımı yoktu) — birden fazla depo satırı varsa en yükseğini al
+    if(urun&&!urun._hata){db.urunler=urun.satirlar;}
+    if(min&&!min._hata){
+      db.minimumlar={};
+      min.satirlar.forEach(r=>{
+        // Bugunku davranis korunur: urun basina DEPOLAR ARASI en yuksek minimum.
         const mevcut=db.minimumlar[r.urun_kodu]||0;
         db.minimumlar[r.urun_kodu]=Math.max(mevcut,parseFloat(r.min_miktar)||0);
       });
     }
-    if(kul&&kul.length)db.kullanicilar=kul;
-    if(cariR.ok)db.cariler=await cariR.json();
-  }catch(e){console.warn('Supabase yükleme:',e);}
+    if(cari&&!cari._hata)db.cariler=cari.satirlar;
+    if(kul&&!kul._hata&&kul.length)db.kullanicilar=kul;
+
+    for(const [ad,s] of [['ürün kataloğu',urun],['minimumlar',min],['cariler',cari]]){
+      if(s&&s._hata)eksikler.push(ad+' ('+(s._hata.message||'okunamadı')+')');
+    }
+  }catch(e){console.warn('Supabase yükleme:',e);eksikler.push(String(e&&e.message||e));}
+  _veriEksikUyarisi=eksikler.length?('Şu veriler eksiksiz okunamadı: '+[...new Set(eksikler)].join(', ')):'';
+  if(_veriEksikUyarisi)showToast('⚠️ '+_veriEksikUyarisi,5000);
   hideLoading();
 }
 
@@ -2049,8 +2045,9 @@ async function sayimDetayGoster(oturumId){
   _sayimAktifOturumId=oturumId;
   showLoading();
   try{
-    const r=await fetch(SB_URL+'/rest/v1/sayim_detaylari?oturum_id=eq.'+oturumId+'&select=*',{headers:SB_HEADERS});
-    const detaylar=r.ok?await r.json():[];
+    // EKSIKSIZ oku: HTTP hatasi bos listeye CEVRILMEZ, kirpilma sessiz gecmez.
+    const oturum=sayimOnayBekleyenler.find(o=>o.id===oturumId);
+    const detaylar=await SV.sayimDetaylariniGetir(oturumId,oturum?oturum.toplam_urun_sayisi:null);
     const c=document.getElementById('sayim-detay-icerik');
     c.innerHTML=detaylar.map(d=>{
       const fark=parseFloat(d.fark)||0;
@@ -2061,12 +2058,25 @@ async function sayimDetayGoster(oturumId){
         ${d.aciklama?`<div style="font-size:11px;color:var(--gray-600);margin-top:2px">📝 ${escapeHtml(d.aciklama)}</div>`:''}
       </div>`;
     }).join('');
-  }catch(e){console.warn(e);}
+    _sayimDetayEksik=false;
+  }catch(e){
+    // Eksik/okunamayan detay SESSIZ GECMEZ: kullanici ne olduğunu görür ve
+    // onay düğmesi bu oturum için kilitlenir.
+    console.warn(e);
+    _sayimDetayEksik=true;
+    const c=document.getElementById('sayim-detay-icerik');
+    if(c)c.innerHTML=`<div class="uyari" style="background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:8px;padding:12px;font-size:13px;line-height:1.5">
+      <b style="display:block;margin-bottom:4px">Sayım detayları eksiksiz okunamadı</b>
+      ${escapeHtml(e&&e.message?e.message:'Bilinmeyen hata')}<br>
+      Bu sayım şu an <b>onaylanamaz</b>. Bağlantıyı kontrol edip listeyi yeniden açın.
+    </div>`;
+  }
   hideLoading();
   openModal('modal-sayim-detay');
 }
 
 let _sayimOnayIsleniyor=false;
+let _sayimDetayEksik=false;   // detaylar eksiksiz okunamadi -> onay kilitli
 
 async function sayimOnayla(oturumId){
   if(currentUser?.rol!=='cost_control'){showToast('❌ Bu işlem için yetkiniz yok');return;}
@@ -2076,8 +2086,28 @@ async function sayimOnayla(oturumId){
   try{
     const oturum=sayimOnayBekleyenler.find(o=>o.id===oturumId);
     if(!oturum)throw new Error('Oturum bulunamadı');
-    const detR=await fetch(SB_URL+'/rest/v1/sayim_detaylari?oturum_id=eq.'+oturumId+'&select=*',{headers:SB_HEADERS});
-    const detaylar=detR.ok?await detR.json():[];
+
+    // EKSIKSIZLIK KAPISI — stok'a tek satir yazmadan ONCE.
+    // Eskiden burada `detR.ok ? json : []` vardi: HTTP hatasi bos listeye
+    // donusuyor, dongu hic donmuyor ve oturum "onaylandi" isaretleniyordu.
+    // Artik detaylar ya EKSIKSIZ gelir ya da firlatir; firlarsa asagidaki
+    // hicbir yazma calismaz. Oturumdaki toplam_urun_sayisi ikinci kanittir.
+    if(_sayimDetayEksik){
+      showToast('❌ Detaylar eksiksiz okunamadı — önce listeyi yeniden açın',4000);
+      _sayimOnayIsleniyor=false;hideLoading();return;
+    }
+    let detaylar;
+    try{
+      detaylar=await SV.sayimDetaylariniGetir(oturumId,oturum.toplam_urun_sayisi);
+    }catch(e){
+      console.warn('sayim detay okuma',e);
+      showToast('❌ Onay başlatılmadı — sayım detayları eksiksiz okunamadı: '+(e&&e.message?e.message:''),5000);
+      _sayimOnayIsleniyor=false;hideLoading();return;
+    }
+    if(!detaylar.length){
+      showToast('❌ Onay başlatılmadı — bu oturumda detay satırı yok',4000);
+      _sayimOnayIsleniyor=false;hideLoading();return;
+    }
     const hareketler=[];
     const yazilanlar=[]; // {depoId,kod,urunAd,beklenen} — yazma sonrası doğrulanacak satırlar
     const atlananUrunler=[]; // canlı GET başarısız olduğu için hiç işlenemeyen ürün adları
