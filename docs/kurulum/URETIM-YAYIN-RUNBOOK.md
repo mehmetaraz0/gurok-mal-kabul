@@ -536,3 +536,106 @@ düzeltme düşüldü.
    Faz 2 öncesi şema dökümüyle yapıldığı için başarısız oldu (eksik kolon ve
    tablo). Yayından sonra **yeni taban dökümü almak** bu yüzden bir formalite
    değil, provanın önkoşuludur.
+
+---
+
+## 11. Yedek şifreleme — 2026-09-14
+
+### Ne değişti
+
+Yedekler diskte artık **düz metin durmuyor**. `yedek-ve-sayac-al.ps1` veri ve
+auth dosyalarını sertifikayla (genel anahtar) şifreliyor, şifreli dosyadaki
+alıcı serisini sertifikanın serisiyle **doğruluyor**, sonra düz kopyaları
+siliyor. Şifreleme başarısız olursa betik durur ve **düz kopya bırakmaz**.
+
+| Dosya | Durum |
+|---|---|
+| `<etiket>-veri-yedegi.sql.enc` | Şifreli (misafir adı, telefon, folyo) |
+| `<etiket>-auth-yedegi.sql.enc` | Şifreli (parola hash'leri, oturum ve yenileme token'ları) |
+| `<etiket>-auth-sema.sql` | Düz — yalnız tablo yapısı |
+| `<etiket>-sayaclar.json` | Düz — yalnız sayılar |
+
+**Araç: OpenSSL CMS** (AES-256 + RSA-4096), Git for Windows ile gelen native
+Windows yapısı. GPG denendi ve **elendi**: Git'in gpg'si MSYS yapısıdır,
+içeride `/c/...` ve `/usr/lib/gnupg/keyboxd` yolları kullanır; Git Bash'te
+çalışır, **PowerShell'den çalışmaz** ("No Keybox daemon running"). Yedek
+betiği PowerShell olduğu için kullanılamazdı.
+
+### Anahtar
+
+RSA-4096 anahtar çifti, sertifika serisi
+`565AEC4177F14F11D468BD27DFDB22F20C31DC7F`. Sertifika repoda
+(`docs/kurulum/yedek-anahtari.pem`, sır değil). Gizli anahtar **parolayla
+korunur** ve `C:\Users\USER\OneDrive\Gurok-Yedek-Anahtari\` içinde saklanır;
+yanında ne olduğunu anlatan `OKU-BENI.txt` vardır. **Parola orada yazmaz** —
+ayrı yerde (kağıt) durur. Yedeklerin bulunduğu `ERP-Yedek` klasöründe anahtar
+kopyası **tutulmaz**.
+
+### Tatbikat (2026-09-14, üretim yedeğiyle)
+
+Prova, şifreli yedeği **OneDrive'daki anahtar kopyasıyla** açtı:
+
+| Aşama | Süre | Sonuç |
+|---|---|---|
+| Çözme (2 şifreli dosya) | 0,7 sn | başarılı |
+| Hazırlık (iskele + POST-FAZ2 şema) | 0,6 sn | 0 hata |
+| Geri yükleme | 0,2 sn | 0 hata |
+| FK bütünlüğü | 0,2 sn | 68 FK, ihlal 0 |
+| Satır sayıları | 0,1 sn | 76 tablo, fark 0 |
+| Veri tutarlılığı | 0,4 sn | üç kontrol de 0 |
+| Uygulama erişimi | 0,7 sn | 5/5 |
+| Auth kurtarma | 0,6 sn | **13/13 kimlik yedekten** |
+
+Sonuç: **GERİ YÜKLEME PROVASI GEÇTİ.** Yedek dosyaları: veri 772.195 bayt
+(SHA-256 `8EBC6ED1…C14B`), auth 101.347 bayt (SHA-256 `DB15FA7B…10F3`),
+sayaçların okuduğu an 2026-09-14T15:44:06Z.
+
+Prova, anahtar verilmediğinde **çıkış kodu 1** ile durur ve ne yapılacağını
+yazar; yani "yedeğim var" demek artık "açabiliyorum ve açılanı doğruladım"
+demektir.
+
+### Bu iş sırasında öğrenilenler
+
+1. **Bir sırrın tek kopyası geçici klasöre konmaz.** İlk anahtar
+   `%TEMP%` içine üretildi ve parola yöneticisine taşınmadan önce
+   **kayboldu** (Windows geçici klasörü kendiliğinden temizler). Kayıp sıfır
+   oldu çünkü o anahtarla şifrelenmiş yedek henüz yoktu. Anahtar üretimi artık
+   kalıcı bir klasöre yazıyor ve sıra açıkça yazılı: önce güvene al, **gördüğünü
+   doğrula**, sonra sil.
+2. **Anahtar, yedeklerin yanında durmaz.** Aynı klasörde durursa tek bir
+   klasörün ele geçmesi hem yedeği hem anahtarı verir.
+3. **Kanıtlanmadan silinmez.** Diskteki anahtar kopyası, OneDrive kopyasıyla
+   prova geçtikten *sonra* silindi. Sıra tersine olsaydı ikinci bir kayıp
+   yaşanabilirdi.
+4. **OpenSSL'in kendi parola istemi bu terminalde okuyamıyor**
+   (`UI routines:UI_process:processing error`). Parola PowerShell'in
+   `Read-Host -AsSecureString` istemiyle alınıp `-passin/-passout env:` ile
+   veriliyor; komut satırına ve geçmişe yazılmıyor.
+
+### Bundan sonra yedek alma ve doğrulama
+
+```powershell
+# 1) Yedek (tek parola istemi: veritabani parolasi)
+cd C:\Users\USER\Projects\gurok-mal-kabul-faz2-yayin
+.\docs\kurulum\yedek-ve-sayac-al.ps1 -Etiket <tarih>
+
+# 2) Tatbikat: anahtar parolasini ortama al
+$p = Read-Host 'Anahtar parolasi' -AsSecureString
+$env:YEDEK_ANAHTAR_PAROLA = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($p))
+
+# 3) Prova (tum asamalar + auth kurtarma)
+node scripts/pms-yedek-geri-yukleme-provasi.mjs `
+  C:\Users\USER\ERP-Yedek\<tarih>-veri-yedegi.sql.enc `
+  C:\Users\USER\ERP-Yedek\<tarih>-sayaclar.json `
+  --sema C:\Users\USER\ERP-Yedek\<son-sema-dokumu>.sql `
+  --auth-veri C:\Users\USER\ERP-Yedek\<tarih>-auth-yedegi.sql.enc `
+  --auth-sema C:\Users\USER\ERP-Yedek\<tarih>-auth-sema.sql `
+  --gizli-anahtar C:\Users\USER\OneDrive\Gurok-Yedek-Anahtari\gurok-yedek-gizli.pem
+
+# 4) Parolayi ortamdan temizle
+Remove-Item Env:\YEDEK_ANAHTAR_PAROLA
+```
+
+Yayından sonra şema değişirse **yeni taban dökümü** alınmalıdır
+(`dokum-al.ps1`); prova eski tabana yeni veriyi yüklemez ve doğru biçimde
+başarısız olur.

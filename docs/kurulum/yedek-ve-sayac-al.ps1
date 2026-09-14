@@ -26,7 +26,7 @@
 #   <Etiket>-auth-yedegi.sql.enc   auth semasi VERISI  *** SIFRELI, SIR TASIR ***
 #   <Etiket>-auth-sema.sql     auth semasi YAPISI  (sir tasimaz, prova icin)
 #
-# *** AUTH YEDEGI SIR TASIR ***  Parola hash'leri, e-postalar ve CANLI oturum /
+# *** AUTH YEDEGI SIR TASIR (sifreli saklanir) ***  Parola hash'leri, e-postalar ve CANLI oturum /
 # yenileme tokenlari icerir. Paylasilmaz, repoya konmaz, e-posta ile
 # gonderilmez. SAKLAMA: yalniz EN YENI auth yedegi durur; yeni yedek alinirken
 # hedef klasordeki eski *-auth-*.sql dosyalari SILINIR.
@@ -361,7 +361,7 @@ if ($YalnizBaglanti) {
   if ($silinen -gt 0) { Write-Host ('  eski auth yedegi silindi : ' + $silinen + ' dosya') -ForegroundColor DarkGray }
   Write-Host ('  sure        : ' + $sureSn + ' sn')
   Write-Host ''
-  Write-Host 'Sifreli dosyalar yalniz PAROLA YONETICINIZDEKI gizli anahtarla acilir.' -ForegroundColor Yellow
+  Write-Host 'Sifreli dosyalar yalniz GIZLI ANAHTAR + PAROLASI ile acilir.' -ForegroundColor Yellow
   Write-Host 'Anahtari kaybederseniz bu yedekler KALICI OLARAK acilamaz.' -ForegroundColor Yellow
   if ($Duraklatma) { Write-Host ('  duraklatma penceresi : ' + $duraklatmaSn + ' sn') }
   Write-Host ''

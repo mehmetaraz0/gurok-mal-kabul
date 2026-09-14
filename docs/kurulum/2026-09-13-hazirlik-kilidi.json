@@ -1,6 +1,6 @@
 {
   "aciklama": "PMS Faz 2 yayin hazirlik betikleri — LF icerik uzerinden SHA-256",
-  "olusturma": "2026-09-13",
+  "olusturma": "2026-09-14",
   "dosyalar": [
     {
       "yol": "docs/kurulum/2026-09-09-pms-faz2-adim1-housekeeping.sql",
@@ -30,7 +30,7 @@
     {
       "yol": "docs/kurulum/yedek-ve-sayac-al.ps1",
       "ne": "Yedek alma otomasyonu",
-      "sha256": "c1f55231a5ac140efff2673aab7bfc04733e65a9e3e64e9dd9ece2d28a61a469"
+      "sha256": "b2a3ada10f840674bbe3b39962face8c69f35119b2767cfa161801a4639e20cf"
     },
     {
       "yol": "docs/kurulum/dokum-al.ps1",
@@ -45,7 +45,7 @@
     {
       "yol": "scripts/pms-yedek-geri-yukleme-provasi.mjs",
       "ne": "E-5 geri yukleme provasi",
-      "sha256": "9ae9a007d4c673da90f383281ea4b42cb0bc553aa6fab7999fc6b0cb98d57545"
+      "sha256": "cf982795fd49e6c7be577b6007978cee6d8c0702380fd9f4468156f8212f3a64"
     },
     {
       "yol": "scripts/pms-faz2-yetki-negatif.mjs",
