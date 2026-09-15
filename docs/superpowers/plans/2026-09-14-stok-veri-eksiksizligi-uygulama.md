@@ -1,7 +1,8 @@
 # Stok Takip — Veri Eksiksizliği — Uygulama ve Yayın Planı
 
 **Tarih:** 2026-09-14 · **Spec:** `docs/superpowers/specs/2026-09-14-stok-veri-eksiksizligi-design.md`
-**Durum:** kod tamam, izole testler geçti · **ÜRETİME UYGULANMADI**
+**Durum:** kod tamam, izole testler geçti (27 OK / 0 FAIL) · **ÜRETİME UYGULANMADI**
+**Yayın adayı commit:** `f0e2286` — dal `pms-hk-otel-secici`, `origin/main` üzerine 6 commit
 
 > Not: bu belge uygulamadan sonra yazıldı; sıra spec → kod → belge oldu. Kayıt
 > olarak tutuluyor, çünkü asıl işi yayın anında görecek: migration sırası,
@@ -61,6 +62,13 @@ postgres:17 + postgrest v12.2.3 konteynerleri.
 - [x] **9. Kalan fail-open okumalar** — onay bekleyen sayım listesi ve
       rozeti; hata artık "0 bekleyen" gibi görünmüyor. (`db91ff2`)
 
+- [x] **10. RPC yanıtları da sayfalı** — `stok_kategoriler` ve `stok_abc_girdi`
+      düz `POST /rpc` ile okunuyordu; satır tavanı RPC yanıtlarına da
+      uygulandığı için ölçümde 250 kategorinin 100'ü, 5.000 ürünün 100'ü
+      geldi. İkisi de artık `SV.tumSayfalariCek` ile okunuyor;
+      `stok_abc_girdi`'ye sayfalar arası mükerrer/düşen satırı önlemek için
+      `order by 1` eklendi. (`f0e2286`)
+
 ## Doğrulama (çalıştırıldı)
 
 ```bash
@@ -69,11 +77,15 @@ node scripts/stok-veri-eksiksizlik.test.mjs
 node scripts/hazirlik-kilidi.mjs
 ```
 
-Sonuç: `JS OK` · `Tüm statik kontroller geçti` · **19 OK / 0 FAIL** ·
+Sonuç: `JS OK` · `Tüm statik kontroller geçti` · **27 OK / 0 FAIL** ·
 `11 dosya AYNI`. Kapsanan senaryolar: 999 / 1.000 / 1.001 / 5.000 satır,
 sunucu tavanı 100, ara sayfa hatası, son sayfadaki ürünü arama, eksik
 detayla sayım onayının engellenmesi (stok toplamı değişmedi:
-`501501.000 -> 501501.000`), `anon` erişiminin kapalı olması.
+`501501.000 -> 501501.000`), özet kırılımının istemci `getStokDurum` ile
+birebir olması, minimumun depolar arası en yüksek gelmesi, kategori ve ABC
+girdilerinin sayfalı okumada eksiksiz **ve mükerrersiz** gelmesi (düz
+okumanın kırpıldığı ayrıca kanıt olarak ölçülür), `anon`'un görünüme ve üç
+fonksiyona da kapalı, `authenticated`'ın üçünü de çalıştırabiliyor olması.
 
 ## Yayın sırası (`CANLIYA UYGULA` geldiğinde)
 
@@ -97,9 +109,22 @@ detayla sayım onayının engellenmesi (stok toplamı değişmedi:
    - Hareketler sekmesi açılınca geçmiş geliyor, tarih filtresi çalışıyor.
    - Onay bekleyen bir sayım açılıp onaylanıyor; stok gerçekten değişiyor.
    - Cost control dışı bir kullanıcı sayım onayı ekranını göremiyor.
-7. **Geri dönüş:** arayüz için önceki commit'e dönmek yeterli. Migration
-   yalnız ekleme yapar (yeni görünüm + üç fonksiyon); gerekirse
-   `drop function`/`drop view` ile geri alınır, mevcut tablolara dokunulmaz.
+7. **Geri dönüş:** arayüz için `git revert f0e2286..` ya da `main`'i yayın
+   öncesi commit'e almak yeterli; `stok-veri.js` yeni dosya olduğu için
+   geride kalması zarar vermez. Migration yalnız **ekleme** yapar (bir
+   görünüm + üç fonksiyon); hiçbir tablo, politika ya da yetki satırına
+   dokunmaz. Nesneleri de geri almak gerekirse:
+
+   ```sql
+   drop function if exists public.stok_abc_girdi(integer);
+   drop function if exists public.stok_kategoriler(text);
+   drop function if exists public.stok_ozet(text);
+   drop view if exists public.stok_liste;
+   ```
+
+   **Sıra önemli:** önce arayüz geri alınır, sonra nesneler düşürülür. Ters
+   sırada yeni arayüz liste ve toplamları okuyamaz — sessizce boşalmaz,
+   görünür hata verir, ama ekran kullanılamaz olur.
 
 ## Kapsam dışı / kayda geçen bulgu
 
