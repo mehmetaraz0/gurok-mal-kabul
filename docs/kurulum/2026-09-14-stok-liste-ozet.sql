@@ -95,7 +95,70 @@ revoke all on function public.stok_ozet(text) from public, anon;
 grant execute on function public.stok_ozet(text) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
--- 3) DOGRULAMA — sessiz basari yok
+-- 3) KATEGORI LISTESI
+-- ---------------------------------------------------------------------------
+-- Ekrandaki kategori sekmeleri, urun kodunun ilk 5 karakterinden turuyor.
+-- Sayfalamadan sonra bunu YUKLENMIS satirlardan uretmek sekmelerin eksik
+-- cikmasina yol acardi; liste de sunucudan gelir.
+create or replace function public.stok_kategoriler(p_depo text default null)
+returns table (kategori text, adet bigint)
+language sql
+stable
+security invoker
+set search_path = public
+as $fn$
+  select left(l.urun_kodu, 5) as kategori, count(*)::bigint
+    from public.stok_liste l
+   where p_depo is null or l.depo_kodu = p_depo
+   group by 1
+   order by 1;
+$fn$;
+
+comment on function public.stok_kategoriler(text) is
+  'Depo bazinda urun kodu onekleri (kategori sekmeleri). Sayfadan degil, tum kayitlardan.';
+
+revoke all on function public.stok_kategoriler(text) from public, anon;
+grant execute on function public.stok_kategoriler(text) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 4) ABC GIRDILERI
+-- ---------------------------------------------------------------------------
+-- ABC siniflandirmasi urun basina (tum depolardaki stok) ve (son 7 gunun
+-- tuketimi) ister. Ikisi de TUM kayitlar uzerinden hesaplanmalidir; ekran
+-- sayfali yuklendigi icin istemci bunu kendi basina yapamaz.
+create or replace function public.stok_abc_girdi(p_gun integer default 7)
+returns table (urun_kodu text, stok_miktar numeric, tuketim_miktar numeric)
+language sql
+stable
+security invoker
+set search_path = public
+as $fn$
+  with s as (
+    select l.urun_kodu, sum(l.miktar) as stok_miktar
+      from public.stok_liste l
+     group by 1
+  ), t as (
+    select h.urun_kodu, sum(h.miktar) as tuketim_miktar
+      from public.stok_hareketleri h
+     where h.tip = 'cikis'
+       and h.tarih >= now() - make_interval(days => greatest(p_gun, 1))
+       and (h.aciklama ilike '%gunluk_tuketim%' or h.aciklama ilike '%recete_tuketim%')
+     group by 1
+  )
+  select coalesce(s.urun_kodu, t.urun_kodu),
+         coalesce(s.stok_miktar, 0),
+         coalesce(t.tuketim_miktar, 0)
+    from s full outer join t on t.urun_kodu = s.urun_kodu;
+$fn$;
+
+comment on function public.stok_abc_girdi(integer) is
+  'ABC siniflandirmasi girdileri: urun basina toplam stok ve son N gun tuketimi. Sayfadan degil, tum kayitlardan.';
+
+revoke all on function public.stok_abc_girdi(integer) from public, anon;
+grant execute on function public.stok_abc_girdi(integer) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 5) DOGRULAMA — sessiz basari yok
 -- ---------------------------------------------------------------------------
 do $dogrula$
 declare
@@ -115,7 +178,9 @@ begin
   end if;
 
   select has_table_privilege('anon', 'public.stok_liste', 'select') into v_anon_view;
-  select has_function_privilege('anon', 'public.stok_ozet(text)', 'execute') into v_anon_fn;
+  select (has_function_privilege('anon', 'public.stok_ozet(text)', 'execute')
+       or has_function_privilege('anon', 'public.stok_kategoriler(text)', 'execute')
+       or has_function_privilege('anon', 'public.stok_abc_girdi(integer)', 'execute')) into v_anon_fn;
   if v_anon_view or v_anon_fn then
     raise exception 'anon erisimi acik kalmis (view=%, fn=%)', v_anon_view, v_anon_fn;
   end if;
@@ -126,11 +191,11 @@ begin
     raise exception 'authenticated erisimi eksik (view=%, fn=%)', v_auth_view, v_auth_fn;
   end if;
 
-  select p.prosecdef into v_secdef
+  select bool_or(p.prosecdef) into v_secdef
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname = 'stok_ozet';
+   where n.nspname = 'public' and p.proname in ('stok_ozet', 'stok_kategoriler', 'stok_abc_girdi');
   if v_secdef then
-    raise exception 'stok_ozet SECURITY DEFINER olmus — cagiranin RLS''i atlanir';
+    raise exception 'stok_ozet/stok_kategoriler SECURITY DEFINER olmus — cagiranin RLS''i atlanir';
   end if;
 
   raise notice 'DOGRULAMA (stok liste/ozet): tum kontroller gecti.';
