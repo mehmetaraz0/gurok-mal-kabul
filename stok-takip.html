@@ -937,7 +937,8 @@ async function stokSayfaYukle(){
     r.satirlar.forEach(s=>{
       db.stok[aktifDepoId][s.urun_kodu]={
         miktar:parseFloat(s.miktar)||0,lnKod:s.urun_kodu,
-        urunAd:s.urun_adi||s.urun_kodu,birim:s.birim||''
+        urunAd:s.urun_adi||s.urun_kodu,birim:s.birim||'',
+        sonGuncelleme:s.guncelleme_tarihi||null
       };
     });
     _stokSayfa.ofset+=r.satirlar.length;

@@ -132,7 +132,10 @@ function _stokVeriKur(secenekler) {
   // --- Stok listesi --------------------------------------------------------
   function _stokYolu(sec) {
     const s = sec || {};
-    let yol = onek + '/stok_liste?select=otel_id,depo_kodu,urun_kodu,urun_adi,birim,miktar,min_miktar';
+    // guncelleme_tarihi de istenir: karttaki "Son guncelleme" satiri bunu
+    // gosterir. Eski toplu okuma (stok?select=*) tasiyordu; sayfali okumanin
+    // alan listesinde olmayinca her kart "—" gosteriyordu (olculdu 2026-09-15).
+    let yol = onek + '/stok_liste?select=otel_id,depo_kodu,urun_kodu,urun_adi,birim,miktar,min_miktar,guncelleme_tarihi';
     if (s.depo) yol += '&depo_kodu=eq.' + encodeURIComponent(s.depo);
     if (s.arama && String(s.arama).trim()) {
       const t = String(s.arama).trim().replace(/[(),*]/g, ' ');

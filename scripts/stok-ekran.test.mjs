@@ -134,6 +134,20 @@ const toastVar = (e, parca) => toastlar(e).some(t => t.includes(parca));
     kodlar.length + ' satir: ' + kodlar.slice(0, 3).join(','));
 }
 
+// --- 2b) Kartin alan takimi: "Son guncelleme" bos kalmamali -----------------
+// Eski toplu okuma stok?select=* ile geliyordu; sayfali okumada alan listesi
+// dar yazilinca her kart "—" gosterdi (uretimde 2026-09-15'te goruldu).
+{
+  seedDepolar();
+  const e = await ekran('D1');
+  await e.calistir('stokListesiYenile()');
+  const s = e.calistir('Object.values(db.stok.D1||{})[0]');
+  const alanlar = ['lnKod', 'urunAd', 'miktar', 'birim', 'sonGuncelleme'];
+  const eksik = alanlar.filter(a => s[a] === undefined || s[a] === null);
+  sonuc(eksik.length === 0, 'liste satiri kartin ihtiyaci olan ALANLARIN hepsini tasiyor',
+    eksik.length ? 'eksik: ' + eksik.join(',') : 'sonGuncelleme=' + String(s.sonGuncelleme).slice(0, 19));
+}
+
 // --- 3) CIKIS: yuklenmemis urun icin de calisir ------------------------------
 {
   seedDepolar();
