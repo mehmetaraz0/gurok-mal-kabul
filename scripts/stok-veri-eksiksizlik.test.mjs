@@ -86,7 +86,10 @@ async function kur_ortam() {
     create table public.stok_hareketleri (
       id uuid primary key default gen_random_uuid(),
       urun_kodu text, depo_kodu text, tip text, miktar numeric(12,3),
-      tarih timestamptz default now(), belge_no text, aciklama text);
+      tarih timestamptz default now(), belge_no text, aciklama text,
+      -- Transfer TEK satir yazilir: depo_kodu HEDEF, kaynak burada. Uretimde
+      -- de boyledir; dosyada olmayinca hareket sorgusu HTTP 400 aliyordu.
+      kaynak_depo_kodu text);
     create table public.sayim_oturumlari (
       id uuid primary key default gen_random_uuid(),
       depo_kodu text not null, durum text default 'onay_bekliyor',
