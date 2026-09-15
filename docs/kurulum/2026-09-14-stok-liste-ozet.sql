@@ -148,7 +148,10 @@ as $fn$
   select coalesce(s.urun_kodu, t.urun_kodu),
          coalesce(s.stok_miktar, 0),
          coalesce(t.tuketim_miktar, 0)
-    from s full outer join t on t.urun_kodu = s.urun_kodu;
+    from s full outer join t on t.urun_kodu = s.urun_kodu
+   order by 1;   -- Sonuc SAYFALI okunur. Siralama olmadan her sayfa ayri bir
+                 -- calistirma oldugu icin satirlar sayfalar arasinda mukerrer
+                 -- gelebilir ya da hic gelmeyebilir.
 $fn$;
 
 comment on function public.stok_abc_girdi(integer) is

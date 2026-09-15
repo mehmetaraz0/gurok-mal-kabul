@@ -274,15 +274,151 @@ for (const adet of [999, 1000, 1001, 5000]) {
     s.satirlar.length + ' satir, toplam=' + s.toplam);
 }
 
-// --- 7) RLS/yetki siniri korunuyor mu --------------------------------------
+// --- 7) OZET ESIKLERI: istemcideki getStokDurum ile BIREBIR ----------------
+// Toplamin dogru olmasi yetmez; kritik/uyari/normal kirilimi ekranin bugunku
+// mantigiyla ayni olmali. Beklenen sayilar elle YAZILMAZ, ayni kuralin JS
+// karsiligindan uretilir — sapma olursa test bunu gosterir.
 {
-  // anon gorunumu de fonksiyonu da GOREMEMELI (migration ACL'i).
+  // (kod, miktar, [depo/min ciftleri]) — min satiri yoksa minimum yok demektir.
+  const kume = [
+    { kod: 'E00001', miktar: 50, min: [] },                          // minimum yok
+    { kod: 'E00002', miktar: 50, min: [['D1', 0]] },                 // minimum 0
+    { kod: 'E00003', miktar: 0, min: [['D1', 10]] },                 // miktar 0
+    { kod: 'E00004', miktar: -5, min: [['D1', 10]] },                // negatif
+    { kod: 'E00005', miktar: 5, min: [['D1', 10]] },                 // tam min/2
+    { kod: 'E00006', miktar: 6, min: [['D1', 10]] },
+    { kod: 'E00007', miktar: 10, min: [['D1', 10]] },                // tam min
+    { kod: 'E00008', miktar: 11, min: [['D1', 10]] },
+    { kod: 'E00009', miktar: 10, min: [['D1', 4], ['D2', 20]] },     // depolar arasi EN YUKSEK
+  ];
+  psql(`truncate public.stok, public.urunler, public.stok_minimumlar;
+    insert into public.urunler (kod, ad, birim) values
+      ${kume.map(k => `('${k.kod}', 'Urun ${k.kod}', 'KG')`).join(',')};
+    insert into public.stok (urun_kodu, depo_kodu, otel_id, miktar) values
+      ${kume.map(k => `('${k.kod}', 'D1', '810', ${k.miktar})`).join(',')};
+    insert into public.stok_minimumlar (urun_kodu, depo_kodu, otel_id, min_miktar) values
+      ${kume.flatMap(k => k.min.map(([d, m]) => `('${k.kod}', '${d}', '810', ${m})`)).join(',')};`);
+
+  // stok-takip.html getStokDurum'un BIREBIR kopyasi (minimum = depolar arasi max).
+  const getStokDurum = (min, miktar) => {
+    if (!min || min <= 0) return 'normal';
+    if (miktar <= 0 || miktar <= min * 0.5) return 'kritik';
+    if (miktar <= min) return 'uyari';
+    return 'normal';
+  };
+  const bek = { toplam: kume.length, kritik: 0, uyari: 0, normal: 0 };
+  for (const k of kume) {
+    const min = k.min.length ? Math.max(...k.min.map(m => m[1])) : 0;
+    bek[getStokDurum(min, k.miktar)]++;
+  }
+
+  const ozet = await veri().stokOzetGetir('D1');
+  const esit = ozet.toplam === bek.toplam && ozet.kritik === bek.kritik
+    && ozet.uyari === bek.uyari && ozet.normal === bek.normal;
+  sonuc(esit, 'stok_ozet kirilimi istemci esikleriyle BIREBIR',
+    `sunucu ${ozet.kritik}/${ozet.uyari}/${ozet.normal} — istemci ${bek.kritik}/${bek.uyari}/${bek.normal} (kritik/uyari/normal)`);
+
+  // Depolar arasi en yuksek minimum korunuyor mu: E00009 tek basina sinanir.
+  const tek = psqlTek("select min_miktar::text from public.stok_liste where urun_kodu='E00009'");
+  sonuc(Number(tek) === 20, 'minimum depolar arasi EN YUKSEK olarak geliyor', 'min=' + tek);
+}
+
+// --- 8) KATEGORI LISTESI: sayfadan degil tum kayitlardan -------------------
+// Sunucu tavani 100. Kategori sayisi tavanin USTUNDE secilir: duz okuma
+// kirpilir, sayfali okuma kirpilmaz. Ikisi de olculur.
+{
+  const KAT = 250, KAT_BASINA = 3;
+  psql(`truncate public.stok, public.urunler, public.stok_minimumlar;
+    insert into public.urunler (kod, ad, birim)
+      select 'C' || lpad(k::text, 4, '0') || lpad(i::text, 2, '0'), 'Urun', 'KG'
+        from generate_series(1, ${KAT}) k, generate_series(1, ${KAT_BASINA}) i;
+    insert into public.stok (urun_kodu, depo_kodu, otel_id, miktar)
+      select kod, 'D1', '810', 5 from public.urunler;`);
+  const bas = { Authorization: 'Bearer ' + jwt('authenticated'), Accept: 'application/json' };
+
+  // (a) Sayfalamasiz okuma: sunucu tavani kadar kirpar.
+  const duz = await fetch('http://127.0.0.1:' + REST_PORT + '/rpc/stok_kategoriler',
+    { method: 'POST', headers: { ...bas, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_depo: 'D1' }) });
+  const duzSatir = await duz.json();
+  sonuc(duzSatir.length === MAX_ROWS, 'sayfalamasiz RPC okumasi KIRPILIYOR (kanit)',
+    duzSatir.length + '/' + KAT + ' kategori');
+
+  // (b) Sayfali okuma: eksiksiz ve her kategorinin adedi dogru.
+  let kat = [], hata = null;
+  try { ({ satirlar: kat } = await veri().tumSayfalariCek('/rpc/stok_kategoriler?p_depo=D1')); }
+  catch (e) { hata = e; }
+  const adetDogru = kat.length ? kat.every(k => Number(k.adet) === KAT_BASINA) : false;
+  const tekil = new Set(kat.map(k => k.kategori)).size;   // mukerrer sayfa satiri da kusurdur
+  sonuc(!hata && kat.length === KAT && tekil === KAT && adetDogru,
+    'stok_kategoriler sayfali okumada EKSIKSIZ ve MUKERRERSIZ',
+    hata ? hata.message : kat.length + '/' + KAT + ' kategori, tekil ' + tekil + ', her biri ' + KAT_BASINA);
+}
+
+// --- 9) ABC GIRDILERI: depolar arasi toplam + tuketim penceresi ------------
+{
+  psql(`truncate public.stok, public.urunler, public.stok_minimumlar, public.stok_hareketleri;
+    insert into public.urunler (kod, ad, birim) values ('A00001', 'ABC urunu', 'KG');
+    insert into public.stok (urun_kodu, depo_kodu, otel_id, miktar) values
+      ('A00001', 'D1', '810', 30), ('A00001', 'D2', '810', 12);
+    insert into public.stok_hareketleri (urun_kodu, depo_kodu, tip, miktar, tarih, aciklama) values
+      ('A00001', 'D1', 'cikis', 5,   now() - interval '1 day',  'gunluk_tuketim'),
+      ('A00001', 'D1', 'cikis', 3,   now() - interval '2 days', 'recete_tuketim: pilav'),
+      ('A00001', 'D1', 'cikis', 100, now() - interval '30 days','gunluk_tuketim'),
+      ('A00001', 'D1', 'cikis', 50,  now() - interval '1 day',  'depo transferi'),
+      ('A00001', 'D1', 'giris', 70,  now() - interval '1 day',  'gunluk_tuketim');`);
+  const { satirlar } = await veri().tumSayfalariCek('/rpc/stok_abc_girdi?p_gun=7');
+  const s = satirlar.find(r => r.urun_kodu === 'A00001') || {};
+  sonuc(Number(s.stok_miktar) === 42 && Number(s.tuketim_miktar) === 8,
+    'stok_abc_girdi: stok depolar arasi toplam, tuketim yalniz pencere ici',
+    'stok=' + s.stok_miktar + ' (bekl. 42), tuketim=' + s.tuketim_miktar + ' (bekl. 8)');
+
+  // Tavanin ustunde urun: duz okuma kirpilir, sayfali okuma kirpilmaz.
+  psql(`truncate public.stok, public.urunler, public.stok_hareketleri;
+    insert into public.urunler (kod, ad, birim)
+      select 'K' || lpad(g::text, 6, '0'), 'Urun', 'KG' from generate_series(1, 5000) g;
+    insert into public.stok (urun_kodu, depo_kodu, otel_id, miktar)
+      select kod, 'D1', '810', 1 from public.urunler;`);
+  const bas = { Authorization: 'Bearer ' + jwt('authenticated'), Accept: 'application/json' };
+  const duz = await fetch('http://127.0.0.1:' + REST_PORT + '/rpc/stok_abc_girdi',
+    { method: 'POST', headers: { ...bas, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_gun: 7 }) });
+  const duzSatir = await duz.json();
+  sonuc(duzSatir.length === MAX_ROWS, 'sayfalamasiz ABC okumasi KIRPILIYOR (kanit)',
+    duzSatir.length + '/5000 urun');
+
+  let hepsi = [], hata = null;
+  try { ({ satirlar: hepsi } = await veri().tumSayfalariCek('/rpc/stok_abc_girdi?p_gun=7')); }
+  catch (e) { hata = e; }
+  // Uzunluk esitligi tek basina kanit degil: sirasiz sonucta bir urun iki kez
+  // gelip bir baskasi hic gelmeyebilir. Tekil kod sayisi da 5000 olmali.
+  const tekilKod = new Set(hepsi.map(r => r.urun_kodu)).size;
+  sonuc(!hata && hepsi.length === 5000 && tekilKod === 5000,
+    'stok_abc_girdi sayfali okumada EKSIKSIZ ve MUKERRERSIZ',
+    hata ? hata.message : hepsi.length + '/5000 satir, tekil urun ' + tekilKod);
+}
+
+// --- 10) RLS/yetki siniri korunuyor mu -------------------------------------
+{
+  // anon gorunumu de UC fonksiyonu da GOREMEMELI (migration ACL'i).
   const anonBaslik = { Authorization: 'Bearer ' + jwt('anon'), Accept: 'application/json' };
+  const rpcAnon = (ad, govde) => fetch('http://127.0.0.1:' + REST_PORT + '/rpc/' + ad, {
+    method: 'POST', headers: { ...anonBaslik, 'Content-Type': 'application/json' }, body: JSON.stringify(govde) });
   const rv = await fetch('http://127.0.0.1:' + REST_PORT + '/stok_liste?select=urun_kodu&limit=1', { headers: anonBaslik });
-  const rf = await fetch('http://127.0.0.1:' + REST_PORT + '/rpc/stok_ozet', {
-    method: 'POST', headers: { ...anonBaslik, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_depo: 'D1' }) });
-  sonuc(!rv.ok && !rf.ok, 'anon stok_liste ve stok_ozet erisimi KAPALI',
-    'view HTTP ' + rv.status + ', fn HTTP ' + rf.status);
+  const rOzet = await rpcAnon('stok_ozet', { p_depo: 'D1' });
+  const rKat = await rpcAnon('stok_kategoriler', { p_depo: 'D1' });
+  const rAbc = await rpcAnon('stok_abc_girdi', { p_gun: 7 });
+  sonuc(!rv.ok && !rOzet.ok && !rKat.ok && !rAbc.ok,
+    'anon: stok_liste ve UC fonksiyon da KAPALI',
+    'view ' + rv.status + ', ozet ' + rOzet.status + ', kategori ' + rKat.status + ', abc ' + rAbc.status);
+
+  // authenticated UCUNU de calistirabilmeli (kapatirken fazla kapatilmadi).
+  const authBaslik = { Authorization: 'Bearer ' + jwt('authenticated'), Accept: 'application/json' };
+  const rpcAuth = (ad, govde) => fetch('http://127.0.0.1:' + REST_PORT + '/rpc/' + ad, {
+    method: 'POST', headers: { ...authBaslik, 'Content-Type': 'application/json' }, body: JSON.stringify(govde) });
+  const aOzet = await rpcAuth('stok_ozet', { p_depo: 'D1' });
+  const aKat = await rpcAuth('stok_kategoriler', { p_depo: 'D1' });
+  const aAbc = await rpcAuth('stok_abc_girdi', { p_gun: 7 });
+  sonuc(aOzet.ok && aKat.ok && aAbc.ok, 'authenticated UC fonksiyonu da calistirabiliyor',
+    'ozet ' + aOzet.status + ', kategori ' + aKat.status + ', abc ' + aAbc.status);
 }
 
 console.log('\nSTOK VERI EKSIKSIZLIK SONUC: ' + ok + ' OK / ' + fail + ' FAIL');

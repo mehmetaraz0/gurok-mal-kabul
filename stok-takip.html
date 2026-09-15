@@ -549,10 +549,10 @@ async function hesaplaAbcSiniflari(){
   const stokMiktar={};
   const tuketimMiktar={};
   try{
-    const r=await fetch(SB_URL+'/rest/v1/rpc/stok_abc_girdi',{method:'POST',
-      headers:{...SB_HEADERS,'Content-Type':'application/json'},body:JSON.stringify({p_gun:7})});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    (await r.json()).forEach(row=>{
+    // SAYFALI oku: RPC yaniti da sunucu satir tavanina tabidir. Duz okumada
+    // 5.000 urunun 100'u gelir ve siniflar eksik kumeden hesaplanirdi.
+    const {satirlar}=await SV.tumSayfalariCek('/rest/v1/rpc/stok_abc_girdi?p_gun=7');
+    satirlar.forEach(row=>{
       stokMiktar[row.urun_kodu]=parseFloat(row.stok_miktar)||0;
       tuketimMiktar[row.urun_kodu]=parseFloat(row.tuketim_miktar)||0;
     });
@@ -926,10 +926,10 @@ async function stokOzetYukle(){
 
 async function stokKategorileriYukle(){
   try{
-    const r=await fetch(SB_URL+'/rest/v1/rpc/stok_kategoriler',{method:'POST',
-      headers:{...SB_HEADERS,'Content-Type':'application/json'},body:JSON.stringify({p_depo:aktifDepoId})});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    _stokKategoriler=await r.json();
+    // SAYFALI oku: kategori sayisi sunucu tavanini asarsa duz okuma kirpardi.
+    const yol='/rest/v1/rpc/stok_kategoriler'+(aktifDepoId?'?p_depo='+encodeURIComponent(aktifDepoId):'');
+    const {satirlar}=await SV.tumSayfalariCek(yol);
+    _stokKategoriler=satirlar;
   }catch(e){ console.warn('kategori',e); _stokKategoriler=null; }
 }
 let _stokKategoriler=null;
