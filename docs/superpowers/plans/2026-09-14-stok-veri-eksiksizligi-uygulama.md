@@ -1,8 +1,8 @@
 # Stok Takip — Veri Eksiksizliği — Uygulama ve Yayın Planı
 
 **Tarih:** 2026-09-14 · **Spec:** `docs/superpowers/specs/2026-09-14-stok-veri-eksiksizligi-design.md`
-**Durum:** kod tamam, izole testler geçti (27 OK / 0 FAIL) · **ÜRETİME UYGULANMADI**
-**Yayın adayı commit:** `f0e2286` — dal `pms-hk-otel-secici`, `origin/main` üzerine 6 commit
+**Durum:** kod tamam, izole testler geçti (33 + 12 OK / 0 FAIL) · **ÜRETİME UYGULANMADI**
+**Yayın adayı commit:** `4dbcf9d` — dal `pms-hk-otel-secici`, `f415c63` (yayın öncesi `origin/main`) üzerine 8 commit
 
 > Not: bu belge uygulamadan sonra yazıldı; sıra spec → kod → belge oldu. Kayıt
 > olarak tutuluyor, çünkü asıl işi yayın anında görecek: migration sırası,
@@ -69,16 +69,33 @@ postgres:17 + postgrest v12.2.3 konteynerleri.
       `stok_abc_girdi`'ye sayfalar arası mükerrer/düşen satırı önlemek için
       `order by 1` eklendi. (`f0e2286`)
 
+- [x] **11. Bayat yanıt kapısı** — depo/arama değişiminde uçuştaki isteğin
+      yanıtı yeni listeye yazılıyordu (negatif kontrolde D2 listesi 105 satır,
+      100'ü D1'den; sayaç ve özet 300). İstek nesli eklendi. (`4dbcf9d`)
+- [x] **12. Eski bellek verisi bağımlılığı** — çıkış, transfer, iade ve LN
+      tüketimi mevcut miktarı `db.stok` önbelleğinden okuyordu; sayım ekranı
+      ve Excel yalnız yüklenmiş sayfayı kapsıyordu. Hepsi sunucudan okuyor,
+      okuma başarısızsa işlem duruyor. (`4dbcf9d`)
+
 ## Doğrulama (çalıştırıldı)
 
 ```bash
 node scripts/check.mjs
-node scripts/stok-veri-eksiksizlik.test.mjs
+node scripts/stok-veri-eksiksizlik.test.mjs   # veri katmani + migration + RLS
+node scripts/stok-ekran.test.mjs              # stok-takip.html betiginin kendisi
 node scripts/hazirlik-kilidi.mjs
 ```
 
-Sonuç: `JS OK` · `Tüm statik kontroller geçti` · **27 OK / 0 FAIL** ·
-`11 dosya AYNI`. Kapsanan senaryolar: 999 / 1.000 / 1.001 / 5.000 satır,
+Sonuç: `JS OK` · `Tüm statik kontroller geçti` · veri katmanı **33 OK / 0 FAIL** ·
+ekran **12 OK / 0 FAIL** · `11 dosya AYNI`.
+
+Ekran testleri, `stok-takip.html` içindeki betiği Node'da çalıştırır
+(`scripts/stok-ekran-harness.mjs`): test edilen kod tarayıcıda çalışanın
+aynısıdır, kopyası değil. Kanıtladıkları: depo/arama değişiminde uçuştaki
+eski isteğin yanıtı yeni listeye karışmıyor; çıkış, transfer, iade, sayım ve
+Excel artık yüklenmemiş bellek verisine bağlı değil; okuma başarısız olursa
+bu akışların hepsi duruyor. Ayrıca otel izolasyonu, üretimdeki politika
+şekliyle iki gerçek kimlik üzerinden ölçülüyor. Kapsanan senaryolar: 999 / 1.000 / 1.001 / 5.000 satır,
 sunucu tavanı 100, ara sayfa hatası, son sayfadaki ürünü arama, eksik
 detayla sayım onayının engellenmesi (stok toplamı değişmedi:
 `501501.000 -> 501501.000`), özet kırılımının istemci `getStokDurum` ile
@@ -109,11 +126,41 @@ fonksiyona da kapalı, `authenticated`'ın üçünü de çalıştırabiliyor olm
    - Hareketler sekmesi açılınca geçmiş geliyor, tarih filtresi çalışıyor.
    - Onay bekleyen bir sayım açılıp onaylanıyor; stok gerçekten değişiyor.
    - Cost control dışı bir kullanıcı sayım onayı ekranını göremiyor.
-7. **Geri dönüş:** arayüz için `git revert f0e2286..` ya da `main`'i yayın
-   öncesi commit'e almak yeterli; `stok-veri.js` yeni dosya olduğu için
-   geride kalması zarar vermez. Migration yalnız **ekleme** yapar (bir
-   görünüm + üç fonksiyon); hiçbir tablo, politika ya da yetki satırına
-   dokunmaz. Nesneleri de geri almak gerekirse:
+7. **Geri dönüş.** Tek bir geri alma commit'i; geçmiş yeniden yazılmaz,
+   `push --force` yok. Yayın öncesi sürümün **dosyalarını** geri getirir —
+   commit listesini tek tek revert etmeye dayanmaz (o yol yayın sonrası
+   gelen commit'leri ya atlar ya da beraberinde geri alır).
+
+   Yayın öncesi taban: **`f415c63`** (`docs(pms): 13-14 Eylul devir notu` —
+   yayın anında `origin/main`'in ucu). Yayın sonrası `main` üzerinde başka
+   commit olsa bile bu tarif yalnız aşağıdaki iki dosyaya dokunur.
+
+   ```bash
+   git checkout main && git pull
+   git diff HEAD f415c63 -- stok-takip.html stok-veri.js | git apply --index
+   git commit -m "revert(stok): stok veri eksiksizligi yayini geri alindi"
+   git push origin main
+   ```
+
+   Doğrulama (boş çıktı = dosyalar yayın öncesi sürümle birebir aynı):
+
+   ```bash
+   git diff --stat f415c63 HEAD -- stok-takip.html stok-veri.js
+   ```
+
+   **Prova edildi (2026-09-15):** tarif `geri-donus-provasi` adlı geçici
+   dalda çalıştırıldı. Sonuç: `f415c63` ile fark yok, `stok-veri.js`
+   silindi, geri gelen `stok-takip.html` sözdizimi geçerli, içinde
+   `stok-veri.js` referansı yok ve eski `stok?select=*` okuması geri
+   gelmiş durumda. Dal sonrasında silindi.
+
+8. **Veritabanı nesneleri: acele edilmez.** Migration yalnız **ekleme**
+   yapar (bir görünüm + üç fonksiyon); hiçbir tablo, politika ya da yetki
+   satırına dokunmaz. Eski arayüz bu nesnelerin varlığından etkilenmez —
+   `stok` tablosunu doğrudan okur. Bu yüzden sıra: **önce arayüzü geri al,
+   eski ekranın çalıştığını doğrula** (stok listesi geliyor, çıkış/transfer
+   yapılıyor, sayım açılıyor), nesneleri ancak ondan sonra ve istenirse
+   düşür:
 
    ```sql
    drop function if exists public.stok_abc_girdi(integer);
@@ -122,9 +169,9 @@ fonksiyona da kapalı, `authenticated`'ın üçünü de çalıştırabiliyor olm
    drop view if exists public.stok_liste;
    ```
 
-   **Sıra önemli:** önce arayüz geri alınır, sonra nesneler düşürülür. Ters
-   sırada yeni arayüz liste ve toplamları okuyamaz — sessizce boşalmaz,
-   görünür hata verir, ama ekran kullanılamaz olur.
+   Nesneler arayüzden önce düşürülürse yeni ekran liste ve toplamları
+   okuyamaz: sessizce boşalmaz, görünür hata verir — ama ekran kullanılamaz
+   hale gelir.
 
 ## Kapsam dışı / kayda geçen bulgu
 
