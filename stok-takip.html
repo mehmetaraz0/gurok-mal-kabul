@@ -1385,20 +1385,24 @@ async function hareketSayfaYukle(sifirla){
   try{
     const startV=document.getElementById('har-start')?.value||'';
     const endV=document.getElementById('har-end')?.value||'';
-    let ek='';
-    if(startV)ek+='&tarih=gte.'+encodeURIComponent(new Date(startV).toISOString());
-    if(endV)ek+='&tarih=lte.'+encodeURIComponent(new Date(endV+'T23:59:59').toISOString());
-    if(harFilter&&harFilter!=='tumu')ek+='&tip=eq.'+encodeURIComponent(harFilter);
-    const yol='/rest/v1/stok_hareketleri?select=*&depo_kodu=eq.'+encodeURIComponent(aktifDepoId)+ek+'&order=tarih.desc';
-    const r=await SV.sayfaCek(yol,_hareketDurum.ofset,HAREKET_SAYFA);
+    // Depo kapsami tek yerde: SV.hareketSayfasiGetir hem depo_kodu'na hem
+    // kaynak_depo_kodu'na bakar. Giden transferler kaynak deponun gecmisinde
+    // bu sayede kalir (eski ekranin davranisi buydu).
+    const r=await SV.hareketSayfasiGetir({
+      depo:aktifDepoId,
+      tip:(harFilter&&harFilter!=='tumu')?harFilter:null,
+      bas:startV?new Date(startV).toISOString():null,
+      bit:endV?new Date(endV+'T23:59:59').toISOString():null,
+      ofset:_hareketDurum.ofset,adet:HAREKET_SAYFA
+    });
     r.satirlar.forEach(x=>{
       db.hareketler[x.id]={id:x.id,lnKod:x.urun_kodu,depoId:x.depo_kodu,tip:x.tip,miktar:parseFloat(x.miktar)||0,
         belge:x.belge_no||'',tarih:x.tarih?new Date(x.tarih).getTime():Date.now(),aciklama:x.aciklama||'',
         kaynakDepoId:x.kaynak_depo_kodu||undefined,hedefDepoId:x.tip==='transfer'?x.depo_kodu:undefined};
     });
     _hareketDurum.ofset+=r.satirlar.length;
-    _hareketDurum.toplam=r.aralik&&r.aralik.toplam!==null?r.aralik.toplam:null;
-    _hareketDurum.dahaVar=r.satirlar.length>0&&(_hareketDurum.toplam===null?r.satirlar.length>=HAREKET_SAYFA:_hareketDurum.ofset<_hareketDurum.toplam);
+    _hareketDurum.toplam=r.toplam!==undefined?r.toplam:null;
+    _hareketDurum.dahaVar=r.satirlar.length>0&&r.dahaVar;
     _hareketDurum.eksik='';
   }catch(e){
     console.warn('hareket sayfa',e);

@@ -290,6 +290,51 @@ const toastVar = (e, parca) => toastlar(e).some(t => t.includes(parca));
     'hata="' + String(hata).slice(0, 40) + '", oturum ' + oturumAdet);
 }
 
+// --- 8b) HAREKETLER: giden transfer KAYNAK deponun gecmisinde kalir ---------
+// Transfer TEK satir yazilir ve depo_kodu HEDEF depodur. Yalniz depo_kodu'na
+// bakan bir filtre, kaynak deponun gecmisinden transferi dusurur — uretimde
+// 2026-09-15'te tam olarak bu yasandi.
+{
+  seedDepolar();
+  ortam.psql(`truncate public.stok_hareketleri;
+    insert into public.stok_hareketleri (urun_kodu, depo_kodu, kaynak_depo_kodu, otel_id, tip, miktar, tarih, aciklama)
+      values ('AAA001', 'D2', 'D1', '810', 'transfer', 60, now() - interval '1 hour', 'D1 -> D2');
+    insert into public.stok_hareketleri (urun_kodu, depo_kodu, otel_id, tip, miktar, tarih, aciklama)
+      values ('AAA002', 'D1', '810', 'giris', 10, now() - interval '2 hours', 'mal kabul');`);
+
+  const e = await ekran('D1');
+  e.el('har-start').value = '';
+  e.el('har-end').value = '';
+  e.calistir('harFilter="tumu"');
+  await e.calistir('hareketSayfaYukle(true)');
+  const kodlar = e.calistir('Object.values(db.hareketler).map(h=>h.lnKod).sort()');
+  sonuc(kodlar.length === 2 && kodlar[0] === 'AAA001' && kodlar[1] === 'AAA002',
+    'hareketler: D1 gecmisinde GIDEN transfer de var',
+    'gelen kayitlar: ' + (kodlar.join(',') || 'yok'));
+
+  // Tip filtresi hala calisiyor mu?
+  e.calistir('harFilter="transfer"');
+  await e.calistir('hareketSayfaYukle(true)');
+  const sadeceTransfer = e.calistir('Object.values(db.hareketler).map(h=>h.tip)');
+  sonuc(sadeceTransfer.length === 1 && sadeceTransfer[0] === 'transfer',
+    'hareketler: tip filtresi korunuyor', 'tipler: ' + (sadeceTransfer.join(',') || 'yok'));
+
+  // Hedef deponun gecmisinde de gorunmeli.
+  const e2 = await ekran('D2');
+  e2.el('har-start').value = '';
+  e2.el('har-end').value = '';
+  e2.calistir('harFilter="tumu"');
+  await e2.calistir('hareketSayfaYukle(true)');
+  const d2 = e2.calistir('Object.values(db.hareketler).map(h=>h.lnKod)');
+  sonuc(d2.length === 1 && d2[0] === 'AAA001', 'hareketler: HEDEF deponun gecmisinde de var',
+    'gelen kayitlar: ' + (d2.join(',') || 'yok'));
+
+  // Urun detayi (openDetay) ayni kapsami kullanir.
+  const detay = await e.calistir('SV.hareketSayfasiGetir({depo:"D1",urun:"AAA001",ofset:0,adet:15})');
+  sonuc(detay.satirlar.length === 1, 'urun detayi: giden transfer bu depoda gorunuyor',
+    detay.satirlar.length + ' hareket');
+}
+
 // --- 9) EXCEL: yuklenmis sayfayi degil, deponun tamamini aktariyor -----------
 {
   seedDepolar();

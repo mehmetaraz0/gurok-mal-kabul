@@ -176,13 +176,24 @@ function _stokVeriKur(secenekler) {
 
   // --- Hareket gecmisi -----------------------------------------------------
   // Acilista DEGIL, istek uzerine ve sayfali.
+  //
+  // DEPO KAPSAMI: bir transfer TEK satir yazilir ve o satirin depo_kodu HEDEF
+  // depodur; kaynak depo kaynak_depo_kodu sutunundadir. Yalniz depo_kodu'na
+  // bakmak, kaynak deponun gecmisinden giden transferleri DUSURUR (uretimde
+  // 2026-09-15'te goruldu). Bu yuzden iki sutun da sorulur.
   async function hareketSayfasiGetir(sec) {
     const s = sec || {};
     const adet = s.adet || 50;
     const ofset = s.ofset || 0;
     let yol = onek + '/stok_hareketleri?select=*';
-    if (s.depo) yol += '&depo_kodu=eq.' + encodeURIComponent(s.depo);
+    if (s.depo) {
+      const d = encodeURIComponent(s.depo);
+      yol += '&or=(depo_kodu.eq.' + d + ',kaynak_depo_kodu.eq.' + d + ')';
+    }
     if (s.urun) yol += '&urun_kodu=eq.' + encodeURIComponent(s.urun);
+    if (s.tip) yol += '&tip=eq.' + encodeURIComponent(s.tip);
+    if (s.bas) yol += '&tarih=gte.' + encodeURIComponent(s.bas);
+    if (s.bit) yol += '&tarih=lte.' + encodeURIComponent(s.bit);
     yol += '&order=tarih.desc';
     const { satirlar, aralik } = await sayfaCek(yol, ofset, adet);
     const toplam = aralik && aralik.toplam !== null ? aralik.toplam : null;
