@@ -639,3 +639,74 @@ Remove-Item Env:\YEDEK_ANAHTAR_PAROLA
 Yayından sonra şema değişirse **yeni taban dökümü** alınmalıdır
 (`dokum-al.ps1`); prova eski tabana yeni veriyi yüklemez ve doğru biçimde
 başarısız olur.
+
+## 12. Stok veri eksiksizliği — 2026-09-15
+
+### Ne değişti
+
+Stok ekranı, sunucudan dönen verinin eksiksiz olduğunu varsaymayı bıraktı.
+Liste `stok_liste` görünümünden sunucu tarafında filtrelenip sayfalanıyor;
+toplamlar, kategori sekmeleri ve ABC girdileri ekrandaki sayfadan değil
+`stok_ozet` / `stok_kategoriler` / `stok_abc_girdi` fonksiyonlarından geliyor;
+hareket geçmişi açılışta indirilmiyor. Okuma başarısız olursa hiçbir akış
+"veri yok" gibi davranmıyor — sayım onayı, çıkış, transfer, iade, sayım
+başlatma ve Excel aktarımı **duruyor** ve nedenini yazıyor.
+
+Yayın **önleyicidir**: üretimde bugün `stok` 24 satır, en büyük depo 14 satır.
+Sayfalama bugün hiçbir depoda tetiklenmiyor. Amaç, veri büyüdüğünde sessiz
+kırpılmanın hiç başlamaması.
+
+### Uygulanan
+
+| Adım | Kanıt |
+|---|---|
+| Yedek (şifreli, auth dahil) | `2026-09-15-veri-yedegi.sql.enc` SHA-256 `FEEAF23D…D39` · auth `59544B50…063` · 102,9 sn |
+| Preflight (salt okuma) | İsim çakışması yok; `stok` 24 / `urunler` 1264 / `stok_minimumlar` 0 / `stok_hareketleri` 75 |
+| Sütun kontrolü (salt okuma) | `TUM SUTUNLAR VAR` — 15 sütun |
+| Migration | `2026-09-14-stok-liste-ozet.sql`, SHA-256 `1880F81C…960A`, `--single-transaction`, `DOGRULAMA … tum kontroller gecti` |
+| Migration sonrası doğrulama | `stok_liste` = `stok` = 24 (`ESIT`); `stok_ozet(null)` toplam 24; dört depoda ham/liste/özet aynı; `security_invoker=t`; üç fonksiyon `security_definer=f`; anon `f` / authenticated `t`; sayaçlar değişmedi; `stok` üzerinde 4 politika duruyor |
+| Arayüz | `origin/main` `f415c63` → `728b1e5` (ileri sarma) |
+| Yayındaki bayt | `stok-takip.html` `c29f5f58335ed183`, `stok-veri.js` `42c2a0a4e9278ad8` — test edilen baytlarla birebir |
+| Üretimde anon | `stok_liste`, `stok_ozet`, `stok_kategoriler`, `stok_abc_girdi` → HTTP 401 |
+
+Kesinti olmadı: migration yalnız ekleme yaptı (bir görünüm + üç fonksiyon),
+tablo/politika/yetki satırına dokunulmadı.
+
+### Yayın öncesi doğrulama (yerel izole ortam)
+
+`scripts/stok-veri-eksiksizlik.test.mjs` 33 OK / 0 FAIL ·
+`scripts/stok-ekran.test.mjs` 12 OK / 0 FAIL. İkincisi `stok-takip.html`
+içindeki betiği Node'da çalıştırır (`scripts/stok-ekran-harness.mjs`): test
+edilen kod tarayıcıdaki kodun kopyası değil, aynısıdır.
+
+### Bu iş sırasında öğrenilenler
+
+1. **RPC yanıtları da satır tavanına tabidir.** `stok_kategoriler` ve
+   `stok_abc_girdi` düz `POST /rpc` ile okunuyordu; ölçümde 250 kategorinin
+   100'ü, 5.000 ürünün 100'ü geldi. RPC'ler de `Range` + `count=exact` ile
+   sayfalanıyor. Sayfalı okunan bir fonksiyonun `order by`'ı **zorunludur**:
+   sırasız sonuçta sayfalar arası satır mükerrer gelir ya da düşer.
+2. **Bayat yanıt, benzersiz sıralamayla çözülmez.** Depo/arama değişince
+   uçuştaki isteğin yanıtı yeni listeye yazılıyordu (ölçüm: D2 listesi 105
+   satır, 100'ü D1'den; sayaç ve özet eski depoyu gösteriyor). Çözüm istek
+   nesli: yanıt döndüğünde nesil eskiyse sonuç atılır.
+3. **Sayfalama, yazma yollarının varsayımını bozar.** Çıkış/transfer/iade/LN
+   mevcut miktarı bellekteki listeden okuyordu; sayfada olmayan ürün "mevcut
+   0" görünüp işlem engelleniyordu. Sayım ekranı ve Excel de yalnız yüklenmiş
+   sayfayı kapsıyordu. Sayfalamaya geçen her ekranda **bellekteki listeyi
+   okuyan tüm yollar** taranmalıdır.
+4. **Ekran betiğini gerçekten çalıştıran bir test, mantık kopyalayan testten
+   farklı şeyler yakalar.** Harness, `hesaplaAbcSiniflari` async'e dönünce
+   `db.abcSiniflari`'nın ilk çizimde tanımsız kaldığını ve `renderStok`'un
+   patladığını yakaladı — hiçbir veri katmanı testi bunu göremezdi.
+5. **Geri dönüş tarifi commit revert'ine dayandırılmamalı.** Doğrusu, yayın
+   öncesi sürümün dosyalarını geri getiren tek commit'tir; tarif yayından önce
+   geçici bir dalda prova edildi (bkz. uygulama planı §7).
+
+### Geri dönüş
+
+Tarif ve provası: `docs/superpowers/plans/2026-09-14-stok-veri-eksiksizligi-uygulama.md` §7–8.
+Özet: `git diff HEAD f415c63 -- stok-takip.html stok-veri.js | git apply --index`
+→ commit → push. Veritabanı nesnelerini düşürmek acil değildir; eski arayüz
+`stok` tablosunu doğrudan okur ve bu nesnelerden etkilenmez. Sıra: önce
+arayüz, eski ekranın çalıştığı doğrulandıktan sonra (istenirse) nesneler.
