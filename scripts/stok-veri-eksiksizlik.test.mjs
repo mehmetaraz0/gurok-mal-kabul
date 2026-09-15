@@ -46,10 +46,10 @@ function temizle() {
 }
 
 // --- JWT (yerel; uretimdeki hicbir sirla ilgisi yok) ------------------------
-function jwt(rol) {
+function jwt(rol, sub) {
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const bas = b64({ alg: 'HS256', typ: 'JWT' });
-  const govde = b64({ role: rol, exp: Math.floor(Date.now() / 1000) + 3600 });
+  const govde = b64({ role: rol, ...(sub ? { sub } : {}), exp: Math.floor(Date.now() / 1000) + 3600 });
   const imza = require('node:crypto').createHmac('sha256', SIR).update(bas + '.' + govde).digest('base64url');
   return bas + '.' + govde + '.' + imza;
 }
@@ -419,6 +419,124 @@ for (const adet of [999, 1000, 1001, 5000]) {
   const aAbc = await rpcAuth('stok_abc_girdi', { p_gun: 7 });
   sonuc(aOzet.ok && aKat.ok && aAbc.ok, 'authenticated UC fonksiyonu da calistirabiliyor',
     'ozet ' + aOzet.status + ', kategori ' + aKat.status + ', abc ' + aAbc.status);
+}
+
+// --- 11) OTEL IZOLASYONU: gercek uygulama kimligiyle ------------------------
+// "authenticated 200 donuyor" yalnizca kapinin acik oldugunu soyler. Asil soru:
+// tek otele yetkili bir KULLANICI, digerinin satirlarini listede/ozette/
+// kategoride/ABC'de gorur mu? Uretimdeki politika sekli birebir kurulur:
+//   auth_yetki_var('stok_takip','goruntule') and auth_otel_erisim(otel_id)
+// (docs/kurulum/2026-07-31-otel-izolasyon-faz2-pilot.sql)
+{
+  const A = '11111111-1111-1111-1111-11111111aaaa';   // yalniz 810
+  const B = '22222222-2222-2222-2222-22222222bbbb';   // yalniz 811
+  psql(`
+    create schema if not exists auth;
+    -- PostgREST v12 claim'leri request.jwt.claims (JSON) olarak verir.
+    create or replace function auth.uid() returns uuid language sql stable as $$
+      select nullif(current_setting('request.jwt.claims', true)::json->>'sub', '')::uuid; $$;
+
+    create table if not exists public.kullanicilar (
+      id uuid primary key, ad text, otel_id text, aktif boolean not null default true);
+    create table if not exists public.kullanici_yetkileri (
+      kullanici_id uuid not null, modul text not null, eylem text not null);
+
+    -- Fail-closed: yalniz ACIKCA true donen durum gecer (NULL/kayit yok = DENY).
+    create or replace function public.auth_yetki_var(p_modul text, p_eylem text)
+    returns boolean language sql stable security definer set search_path = public as $$
+      select coalesce((select true from public.kullanicilar k
+                        join public.kullanici_yetkileri y on y.kullanici_id = k.id
+                       where k.id = auth.uid() and k.aktif
+                         and y.modul = p_modul and y.eylem = p_eylem limit 1), false); $$;
+
+    create or replace function public.auth_otel_erisim(p_otel text)
+    returns boolean language sql stable security definer set search_path = public as $$
+      select coalesce((select k.otel_id = p_otel from public.kullanicilar k
+                        where k.id = auth.uid() and k.aktif), false); $$;
+
+    truncate public.kullanicilar, public.kullanici_yetkileri;
+    insert into public.kullanicilar (id, ad, otel_id, aktif) values
+      ('${A}', 'A kullanicisi', '810', true), ('${B}', 'B kullanicisi', '811', true);
+    insert into public.kullanici_yetkileri (kullanici_id, modul, eylem) values
+      ('${A}', 'stok_takip', 'goruntule'), ('${B}', 'stok_takip', 'goruntule');
+
+    -- Veri: iki otel, ayni depo kodlari, ayri urun onekleri.
+    alter table public.stok_hareketleri add column if not exists otel_id text;
+    truncate public.stok, public.urunler, public.stok_hareketleri;
+    insert into public.urunler (kod, ad, birim)
+      select 'AAA' || lpad(g::text, 3, '0'), 'A urunu', 'KG' from generate_series(1, 40) g;
+    insert into public.urunler (kod, ad, birim)
+      select 'BBB' || lpad(g::text, 3, '0'), 'B urunu', 'KG' from generate_series(1, 25) g;
+    insert into public.stok (urun_kodu, depo_kodu, otel_id, miktar)
+      select kod, 'D1', '810', 10 from public.urunler where kod like 'AAA%';
+    insert into public.stok (urun_kodu, depo_kodu, otel_id, miktar)
+      select kod, 'D1', '811', 10 from public.urunler where kod like 'BBB%';
+    insert into public.stok_hareketleri (urun_kodu, depo_kodu, otel_id, tip, miktar, tarih, aciklama)
+      select kod, 'D1', '810', 'cikis', 2, now() - interval '1 day', 'gunluk_tuketim'
+        from public.urunler where kod like 'AAA%';
+    insert into public.stok_hareketleri (urun_kodu, depo_kodu, otel_id, tip, miktar, tarih, aciklama)
+      select kod, 'D1', '811', 'cikis', 7, now() - interval '1 day', 'gunluk_tuketim'
+        from public.urunler where kod like 'BBB%';
+
+    alter table public.stok enable row level security;
+    alter table public.stok_hareketleri enable row level security;
+    drop policy if exists yetki_select on public.stok;
+    create policy yetki_select on public.stok for select
+      using (public.auth_yetki_var('stok_takip','goruntule') and public.auth_otel_erisim(otel_id::text));
+    drop policy if exists yetki_select_har on public.stok_hareketleri;
+    create policy yetki_select_har on public.stok_hareketleri for select
+      using (public.auth_yetki_var('stok_takip','goruntule') and public.auth_otel_erisim(otel_id::text));
+  `);
+
+  const kimlik = (sub) => kur({
+    url: 'http://127.0.0.1:' + REST_PORT,
+    headers: { Authorization: 'Bearer ' + jwt('authenticated', sub), Accept: 'application/json' },
+    fetch, onek: '', sayfaBoyutu: 500,
+  });
+  const vA = kimlik(A), vB = kimlik(B);
+
+  // (a) Liste: her kimlik yalniz kendi otelinin satirlarini gorur.
+  const { satirlar: lA } = await vA.stokTumunuGetir({ depo: 'D1' });
+  const { satirlar: lB } = await vB.stokTumunuGetir({ depo: 'D1' });
+  const aTemiz = lA.length === 40 && lA.every(r => r.otel_id === '810' && r.urun_kodu.startsWith('AAA'));
+  const bTemiz = lB.length === 25 && lB.every(r => r.otel_id === '811' && r.urun_kodu.startsWith('BBB'));
+  sonuc(aTemiz && bTemiz, 'stok_liste: diger otelin satiri SIZMIYOR',
+    'A ' + lA.length + ' satir (bekl. 40), B ' + lB.length + ' satir (bekl. 25)');
+
+  // (b) Ozet: sayilar da cagiranin gordugu satirlardan.
+  const oA = await vA.stokOzetGetir('D1');
+  const oB = await vB.stokOzetGetir('D1');
+  sonuc(oA.toplam === 40 && oB.toplam === 25, 'stok_ozet: toplamlar otel kapsaminda',
+    'A toplam=' + oA.toplam + ' (bekl. 40), B toplam=' + oB.toplam + ' (bekl. 25)');
+
+  // (c) Kategoriler: diger otelin onekleri sekmelerde gorunmemeli.
+  const { satirlar: kA } = await vA.tumSayfalariCek('/rpc/stok_kategoriler?p_depo=D1');
+  const { satirlar: kB } = await vB.tumSayfalariCek('/rpc/stok_kategoriler?p_depo=D1');
+  const kATemiz = kA.length > 0 && kA.every(k => k.kategori.startsWith('AAA'));
+  const kBTemiz = kB.length > 0 && kB.every(k => k.kategori.startsWith('BBB'));
+  sonuc(kATemiz && kBTemiz, 'stok_kategoriler: diger otelin kategorisi YOK',
+    'A: ' + kA.map(k => k.kategori).join(',') + ' | B: ' + kB.map(k => k.kategori).join(','));
+
+  // (d) ABC girdileri: hem stok hem TUKETIM otel kapsaminda kalmali.
+  const { satirlar: abcA } = await vA.tumSayfalariCek('/rpc/stok_abc_girdi?p_gun=7');
+  const { satirlar: abcB } = await vB.tumSayfalariCek('/rpc/stok_abc_girdi?p_gun=7');
+  const abcATemiz = abcA.length === 40 && abcA.every(r => r.urun_kodu.startsWith('AAA') && Number(r.tuketim_miktar) === 2);
+  const abcBTemiz = abcB.length === 25 && abcB.every(r => r.urun_kodu.startsWith('BBB') && Number(r.tuketim_miktar) === 7);
+  sonuc(abcATemiz && abcBTemiz, 'stok_abc_girdi: stok ve tuketim otel kapsaminda',
+    'A ' + abcA.length + ' urun (bekl. 40), B ' + abcB.length + ' urun (bekl. 25)');
+
+  // (e) Otelsiz/yetkisiz kimlik: hicbir satir gormemeli (fail-closed).
+  const vYok = kimlik('33333333-3333-3333-3333-333333333333');   // kullanicilar'da YOK
+  const { satirlar: lYok } = await vYok.stokTumunuGetir({ depo: 'D1' });
+  const oYok = await vYok.stokOzetGetir('D1');
+  sonuc(lYok.length === 0 && oYok.toplam === 0, 'tanimsiz kimlik hicbir satir GORMUYOR',
+    'liste ' + lYok.length + ' satir, ozet toplam=' + oYok.toplam);
+
+  // (f) Pasif kullanici: kaydi var ama aktif degil -> DENY.
+  psql(`update public.kullanicilar set aktif = false where id = '${A}';`);
+  const { satirlar: lPasif } = await kimlik(A).stokTumunuGetir({ depo: 'D1' });
+  sonuc(lPasif.length === 0, 'pasiflestirilmis kullanici satir GORMUYOR', lPasif.length + ' satir');
+  psql(`update public.kullanicilar set aktif = true where id = '${A}';`);
 }
 
 console.log('\nSTOK VERI EKSIKSIZLIK SONUC: ' + ok + ' OK / ' + fail + ' FAIL');

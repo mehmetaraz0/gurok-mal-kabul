@@ -475,6 +475,9 @@ let db = {
   stok:       {},   // { [depoId]: { [lnKod]: {lnKod,urunAd,miktar,birim,...} } }
   hareketler: {},   // { [id]: hareket }
   minimumlar: {},   // { [lnKod]: min }
+  // ABC girdileri artik SUNUCUDAN ve liste render'indan SONRA gelir; render
+  // bunu bos haritayla da cizebilmeli (aksi halde ilk cizimde patlar).
+  abcSiniflari: {},
   kullanicilar: [],
   urunler:    [],   // Supabase urunler tablosundan canlı — İade Başlat ürün araması için
   cariler:    []    // Supabase cariler (tedarikçi) tablosundan canlı — İade Başlat firma seçimi için
@@ -632,6 +635,27 @@ async function saveHareket(h){
 // STOK İŞLEMLERİ
 // ============================================================
 function ensureDepoStok(depoId){if(!db.stok[depoId])db.stok[depoId]={};}
+
+// Mevcut miktar SUNUCUDAN okunur. db.stok artik yalnizca EKRANDA GORULEN
+// sayfalari tutar; orada olmayan bir urun "stokta yok" DEMEK DEGILDIR. Eskiden
+// cikis/transfer/iade/LN kontrolleri onbellege bakiyordu; sayfalamayla birlikte
+// bu, stogu olan urunu "yetersiz" gostermeye baslardi.
+// Okuma basarisiz olursa FIRLATIR — cagiran islemi durdurur (fail-closed).
+async function guncelMiktarlar(depoId,kodlar){
+  const harita=new Map();
+  const tekil=[...new Set((kodlar||[]).filter(Boolean))];
+  const DILIM=150;                                  // URL uzunlugu icin parcali sor
+  for(let i=0;i<tekil.length;i+=DILIM){
+    const parca=tekil.slice(i,i+DILIM);
+    const liste=parca.map(k=>'"'+String(k).replace(/"/g,'')+'"').join(',');
+    const yol='/rest/v1/stok?select=urun_kodu,miktar&depo_kodu=eq.'+encodeURIComponent(depoId)
+      +'&urun_kodu=in.('+encodeURIComponent(liste)+')&order=urun_kodu.asc';
+    const {satirlar}=await SV.tumSayfalariCek(yol);
+    satirlar.forEach(s=>harita.set(s.urun_kodu,parseFloat(s.miktar)||0));
+  }
+  tekil.forEach(k=>{if(!harita.has(k))harita.set(k,0);});
+  return harita;
+}
 
 function giris(depoId,lnKod,urunAd,miktar,birim,kaynak,kaynakId){
   ensureDepoStok(depoId);
@@ -886,18 +910,29 @@ let _stokSayfa={depo:null,arama:'',ofset:0,toplam:null,dahaVar:true,yukleniyor:f
 let _stokOzet=null;
 let _stokAramaZamanlayici=null;
 
+// ISTEK NESLI: depo ya da arama degistiginde artar. Ucusta olan bir istek
+// dondugunde kendi neslini karsilastirir; nesil eskiyse sonucu ATAR. Boylece
+// eski depo/aramanin yaniti yeni listeye karismaz — benzersiz siralama bunu
+// tek basina engellemez, cunku sorun sirada degil YANIT SIRASINDADIR.
+let _stokNesil=0;
+
 function stokListesiSifirla(){
+  _stokNesil++;
   _stokSayfa={depo:aktifDepoId,arama:(document.getElementById('stok-search')?.value||'').trim(),
     ofset:0,toplam:null,dahaVar:true,yukleniyor:false,eksik:''};
   if(aktifDepoId)db.stok[aktifDepoId]={};
   _stokOzet=null;
+  _stokKategoriler=null;
 }
 
 async function stokSayfaYukle(){
   if(!aktifDepoId||_stokSayfa.yukleniyor||!_stokSayfa.dahaVar)return;
+  const nesil=_stokNesil;
+  const istekDepo=aktifDepoId;
   _stokSayfa.yukleniyor=true;
   try{
-    const r=await SV.stokSayfasiGetir({depo:aktifDepoId,arama:_stokSayfa.arama,ofset:_stokSayfa.ofset,adet:STOK_SAYFA});
+    const r=await SV.stokSayfasiGetir({depo:istekDepo,arama:_stokSayfa.arama,ofset:_stokSayfa.ofset,adet:STOK_SAYFA});
+    if(nesil!==_stokNesil)return;                 // bayat yanit: yeni listeye YAZILMAZ
     if(!db.stok[aktifDepoId])db.stok[aktifDepoId]={};
     r.satirlar.forEach(s=>{
       db.stok[aktifDepoId][s.urun_kodu]={
@@ -912,6 +947,7 @@ async function stokSayfaYukle(){
   }catch(e){
     // Yarim liste SESSIZ KALMAZ: kullanici eksik oldugunu gorur ve tekrar dener.
     console.warn('stok sayfa',e);
+    if(nesil!==_stokNesil)return;                 // eski isteğin hatası da yeni listeyi bozmaz
     _stokSayfa.eksik=(e&&e.message)||'Liste yüklenemedi';
     _stokSayfa.dahaVar=false;
   }
@@ -920,17 +956,24 @@ async function stokSayfaYukle(){
 }
 
 async function stokOzetYukle(){
-  try{ _stokOzet=await SV.stokOzetGetir(aktifDepoId); }
-  catch(e){ console.warn('stok ozet',e); _stokOzet=null; }
+  const nesil=_stokNesil,istekDepo=aktifDepoId;
+  try{
+    const o=await SV.stokOzetGetir(istekDepo);
+    if(nesil!==_stokNesil)return;                 // eski deponun ozeti yeni basliga YAZILMAZ
+    _stokOzet=o;
+  }
+  catch(e){ console.warn('stok ozet',e); if(nesil===_stokNesil)_stokOzet=null; }
 }
 
 async function stokKategorileriYukle(){
+  const nesil=_stokNesil,istekDepo=aktifDepoId;
   try{
     // SAYFALI oku: kategori sayisi sunucu tavanini asarsa duz okuma kirpardi.
-    const yol='/rest/v1/rpc/stok_kategoriler'+(aktifDepoId?'?p_depo='+encodeURIComponent(aktifDepoId):'');
+    const yol='/rest/v1/rpc/stok_kategoriler'+(istekDepo?'?p_depo='+encodeURIComponent(istekDepo):'');
     const {satirlar}=await SV.tumSayfalariCek(yol);
+    if(nesil!==_stokNesil)return;                 // eski deponun sekmeleri yeni listeye GECMEZ
     _stokKategoriler=satirlar;
-  }catch(e){ console.warn('kategori',e); _stokKategoriler=null; }
+  }catch(e){ console.warn('kategori',e); if(nesil===_stokNesil)_stokKategoriler=null; }
 }
 let _stokKategoriler=null;
 
@@ -1052,12 +1095,20 @@ function stokKaydirmaBagla(){
   _stokKaydirmaBagli=true;
 }
 
-// Salt görüntüleme — geri yükleme yok. Ekranda o an görünen (arama+kategori+durum
-// filtresi uygulanmış) listeyle birebir aynı satırları Excel'e indirir.
+// Salt görüntüleme — geri yükleme yok. Aynı arama/kategori/durum filtreleriyle
+// deponun TAMAMINI aktarır: ekranda o an yalnız ilk sayfalar yüklü olabilir,
+// yüklenmiş sayfayı "deponun stoğu" diye aktarmak sessizce eksik dosya uretirdi.
 async function stokExcelAktar(){
-  const depoStok=db.stok[aktifDepoId]||{};
-  const items=Object.values(depoStok);
   const search=(document.getElementById('stok-search')?.value||'').toLowerCase();
+  let items;
+  try{
+    const {satirlar}=await SV.stokTumunuGetir({depo:aktifDepoId,arama:(document.getElementById('stok-search')?.value||'').trim()});
+    items=satirlar.map(s=>({lnKod:s.urun_kodu,urunAd:s.urun_adi||s.urun_kodu,
+      miktar:parseFloat(s.miktar)||0,birim:s.birim||''}));
+  }catch(e){
+    showToast('⚠️ Stok eksiksiz okunamadı, Excel aktarılmadı: '+((e&&e.message)||e),5000);
+    return;
+  }
   const filtered=items.filter(s=>{
     if(search&&!s.urunAd?.toLowerCase().includes(search)&&!s.lnKod?.toLowerCase().includes(search))return false;
     if(katFilter!=='tumu'&&!s.lnKod?.startsWith(katFilter))return false;
@@ -1639,7 +1690,9 @@ async function saveCikis(){
   const not=document.getElementById('cikis-not').value;
   if(!kod){showToast('⚠️ Ürün seçin');return;}
   if(!miktar||miktar<=0){showToast('⚠️ Miktar girin');return;}
-  const mevcutMiktar=parseFloat((db.stok[depoId]||{})[kod]?.miktar||0);
+  let mevcutMiktar;
+  try{ mevcutMiktar=(await guncelMiktarlar(depoId,[kod])).get(kod)||0; }
+  catch(e){ showToast('⚠️ Mevcut stok okunamadı, çıkış yapılmadı: '+((e&&e.message)||e),5000); return; }
   if(miktar>mevcutMiktar){showToast(`⚠️ Stok yetersiz (mevcut: ${mevcutMiktar} ${birim})`);return;}
   showLoading();
   const h=cikis(depoId,kod,ad,miktar,birim,neden,not);
@@ -1679,7 +1732,9 @@ async function saveTransfer(){
   if(kaynakDepoId===hedefDepoId){showToast('⚠️ Kaynak ve hedef depo aynı olamaz');return;}
   if(!kod){showToast('⚠️ Ürün seçin');return;}
   if(!miktar||miktar<=0){showToast('⚠️ Miktar girin');return;}
-  const mevcutMiktar=parseFloat((db.stok[kaynakDepoId]||{})[kod]?.miktar||0);
+  let mevcutMiktar;
+  try{ mevcutMiktar=(await guncelMiktarlar(kaynakDepoId,[kod])).get(kod)||0; }
+  catch(e){ showToast('⚠️ Kaynak depo stoğu okunamadı, transfer yapılmadı: '+((e&&e.message)||e),5000); return; }
   if(miktar>mevcutMiktar){
     const kaynakAd=depoAdi(kaynakDepoId);
     showToast(`⚠️ ${kaynakAd}'de stok yetersiz (${mevcutMiktar} ${birim})`);return;
@@ -1735,6 +1790,17 @@ async function applyLNRapor(){
   const miktarIdx=parseInt(document.getElementById('lnk-miktar').value);
   const birimIdx=parseInt(document.getElementById('lnk-birim').value);
   closeModal('modal-ln-kolon');showLoading();
+  // Mevcut miktarlar SUNUCUDAN, tek seferde. Onbellekteki sayfa tum depoyu
+  // icermedigi icin buradan okumak "mevcut 0" uydururdu.
+  let mevcutHarita;
+  try{
+    const kodlar=_lnRows.slice(1).map(r=>(r[kodIdx]||'').trim()).filter(Boolean);
+    mevcutHarita=await guncelMiktarlar(_lnDepoId,kodlar);
+  }catch(e){
+    hideLoading();
+    showToast('⚠️ Depo stoğu okunamadı, LN raporu işlenmedi: '+((e&&e.message)||e),5000);
+    return;
+  }
   let islem=0;const harlar=[];const eksikler=[];
   _lnRows.slice(1).forEach(row=>{
     const kod=(row[kodIdx]||'').trim();
@@ -1742,7 +1808,7 @@ async function applyLNRapor(){
     const miktar=parseFloat((row[miktarIdx]||'0').toString().replace(',','.'));
     const birim=birimIdx>=0?(row[birimIdx]||'KG').trim():'KG';
     if(!kod||!miktar||miktar<=0)return;
-    const mevcutMiktar=parseFloat((db.stok[_lnDepoId]||{})[kod]?.miktar||0);
+    const mevcutMiktar=mevcutHarita.get(kod)||0;
     if(miktar>mevcutMiktar){
       eksikler.push({kod,ad:ad||kod,istenen:miktar,mevcut:mevcutMiktar,birim});
     }
@@ -1893,9 +1959,12 @@ async function iadeSiparisiOlustur(){
   const dolu=IADE_KALEMLER.filter(k=>k.kod&&k.miktar&&parseFloat(k.miktar)>0);
   if(!dolu.length){showToast('⚠️ En az bir kalem girin');return;}
 
-  // Stok yeterliliği kontrolü
+  // Stok yeterliliği kontrolü — miktarlar SUNUCUDAN (onbellek sayfali).
+  let iadeMevcut;
+  try{ iadeMevcut=await guncelMiktarlar(depoId,dolu.map(k=>k.kod)); }
+  catch(e){ showToast('⚠️ Depo stoğu okunamadı, iade oluşturulmadı: '+((e&&e.message)||e),5000); return; }
   for(const k of dolu){
-    const mevcut=parseFloat((db.stok[depoId]||{})[k.kod]?.miktar||0);
+    const mevcut=iadeMevcut.get(k.kod)||0;
     if(parseFloat(k.miktar)>mevcut){
       showToast(`⚠️ ${k.ad} için stok yetersiz (mevcut: ${mevcut} ${k.birim})`);return;
     }
@@ -2035,9 +2104,46 @@ function filterSayimKat(k,el){
   renderSayimYeni();
 }
 
-function renderSayimYeni(){
-  const depoStok=db.stok[aktifDepoId]||{};
-  const items=Object.values(depoStok);
+// Sayim ekrani TUM depoyu ister: liste sayfali yuklendigi icin db.stok yalniz
+// gorulen sayfalari tutar, oradan sayim yapmak depoyu ilk sayfaya indirger.
+// Okuma basarisizsa sayim EKRANI ACILMAZ — eksik kapsamla sayim baslatilamaz.
+let _sayimStok=null;
+let _sayimStokHata='';
+let _sayimStokDepo=null;
+
+async function sayimStokYukle(){
+  try{
+    const {satirlar}=await SV.stokTumunuGetir({depo:aktifDepoId});
+    _sayimStok=satirlar.map(s=>({lnKod:s.urun_kodu,urunAd:s.urun_adi||s.urun_kodu,
+      miktar:parseFloat(s.miktar)||0,birim:s.birim||''}));
+    _sayimStokHata='';
+  }catch(e){
+    console.warn('sayim stok',e);
+    _sayimStok=null;
+    _sayimStokHata=(e&&e.message)||'Depo stoğu okunamadı';
+  }
+  _sayimStokDepo=aktifDepoId;
+}
+
+async function sayimStokYenidenDene(){
+  _sayimStok=null;_sayimStokHata='';_sayimStokDepo=null;
+  await renderSayimYeni();
+}
+
+async function renderSayimYeni(){
+  const c0=document.getElementById('sayim-liste');
+  if(_sayimStokDepo!==aktifDepoId||(!_sayimStok&&!_sayimStokHata)){
+    if(c0)c0.innerHTML='<div class="card" style="text-align:center;color:var(--gray-500)">Depo stoğu yükleniyor…</div>';
+    await sayimStokYukle();
+  }
+  if(_sayimStokHata){
+    if(c0)c0.innerHTML='<div class="card" style="text-align:center;color:var(--danger)">⚠️ Depo stoğu eksiksiz okunamadı, sayım başlatılamaz'
+      +'<div style="font-size:12px;color:var(--gray-600);margin:6px 0">'+escapeHtml(_sayimStokHata)+'</div>'
+      +'<button class="btn btn-secondary btn-sm" onclick="sayimStokYenidenDene()">Tekrar dene</button></div>';
+    const kt=document.getElementById('sayim-kat-tabs'); if(kt)kt.innerHTML='';
+    return;
+  }
+  const items=(_sayimStok||[]).slice();
   const search=(document.getElementById('sayim-search')?.value||'').toLowerCase();
 
   const katSet=new Set();
@@ -2190,6 +2296,11 @@ let _sayimKaydediliyor=false;
 
 async function sayimTamamla(){
   if(_sayimKaydediliyor){showToast('⏳ İşleniyor, bekleyin...');return;}
+  // Sistem miktarlari eksik okunmus bir listeden sayim kaydedilmez.
+  if(_sayimStokHata||!_sayimStok){
+    showToast('⚠️ Depo stoğu eksiksiz okunamadı, sayım kaydedilmedi: '+(_sayimStokHata||'liste yüklenmedi'),5000);
+    return;
+  }
   const satirlar=Object.entries(sayimSatirlari).filter(([,v])=>v.sayilan!==undefined&&!isNaN(v.sayilan));
   if(!satirlar.length){showToast('⚠️ En az bir ürün için sayılan miktar girin');return;}
   const eksikAciklama=satirlar.filter(([,v])=>v.farkYuzde>SAYIM_ESIK_YUZDE&&!v.aciklama.trim());
