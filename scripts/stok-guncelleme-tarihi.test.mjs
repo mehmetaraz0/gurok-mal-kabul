@@ -20,6 +20,8 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { setTimeout as bekle } from 'node:timers/promises';
+// Govdeler uretimin tek kanonik kopyasindan gelir; burada YENIDEN YAZILMAZ.
+import { EKLE_GOVDE, URETIM_RPC_SEMA, OTEL_ID_TIPI, MD5_BEKLENEN } from './stok-rpc-govde.mjs';
 
 const kok = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const MIG = readFileSync(kok + 'docs/kurulum/2026-09-17-stok-guncelleme-tarihi.sql', 'utf8');
@@ -43,31 +45,6 @@ const tek = (db, sql) => {
 };
 const temizle = () => spawnSync('docker', ['rm', '-f', PG]);
 
-// Uretim govdeleri — 2026-09-17 teshis ciktisindan, CRLF satir sonlariyla birlikte.
-const CR = (satirlar) => '\r\n' + satirlar.join('\r\n') + '\r\n';
-const EKLE_GOVDE = CR([
-  'declare',
-  '  v_yeni numeric;',
-  'begin',
-  '  insert into stok (urun_kodu, depo_kodu, otel_id, miktar)',
-  '  values (p_urun_kodu, p_depo_kodu, p_otel_id::otel_id, greatest(0, p_delta))',
-  '  on conflict (urun_kodu, depo_kodu)',
-  '  do update set miktar = greatest(0, stok.miktar + p_delta)',
-  '  returning miktar into v_yeni;',
-  '  return v_yeni;',
-  'end;',
-]);
-const TRANSFER_GOVDE = CR([
-  'begin',
-  '  update stok set miktar = greatest(0, miktar - p_miktar)',
-  '    where urun_kodu = p_urun_kodu and depo_kodu = p_kaynak_depo;',
-  '  insert into stok (urun_kodu, depo_kodu, otel_id, miktar)',
-  '    values (p_urun_kodu, p_hedef_depo, p_hedef_otel::otel_id, p_miktar)',
-  '    on conflict (urun_kodu, depo_kodu)',
-  '    do update set miktar = greatest(0, stok.miktar + p_miktar);',
-  'end;',
-]);
-
 const SEMA = (ekleGovde = EKLE_GOVDE) => `
   do $r$ begin
     if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
@@ -75,25 +52,14 @@ const SEMA = (ekleGovde = EKLE_GOVDE) => `
     if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if;
   end $r$;
   create schema if not exists extensions;
-  create type public.otel_id as enum ('810', '811');
+  ${OTEL_ID_TIPI}
   create table public.stok (
     id uuid primary key default gen_random_uuid(),
     urun_kodu text not null, depo_kodu text not null, otel_id public.otel_id not null,
     miktar numeric(12,3) not null default 0,
     guncelleme_tarihi timestamptz not null default now(),
     unique (urun_kodu, depo_kodu));
-  create function public.stok_ekle(p_urun_kodu text, p_depo_kodu text, p_otel_id text, p_delta numeric)
-    returns numeric language plpgsql
-    set search_path to 'pg_catalog', 'public', 'extensions', 'pg_temp'
-    as $function$${ekleGovde}$function$;
-  create function public.stok_transfer(p_urun_kodu text, p_kaynak_depo text, p_hedef_depo text, p_hedef_otel text, p_miktar numeric)
-    returns void language plpgsql
-    set search_path to 'pg_catalog', 'public', 'extensions', 'pg_temp'
-    as $function$${TRANSFER_GOVDE}$function$;
-  revoke all on function public.stok_ekle(text,text,text,numeric) from public, anon;
-  grant execute on function public.stok_ekle(text,text,text,numeric) to authenticated, service_role;
-  revoke all on function public.stok_transfer(text,text,text,text,numeric) from public, anon;
-  grant execute on function public.stok_transfer(text,text,text,text,numeric) to authenticated, service_role;
+${URETIM_RPC_SEMA(ekleGovde)}
   grant select, insert, update on public.stok to authenticated, service_role;
 `;
 
@@ -161,7 +127,7 @@ async function main() {
     const kurR = psql('ana', SEMA());
     if (kurR.status !== 0) throw new Error('Sema kurulamadi: ' + kurR.stderr);
 
-    const olculen = 'stok_ekle=24d255cc03df86bb4c9f6c978cadce81,stok_transfer=4c6fe1217463841653bec7637f3bf259';
+    const olculen = MD5_BEKLENEN;
     sonuc(md5ler('ana') === olculen, '0. izole govdeler uretimle birebir (md5)', md5ler('ana'));
 
     const once = senaryoKos('ana');
