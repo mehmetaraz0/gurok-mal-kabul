@@ -619,7 +619,44 @@ async function saveStok(harekets){
   if(basarisizlar.length){
     showToast(`⚠️ ${basarisizlar.length} üründe stok güncellenemedi — tekrar dene (ayrıntı için konsola bak)`,4000);
   }
+  await sunucuTarihleriniTazele((harekets||[]).filter(h=>!basarisizlar.includes(h)));
   return basarisizlar;
+}
+
+// Yazma sonrasi "Son guncelleme" SUNUCUDAN okunur. Tarihi yazan taraf
+// sunucudur (stok_ekle/stok_transfer icinde guncelleme_tarihi = now());
+// tarayicinin saatiyle doldurmak, sayfa yenilenince kaybolan ve sunucudaki
+// gercek degerden farkli olabilen bir tarih gostermek demekti.
+// Okuma basarisiz olursa tarih BILINMIYOR (null) kalir ve kartta '—' gorunur:
+// yerel saat, gercek guncelleme tarihi gibi SUNULMAZ.
+async function sunucuTarihleriniTazele(harekets){
+  const gruplar=new Map();                           // depoId -> Set(urun kodu)
+  const ekle=(depoId,kod)=>{
+    if(!depoId||!kod)return;
+    if(!gruplar.has(depoId))gruplar.set(depoId,new Set());
+    gruplar.get(depoId).add(kod);
+  };
+  for(const h of (harekets||[])){
+    if(h.tip==='transfer'){ekle(h.kaynakDepoId,h.lnKod);ekle(h.hedefDepoId,h.lnKod);}
+    else ekle(h.depoId,h.lnKod);
+  }
+  const DILIM=150;                                   // URL uzunlugu icin parcali sor
+  for(const [depoId,kodSeti] of gruplar){
+    const kodlar=[...kodSeti];
+    for(let i=0;i<kodlar.length;i+=DILIM){
+      const parca=kodlar.slice(i,i+DILIM);
+      const liste=parca.map(k=>'"'+String(k).replace(/"/g,'')+'"').join(',');
+      try{
+        const r=await fetch(SB_URL+'/rest/v1/stok?select=urun_kodu,guncelleme_tarihi&depo_kodu=eq.'
+          +encodeURIComponent(depoId)+'&urun_kodu=in.('+encodeURIComponent(liste)+')',{headers:SB_HEADERS});
+        if(!r.ok){console.warn('guncelleme_tarihi okunamadi',depoId,await r.text());continue;}
+        (await r.json()).forEach(s=>{
+          const satir=db.stok[depoId]&&db.stok[depoId][s.urun_kodu];
+          if(satir)satir.sonGuncelleme=s.guncelleme_tarihi||null;
+        });
+      }catch(e){console.warn('guncelleme_tarihi okunamadi',depoId,e);}
+    }
+  }
 }
 async function saveHareket(h){
   try{
@@ -657,12 +694,15 @@ async function guncelMiktarlar(depoId,kodlar){
   return harita;
 }
 
+// sonGuncelleme SUNUCUNUN degeridir; yerel saatle doldurulmaz. Yazma bittikten
+// sonra saveStok() -> sunucuTarihleriniTazele() gercek degeri getirir. O ana
+// kadar (ve okuma basarisiz olursa) null kalir ve kartta '—' gorunur.
 function giris(depoId,lnKod,urunAd,miktar,birim,kaynak,kaynakId){
   ensureDepoStok(depoId);
   const s=db.stok[depoId];
-  if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
+  if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:null};
   s[lnKod].miktar=(parseFloat(s[lnKod].miktar)||0)+parseFloat(miktar);
-  s[lnKod].sonGuncelleme=Date.now();
+  s[lnKod].sonGuncelleme=null;
   s[lnKod].urunAd=urunAd;
   return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'giris',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),kaynak,kaynakId,aciklama:kaynak||'',personel:currentUser?.ad||'—'};
 }
@@ -670,9 +710,9 @@ function giris(depoId,lnKod,urunAd,miktar,birim,kaynak,kaynakId){
 function cikis(depoId,lnKod,urunAd,miktar,birim,neden,not){
   ensureDepoStok(depoId);
   const s=db.stok[depoId];
-  if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
+  if(!s[lnKod])s[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:null};
   s[lnKod].miktar=Math.max(0,(parseFloat(s[lnKod].miktar)||0)-parseFloat(miktar));
-  s[lnKod].sonGuncelleme=Date.now();
+  s[lnKod].sonGuncelleme=null;
   return {id:Date.now()+'_'+Math.random().toString(36).slice(2,5),tip:'cikis',depoId,lnKod,urunAd,miktar:parseFloat(miktar),birim,tarih:Date.now(),neden,not:not||'',aciklama:(neden||'')+(not?(' — '+not):''),personel:currentUser?.ad||'—'};
 }
 
@@ -680,15 +720,15 @@ function transfer(kaynakDepoId,hedefDepoId,lnKod,urunAd,miktar,birim,not){
   // Kaynaktan çıkar
   ensureDepoStok(kaynakDepoId);
   const ks=db.stok[kaynakDepoId];
-  if(!ks[lnKod])ks[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
+  if(!ks[lnKod])ks[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:null};
   ks[lnKod].miktar=Math.max(0,(parseFloat(ks[lnKod].miktar)||0)-parseFloat(miktar));
-  ks[lnKod].sonGuncelleme=Date.now();
+  ks[lnKod].sonGuncelleme=null;
   // Hedefe ekle
   ensureDepoStok(hedefDepoId);
   const hs=db.stok[hedefDepoId];
-  if(!hs[lnKod])hs[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:Date.now()};
+  if(!hs[lnKod])hs[lnKod]={lnKod,urunAd,miktar:0,birim,sonGuncelleme:null};
   hs[lnKod].miktar=(parseFloat(hs[lnKod].miktar)||0)+parseFloat(miktar);
-  hs[lnKod].sonGuncelleme=Date.now();
+  hs[lnKod].sonGuncelleme=null;
   const baseId=Date.now()+'_'+Math.random().toString(36).slice(2,5);
   const kaynakDepoAd=depoAdi(kaynakDepoId);
   const hedefDepoAd=depoAdi(hedefDepoId);
@@ -2474,7 +2514,7 @@ async function sayimOnayla(oturumId){
     const atlananUrunler=[]; // canlı GET başarısız olduğu için hiç işlenemeyen ürün adları
     for(const d of detaylar){
       // Bayat veri kontrolü: onay anındaki GÜNCEL sistem miktarını yeniden oku, oturumdaki donmuş değeri değil
-      const guncelR=await fetch(SB_URL+'/rest/v1/stok?depo_kodu=eq.'+encodeURIComponent(oturum.depo_kodu)+'&urun_kodu=eq.'+encodeURIComponent(d.urun_kodu)+'&select=miktar',{headers:SB_HEADERS});
+      const guncelR=await fetch(SB_URL+'/rest/v1/stok?depo_kodu=eq.'+encodeURIComponent(oturum.depo_kodu)+'&urun_kodu=eq.'+encodeURIComponent(d.urun_kodu)+'&select=miktar,guncelleme_tarihi',{headers:SB_HEADERS});
       if(!guncelR.ok){
         // Canlı okuma başarısız oldu — bunu "ürün stok tablosunda yok, miktar 0" ile
         // ASLA karıştırma. Bu satırı tamamen atla ve onayı engelleyecek şekilde işaretle.
@@ -2490,7 +2530,8 @@ async function sayimOnayla(oturumId){
       // db.stok değeri üzerine uygular ve saveStok() bu yanlış sonucu (tam değer
       // upsert olarak) Supabase'e yazıp canlı yeniden-okumanın tüm amacını boşa çıkarır.
       if(!db.stok[oturum.depo_kodu])db.stok[oturum.depo_kodu]={};
-      db.stok[oturum.depo_kodu][d.urun_kodu]={lnKod:d.urun_kodu,urunAd:d.urun_adi,miktar:guncelMiktar,birim:d.birim,sonGuncelleme:Date.now()};
+      db.stok[oturum.depo_kodu][d.urun_kodu]={lnKod:d.urun_kodu,urunAd:d.urun_adi,miktar:guncelMiktar,birim:d.birim,
+        sonGuncelleme:(guncelD.length?guncelD[0].guncelleme_tarihi:null)||null};
       const h=guncelFark>0
         ?giris(oturum.depo_kodu,d.urun_kodu,d.urun_adi,guncelFark,d.birim,'sayim',oturumId)
         :cikis(oturum.depo_kodu,d.urun_kodu,d.urun_adi,Math.abs(guncelFark),d.birim,'sayim',d.aciklama||'Fiziksel sayım düzeltmesi');

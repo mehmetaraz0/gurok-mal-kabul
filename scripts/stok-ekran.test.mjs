@@ -363,6 +363,88 @@ const toastVar = (e, parca) => toastlar(e).some(t => t.includes(parca));
     'excel=' + (excel === null ? 'yok' : 'URETILDI') + ' | mesaj: ' + (toastlar(e).slice(-1)[0] || '—').slice(0, 50));
 }
 
+// --- 11) SON GUNCELLEME: yazma sonrasi SUNUCUNUN tarihi gosterilir ----------
+// Ekran 2026-09-17'ye kadar kendi saatini (Date.now()) yaziyordu: kart guncel
+// gorunuyor, sayfa yenilenince eski tarih geri geliyordu. Artik deger yazma
+// bittikten sonra sunucudan okunur.
+const sunucuTarihi = (kod, depo) => ortam.psqlTek(
+  `select to_char(guncelleme_tarihi at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS')
+     from public.stok where urun_kodu='${kod}' and depo_kodu='${depo}'`);
+const utc = (v) => (v == null ? null : new Date(v).toISOString().slice(0, 23));
+{
+  seedDepolar();
+  ortam.psql(`update public.stok set guncelleme_tarihi = '2026-07-09 07:23:10+00';`);
+  const e = await ekran('D1');
+  await e.calistir('stokListesiYenile()');
+  e.el('cikis-depo').value = 'D1';
+  e.el('cikis-urun-kod').value = 'AAA001';
+  e.el('cikis-urun-inp').value = 'A urunu 1';
+  e.el('cikis-miktar').value = '10';
+  e.el('cikis-birim').value = 'KG';
+  e.el('cikis-neden').value = 'fire';
+  e.el('cikis-not').value = '';
+  await e.calistir('saveCikis()');
+
+  const onbellek = e.calistir('db.stok.D1.AAA001.sonGuncelleme');
+  const sunucu = sunucuTarihi('AAA001', 'D1');
+  sonuc(typeof onbellek === 'string' && utc(onbellek) === sunucu,
+    'cikis sonrasi "Son guncelleme" SUNUCUDAN geliyor (yerel saat degil)',
+    'onbellek ' + utc(onbellek) + ' | sunucu ' + sunucu);
+  sonuc(!/^2026-07-09/.test(String(utc(onbellek))),
+    'cikis sonrasi tarih gercekten tazelendi (tohumdaki temmuz tarihi degil)');
+}
+
+// --- 12) SON GUNCELLEME: transferde IKI bacak da sunucudan tazelenir --------
+{
+  seedDepolar();
+  ortam.psql(`update public.stok set guncelleme_tarihi = '2026-07-09 07:23:10+00';`);
+  const e = await ekran('D1');
+  await e.calistir('stokListesiYenile()');
+  e.el('tr-kaynak').value = 'D1';
+  e.el('tr-hedef').value = 'D2';
+  e.el('tr-urun-kod').value = 'AAA001';
+  e.el('tr-urun-inp').value = 'A urunu 1';
+  e.el('tr-miktar').value = '5';
+  e.el('tr-birim').value = 'KG';
+  e.el('tr-not').value = '';
+  await e.calistir('saveTransfer()');
+
+  const kaynak = e.calistir('db.stok.D1.AAA001.sonGuncelleme');
+  const hedef = e.calistir('db.stok.D2 && db.stok.D2.AAA001 && db.stok.D2.AAA001.sonGuncelleme');
+  sonuc(utc(kaynak) === sunucuTarihi('AAA001', 'D1') && utc(hedef) === sunucuTarihi('AAA001', 'D2'),
+    'transfer sonrasi kaynak ve hedef satirin tarihi de SUNUCUDAN',
+    'kaynak ' + utc(kaynak) + ' | hedef ' + utc(hedef));
+}
+
+// --- 13) SON GUNCELLEME: sunucu degeri okunamazsa YEREL SAAT GOSTERILMEZ ----
+{
+  seedDepolar();
+  ortam.psql(`update public.stok set guncelleme_tarihi = '2026-07-09 07:23:10+00';`);
+  const e = await ekran('D1');
+  await e.calistir('stokListesiYenile()');
+  e.fetchAraciAyarla(async (url, sec, calistir) => {
+    // Yalniz tarih tazeleme istegi bozulsun; yazmanin kendisi calissin.
+    if (url.includes('select=urun_kodu,guncelleme_tarihi')) return new Response('bozuk', { status: 503 });
+    return calistir();
+  });
+  e.el('cikis-depo').value = 'D1';
+  e.el('cikis-urun-kod').value = 'AAA001';
+  e.el('cikis-urun-inp').value = 'A urunu 1';
+  e.el('cikis-miktar').value = '10';
+  e.el('cikis-birim').value = 'KG';
+  e.el('cikis-neden').value = 'fire';
+  e.el('cikis-not').value = '';
+  await e.calistir('saveCikis()');
+
+  const onbellek = e.calistir('db.stok.D1.AAA001.sonGuncelleme');
+  const kart = e.calistir('(function(){var s=db.stok.D1.AAA001;' +
+    'return s.sonGuncelleme?new Date(s.sonGuncelleme).toLocaleString("tr-TR"):"—";})()');
+  const kalan = miktarOku('AAA001', 'D1');
+  sonuc(onbellek === null && kart === '—' && kalan === 40,
+    'tarih okunamazsa BILINMIYOR gosterilir, yerel saat gercek tarih gibi sunulmaz',
+    'onbellek=' + JSON.stringify(onbellek) + ', kartta "' + kart + '", stok 50 -> ' + kalan);
+}
+
 console.log('\nSTOK EKRANI SONUC: ' + ok + ' OK / ' + fail + ' FAIL');
 ortam.temizle();
 process.exit(fail ? 1 : 0);
