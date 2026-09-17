@@ -1,449 +1,501 @@
 # Bar Güvenliği, Gün Sonu İkmal ve Teslim Kabulü — Tasarım
 
-**Tarih:** 2026-09-17 · **Revizyon:** 2 (2026-09-17) · **Durum:** incelemede — açık tercihler
-kesinleşmedi
+**Tarih:** 2026-09-17 · **Revizyon:** 3 (2026-09-17) · **Durum:** incelemede — açık tercih ve
+sorular kesinleşmedi; hiçbir aşama uygulanmadı (Aşama 0 test tabanı hariç)
 **Kapsam dışı ilkesi:** mevcut bar modülü **yeniden kurulmaz**; tablolar, sayfalar ve Edge
 Function'lar yerinde genişletilir.
 **Dayanak:** `docs/BAR-MODULU-ISLEYIS.md` (2026-09-16 bulguları) · üretim şeması
 `2026-09-13-post-faz2-sema-dokumu.sql` (bar/stok fonksiyon ve politikaları 09-07 dökümüyle
-birebir aynı — özetle doğrulandı).
+birebir aynı — özetle doğrulandı) · Aşama 0 raporu `docs/superpowers/reports/2026-09-17-bar-asama0-rapor.md`.
 
-## Gereksinimler ve tercihlerin kaynağı
+## Revizyon 3'te değişenler
 
-Bu belgede dört tür madde vardır; birbirine karıştırılmaz: kesin talep (T), kesinleşmemiş çalışma varsayımı (V), tasarım önerisi (Ö), ölçüm sonucu (Z).
+| Konu | Revizyon 2 | Revizyon 3 |
+|---|---|---|
+| Operasyon günü | Saate bağlı (06:00 kesimi), "yalnız varsayılan değişir" | Tüketim **açık servis kaydının** operasyon gününe bağlanır; saat kesimi yok (T16). Normal teslim tarihi **depo takvimine** bakar (T17). |
+| Garson siparişi | Siparişi giren personel onaylamış sayılıyordu (Ö1) | **Kaldırıldı.** Personel oda kartı/misafir kontrolünü **açıkça** onaylar (T18). |
+| "Hazırlanıyor" iptali | Tam reçete otomatik zayi | **Kaldırıldı.** Kullanılan malzeme ve miktarı belirlenir (T19). |
+| Folyo kapalıyken teslim | Teslim reddedilir → iptal + zayi (Ö6) | **Kaldırıldı.** Fiziksel tüketim ile borçlandırma ayrı ele alınır; başka folyoya otomatik aktarım yok (T20). |
+| Edge Function testi | Veritabanı yetki testi Edge Function'ı karşılıyor gibi yazılmıştı | Veritabanı testi uçtan uca test **değildir**; izole çalışma seçenekleri araştırıldı, hiçbiri çalıştırılmadı, **test açığı açık** (T21, bölüm 5). |
+| Z başlığı | Gerçek ile seçilen çözüm aynı satırdaydı; sayım durdurma "zorunlu" yazılmıştı | Ölçülen gerçek, bilinme yolu ve tasarım karşılığı ayrıldı. Sayımı rezervasyonda durdurmak **tasarım tercihidir**, zorunluluk değil (T22, Ö10). |
+| Aşama 1 kapsamı | Operasyon günü ve `bar_ayarlari` Aşama 1'deydi | Servis kaydı ve operasyon günü **Aşama 2'ye** taşındı; Aşama 1 tüketimi sipariş ve zamanla kaydeder. |
 
-### A. Kullanıcının yazılı talebi (kesin)
+Plan (`docs/superpowers/plans/2026-09-17-bar-guvenlik-ikmal-kabul.md`) Aşama 1 görevleri bu
+revizyonla **geçersizdir** ve kesinleşmeler sonrasında yeniden yazılacaktır.
 
-Kullanıcının 2026-09-17 mesajından; tasarım bunlara uymak zorundadır.
+---
 
-| # | Talep |
-|---|---|
-| T1 | Ücretli üründe aktif konaklama ve açık folyo **sunucuda** doğrulanır; yalnız oda numarası bilmek borçlandırmaya yetmez. |
-| T2 | Onaylanan fiyat siparişe kaydedilir. |
-| T3 | Teslimde stok ve folyo işlemi tutarlı olur; tekrar çağrılarda tekildir. |
-| T4 | Rezervasyon yarışları, diğer stok çıkışlarıyla çakışma, otel izolasyonu ve pasif kullanıcı kontrolleri düzeltilir. |
-| T5 | Hazırlanan ürünün iptali tüketimi yok saymaz. |
-| T6 | Teslim edilmiş siparişlerin kayıtlı stok tüketiminden **bar ve operasyon günü** bazında tek talep taslağı üretilir. |
-| T7 | Kaptan miktarları değiştirebilir, ürün ekleyebilir. |
-| T8 | Günlük sayım ve ücretsiz her servise giriş zorunlu değildir. |
-| T9 | Talep düzeltmesi stok tüketimi sayılmaz. |
-| T10 | Cuma operasyonu gece yarısını geçse de Cumartesi teslimatına pazar ilavesi girilebilir; normal talep ve pazar ilavesi ayrı saklanır. |
-| T11 | Depo onayı bar stoğunu artırmaz; onay → sevk → kaptan kabulü ayrı aşamalardır; yalnız kabul edilen miktar kullanılabilir bar stoğuna girer; kısmi teslimatlar izlenir. |
-| T12 | Mevcut bar modülü yeniden kurulmaz. |
-| T13 | Her aşama izole ortamda test edilir ve ayrı raporlanır. |
-| T14 | İlk pilot tek barda olacaktır. |
-| T15 | Push, migration ya da canlı uygulama yok; ayrıca `CANLIYA UYGULA` onayı beklenir. |
+## 1. Gereksinimler ve tercihlerin kaynağı
 
-### B. Açık tercihler — kesinleşmedi (çalışma varsayımı)
+Dört tür madde vardır; birbirine karıştırılmaz: **T** kullanıcının yazılı talebi (kesin),
+**V** seçim aracıyla işaretlenmiş ama kesinleşmemiş tercih, **Ö** tasarım önerisi (onay
+bekliyor), **Z** ölçülen ya da koddan okunan gerçek. Ayrıca bölüm 1.5'te cevap bekleyen
+**açık sorular (S)** listelenir.
 
-Aşağıdakiler bir seçim aracıyla işaretlendi ama **konuşmada kesinleşmiş karar değildir**.
-Tasarım ve Aşama 0–1 kodu bunları **çalışma varsayımı** olarak kullanır; her biri
-değişebilir. Sağ sütun, farklı bir tercihin neyi değiştireceğini gösterir.
+### 1.1 T — Kullanıcının yazılı talebi (kesin)
 
-| # | Konu | Çalışma varsayımı | Farklı seçilirse |
+| # | Talep | Kaynak |
+|---|---|---|
+| T1 | Ücretli üründe aktif konaklama ve açık folyo **sunucuda** doğrulanır; yalnız oda numarası bilmek borçlandırmaya yetmez. | 2026-09-17 talep |
+| T2 | Onaylanan fiyat siparişe kaydedilir. | talep |
+| T3 | Teslimde stok ve folyo işlemi tutarlı olur; tekrar çağrılarda tekildir. | talep |
+| T4 | Rezervasyon yarışları, diğer stok çıkışlarıyla çakışma, otel izolasyonu ve pasif kullanıcı kontrolleri düzeltilir. | talep |
+| T5 | Hazırlanan ürünün iptali tüketimi yok saymaz. | talep |
+| T6 | Teslim edilmiş siparişlerin kayıtlı stok tüketiminden **bar ve operasyon günü** bazında tek talep taslağı üretilir. | talep |
+| T7 | Kaptan miktarları değiştirebilir, ürün ekleyebilir. | talep |
+| T8 | Günlük sayım ve ücretsiz her servise giriş zorunlu değildir. | talep |
+| T9 | Talep düzeltmesi stok tüketimi sayılmaz. | talep |
+| T10 | Cuma operasyonu gece yarısını geçse de Cumartesi teslimatına pazar ilavesi girilebilir; normal talep ve pazar ilavesi ayrı saklanır. | talep |
+| T11 | Depo onayı bar stoğunu artırmaz; onay → sevk → kaptan kabulü ayrı aşamalardır; yalnız kabul edilen miktar kullanılabilir bar stoğuna girer; kısmi teslimatlar izlenir. | talep |
+| T12 | Mevcut bar modülü yeniden kurulmaz. | talep |
+| T13 | Her aşama izole ortamda test edilir ve ayrı raporlanır. | talep |
+| T14 | İlk pilot tek barda olacaktır. | talep |
+| T15 | Push, migration ya da canlı uygulama yok; ayrıca `CANLIYA UYGULA` onayı beklenir. | talep |
+| T16 | Operasyon günü **otomatik saat kapanışı değildir**. Tüketim, **açık servis kaydının** operasyon gününe bağlanır; Cuma servisi Cumartesi 06:00'ı geçse de **bölünmez**. Bu yalnız varsayılan saat değişikliği değildir. | 2026-09-17 düzeltme 1 |
+| T17 | Pazar depo kapalıdır; **normal teslim tarihleri depo takvimini** dikkate alır. | düzeltme 1 |
+| T18 | Garsonun sipariş girmesi **tek başına doğrulama sayılmaz**; personel oda kartı/misafir kontrolünü yaptığını **açıkça onaylar**. Sunucu aktif konaklamayı ve açık folyoyu doğrular; **onaylayan kaydedilir**. | düzeltme 2 |
+| T19 | "Hazırlanıyor" durumundaki iptal **otomatik olarak tam reçete zayisi oluşturmaz**; kullanılan malzeme ve miktarı belirlenir. | düzeltme 3 |
+| T20 | Folyonun kapanması ürünü **kendiliğinden zayi yapmaz**; fiziksel tüketim ile borçlandırma sorunu **ayrı** ele alınır. Başka misafirin folyosuna **otomatik aktarım olmaz**. | düzeltme 3 |
+| T21 | Veritabanı yetki testi Edge Function'ın **uçtan uca testi değildir**. İzole çalışma alternatifi araştırılır; çalıştırılamıyorsa **test açığı açık kalır**. | düzeltme 4 |
+| T22 | Fiziksel sayım rezervasyondan düşük çıkarsa **gerçek gözlem kaydedilebilmelidir**. (Stok düzeltmesinin rezervasyon çelişkisi çözülene kadar bekletilmesi mümkün bir yol olarak belirtildi — bkz. Ö10.) | Z başlığı düzeltmesi |
+
+### 1.2 V — Seçim aracıyla işaretlenmiş, kesinleşmemiş tercihler
+
+| # | Konu | İşaretlenen | Farklı seçilirse |
 |---|---|---|---|
-| V1 | QR'dan gelen ücretli siparişte oda numarasına ek kanıt | **Personel onayı:** sipariş "oda onayı bekliyor" olur; personel oda kartını görüp onaylar. | *Oda PIN'i:* PMS check-in akışı ve şeması değişir (A1 kapsamı büyür). *Oda no + soyad:* PMS değişmez; `bar_siparis_olustur` soyad eşleşmesi yapar, onay adımı kalkar. |
-| V2 | Kaptanın sistemdeki karşılığı | **Yeni rol `bar_kaptan`** + bar ataması. | *Mevcut rol + atama:* rol eklenmez; yetki yalnız atama tablosundan. Etkisi Aşama 2'de, A1'e dokunmaz. |
-| V3 | Sevk edilip kabul edilmeyen miktar | **Açık fark; depo "geri al" ya da "kayıp" ile kapatır.** | *Otomatik merkeze iade:* fark kapatma adımı kalkar, kayıp/kırılma ayrımı kaybolur. Etkisi yalnız Aşama 4. |
-| V4 | Operasyon günü sınırı | **06:00**, bar bazında ayarlanabilir (`bar_ayarlari.gun_sonu_saati`). | Yalnız varsayılan değer değişir; mekanizma aynı. A1'de tüketim kayıtlarının `operasyon_gunu` alanını etkiler. |
+| V1 | QR'dan gelen ücretli siparişte oda numarasına ek kanıt | **Personel doğrulaması.** Kullanıcı 2026-09-17 düzeltmesinde bunu "önerilen model" olarak ifade etti ve içeriğini T18'le netleştirdi; model seçimi kesin karar olarak yazılmadı. | *Oda PIN'i:* PMS check-in akışı ve şeması değişir. *Oda no + soyad:* PMS değişmez; eşleşme sunucuda yapılır. |
+| V2 | Kaptanın sistemdeki karşılığı | Yeni rol `bar_kaptan` + bar ataması | *Mevcut rol + atama:* rol eklenmez. Etkisi Aşama 2. |
+| V3 | Sevk edilip kabul edilmeyen miktar | Açık fark; depo "geri al" ya da "kayıp" ile kapatır | *Otomatik merkeze iade:* fark kapatma adımı kalkar. Etkisi Aşama 4. |
 
-### C. Tasarım önerileri — onay bekliyor
+Revizyon 2'deki **V4 (06:00) kaldırıldı**: T16 ile saat kesimi modeli geçersiz.
 
-Talepten doğrudan çıkmayan, tasarımcının önerdiği yorumlar.
+### 1.3 Ö — Tasarım önerileri (onay bekliyor)
 
-| # | Öneri | Gerekçe |
+| # | Öneri | Gerekçe | Bağlı talep |
+|---|---|---|---|
+| Ö1 | **Açık doğrulama beyanı tek adımdır:** `bar_siparis_oda_dogrula(siparis_id, beyan)`. Beyan metni sabittir ("Misafirin oda kartını/kimliğini kontrol ettim"); `beyan=true` gönderilmeden çağrı reddedilir. Garson ücretli siparişi girerken **aynı adımı ayrıca** yapar (ekranda gönderimden sonra ayrı onay); sipariş girişi beyan yerine geçmez. | T18 "açıkça onaylar" diyor; beyanı sipariş girişine gömmek "girmek = onay" algısını geri getirir. Tek adım QR ve garson kanalını aynı kurala bağlar. | T18 |
+| Ö2 | Aşama 1 güvenlik düzeltmeleri **tüm barlara** uygulanır; pilot (T14) yalnız Aşama 2–4 için. | T1–T5 güvenlik açığıdır. | T1–T5, T14 |
+| Ö3 | Pazar ilavesi penceresi **saate değil teslim tarihine** bağlıdır: Cuma operasyon gününe ait talebin teslim tarihi geçmediği sürece girilebilir. | T10 "gece yarısını geçse de" diyor. | T10, T16, T17 |
+| Ö4 | Taslak yalnız **satış** tüketiminden üretilir; zayi taslağa girmez, kaptan elle ekler. | T6 "teslim edilmiş siparişler" diyor. | T6 |
+| Ö5 | Bar ikmali **ayrı** tablo ve ekranlarla yürür; diğer departmanların iç talep akışı değişmez. | Mevcut iç talep onayı anında transfer yapıyor (Z7) ve başka departmanlar ona bağlı. | T11 |
+| Ö6 | **Borçlandırma istisnası.** Teslim anında bağlı folyo açık değilse teslim ilk denemede `FOLYO_KAPALI` ile durur (sessiz geçiş yok). Personel ürünün **fiziksel olarak servis edildiğini** açıkça onaylarsa teslim tamamlanır: stok **satış** tüketimi olarak düşer, **borç yazılmaz**, aynı işlemde bir `bar_borc_istisnalari` kaydı açılır (sipariş, tutar, oda, eski folyo, onaylayan, zaman). İstisna yetkili bir rolce çözülür: (a) misafir yeniden doğrulanarak **elle seçilen** açık bir folyoya borç, ya da (b) tahsil edilemedi olarak kapatma. Otomatik başka folyoya aktarım **yoktur**. | T20: tüketim ve borç ayrı; T3: ikisi de aynı işlemde **açıkça** kayda geçer, hiçbiri sessizce kaybolmaz. | T3, T20 |
+| Ö7 | **İptalde kullanılan miktarın belirlenmesi.** `hazirlaniyor` siparişin iptal ekranı, siparişin rezerve bileşenlerini (stok kodu, rezerve miktar) listeler; personel **her bileşen için** kullanılan miktarı girer (`0 ≤ kullanılan ≤ rezerve`, boş bırakılamaz, 0 açıkça girilir). Kullanılan kadar `zayi` tüketimi yazılır, kalan rezervasyon serbest bırakılır. `yeni` siparişte giriş istenmez (hepsi serbest). | T19; varsayılan değer koymak otomatik tam zayiyi geri getirir. | T5, T19 |
+| Ö8 | **Servis kaydı.** Yeni kavram `bar_servis_kayitlari` (bar, operasyon günü, açılış/kapanış zamanı ve kişisi, durum). Sipariş, oluşturulduğu anda barın **açık** servis kaydına bağlanır; tüketimin operasyon günü **siparişin servis kaydından** gelir, teslim ya da iptal saatinden gelmez. Barda aynı anda en fazla bir açık servis kaydı olur. Kayıt **elle kapatılır**; saat geçti diye kapanmaz. | T16; sistemde böyle bir kavram yok (Z5). Ayrıntılar açık sorulara bağlı (S1–S4). | T6, T16 |
+| Ö9 | **Depo takvimi.** Kaynak depo için haftalık kapalı gün(ler) (başlangıç: Pazar) ve tarih bazlı istisnalar (tatil kapanışı / olağan dışı açık gün). Normal talebin teslim tarihi = operasyon gününden sonraki **ilk depo açık günü**. | T17; sistemde depo takvimi yok (Z6). | T17 |
+| Ö10 | **Sayım gözlemi ve bekleyen düzeltme.** Sayım onayında bir kalemin fiziksel miktarı o depodaki aktif rezervasyonun altındaysa: sayılan miktar **gözlem olarak kaydedilir**; o kalemin stok düzeltmesi "rezervasyon çelişkisi — bekliyor" olarak işaretlenir ve uygulanmaz; diğer kalemler normal uygulanır. Çelişki, ilgili siparişler teslim/iptal edildiğinde ya da yetkili bir rol kararı verdiğinde çözülür ve bekleyen düzeltme o anki duruma göre yeniden hesaplanıp uygulanır. | T22; sayımı rezervasyon miktarında **reddetmek** gerçek gözlemi kaybettirir. Bu öneri 2026-09-15'te yayınlanan stok sayım akışına dokunur. | T4, T22 |
+
+Revizyon 2'deki **Ö1 (garson siparişi onaylı sayılır) ve Ö6 (folyo kapalıysa iptal + zayi)
+kaldırıldı**; T18 ve T20 ile çelişiyordu.
+
+### 1.4 Z — Ölçülen ya da koddan okunan gerçekler
+
+Bu tablo yalnız **gerçeği** ve **nasıl bilindiğini** yazar. Tasarımdaki karşılığı ayrı sütundadır
+ve bir tercihtir; türü belirtilir.
+
+| # | Gerçek | Nasıl bilindi | Tasarımdaki karşılığı |
+|---|---|---|---|
+| Z1 | Bar yetkisi olmayan kullanıcı `stok_rezervasyonlari` satırlarını RLS nedeniyle **göremez**. | **İzole ölçüm** (Aşama 0): aktif rezervasyon 1 iken depo kullanıcısı 0 satır görüyor. | **Seçilen çözüm:** stok çıkış koruması SECURITY DEFINER bir fonksiyonda toplamı okur (bölüm 3.5). Alternatif (depo rollerine rezervasyon okuma izni vermek) seçilmedi: rezervasyon satırları sipariş/oda bilgisine bağlı ve izin genişlemesi RLS sınırını değiştirir. |
+| Z2 | Stok takipteki sayım onayı stoğu `stok_ekle` üzerinden **delta** olarak yazar. | **Koddan okundu:** `stok-takip.html` sayım onayı → `saveStok` → `rpc/stok_ekle`. İzole ortamda ölçülmedi. | Stok çıkış koruması `stok_ekle`'ye eklenirse sayım da onun altına girer. Sayımın **nasıl** davranacağı bir **tasarım tercihidir** (Ö10); rezervasyonda durdurmak teknik zorunluluk değildir. |
+| Z3 | Bu makinede Deno, Supabase CLI ve Supabase Edge Runtime / GoTrue Docker imajları **yok**; yalnız `postgrest/postgrest` imajları var. | **Komutla kontrol** (2026-09-17): `deno --version`, `supabase --version`, `docker images`. | Edge Function'lar şu an izole çalıştırılamıyor. Uçtan uca test **açığı açık** (T21). Seçenekler bölüm 5'te; hepsi indirme gerektirir, **izin alınmadan hiçbir şey indirilmedi**. |
+| Z4 | Şema dökümü yüklenirken `schema "public" already exists` hatası çıkar ve zararsızdır. | **İzole ölçüm** (Aşama 0 koşu 1) + döküm satır 33 (`CREATE SCHEMA public;`). | Test ortamı yalnız bu satırı tam eşleşmeyle istisna sayar ve sayısını raporlar (E-5 provası ve `dokum-dogrula.mjs` ile aynı kural). |
+| Z5 | Sistemde bar için **servis/vardiya kaydı kavramı yok** (yalnız `sayim_oturumlari`). | **Şemadan okundu:** döküm tablo adları taraması. | Ö8 yeni kavram önerir. |
+| Z6 | Sistemde **depo takvimi / çalışma günü / tatil** kavramı yok. | **Şema ve kod araması** (tablo adları; `takvim|tatil|kapali_gun` kod taraması yalnız tarih yardımcılarını buldu). | Ö9 yeni kavram önerir. |
+| Z7 | Mevcut iç talep onayı, onay anında `stok_transfer` ile talep eden deponun stoğunu artırır. | **Koddan okundu:** `depo-siparis.html:784` civarı. | T11 bu davranışı bar ikmali için yasaklar; Ö5 bar ikmalini ayrı akışa alır. |
+| Z8 | `auth_yetki_var` ve `auth_otel_erisim` `kullanicilar.aktif is true` şartı arar (fail-closed). | **Dökümden okundu** + **izole ölçüm** (Aşama 0: pasif kullanıcı `f`). | Ana projedeki RPC'lerde pasif kullanıcı ayrıca ele alınmaz; açık `rapid-handler`'dadır (bölüm 3.7). |
+
+### 1.5 S — Açık sorular (cevap bekliyor)
+
+| # | Soru | Neyi belirler |
 |---|---|---|
-| Ö1 | Garson (personel) girdiği ücretli sipariş **onaylı** sayılır; siparişi giren personel onaylayan olarak kaydedilir. | Garson misafiri yüz yüze görüyor; ikinci onay aynı kişiden gelirdi. V1 değişirse bu da yeniden değerlendirilir. |
-| Ö2 | Aşama 1 güvenlik düzeltmeleri **tüm barlara** uygulanır; pilot (T14) yalnız Aşama 2–4 için. | T1–T5 güvenlik açığı; tek barla sınırlamak diğer barlarda açığı bırakır. |
-| Ö3 | Pazar ilavesi penceresi **saate değil teslim tarihine** bağlıdır: Cumartesi teslim tarihi geçmediği sürece girilebilir. | T10 "gece yarısını geçse de" diyor; bir saat sınırı kaptanın gün sonunu sabah yapmasını engellerdi. |
-| Ö4 | Taslak yalnız **satış** tüketiminden üretilir; hazırlanıp iptal edilen (zayi) tüketim taslağa girmez, kaptan elle ekler. | T6 "teslim edilmiş siparişler" diyor. |
-| Ö5 | Bar ikmali **ayrı** tablo ve ekranlarla yürür; diğer departmanların iç talep akışı (`depo-siparis.html`) değişmez. | T11 bar stoğu için; mevcut akış onayda anında transfer yapıyor ve başka departmanlar ona bağlı. |
-| Ö6 | Folyo kapandıktan sonra teslim edilemeyen ücretli sipariş iptal edilir ve hazırlanan ürün **zayi** olarak düşülür. | T3 (tutarlılık) ve T5 birlikte: borç yazılamıyorsa teslim olmaz, ama tüketim kaybolmaz. |
+| S1 | Servis kaydını **kim** açar ve kapatır (kaptan, bar personeli, otomatik ilk siparişte açılış)? | Ö8 yetkileri, kaptan ekranı |
+| S2 | Barda **açık servis kaydı yokken** sipariş gelirse ne olur: reddedilir mi, otomatik mi açılır? | QR siparişinin davranışı; misafir deneyimi |
+| S3 | Servis kaydı kapatılırken **açık sipariş** varsa: kapanış engellenir mi, siparişler o kayıtta mı kalır? | Operasyon günü ataması |
+| S4 | Servis kaydı **kapatılmayı unutulursa** (ertesi gün hâlâ açık) ne olur: uyarı mı, yetkili kapatması mı? Saat kesimi olmayacağı kesin (T16). | Yanlış güne yazılan tüketim riski |
+| S5 | `hazir` durumundaki sipariş iptal edilirse de kullanılan miktar belirlenir mi, yoksa tamamı tüketilmiş mi sayılır? (T19 yalnız "hazırlanıyor"u açıkça söylüyor.) | Ö7 kapsamı |
+| S6 | Borç istisnasını (Ö6) **kim** çözer ve (a) seçeneğinde misafir yeniden doğrulaması nasıl kayda geçer? | İstisna yetkisi, ön büro/muhasebe rolü |
+| S7 | Depo takviminin tatil ve istisna günlerini **kim** girer; takvim kaynak depo başına mı, otel başına mı? | Ö9 yetkisi ve kapsamı |
+| S8 | Cumartesi operasyonunun normal talebi (Pazar kapalı → Pazartesi teslim) için ayrıca bir ilave gerekir mi, yoksa pazar ilavesi yalnız Cuma operasyonunda mı kalır? (T10 yalnız Cuma'yı söylüyor.) | Aşama 3 kapsamı |
+| S9 | Sayım çelişkisini (Ö10) **kim** çözer ve bekleyen düzeltme ne kadar bekleyebilir? | Ö10 yetkisi |
+| S10 | Edge Function uçtan uca testi için hangi izole seçenek denensin ve gerekli indirmelere izin var mı? (bölüm 5) | T21 test açığının kapanıp kapanmayacağı |
 
-### D. Ölçüm sonucu zorunlu hale gelenler
+---
 
-Tercih değil; mevcut sistemde ölçülen bir durumun sonucudur.
-
-| # | Ölçüm | Tasarıma etkisi |
-|---|---|---|
-| Z1 | `stok_rezervasyonlari` bar yetkisi isteyen RLS'e tabidir. **İzole ölçüm (Aşama 0):** aktif rezervasyon 1 iken bar yetkisi olmayan depo kullanıcısı 0 satır görüyor. | Stok çıkış koruması **SECURITY DEFINER** olmak zorundadır. Çağıranın haklarıyla çalışsaydı depo kullanıcısı rezervasyonları göremez, toplamı 0 okur ve koruma sessizce devre dışı kalırdı (bkz. 1.5). |
-| Z2 | Stok takipteki sayım onayı stoğu `stok_ekle` üzerinden yazar (`stok-takip.html` sayım onayı → `saveStok` → `rpc/stok_ekle`). | Koruma sayımı da kapsar: bar deposunda sayım bekleyen siparişlere ayrılmış miktarın altına inemez (bkz. 1.5 bilinen kısıt). **Bu sonucun operasyonel kabulü kullanıcı onayı bekler.** |
-| Z3 | Deno bu makinede kurulu değil; Edge Function'lar yerelde çalıştırılamaz. | `rapid-handler`'ın yetki kararı (kimlik, aktiflik, otel kapsamı) test edilebilir bir veritabanı fonksiyonuna taşınır (`bar_masa_yetki_kapsami`, bkz. 1.7). Edge Function'ın kendi çalışma zamanı raporda **sınanmadı** olarak yazılır. |
-| Z4 | Döküm yüklemesinde `schema "public" already exists` hatası çıkar (Aşama 0 ölçümü). | Zararsızdır: `pg_dump` `CREATE SCHEMA public;` yazar. Test ortamı yalnız bu satırı **tam eşleşmeyle** istisna sayar ve sayısını raporlar; E-5 provası ve `dokum-dogrula.mjs` ile aynı kural. |
-
-## Temel ilkeler
+## 2. Temel ilkeler
 
 1. **Karar sunucuda verilir.** Oda doğrulaması, fiyat, stok yeterliliği, otel/depo eşleşmesi,
    kullanıcı aktifliği ve durum geçişleri RPC içinde kontrol edilir. İstemci kontrolü yalnız
    kullanıcı deneyimidir.
-2. **Para ve stok birlikte hareket eder.** Teslim, stok tüketimini ve folyo borcunu **aynı
-   işlemde** yazar; biri olmazsa hiçbiri olmaz.
-3. **Her yazma tekrar çağrıya dayanıklıdır.** Aynı teslim, kabul ya da sevk iki kez işlenmez.
+2. **Fiziksel gerçek ile para ayrı kayıtlardır ama birlikte ve açıkça yazılır.** Stok tüketimi
+   olduysa kayda geçer; borç yazılamıyorsa bu da aynı işlemde **istisna** olarak kayda geçer.
+   Hiçbiri sessizce düşmez, hiçbiri kendiliğinden başka bir kayda dönüşmez.
+3. **Her yazma tekrar çağrıya dayanıklıdır.** Aynı teslim, doğrulama, kabul ya da sevk iki kez
+   işlenmez.
 4. **Talep, stok değildir.** İkmal talebi oluşturmak, düzenlemek, onaylamak stok miktarını
    değiştirmez. Stok yalnız **sevkte** (merkezden çıkar) ve **kabulde** (bara girer) değişir.
-5. **Hazırlanan ürün tüketilmiştir.** Hazırlığa başlandıktan sonraki iptal stoğu geri vermez.
+5. **Gözlem kaybolmaz.** Sayılan, kullanılan ya da servis edilen miktar sistemin beklentisiyle
+   çelişse bile kaydedilir; çelişki ayrıca çözülür.
+6. **Operasyon günü takvimden değil servisten gelir.** Saat kesimi yoktur.
 
 ---
 
-## Aşama 1 — Bar ve PMS güvenliği (tüm barlar — Ö2, onay bekliyor)
+## 3. Aşama 1 — Bar ve PMS güvenliği (tüm barlar — Ö2)
 
-### 1.1 Onaylanan fiyat siparişe kaydedilir
+### 3.1 Onaylanan fiyat siparişe kaydedilir (T2)
 
-**Sorun:** folyo tutarı teslim anındaki `menu_urunler.fiyat` ile hesaplanıyor; müşteriye
-gösterilen fiyatla borç farklılaşabilir.
-
-**Değişiklik:**
 - `bar_siparis_kalemleri`'ne eklenir: `birim_fiyat numeric(12,2) not null`, `ucretli boolean not null`.
-- İstemci her kalem için **gördüğü fiyatı** yollar: `{menu_urun_id, adet, gosterilen_fiyat}`.
+- İstemci her ücretli kalem için **gördüğü fiyatı** yollar: `{menu_urun_id, adet, gosterilen_fiyat}`.
 - `bar_siparis_olustur` ürünün **o anki** ana fiyatını okur. Ücretli kalemde
-  `gosterilen_fiyat ≠ fiyat` ise sipariş reddedilir: `FIYAT_DEGISTI` — müşteri menüyü yeniler.
-  Eşleşirse fiyat ve `ucretli` bayrağı kaleme **anlık görüntü** olarak yazılır.
-- Folyo köprüsü tutarı **yalnız anlık görüntüden** hesaplar: `SUM(adet × birim_fiyat) WHERE ucretli`.
-- Mevcut kalemler için geçiş: `birim_fiyat` = ürünün şu anki fiyatı, `ucretli` = ürünün şu anki
-  bayrağı (tarihsel fiyat bilinmediği için; geçiş raporunda sayılır).
+  `gosterilen_fiyat ≠ fiyat` ise sipariş reddedilir: `FIYAT_DEGISTI`. Eşleşirse fiyat ve
+  `ucretli` bayrağı kaleme **anlık görüntü** olarak yazılır.
+- Borç tutarı **yalnız anlık görüntüden** hesaplanır: `SUM(adet × birim_fiyat) WHERE ucretli`.
+- Geçiş: mevcut kalemlerde `birim_fiyat` = ürünün şu anki fiyatı (tarihsel fiyat bilinmez;
+  geçiş raporunda sayılır).
 
-### 1.2 Ücretli sipariş: aktif konaklama + açık folyo + personel onayı
-
-> Sunucu doğrulaması (aktif konaklama + açık folyo) **T1 gereğidir**. "Personel onayı" ek kanıt
-> yöntemi **V1 çalışma varsayımıdır**; garson siparişinin onaylı sayılması **Ö1 önerisidir**.
-> İkisi de kesinleşmedi.
-
-**Sorun:** oda numarasını bilmek borçlandırmaya yetiyor; ücretli siparişte oda no zorunluluğu
-yalnız istemcide.
+### 3.2 Ücretli sipariş: sunucu doğrulaması ve açık personel beyanı (T1, T18; V1, Ö1)
 
 **Yeni sütunlar (`bar_siparisleri`):**
 
 | Sütun | Anlam |
 |---|---|
-| `kanal` | `qr` \| `personel` |
-| `oda_onay_durumu` | `gerekmiyor` \| `bekliyor` \| `onaylandi` \| `reddedildi` |
-| `rezervasyon_id`, `folio_id` | Onayda çözülen konaklama ve folyo (anlık görüntü) |
-| `oda_onaylayan`, `oda_onay_zamani` | Onayı veren personel (auth uid) |
+| `kanal` | `qr` \| `personel` \| `gecis` |
+| `oda_dogrulama_durumu` | `gerekmiyor` \| `bekliyor` \| `dogrulandi` \| `reddedildi` \| `gecis` |
+| `rezervasyon_id`, `folio_id` | Doğrulamada çözülen konaklama ve folyo |
+| `dogrulayan`, `dogrulama_zamani`, `dogrulama_beyani` | Beyanı veren personel (auth uid), zaman, beyan metni |
 
 **Kurallar:**
-- Sepette ücretli kalem varsa `oda_no` **sunucuda zorunludur**; yoksa `ODA_NO_GEREKLI`.
+- Sepette ücretli kalem varsa `oda_no` **sunucuda zorunludur** (`ODA_NO_GEREKLI`).
 - Oluşturma anında oda için **güncel konaklama** aranır (aktif oda ataması + rezervasyon
-  `giris_yapildi` + `acik` folyo; bugünkü köprüyle aynı tanım). Bulunamazsa `KONAKLAMA_YOK`.
-- **QR kanalı:** `oda_onay_durumu = 'bekliyor'`. Folyo **henüz bağlanmaz**.
-- **Personel kanalı** (garson siparişi, personel JWT'si): siparişi giren personel misafiri
-  görmüştür → `onaylandi`, `rezervasyon_id`/`folio_id` o anda bağlanır, onaylayan = çağıran.
-- Yeni RPC `bar_siparis_oda_onayla(siparis_id)` — `bar_siparis_yonetimi:kayit` + otel erişimi.
-  Konaklamayı **yeniden** çözer, bağlar. `bar_siparis_oda_reddet(siparis_id, neden)` →
-  sipariş iptal olur (hazırlık başlamadığı için rezervasyon serbest kalır).
-- `hazirlaniyor`'a geçiş, oda onayı `bekliyor` iken **reddedilir** (`ODA_ONAYI_BEKLIYOR`).
-  Böylece onaysız ücretli ürün hazırlanmaz.
-- Teslimde köprü, bağlı `folio_id`'nin hâlâ `acik` olduğunu ve rezervasyonun hâlâ
-  `giris_yapildi` olduğunu doğrular. Değilse **teslim tümüyle reddedilir** (`FOLYO_KAPALI`);
-  personel iptal eder ve hazırlanan ürün tüketim olarak kaydedilir (1.6). Tahsil edilemeyen
-  ürün stoktan kaybolmaz.
+  `giris_yapildi` + `acik` folyo). Bulunamazsa `KONAKLAMA_YOK`.
+- **Her iki kanalda** ücretli sipariş `oda_dogrulama_durumu = 'bekliyor'` başlar. Garsonun
+  siparişi girmesi durumu değiştirmez (T18).
+- `bar_siparis_oda_dogrula(siparis_id, beyan boolean)` — `bar_siparis_yonetimi:kayit`, otel
+  erişimi, aktif kullanıcı; `beyan` `true` değilse `DOGRULAMA_BEYANI_GEREKLI`. Konaklamayı
+  **yeniden** çözer; bulunamazsa `KONAKLAMA_YOK`. Başarılıysa folyoyu bağlar ve doğrulayanı,
+  zamanı, beyan metnini yazar. Tekrar çağrı: `zaten_dogrulandi`.
+- `bar_siparis_oda_reddet(siparis_id, neden)` — yalnız `bekliyor` iken; sipariş iptal olur
+  (iptal kuralları 3.6).
+- `hazirlaniyor`'a geçiş, doğrulama `bekliyor` iken reddedilir (`ODA_DOGRULAMASI_BEKLIYOR`).
 - Ücretsiz siparişler (`gerekmiyor`) bugünkü gibi akar.
+- Geçiş: açık ve ücretli kalemi olan eski siparişler `bekliyor`; kapanmış siparişler `gecis`.
 
-### 1.3 Teslim: stok ve folyo tek işlem, tekrar çağrıda tekil
+### 3.3 Teslim: stok, borç ve istisna tek işlem, tekrar çağrıda tekil (T3, T20; Ö6)
 
-`bar_siparis_teslim_et` yeniden yazılır:
+`bar_siparis_teslim_et(siparis_id, fiziksel_servis_beyani boolean default false)`:
 1. Siparişi `SELECT … FOR UPDATE` ile kilitler.
 2. Durum zaten `teslim_edildi` ise **hiçbir şey yazmadan** `{sonuc:'zaten_teslim'}` döner.
-3. Yalnız `hazir`'dan teslim edilir (`GECERSIZ_DURUM`); ücretli kalem varsa `onaylandi` şart.
-4. Her aktif rezervasyon için (deterministik sırada kilitlenmiş stok anahtarlarıyla, bkz. 1.4):
-   stok ≥ miktar değilse `STOK_TUTARSIZ` — **sessiz 0'a kırpma yok**; rezervasyon
-   `kullanildi`; stok düşer; `bar_stok_tuketimleri`'ne satır (tür `satis`).
-5. Durum `teslim_edildi` → folyo köprüsü (anlık görüntü tutarı, bağlı folyo). Köprü hata
-   verirse 1–5 birlikte geri alınır.
-6. Tekillik ayrıca kısıtlarla korunur: `bar_stok_tuketimleri(rezervasyon_id)` tekil;
-   `pms_folio_hareketleri(kaynak_tip, kaynak_id, ters_kayit)` tekil (mevcut).
+3. Yalnız `hazir`'dan teslim edilir (`GECERSIZ_DURUM`); ücretli kalem varsa doğrulama
+   `dogrulandi` şart (`ODA_DOGRULAMASI_BEKLIYOR`).
+4. Ücretli sipariş ve bağlı folyo **hâlâ açık ve konaklama sürüyor** mu kontrol edilir.
+   - **Evet:** devam.
+   - **Hayır ve `fiziksel_servis_beyani = false`:** `FOLYO_KAPALI` — hiçbir şey yazılmaz.
+   - **Hayır ve `fiziksel_servis_beyani = true`:** devam, ama borç yerine istisna (6. adım).
+5. Her aktif rezervasyon kilit altında tüketilir: stok ≥ miktar değilse `STOK_TUTARSIZ`
+   (**sessiz 0'a kırpma yok**); rezervasyon `kullanildi`; stok düşer; `bar_stok_tuketimleri`'ne
+   `tur='satis'` satırı; `stok_hareketleri`'ne `cikis`.
+6. Durum `teslim_edildi`. Borç tutarı > 0 ise:
+   - folyo açıksa `pms_folio_hareketleri`'ne borç (`kaynak_tip='bar'`, `kaynak_id=sipariş`);
+   - folyo kapalıysa ve beyan verildiyse `bar_borc_istisnalari`'na kayıt; **borç yazılmaz,
+     başka folyo aranmaz**.
+7. Herhangi bir adım hata verirse 1–6 birlikte geri alınır.
+8. Tekillik kısıtlarla da korunur: `bar_stok_tuketimleri(rezervasyon_id)`,
+   `pms_folio_hareketleri(kaynak_tip, kaynak_id, ters_kayit)` (mevcut),
+   `bar_borc_istisnalari(siparis_id)`.
 
-**Yeni tablo `bar_stok_tuketimleri`** — Aşama 2'nin kaynağıdır:
-`id, otel_id, bar_depo_id, siparis_id, siparis_kalem_id, rezervasyon_id (tekil), stok_kodu,
-miktar, tur ('satis'|'zayi'), operasyon_gunu date, zaman, personel (auth uid)`.
-Ayrıca genel stok geçmişi için `stok_hareketleri`'ne `cikis` satırı yazılır
-(`aciklama = 'bar_tuketim: <sipariş>'` / `'bar_zayi: <sipariş>'`).
+**`bar_stok_tuketimleri`** (Aşama 2'nin kaynağı): `id, otel_id, bar_depo_id, siparis_id,
+siparis_kalem_id, rezervasyon_id (tekil), stok_kodu, miktar, tur ('satis'|'zayi'), zaman,
+personel`. **Operasyon günü bu aşamada yazılmaz**; Aşama 2'de siparişin servis kaydından türetilir.
 
-### 1.4 Rezervasyon yarışı
+**`bar_borc_istisnalari`**: `id, otel_id, siparis_id (tekil), oda_no, tutar, eski_folio_id,
+eski_rezervasyon_id, beyan_veren, beyan_zamani, durum ('acik'|'folyoya_yazildi'|'tahsil_edilemedi'),
+cozen, cozum_zamani, hedef_folio_id, cozum_notu`. Çözüm akışının yetkisi ve ekranı S6'ya bağlıdır;
+Aşama 1'de yalnız kayıt açılır ve listelenir.
 
-**Sorun:** kullanılabilir stok okunup sonra rezervasyon yazılıyor; arada kilit yok.
+### 3.4 Rezervasyon yarışı (T4)
 
-**Değişiklik:** stok anahtarı başına **işlem ölçekli danışma kilidi**:
-`pg_advisory_xact_lock(hashtextextended('stok:' || depo_kodu || ':' || stok_kodu, 0))`.
-- Sipariş, gereken tüm anahtarları **önce hesaplar, sıralar, sonra sırayla kilitler**
-  (kilitlenme/deadlock yok), ardından yeterliliği kontrol edip rezerve eder.
-- Aynı kilit teslim, iptal-tüketim ve **tüm stok çıkışlarında** (1.5) alınır.
-- Kanıt: izole ortamda iki eşzamanlı işlem aynı son birimleri ister → **yalnız biri** geçer;
-  kilit kaldırılmış negatif kontrolde ikisinin de geçtiği gösterilir.
+- Stok anahtarı başına işlem ölçekli danışma kilidi:
+  `pg_advisory_xact_lock(hashtextextended('stok:' || depo_kodu || ':' || stok_kodu, 0))`.
+- Sipariş, gereken tüm anahtarları **önce hesaplar, sıralar, sonra sırayla kilitler**, ardından
+  yeterliliği kontrol edip rezerve eder.
+- Aynı kilit teslim, iptal tüketimi ve **tüm stok çıkışlarında** (3.5) alınır.
+- Kanıt: izole ortamda iki eşzamanlı işlem aynı son birimleri ister → yalnız biri geçer;
+  kilit kaldırılmış **negatif kontrolde** ikisi de geçer.
 
-### 1.5 Diğer stok çıkışlarıyla çakışma
+### 3.5 Diğer stok çıkışlarıyla çakışma (T4; Z1, Z2; Ö10)
 
-**Sorun:** rezervasyonu yalnız bar biliyor; stok takipteki çıkış/transfer, günlük tüketim,
-mal kabul iadesi ve iç talep transferi rezerve stoğu da tüketebiliyor.
-
-**Değişiklik** (`stok_ekle` negatif delta ve `stok_transfer` kaynak bacağı):
-- Koruma tek bir fonksiyondadır: `stok_cikis_korumasi(depo, stok_kodu, cikis)`. `stok_ekle` ve
-  `stok_transfer` çıkıştan önce onu çağırır.
-- **SECURITY DEFINER zorunludur (Z1).** `stok_rezervasyonlari` bar yetkisi isteyen RLS'e tabi;
-  koruma çağıranın haklarıyla çalışsaydı depo kullanıcısı rezervasyonları göremez, toplamı 0
-  okur ve **sessizce** devre dışı kalırdı. İzole testte bu, depo kullanıcısının (bar yetkisi
-  olmayan) çıkışıyla ayrıca sınanır.
+**Gerçek (Z1):** bar yetkisi olmayan kullanıcı rezervasyonları göremez.
+**Seçilen çözüm:** koruma tek bir SECURITY DEFINER fonksiyondadır:
+`stok_cikis_korumasi(depo, stok_kodu, cikis)`. `stok_ekle` (negatif delta) ve `stok_transfer`
+(kaynak bacağı) çıkıştan önce onu çağırır.
 - Aynı danışma kilidini alır.
-- O depo+ürün için **aktif rezervasyon > 0** ve çıkış sonrası miktar **< aktif rezervasyon**
-  ise hata: `REZERVE_STOK` ("X birim bekleyen bar siparişlerine ayrılmış").
-- Rezervasyon varken çağıranın o otele erişimi yoksa `OTEL_ERISIMI_YOK` (definer fonksiyon
-  başka otelin rezervasyon miktarını açığa çıkarmasın diye).
-- Aktif rezervasyon **yoksa davranış bugünküyle aynıdır** (0'a kırpma dahil). Rezervasyon
-  yalnız bar depolarında oluştuğu için diğer depolar ve modüller etkilenmez.
-- Teslim kendi rezervasyonunu **önce** `kullanildi` yapar, sonra düşer → kendi korumasına takılmaz.
+- Aktif rezervasyon > 0 ve çıkış sonrası miktar < aktif rezervasyon ise `REZERVE_STOK`.
+- Rezervasyon varken çağıranın o otele erişimi yoksa `OTEL_ERISIMI_YOK` (fonksiyon başka otelin
+  rezervasyon miktarını açığa çıkarmasın).
+- Aktif rezervasyon **yoksa davranış bugünküyle aynıdır**.
+- Teslim ve iptal tüketimi kendi rezervasyonunu önce `kullanildi` yapar; korumaya takılmaz.
 
-**Sonuç — onay bekleyen kısıt (Z2):** bar deposunda sayım onayı da `stok_ekle` üzerinden yazar.
-Bu yüzden sayım, bekleyen siparişlere ayrılmış miktarın altına indiremez; ekran "önce bekleyen
-bar siparişlerini teslim/iptal edin" der. Operasyonel karşılığı: pilot barda sayım, açık sipariş
-kalmadığında (servis sonrası) yapılır. **Kullanıcı bu sonucu henüz kabul etmedi.** Kabul
-edilmezse alternatif: sayım onayı ayrı bir RPC'ye (`stok_sayim_uygula`) alınır, fiziki sayım
-rezervasyonun altına inebilir ve açık rezervasyonlar "sayım açığı" olarak işaretlenir — bu,
-2026-09-15'te yayınlanan stok ekranına da dokunur.
+**Sayım (Z2 — gerçek; Ö10 — tercih):** sayım onayı da `stok_ekle`'den geçtiği için korumanın
+sayımda **nasıl** davranacağı ayrıca tasarlanmalıdır. Rezervasyon miktarında **reddetmek bir
+tercihtir** ve gerçek gözlemi kaybettirir (T22'ye aykırı). Önerilen davranış Ö10'dur: gözlem
+kaydedilir, çelişkili kalemin düzeltmesi bekletilir. Bu, 2026-09-15'te yayınlanan stok sayım
+akışına dokunur; sayım yolunun `stok_ekle` yerine ayrı bir RPC'ye alınmasını gerektirir. Ö10
+kesinleşmeden Aşama 1'in stok koruması yayınlanmamalıdır (aksi halde bar depolarında sayım
+fiilen reddedilir).
 
-### 1.6 İptal: hazırlanan ürün tüketimdir
+### 3.6 İptal (T5, T19; Ö7, S5)
 
-`bar_siparis_iptal(siparis_id, neden)` — `neden` zorunlu:
-- `yeni` → rezervasyonlar `serbest`; stok değişmez.
-- `hazirlaniyor` ya da `hazir` → rezervasyonlar **tüketilir** (stok düşer),
-  `bar_stok_tuketimleri` türü **`zayi`**, folyoya borç yazılmaz.
-- `teslim_edildi` / `iptal` → değiştirilemez (mevcut terminal-durum tetikleyicisi).
-- Tekrar çağrı: zaten `iptal` ise hiçbir şey yazmadan `{sonuc:'zaten_iptal'}`.
+`bar_siparis_iptal(siparis_id, neden, kullanilanlar jsonb default null)` — `neden` zorunlu:
+- `yeni` → tüm rezervasyonlar `serbest`; `kullanilanlar` verilirse reddedilir.
+- `hazirlaniyor` → `kullanilanlar` **zorunlu**: `[{rezervasyon_id, kullanilan_miktar}]`, siparişin
+  **her** aktif rezervasyonu için bir satır, `0 ≤ kullanilan ≤ rezerve`
+  (`KULLANILAN_MIKTAR_GEREKLI`, `KULLANILAN_MIKTAR_GECERSIZ`). Kullanılan kadar `zayi` tüketimi
+  yazılır ve stok düşer; kalan miktar serbest bırakılır. Tam tüketim **otomatik değildir**.
+- `hazir` → S5 cevabına bağlı.
+- `teslim_edildi` / `iptal` → değiştirilemez.
+- Tekrar çağrı: zaten `iptal` ise `{sonuc:'zaten_iptal'}`.
+- Bir rezervasyonun kısmen tüketilmesi için rezervasyon satırı kullanılan ve serbest kısımlara
+  **bölünür** (tüketim kaydının `rezervasyon_id` tekilliği korunur).
 
-### 1.7 Otel izolasyonu
+### 3.7 Otel izolasyonu ve pasif kullanıcı (T4; Z8)
 
-- **Depo ↔ otel:** `bar_siparis_olustur` her iki çağrı yolunda da `p_depo_id`'nin
-  `p_otel_id` önekini taşıdığını doğrular (`split_part(p_depo_id,'_',1) = p_otel_id`).
-  ERP'de depo ana tablosu yok; önek sözleşmesi tek güvenilir kaynak. `DEPO_OTEL_UYUSMAZ`.
-- **`rapid-handler` (masa/QR):** `liste` yalnız çağıranın erişebildiği otel(ler)in masalarını
-  döner; `ekle` ve `durum` başka otelin masası için reddedilir; `ekle`'de depo öneki otelle
-  eşleşmelidir. El ile `yetki_matrisi` okuması ve `MAIN_SERVICE_KEY` kullanımı kalkar.
-- **Karar veritabanında (Z3):** Deno yerelde olmadığından Edge Function çalıştırılıp
-  sınanamaz. Bu yüzden yetkili mi / hangi oteller sorusu `bar_masa_yetki_kapsami()`
-  fonksiyonunda, **çağıranın JWT'siyle** cevaplanır: `{yetkili:boolean, oteller:text[]}`.
-  Edge Function yalnız kimliği `auth.getUser()` ile doğrular, bu fonksiyonu çağırır ve sonucu
-  uygular. Fonksiyon izole testte sınanır; Edge Function'ın ince yapıştırıcı kodu **sınanmadı**
-  olarak raporlanır ve yayında duman testiyle doğrulanır.
-- **Stok tüketimleri, ikmal talepleri, sevkler:** RLS'te `auth_yetki_var` **ve**
-  `auth_otel_erisim`; iki permissive politika varsa **ikisine birden** otel şartı (bkz.
-  pentest-4 dersi).
+- **Depo ↔ otel:** `bar_siparis_olustur` her iki çağrı yolunda `p_depo_id` önekinin `p_otel_id`
+  olduğunu doğrular (`DEPO_OTEL_UYUSMAZ`). ERP'de depo ana tablosu yok; önek sözleşmesi tek kaynak.
+- Tüm durum/doğrulama/teslim/iptal RPC'leri siparişin oteline erişim ister; yetki fonksiyonları
+  pasif kullanıcıyı zaten reddeder (Z8).
+- **`rapid-handler` (masa/QR):** bugün kullanıcıyı e-postadan buluyor, `aktif`'e bakmıyor, otel
+  kapsamı yok. Hedef davranış: kimlik `auth.getUser()`; yetkili mi ve hangi oteller sorusu
+  **çağıranın JWT'siyle** bir veritabanı fonksiyonunda (`bar_masa_yetki_kapsami()`) cevaplanır;
+  `liste` yalnız erişilebilen otellerin masalarını döner, `ekle`/`durum` başka otel için
+  reddedilir, `ekle`'de depo öneki otelle eşleşmelidir.
+- **Test ayrımı (T21):** `bar_masa_yetki_kapsami()` veritabanında izole test edilebilir. Bu,
+  `rapid-handler`'ın **uçtan uca** testi **değildir**: HTTP gövdesi, `auth.getUser()` çağrısı,
+  müşteri projesine yazma ve hata yanıtları sınanmamış olur. Bölüm 5.
 
-### 1.8 Pasif kullanıcı
-
-- Ana projedeki RPC'ler zaten fail-closed: `auth_yetki_var` / `auth_otel_erisim`
-  `kullanicilar.aktif is true` arar (dökümden doğrulandı).
-- **`rapid-handler`** kullanıcıyı e-postadan buluyor ve `aktif`'e bakmıyor → düzeltilir:
-  kimlik `auth.getUser()`, yetki ve aktiflik `bar_masa_yetki_kapsami()` (pasif kullanıcıda
-  `{yetkili:false, oteller:[]}` — izole testte ölçülür).
-- `smooth-service` zaten `auth_yetki_var` ile doğruluyor (değişmez).
-
-### 1.9 Ekran değişiklikleri (yalnız gerekli olan)
+### 3.8 Ekran değişiklikleri (yalnız gerekli olan)
 
 | Ekran | Değişiklik |
 |---|---|
-| `bar-menu.html` (müşteri) | Kalemle `gosterilen_fiyat` yollar; `FIYAT_DEGISTI`'de menüyü yeniler; ücretli siparişte "Siparişiniz alındı, oda onayı için personel gelecek" der. |
-| `bar-garson.html` | `gosterilen_fiyat` yollar; `KONAKLAMA_YOK` mesajını gösterir. |
-| `bar-siparis-kuyrugu.html` | "Oda onayı bekliyor" rozeti + **Onayla / Reddet**; iptalde neden zorunlu ve hazırlanmış siparişte "stoktan düşecek (zayi)" uyarısı; hata kodlarının Türkçe karşılığı. |
-| `hyper-api`, `rapid-handler` | Yukarıdaki sunucu kuralları. |
+| `bar-menu.html` (müşteri) | Ücretli kalemle `gosterilen_fiyat`; `FIYAT_DEGISTI`'de menüyü yeniler; ücretli siparişte "personel oda kartınızı kontrol edecek" bilgisi. |
+| `bar-garson.html` | `gosterilen_fiyat`; ücretli sipariş gönderildikten sonra **ayrı** "Oda kartını/kimliği kontrol ettim" onay adımı (Ö1). |
+| `bar-siparis-kuyrugu.html` | "Oda doğrulaması bekliyor" rozeti + **Doğrula (beyanla) / Reddet**; `hazirlaniyor` iptalinde bileşen bazında kullanılan miktar formu; `FOLYO_KAPALI`'da "ürün servis edildi mi?" açık beyanıyla istisnalı teslim; hata kodlarının Türkçe karşılığı. |
+| Borç istisnaları listesi | Aşama 1'de salt görüntüleme; çözüm ekranı S6'ya bağlı. |
 
 ---
 
-## Aşama 2 — Gün sonu ikmal taslağı (pilot bar)
+## 4. Aşama 2 — Servis kaydı ve gün sonu ikmal taslağı (pilot bar)
 
-### 2.1 Kavramlar
+### 4.1 Servis kaydı ve operasyon günü (T16; Ö8; S1–S4)
 
-- **Operasyon günü:** `(zaman AT TIME ZONE 'Europe/Istanbul' − gün_sonu_saati)::date`.
-  Çalışma varsayımı (V4, kesinleşmedi): varsayılan gün sonu 06:00 → Cumartesi 01:30'daki
-  teslim **Cuma** operasyon gününe aittir.
-- **Bar ayarı** `bar_ayarlari`: `bar_depo_id (pk), otel_id, gun_sonu_saati time default '06:00',
-  ikmal_pilot boolean default false, kaynak_depo_id` (merkez depo: 810→`810_100`, 811→`811_300`).
-- **Kaptan ataması** `bar_kaptan_atamalari`: `kullanici_id, bar_depo_id, otel_id, aktif`.
-  Çalışma varsayımı (V2, kesinleşmedi): yeni rol `bar_kaptan` ("Bar Kaptanı") + yeni modül
-  `bar_ikmal` yetki matrisinde. Mevcut rol seçilirse rol eklenmez, yetki yalnız atamadan gelir.
+- `bar_servis_kayitlari`: `id, otel_id, bar_depo_id, operasyon_gunu date, durum ('acik'|'kapali'),
+  acan, acilis_zamani, kapatan, kapanis_zamani`. Barda aynı anda en fazla bir `acik` kayıt
+  (kısmi tekil indeks).
+- `operasyon_gunu` kayıt **açılırken** belirlenir (açan kişinin seçtiği/onayladığı gün); saat
+  kesimiyle hesaplanmaz.
+- `bar_siparisleri.servis_kaydi_id`: sipariş oluşturulurken barın açık kaydına bağlanır.
+  Açık kayıt yokken davranış S2'ye bağlıdır.
+- Tüketimin operasyon günü = `bar_stok_tuketimleri → bar_siparisleri → bar_servis_kayitlari.operasyon_gunu`.
+  Cumartesi 07:00'de teslim edilen Cuma servisi siparişi **Cuma**'ya yazılır.
+- Kapatma elle yapılır; açık sipariş ve unutulan kayıt davranışı S3, S4'e bağlıdır.
+- Aşama 1 döneminde oluşan (servis kaydı olmayan) siparişler ikmal taslağına girmez; pilot bar
+  Aşama 2 yayınından sonra temiz başlar.
 
-### 2.2 Tablolar
+### 4.2 Depo takvimi ve teslim tarihi (T17; Ö9; S7)
+
+- `depo_takvimi_haftalik`: `kaynak_depo_id, isodow, acik boolean` (başlangıç: Pazar kapalı).
+- `depo_takvimi_istisnalari`: `kaynak_depo_id, tarih, acik boolean, aciklama`.
+- `depo_acik_mi(depo, tarih)` ve `sonraki_acik_gun(depo, tarih)` (istisna haftalık kuralı ezer).
+- Normal talebin `teslim_tarihi = sonraki_acik_gun(kaynak_depo, operasyon_gunu + 1)`.
+  Örnek: Cuma → Cumartesi; Cumartesi → (Pazar kapalı) → Pazartesi.
+
+### 4.3 Kaptan, atama ve pilot
+
+- `bar_ayarlari`: `bar_depo_id (pk), otel_id, ikmal_pilot boolean default false, kaynak_depo_id`.
+- `bar_kaptan_atamalari`: `kullanici_id, bar_depo_id, otel_id, aktif`. Rol modeli V2'ye bağlı.
+- Modüller: `bar_ikmal` (kaptan), `bar_ikmal_depo` (depo).
+
+### 4.4 Tablolar
 
 **`bar_ikmal_talepleri`**: `id, otel_id, bar_depo_id, kaynak_depo_id, operasyon_gunu,
 tur ('normal'|'pazar_ilavesi'), teslim_tarihi, durum, olusturan, gonderen, gonderme_zamani,
-onaylayan, onay_zamani, not`. **Tekil:** `(bar_depo_id, operasyon_gunu, tur)`.
+onaylayan, onay_zamani, iptal_nedeni`. **Tekil:** `(bar_depo_id, operasyon_gunu, tur)`.
 
-**`bar_ikmal_kalemleri`**: `id, talep_id, stok_kodu, urun_adi, birim,
-onerilen_miktar (tüketimden; kaptan değiştiremez), talep_miktar (kaptanın istediği),
-kaynak ('tuketim'|'elle'), elle_degisti boolean, onaylanan_miktar`. **Tekil:** `(talep_id, stok_kodu)`.
+**`bar_ikmal_kalemleri`**: `id, talep_id, stok_kodu, urun_adi, birim, onerilen_miktar (tüketimden;
+kaptan değiştiremez), talep_miktar, kaynak ('tuketim'|'elle'), elle_degisti, onaylanan_miktar`.
+**Tekil:** `(talep_id, stok_kodu)`.
 
-**Durum makinesi (talep):**
-`taslak → gonderildi → onaylandi → kismi_sevk → sevk_edildi → kapandi`; `taslak`/`gonderildi`
-iken `iptal`. Kaptan yalnız `taslak`'ı düzenler.
+**Durum makinesi:** `taslak → gonderildi → onaylandi → kismi_sevk → sevk_edildi → kapandi`;
+`taslak`/`gonderildi` iken `iptal`. Kaptan yalnız `taslak`'ı düzenler.
 
-### 2.3 Taslak üretimi
+### 4.5 Taslak üretimi (T6, T8, T9; Ö4)
 
 `bar_ikmal_taslak_uret(bar_depo_id, operasyon_gunu)`:
-- Kaynak: o bar ve operasyon gününün `bar_stok_tuketimleri` satırları, **tür `satis`**
-  (teslim edilmiş siparişler). `stok_kodu` başına toplanır.
-- Talep yoksa oluşturur; varsa ve **`taslak`** ise yeniden hesaplar:
-  - `onerilen_miktar` güncellenir;
-  - kaptanın **elle değiştirmediği** kalemlerde `talep_miktar = onerilen_miktar`;
-  - `elle_degisti` ya da `kaynak='elle'` kalemlere dokunulmaz.
-- `taslak` dışındaki talebe dokunmaz (`TALEP_KILITLI`). Aynı çağrı tekrar edilirse sonuç aynıdır.
-- **Zayi taslağa girmez** (Ö4 — onay bekliyor; talep metni T6 "teslim edilmiş siparişler" diyor);
-  kaptan gerekirse elle ekler.
+- Kaynak: o bar ve operasyon gününe ait servis kayıtlarındaki siparişlerin `tur='satis'`
+  tüketimleri; `stok_kodu` başına toplanır.
+- Yeniden üretim `onerilen_miktar`'ı günceller; kaptanın değiştirdiği ve elle eklediği kalemlere
+  dokunmaz; `taslak` dışındaki talebe dokunmaz (`TALEP_KILITLI`).
+- Zayi taslağa girmez (Ö4).
+- **Günlük sayım ve ücretsiz servis girişi ön koşul değildir** (T8).
 
-### 2.4 Kaptan işlemleri
+### 4.6 Kaptan işlemleri (T7, T9)
 
-- `bar_ikmal_kalem_guncelle(kalem_id, talep_miktar)` — `≥ 0`; `elle_degisti = true`.
-- `bar_ikmal_kalem_ekle(talep_id, stok_kodu, talep_miktar)` — `kaynak = 'elle'`; ürün `urunler`'de olmalı.
-- `bar_ikmal_kalem_sil(kalem_id)` — yalnız `kaynak='elle'` kalem silinir; tüketimden gelen 0'a çekilir.
-- `bar_ikmal_gonder(talep_id)` → `gonderildi`; talep miktarı toplamı 0 ise reddedilir.
-- **Hiçbiri stok ya da stok hareketi yazmaz.** Test bunu satır sayılarıyla kanıtlar.
-- Yetki: `bar_ikmal:kayit` + rol `bar_kaptan` + o bara aktif atama + otel erişimi + `ikmal_pilot`.
-
-### 2.5 Zorunlu olmayanlar
-
-Günlük sayım ve ücretsiz her servisin girilmesi **ön koşul değildir**: taslak yalnız mevcut
-tüketim kayıtlarından çıkar; stok kodu olmayan ücretsiz ürünler tüketim üretmez ve hiçbir şeyi
-engellemez.
+`bar_ikmal_kalem_guncelle`, `bar_ikmal_kalem_ekle`, `bar_ikmal_kalem_sil` (yalnız elle eklenen),
+`bar_ikmal_gonder`. **Hiçbiri stok ya da stok hareketi yazmaz**; test satır sayılarıyla kanıtlar.
 
 ---
 
-## Aşama 3 — Cuma istisnası: pazar ilavesi (pilot bar)
+## 5. Edge Function uçtan uca testi — araştırma ve açık test açığı (T21; Z3; S10)
 
-> Talep T10'dur. Aşağıdaki giriş penceresi yorumu **Ö3 önerisidir**, kesinleşmedi.
+### 5.1 Neyin sınanması gerekiyor
 
-- Operasyon günü **Cuma** olan bar için ikinci talep açılabilir: `tur = 'pazar_ilavesi'`.
-  Başka günlerde `PAZAR_ILAVESI_YALNIZ_CUMA`.
-- Teslim tarihi: Cuma operasyonunun normal talebi ve pazar ilavesi **ikisi de Cumartesi**.
-  Diğer günlerde normal talep teslimi `operasyon_gunu + 1`.
-- Giriş penceresi **saate değil teslim tarihine** bağlıdır: pazar ilavesi, İstanbul takvim
-  günü **Cumartesi teslim tarihini geçmediği sürece** açılabilir. Böylece Cuma servisi gece
-  yarısını ya da 06:00 sınırını geçse, kaptan gün sonunu Cumartesi sabahı yapsa bile ilave
-  girilebilir. Açıldıktan sonra kendi durum makinesiyle yaşar — kaptan `taslak` iken düzenler.
-- Pazar ilavesinin tüketim kaynağı **yoktur**; kalemleri tamamen elle girilir.
-- **Ayrı saklanır:** ayrı talep satırı, ayrı kalemler, ayrı onay/sevk/kabul. Raporlarda ve
-  depo ekranında ayrı görünür.
+| Edge Function (canlı ad) | Uçtan uca doğrulanacaklar |
+|---|---|
+| `hyper-api` (QR sipariş) | Token çözümü, 20 kalem / 30 adet sınırı, ana projede RPC çağrısı, `siparis_arsiv` kaydı, yeni hata kodlarının müşteriye dönüşü, ücretli siparişin `bekliyor` başlaması |
+| `rapid-handler` (masa/QR) | `auth.getUser()` ile kimlik, pasif kullanıcı reddi, 810/811 otel kapsamı (`liste`/`ekle`/`durum`), depo-otel önek kontrolü, müşteri projesine yazma, HTTP durum kodları |
+| `smooth-service` (menü yayını) | `x-staff-token` doğrulaması, yetkisiz 401/403, yetkili yayında `menu_yenile` |
+
+Veritabanı fonksiyonu testleri (ör. `bar_masa_yetki_kapsami`) bu listenin yalnız **yetki
+kararı** kısmını kapsar; HTTP katmanı, kimlik doğrulama çağrısı, iki proje arasındaki köprü ve
+yanıt biçimi kapsam dışıdır.
+
+### 5.2 Araştırılan izole seçenekler
+
+Hiçbiri **çalıştırılmadı**. Hepsi indirme gerektirir (Z3); boyutlar indirmeden ölçülmedi.
+
+| # | Seçenek | Gerekenler | Kapsadığı | Sınırı |
+|---|---|---|---|---|
+| E1 | **Supabase CLI yerel yığını** (`supabase start` + `supabase functions serve`) | CLI kurulumu + yığının Docker imajları (Postgres, GoTrue, PostgREST, Kong, Edge Runtime) | Üretime en yakın çalışma zamanı; `auth.getUser()` gerçek GoTrue'ya gider | İki proje (ana + müşteri) için iki ayrı yerel yığın ya da tek yığında iki şema düzeni gerekir; en ağır seçenek |
+| E2 | **Edge Runtime imajı + ayrı GoTrue ve PostgREST konteynerleri** | `supabase/edge-runtime` ve `supabase/gotrue` imajları (PostgREST imajı zaten var) | Supabase'in kendi çalışma zamanı; ortam değişkenleri elle bağlanır | Kong/ağ geçidi yok, yollar elle eşlenir; JWT sırrının GoTrue ve PostgREST'te aynı olması gerekir |
+| E3 | **Deno imajı** ile `index.ts`'i çalıştırma + GoTrue ve PostgREST | `denoland/deno` + `supabase/gotrue` imajları | Fonksiyon kodu ve HTTP davranışı | Supabase Edge Runtime değil (davranış farkı olabilir); içe aktarmalar `esm.sh`'tan çalışma anında ağ ister |
+| E4 | **Ayrı bir Supabase staging projesi** (bulut) | Kullanıcının oluşturacağı proje, dağıtım | Gerçek platform davranışı | Yerel/izole değil; proje oluşturma kullanıcı işidir |
+
+Ortak not: `auth.getUser()` bir GoTrue ister; GoTrue yerine taklit (stub) kullanmak kimlik
+katmanını sınamamış olur ve uçtan uca sayılmaz.
+
+### 5.3 Durum
+
+**Test açığı AÇIK.** Seçenek seçilip (S10) gerekli indirmelere izin verilene kadar her aşama
+raporunda şu satır zorunludur: "Edge Function uçtan uca testi yapılmadı; yalnız veritabanı yetki
+kararı izole test edildi." Yayın sırasında Edge Function değişiklikleri yalnız canlı duman
+testiyle doğrulanmış olur ve bu da raporda ayrıca yazılır.
 
 ---
 
-## Aşama 4 — Teslim kabulü (pilot bar)
+## 6. Aşama 3 — Cuma istisnası: pazar ilavesi (pilot bar) (T10; Ö3; S8)
 
-### 4.1 Aşamalar ve stok etkisi
+- Operasyon günü (servis kaydından) **Cuma** olan bar için ikinci talep açılabilir:
+  `tur = 'pazar_ilavesi'`. Başka günlerde `PAZAR_ILAVESI_YALNIZ_CUMA`.
+- Teslim tarihi: Cuma operasyonunun normal talebi ve pazar ilavesi **aynı teslim tarihine**
+  bağlıdır (`sonraki_acik_gun`; Cumartesi açıksa Cumartesi).
+- Giriş penceresi **teslim tarihine** bağlıdır (Ö3): o teslim tarihi geçmediği sürece girilebilir.
+  Servis kaydı saat kesimiyle bölünmediği için Cuma servisi gece yarısını ya da 06:00'ı geçse de
+  aynı operasyon gününde kalır.
+- Pazar ilavesinin tüketim kaynağı yoktur; kalemleri elle girilir.
+- **Ayrı saklanır:** ayrı talep satırı, ayrı kalemler, ayrı onay/sevk/kabul.
 
-> Onay → sevk → kabul ayrımı ve "yalnız kabul edilen bara girer" **T11 gereğidir**. Kabul
-> edilmeyen miktarın açık fark olarak kalıp depoca kapatılması **V3 çalışma varsayımıdır**;
-> bar ikmalinin ayrı tablolarla yürümesi **Ö5 önerisidir**.
+---
+
+## 7. Aşama 4 — Teslim kabulü (pilot bar) (T11; V3; Ö5)
+
+### 7.1 Aşamalar ve stok etkisi
 
 | Aşama | Kim | RPC | Stok |
 |---|---|---|---|
 | Onay | Depo | `bar_ikmal_onayla(talep_id, [{kalem_id, onaylanan_miktar}])` | **Değişmez** |
 | Sevk | Depo | `bar_ikmal_sevk_et(talep_id, [{kalem_id, sevk_miktar}])` | Merkez depodan **düşer** |
 | Kabul | Kaptan | `bar_ikmal_kabul_et(sevk_id, [{sevk_kalem_id, kabul_miktar}])` | Bar stoğuna **yalnız kabul edilen** girer |
-| Fark kapatma | Depo | `bar_ikmal_fark_kapat(sevk_kalem_id, 'geri_al'\|'kayip', not)` | `geri_al`: merkeze geri girer · `kayip`: değişmez, kayıt |
+| Fark kapatma | Depo | `bar_ikmal_fark_kapat(sevk_kalem_id, 'geri_al'\|'kayip', not)` | V3'e bağlı: `geri_al` merkeze geri girer · `kayip` değişmez, kayıt |
 
-**Bugünkü iç talep akışı (diğer departmanlar) değişmez.** Onayda anında transfer yapan
-`depo-siparis.html` yalnız bar ikmali için kullanılmaz; bar ikmali kendi tabloları ve
-ekranlarıyla ilerler.
+### 7.2 Tablolar
 
-### 4.2 Tablolar
-
-**`bar_ikmal_sevkleri`**: `id, talep_id, otel_id, sevk_no, sevk_eden, sevk_zamani,
-durum ('yolda'|'kabul_edildi'), kabul_eden, kabul_zamani`.
+**`bar_ikmal_sevkleri`**: `id, talep_id, otel_id, sevk_no, durum ('yolda'|'kabul_edildi'),
+sevk_eden, sevk_zamani, kabul_eden, kabul_zamani`.
 
 **`bar_ikmal_sevk_kalemleri`**: `id, sevk_id, talep_kalem_id, stok_kodu, sevk_miktar (>0),
-kabul_miktar (null → kabul bekliyor; 0 ≤ kabul ≤ sevk), fark_durumu ('yok'|'acik'|'geri_alindi'|'kayip'),
+kabul_miktar (null → bekliyor; 0 ≤ kabul ≤ sevk), fark_durumu ('yok'|'acik'|'geri_alindi'|'kayip'),
 fark_kapatan, fark_zamani, fark_notu`.
 
-### 4.3 Kurallar
+### 7.3 Kurallar
 
-- **Kısmi teslimat:** bir talebe birden çok sevk yapılabilir. Kalem başına
-  `Σ sevk_miktar ≤ onaylanan_miktar` (`SEVK_ONAYI_ASIYOR`). Talep durumu toplamlardan türetilir:
-  hiç sevk yok → `onaylandi`; bir kısmı → `kismi_sevk`; tamamı → `sevk_edildi`;
-  tüm sevkler kabul edilmiş ve açık fark yok → `kapandi`.
-- **Sevk** merkez depodan düşerken stok kilidini alır; yetersizse `STOK_YETERSIZ`
-  (0'a kırpma yok). "Yolda" miktar hiçbir `stok` satırında durmaz; sevk kalemlerinden izlenir.
-- **Kabul** sevk başına **bir kez** yapılır: sevk `yolda` değilse `ZATEN_KABUL`. Her kalem için
-  bar stoğu `kabul_miktar` kadar artar; `sevk > kabul` ise `fark_durumu = 'acik'`.
-- **Fark kapatma** yalnız `acik` farka bir kez uygulanır.
-- Her stok değişimi `stok_hareketleri`'ne yazılır (`bar_ikmal_sevk`, `bar_ikmal_kabul`,
-  `bar_ikmal_fark_geri_al`) — belge no = sevk no.
-- Tekil: talep ve sevk satırları `FOR UPDATE` ile kilitlenir; durum geçişleri tek yönlüdür.
+- **Kısmi teslimat:** bir talebe birden çok sevk; kalem başına `Σ sevk ≤ onaylanan`
+  (`SEVK_ONAYI_ASIYOR`). Talep durumu toplamlardan türetilir.
+- **Sevk** kaynak depodan kilit altında ve katı düşer (`STOK_YETERSIZ`, 0'a kırpma yok).
+  "Yolda" miktar hiçbir `stok` satırında durmaz.
+- **Kabul** sevk başına bir kez (`ZATEN_KABUL`); bar stoğu yalnız kabul kadar artar;
+  `sevk > kabul` → açık fark.
+- Her stok değişimi `stok_hareketleri`'ne yazılır; belge no = sevk no.
+- Talep ve sevk satırları `FOR UPDATE` ile kilitlenir; durum geçişleri tek yönlüdür.
 
-### 4.4 Ekranlar
+### 7.4 Ekranlar
 
-- `bar-ikmal.html` (kaptan): operasyon günü seçimi, taslak üret/düzenle/gönder, Cuma'da
-  pazar ilavesi sekmesi, **yoldaki sevkler ve kabul**.
-- `bar-ikmal-depo.html` (depo): gelen talepler (normal / pazar ilavesi ayrı), onay, sevk,
-  kısmi teslimat görünümü, açık farklar ve kapatma.
+- `bar-ikmal.html` (kaptan): servis kaydı aç/kapat (S1), taslak üret/düzenle/gönder, Cuma'da
+  pazar ilavesi, yoldaki sevkler ve kabul.
+- `bar-ikmal-depo.html` (depo): gelen talepler (normal / pazar ilavesi ayrı), onay, sevk, kısmi
+  teslimat görünümü, açık farklar, depo takvimi (S7).
 
 ---
 
-## Güvenlik özeti (yeni nesneler)
+## 8. Güvenlik özeti (yeni nesneler)
 
 - Tüm yeni tablolar: RLS açık; `anon` erişimi yok; okuma
   `auth_yetki_var(modül,'goruntule') AND auth_otel_erisim(otel_id)`; **doğrudan yazma yok** —
-  tüm yazmalar SECURITY DEFINER RPC'lerle, fonksiyon içinde yetki + otel + (kaptan için) atama
-  kontrolü.
-- Her yeni fonksiyon: `revoke all … from public, anon`; `grant execute … to authenticated,
-  service_role`; `set search_path = pg_catalog, public, pg_temp`.
-- Hata kodları sabit metin önekidir (`FIYAT_DEGISTI:` …); ekran önekle çevirir.
+  yazmalar SECURITY DEFINER RPC'lerle, fonksiyon içinde yetki + otel + (gerekiyorsa) atama kontrolü.
+- Her yeni fonksiyon: `revoke all … from public, anon`; dışa açıklar `grant execute … to
+  authenticated, service_role`; iç fonksiyonlar `authenticated` ve `service_role`'dan da revoke;
+  `set search_path = pg_catalog, public, pg_temp`.
+- Hata metinleri sabit kod önekiyle başlar (`KOD: açıklama`); ekran önekle çevirir.
+- Bir tabloda iki permissive politika varsa otel şartı **ikisine birden** yazılır (pentest-4 dersi).
 
-## Hata kodları
+## 9. Hata kodları (taslak — açık sorulara göre değişebilir)
 
-`ODA_NO_GEREKLI`, `KONAKLAMA_YOK`, `FIYAT_DEGISTI`, `DEPO_OTEL_UYUSMAZ`, `ODA_ONAYI_BEKLIYOR`,
-`FOLYO_KAPALI`, `GECERSIZ_DURUM`, `STOK_TUTARSIZ`, `REZERVE_STOK`, `STOK_YETERSIZ`,
-`TALEP_KILITLI`, `PAZAR_ILAVESI_YALNIZ_CUMA`, `SEVK_ONAYI_ASIYOR`, `ZATEN_KABUL`,
-`FARK_KAPALI`, `PILOT_KAPALI`, `KAPTAN_ATAMASI_YOK`, `YETKI_YOK`, `OTEL_ERISIMI_YOK`.
+Aşama 1: `ODA_NO_GEREKLI`, `KONAKLAMA_YOK`, `FIYAT_DEGISTI`, `DEPO_OTEL_UYUSMAZ`,
+`ODA_DOGRULAMASI_BEKLIYOR`, `DOGRULAMA_BEYANI_GEREKLI`, `FOLYO_KAPALI`, `GECERSIZ_DURUM`,
+`STOK_TUTARSIZ`, `REZERVE_STOK`, `STOK_YETERSIZ`, `IPTAL_NEDENI_GEREKLI`,
+`KULLANILAN_MIKTAR_GEREKLI`, `KULLANILAN_MIKTAR_GECERSIZ`, `MENU_URUNU_YOK`, `BOS_SIPARIS`,
+`OTEL_GECERSIZ`, `SIPARIS_YOK`, `YETKI_YOK`, `OTEL_ERISIMI_YOK`.
+Aşama 2–4: `SERVIS_KAYDI_YOK`, `SERVIS_KAYDI_ACIK`, `TALEP_KILITLI`, `PILOT_KAPALI`,
+`KAPTAN_ATAMASI_YOK`, `PAZAR_ILAVESI_YALNIZ_CUMA`, `PAZAR_ILAVESI_SURESI_DOLDU`,
+`SEVK_ONAYI_ASIYOR`, `ZATEN_KABUL`, `FARK_KAPALI`.
 
-## Test stratejisi
+## 10. Test stratejisi
 
-Her aşama **ayrı** izole test dosyası ve **ayrı** rapor:
-
-- **Taban (Aşama 0, kuruldu ve doğrulandı — 8 OK / 0 FAIL):** atılabilir `postgres:17`;
-  `scripts/supabase-shim.sql` → `scripts/bar-test-auth.sql` (PostgREST v12 kimlik JSON'u) →
-  `2026-09-13-post-faz2-sema-dokumu.sql` (gerçek üretim fonksiyon, politika ve tetikleyicileri;
-  0 hata + 1 bilinen zararsız satır, Z4) → `2026-09-14-stok-liste-ozet.sql` → aşamanın aday
-  migration'ı. Bar nesneleri dökümle birebir sayılır (fonksiyon 5, politika 13, tetikleyici 5).
-- **Kimlikler:** gerçek `kullanicilar` + `auth.users` satırları, rol + `request.jwt.claims` ile
-  (PostgREST'in yaptığı gibi): 810 bar personeli, 811 bar personeli, pasif kullanıcı, yalnız
-  görüntüleme yetkili kullanıcı, depo kullanıcısı (bar yetkisi yok); QR yolu için `service_role`.
-- **Sınanamayanlar (her raporda ayrıca yazılır):** Edge Function çalışma zamanı (Z3); gerçek
-  PostgREST üzerinden uçtan uca QR akışı; üretim verisiyle geçiş (yayın anı preflight'ı).
+- **Taban (Aşama 0, tamamlandı — 8 OK / 0 FAIL):** rapor `docs/superpowers/reports/2026-09-17-bar-asama0-rapor.md`.
+- **Önce ölçümü:** her aşama, düzelttiği kusuru önce mevcut üretim koduna karşı ölçer.
 - **Negatif kontroller:** kritik korumalar (kilit, rezerve koruması, tekillik) kaldırıldığında
-  testin **düştüğü** gösterilir — koruma olmadan da geçen test kanıt sayılmaz.
+  testin düştüğü gösterilir.
 - **Eşzamanlılık:** iki ayrı bağlantıda açık işlemlerle gerçek yarış.
+- **Test açıkları her raporda ayrı başlıktır:** Edge Function uçtan uca (bölüm 5), gerçek
+  PostgREST üzerinden HTTP akışı, üretim verisiyle geçiş.
 
-| Aşama | Test dosyası | Asgari senaryolar |
-|---|---|---|
-| 0 | `scripts/bar-test-taban.test.mjs` | döküm 0 hata · bar nesneleri dökümle birebir · `auth.uid()` JWT JSON'undan · 810/811 erişim ayrımı · pasif kullanıcı fail-closed · üretim `bar_siparis_olustur` tabanda çalışıyor · Z1 ölçümü |
-| 1 | `scripts/bar-a1-guvenlik.test.mjs` | **önce:** oda no'suz ücretli sipariş ve rezerve stoğun başka çıkışla tüketilmesi mevcut kodda ölçülür · oda no'suz ücretli ret · konaklamasız oda ret · QR onay bekliyor → hazırlığa geçemez · onay/ret · fiyat değişti ret · fiyat anlık görüntüsü folyoya · teslim iki kez → tek tüketim + tek borç · folyo kapalıyken teslim tümden geri · eşzamanlı son birim → tek başarı (+ kilitsiz negatif kontrol) · **bar yetkisi olmayan depo kullanıcısının** çıkışı rezerve stoğa inemez (Z1; + korumasız negatif kontrol) · rezervasyonsuz depoda davranış değişmedi · hazırlanmış iptal → zayi · yeni iptal → serbest · depo-otel uyuşmazlığı ret · 811 personeli 810 siparişine dokunamaz · pasif kullanıcı ret · `bar_masa_yetki_kapsami` otel kapsamı ve pasif kullanıcı (Z3) · anon/iç fonksiyon erişimi kapalı |
-| 2 | `scripts/bar-a2-ikmal-taslak.test.mjs` | gün sınırı (varsayılan V4 ve bar bazında farklı saat) · yalnız satış tüketimi (Ö4) · yeniden üretim elle değişikliği korur · kaptan miktar değiştirir/ekler/siler · düzenleme stok ve stok hareketi yazmaz · gönderilen talep kilitli · başka barın kaptanı reddedilir · pilot kapalı bar reddedilir |
-| 3 | `scripts/bar-a3-pazar-ilavesi.test.mjs` | Cuma 23:30 ve Cumartesi 01:30 teslimleri Cuma talebinde · pazar ilavesi Cumartesi 09:00'da da girilebilir (Ö3) · Pazar günü girilemez · yalnız Cuma operasyonuna · ikisi ayrı satır ve ikisi de Cumartesi teslim · Perşembe'de pazar ilavesi ret |
-| 4 | `scripts/bar-a4-teslim-kabul.test.mjs` | onay stok değiştirmez · sevk merkezden düşer, bar değişmez · kabul yalnız kabul edileni ekler · kısmi sevk + kısmi kabul izlenir · onayı aşan sevk ret · kabul iki kez ret · fark geri al / kayıp · depo yetersiz → ret, 0'a kırpma yok · eşzamanlı çift kabul tek sonuç |
+| Aşama | Asgari senaryolar |
+|---|---|
+| 1 | önce: oda no'suz ücretli sipariş; rezerve stoğun başka çıkışla tüketilmesi · oda no'suz ücretli ret · konaklamasız oda ret · **garson ücretli siparişi `bekliyor` başlar** · beyansız doğrulama ret · beyanlı doğrulama: folyo bağlanır, doğrulayan/zaman/beyan kaydı · doğrulama beklerken hazırlık ret · fiyat değişti ret · anlık fiyat borca · teslim iki kez → tek tüketim + tek borç · **folyo kapalı + beyansız teslim → hiçbir şey yazılmaz** · **folyo kapalı + fiziksel servis beyanı → satış tüketimi + istisna kaydı, borç yok, başka folyoya yazılmadı** · **hazırlanıyor iptali: kullanılan miktar girilmeden ret; kısmi kullanım → kısmi zayi + kalan serbest; tam tüketim otomatik değil** · yeni iptal → serbest · eşzamanlı son birim → tek başarı (+ kilitsiz negatif kontrol) · bar yetkisi olmayan kullanıcının çıkışı rezerve stoğa inemez (+ korumasız negatif kontrol) · rezervasyonsuz depoda davranış değişmedi · **sayım: rezervasyon altı gözlem kaydedilir, düzeltme bekletilir, diğer kalemler uygulanır** (Ö10 kabul edilirse) · depo-otel uyuşmazlığı ret · başka otelin siparişi ret · pasif kullanıcı ret · `bar_masa_yetki_kapsami` kapsamı (**yetki kararı testi; uçtan uca değil**) · anon/iç fonksiyon erişimi kapalı |
+| 2 | servis kaydı: aynı barda ikinci açık kayıt ret · **Cuma açılan kayıttaki sipariş Cumartesi 07:00'de teslim edilse Cuma'ya yazılır** · kayıt yokken sipariş (S2'ye göre) · taslak yalnız satış tüketimi · yeniden üretim elle değişikliği korur · kaptan düzenlemeleri stok ve stok hareketi yazmaz · teslim tarihi depo takviminden (Cumartesi → Pazartesi) · istisna günü haftalık kuralı ezer · gönderilen talep kilitli · başka barın kaptanı ve pilot kapalı bar ret |
+| 3 | Cuma servisi gece yarısı ve 06:00'ı geçer, pazar ilavesi aynı operasyon gününe bağlanır · pazar ilavesi teslim tarihi geçmeden girilebilir, geçince ret · Cuma dışı ret · normal ve ilave ayrı satır, aynı teslim tarihi |
+| 4 | onay stok değiştirmez · sevk kaynaktan düşer, bar değişmez · kabul yalnız kabul edileni ekler · kısmi sevk + kısmi kabul izlenir · onayı aşan sevk ret · kabul iki kez ret; eşzamanlı çift kabul tek sonuç (+ kilitsiz negatif kontrol) · fark kapatma · kaynak yetersiz → ret, 0'a kırpma yok · diğer departmanların iç talep akışı değişmedi (regresyon) |
 
-## Kapsam dışı
+## 11. Kapsam dışı
 
-- Mevcut bar modülünün yeniden kurulması; müşteri projesinin şeması (yalnız Edge Function değişir).
-- `bar-masa-yonetimi.html` içindeki olası XSS (bulgu 8), `menu.alibeyclub.com`, hız sınırı,
-  rezervasyon zaman aşımı, kuyruk ekranının sayfalanması — ayrı iş olarak önerilecek.
-- Diğer departmanların iç talep akışı.
-- Reçeteli ürün yönetim ekranı.
-- Üretime uygulama: her aşama ayrı bir **`CANLIYA UYGULA`** onayına bağlıdır.
+- Mevcut bar modülünün yeniden kurulması; müşteri projesinin şeması.
+- `bar-masa-yonetimi.html` olası XSS (bulgu 8), `menu.alibeyclub.com`, hız sınırı, rezervasyon zaman
+  aşımı, kuyruk ekranının sayfalanması — ayrı iş olarak önerilecek.
+- Diğer departmanların iç talep akışı; reçeteli ürün yönetim ekranı.
+- Borç istisnası **çözüm** ekranı (S6 cevaplanana kadar).
+- Üretime uygulama: her aşama ayrı `CANLIYA UYGULA` onayına bağlıdır.
 
-## Açık risk ve varsayımlar
+## 12. Açık riskler
 
 1. **Depo ↔ otel eşleşmesi** önek sözleşmesine dayanır; ERP'de depo ana tablosu yok.
-2. **Geçmiş kalemlerin fiyatı** bilinemez; geçişte güncel fiyatla doldurulur ve raporlanır.
-3. **Sayım kısıtı** (1.5, Z2): kullanıcı kabulü bekliyor; kabul edilmezse A1 kapsamı değişir.
-4. **Edge Function dağıtımı** Dashboard'dan elle yapılıyor (CLI yok); canlı adlar
-   `hyper-api` / `rapid-handler` korunur. Çalışma zamanı yerelde sınanamaz (Z3).
-5. **Pilot bar** kodu henüz verilmedi; Aşama 2'den önce gerekir, `bar_ayarlari.ikmal_pilot` ile açılır.
+2. **Geçmiş kalemlerin fiyatı** bilinemez; geçişte güncel fiyatla doldurulur.
+3. **Sayım akışı** (Ö10) 2026-09-15'te yayınlanan stok ekranını değiştirir; stok koruması Ö10
+   kesinleşmeden yayınlanırsa bar depolarında sayım fiilen reddedilir.
+4. **Edge Function'lar** Dashboard'dan elle dağıtılıyor; uçtan uca test açığı açık (bölüm 5).
+5. **Servis kaydının kapatılmaması** yanlış operasyon gününe tüketim yazdırabilir (S4).
+6. **Pilot bar** kodu henüz verilmedi.
 
-## Aşama 1'e geçmeden kesinleşmesi gerekenler
+## 13. Aşamalara geçmeden kesinleşmesi gerekenler
 
-Aşama 1 kodunu doğrudan etkileyenler yalnız şunlardır; diğer açık tercihler (V2, V3, Ö3, Ö4,
-Ö5) Aşama 2–4'ü etkiler ve o aşamalardan önce kesinleştirilebilir.
-
-| # | Konu | Aşama 1'e etkisi |
-|---|---|---|
-| V1 | Oda numarasına ek kanıt | Onay adımı, `oda_onay_durumu` sütunu, kuyruk ekranı butonları. PIN seçilirse PMS de değişir. |
-| Ö1 | Garson siparişinin onaylı sayılması | `bar_siparis_olustur` personel dalı. |
-| Ö2 | Aşama 1'in tüm barlara uygulanması | Yayın kapsamı (kod değişmez). |
-| Ö6 | Folyo kapalıysa iptal + zayi | Hata mesajı ve kuyruk akışı. |
-| Z2 | Sayım kısıtının kabulü | Kabul edilmezse `stok_sayim_uygula` A1'e eklenir ve stok ekranı değişir. |
-| V4 | 06:00 varsayılanı | Tüketim kayıtlarının `operasyon_gunu`'nu belirler; değer değişirse yalnız varsayılan değişir. |
+| Aşama | Kesinleşmesi gerekenler |
+|---|---|
+| **1** | V1 (doğrulama modeli) · Ö1 (açık beyan biçimi) · Ö2 (tüm barlar) · Ö6 + S6 (borç istisnası ve çözüm yetkisi — Aşama 1'de en az kayıt açılışı) · Ö7 + S5 (kullanılan miktar; `hazir` durumu) · Ö10 + S9 (sayım gözlemi ve bekleyen düzeltme) · S10 (Edge Function test seçeneği ve indirme izni — kapanmazsa açık kalır) |
+| **2** | V2 · Ö4 · Ö5 · Ö8 + S1–S4 (servis kaydı) · Ö9 + S7 (depo takvimi) · pilot bar kodu |
+| **3** | Ö3 · S8 |
+| **4** | V3 |

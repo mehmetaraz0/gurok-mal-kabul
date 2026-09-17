@@ -8,9 +8,20 @@
 
 **Tech Stack:** PostgreSQL 17 (Supabase), plpgsql, statik HTML/JS (GitHub Pages), Supabase Edge Functions (Deno — yerelde çalışma zamanı YOK), Node 24 test betikleri, Docker `postgres:17`.
 
-**Spec:** `docs/superpowers/specs/2026-09-17-bar-guvenlik-ikmal-kabul-design.md` (revizyon 2)
+**Spec:** `docs/superpowers/specs/2026-09-17-bar-guvenlik-ikmal-kabul-design.md` (**revizyon 3** — bu plan revizyon 2'ye göre yazıldı)
 
-**Durum:** Aşama 0 tamamlandı (8 OK / 0 FAIL). Aşama 1 **başlamadı**.
+> ## ⚠️ AŞAMA 1–4 BÖLÜMLERİ GEÇERSİZ (2026-09-17, tasarım revizyon 3)
+>
+> Tasarım revizyon 3 şu noktalarda bu planın kodunu geçersiz kılar: operasyon günü saat kesimi
+> değil servis kaydına bağlı (T16) ve teslim tarihi depo takvimine bakar (T17); garson siparişi
+> doğrulama sayılmaz, açık beyan gerekir (T18); "hazırlanıyor" iptali otomatik tam zayi değildir,
+> kullanılan miktar belirlenir (T19); folyo kapanması zayi yapmaz, tüketim ve borç ayrı ele alınır
+> (T20); veritabanı yetki testi Edge Function uçtan uca testi değildir (T21); sayımda gerçek gözlem
+> kaydedilir (T22). **Task 1.1–1.8 ve Aşama 2–4 sözleşmeleri uygulanmaz.** Geçerli olan yalnız
+> Aşama 0 (tamamlandı). Aşama 1 planı, spec bölüm 13'teki maddeler kesinleştikten sonra yeniden
+> yazılacaktır. Aşağıdaki metin tarihsel kayıt olarak bırakıldı.
+
+**Durum:** Aşama 0 tamamlandı (8 OK / 0 FAIL; rapor `docs/superpowers/reports/2026-09-17-bar-asama0-rapor.md`). Aşama 1 **başlamadı**; aşağıdaki Aşama 1–4 metni geçersizdir.
 
 **Tercihlerin kaynağı:** Bu plandaki kod, spec'in "Gereksinimler ve tercihlerin kaynağı"
 bölümüne dayanır. Kesin olan yalnız kullanıcının yazılı talepleridir (T1–T15). **V1–V4 çalışma
@@ -397,7 +408,7 @@ git commit -m "test(bar): uretim dokumu tabanli izole ortam ve tohum verisi"
 
 ---
 
-## Aşama 1 — Bar ve PMS güvenliği
+## Aşama 1 — Bar ve PMS güvenliği  ·  ⚠️ GEÇERSİZ (tasarım revizyon 3) — uygulanmaz
 
 ### Task 1.1: Önce — kusurların mevcut kodda kanıtı (kırmızı testler)
 
