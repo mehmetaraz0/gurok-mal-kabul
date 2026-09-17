@@ -38,7 +38,8 @@ kesinleşmeden Aşama 1'e geçilmez, farklı çıkarsa Task 1.2–1.6 o tercihe 
 - Her yeni fonksiyon: `set search_path to 'pg_catalog', 'public', 'pg_temp'`; `revoke all … from public, anon`; dışa açık olanlar `grant execute … to authenticated, service_role`; `_` ile başlayan iç fonksiyonlar **authenticated ve service_role'dan da** revoke edilir.
 - Hata metinleri sabit bir **kod önekiyle** başlar: `KOD: açıklama` (kodlar spec'teki listeden).
 - Operasyon günü: `((zaman AT TIME ZONE 'Europe/Istanbul') − gun_sonu_saati)::date`; varsayılan `06:00` **çalışma varsayımıdır (V4)** — değişirse yalnız `bar_ayarlari.gun_sonu_saati` varsayılanı değişir, mekanizma aynı kalır.
-- İzole test tabanı: `scripts/supabase-shim.sql` → `scripts/bar-test-auth.sql` → `C:\Users\USER\ERP-Yedek\2026-09-13-post-faz2-sema-dokumu.sql` (gerçek hata **0**; tek istisna tam eşleşmeli `schema "public" already exists`, sayısı raporlanır — Z4) → `docs/kurulum/2026-09-14-stok-liste-ozet.sql` → aşama migration'ları.
+- İzole test tabanı: `scripts/supabase-shim.sql` → `scripts/bar-test-auth.sql` → `C:\Users\USER\ERP-Yedek\2026-09-13-post-faz2-sema-dokumu.sql` (gerçek hata **0**; tek istisna tam eşleşmeli `schema "public" already exists`, sayısı raporlanır — Z4) → `docs/kurulum/2026-09-14-stok-liste-ozet.sql` → `docs/kurulum/2026-09-17-stok-guncelleme-tarihi.sql` → aşama migration'ları.
+- **A1, `stok_ekle`/`stok_transfer`'i yeniden tanımlar.** Bu iki fonksiyona ait, A1'e ait olmayan tek düzeltme `docs/kurulum/2026-09-17-stok-guncelleme-tarihi.sql`'dir (`guncelleme_tarihi = now()`). A1 gövdeleri onu İÇERİR, geri alma dosyası da onu korur; sıra `scripts/stok-guncelleme-tarihi-bar-sira.test.mjs` ile sınanır. Bu iki fonksiyonu yeniden tanımlayan her sonraki iş aynı kontrolü yapmak zorundadır: son uygulanan gövde kazanır.
 - Stok çıkış koruması **SECURITY DEFINER** olmak zorundadır (Z1); testte bar yetkisi olmayan depo kullanıcısıyla, rezervasyonu göremediği önce kanıtlanarak sınanır.
 - Edge Function çalışma zamanı yerelde sınanamaz (Z3); yetki kararı veritabanı fonksiyonuna taşınır ve raporda "sınanmadı" satırı zorunludur.
 - Bir test ancak koruması kaldırıldığında **düşüyorsa** kanıt sayılır; kritik korumalarda negatif kontrol zorunludur.
@@ -59,7 +60,8 @@ kesinleşmeden Aşama 1'e geçilmez, farklı çıkarsa Task 1.2–1.6 o tercihe 
 | `scripts/bar-a1-geri-al-uret.mjs` | 1 | Geri alma SQL'ini üretim dökümündeki eski gövdelerden deterministik üretir. |
 | `docs/kurulum/2026-09-17-bar-a1-guvenlik-geri-al.sql` | 1 | Üretilmiş geri alma dosyası. |
 | `scripts/bar-a1-guvenlik.test.mjs` | 1 | Aşama 1 veritabanı testleri. |
-| `scripts/bar-a1-geri-al.test.mjs` | 1 | Geri almanın eski davranışı döndürdüğünü kanıtlar. |
+| `scripts/bar-a1-geri-al.test.mjs` | 1 | Geri almanın eski davranışı döndürdüğünü, A1 dışı tarih düzeltmesini ise KORUDUĞUNU kanıtlar. |
+| `scripts/stok-guncelleme-tarihi-bar-sira.test.mjs` | 1 | Tarih düzeltmesi → A1 sırası: hem tarih güncellenir hem rezervasyon koruması çalışır. |
 | `bar-hata.js` | 1 | Hata kodu → Türkçe metin (üç bar ekranı ortak). |
 | `bar-menu.html`, `bar-garson.html`, `bar-siparis-kuyrugu.html` | 1 | Fiyat gönderimi, oda onayı, iptal nedeni, hata metinleri. |
 | `docs/kurulum/musteri-projesi/masa-yonetim/index.ts` | 1 | `rapid-handler`: kimlik + otel kapsamı DB fonksiyonundan. |
@@ -715,7 +717,8 @@ begin
   insert into stok (urun_kodu, depo_kodu, otel_id, miktar)
   values (p_urun_kodu, p_depo_kodu, p_otel_id::otel_id, greatest(0, p_delta))
   on conflict (urun_kodu, depo_kodu)
-  do update set miktar = greatest(0, stok.miktar + p_delta)
+  do update set miktar = greatest(0, stok.miktar + p_delta),
+                guncelleme_tarihi = now()
   returning miktar into v_yeni;
   return v_yeni;
 end;
@@ -728,15 +731,26 @@ set search_path to 'pg_catalog', 'public', 'extensions', 'pg_temp'
 as $$
 begin
   perform public.stok_cikis_korumasi(p_kaynak_depo, p_urun_kodu, p_miktar);
-  update stok set miktar = greatest(0, miktar - p_miktar)
+  update stok set miktar = greatest(0, miktar - p_miktar),
+                  guncelleme_tarihi = now()
     where urun_kodu = p_urun_kodu and depo_kodu = p_kaynak_depo;
   insert into stok (urun_kodu, depo_kodu, otel_id, miktar)
     values (p_urun_kodu, p_hedef_depo, p_hedef_otel::otel_id, p_miktar)
     on conflict (urun_kodu, depo_kodu)
-    do update set miktar = greatest(0, stok.miktar + p_miktar);
+    do update set miktar = greatest(0, stok.miktar + p_miktar),
+                  guncelleme_tarihi = now();
 end;
 $$;
 ```
+
+> **`guncelleme_tarihi = now()` neden burada:** 2026-09-17 ölçümü, üretimdeki
+> `stok_ekle`/`stok_transfer`'in bu sütunu hiçbir UPDATE yolunda yazmadığını
+> gösterdi (`docs/kurulum/2026-09-17-stok-guncelleme-tarihi.sql`, aynı tarihli
+> teşhis dosyası). A1 bu iki fonksiyonu yeniden tanımladığı için, satır
+> eklenmezse o düzeltmeyi **sessizce geri alır** — sırası ne olursa olsun, son
+> uygulanan kazanır. Fonksiyonlar `SECURITY INVOKER`: çağıran rollerin
+> `stok.guncelleme_tarihi` üzerinde UPDATE yetkisi olmalı (üretimde ölçüldü,
+> var). Sıra testi: `scripts/stok-guncelleme-tarihi-bar-sira.test.mjs`.
 
 - [ ] **Step 2: Dosyanın geçici olarak `commit;` ile kapanıp tabana uygulandığını doğrula**
 
@@ -1711,6 +1725,45 @@ function yetkiler(ad) {
 const eskiler = ['stok_ekle', 'stok_transfer', 'bar_siparis_olustur', 'bar_siparis_durum_guncelle',
   'bar_siparis_teslim_et', 'bar_siparis_iptal', 'pms_bar_folio_koprusu'];
 
+// GERI ALMA, ILGISIZ BIR DUZELTMEYI GERI ALMAZ.
+// Dokumdeki stok_ekle/stok_transfer govdeleri, 2026-09-17 guncelleme_tarihi
+// duzeltmesinden ONCEKI hal olabilir. A1 geri alinirken o govdeler aynen
+// yazilirsa, A1 ile hicbir ilgisi olmayan tarih duzeltmesi de sessizce
+// kaybolur. Cozum: geri alma dosyasi CALISMA ANINDA bakar — duzeltme
+// canlidaysa, eski govdeler yazildiktan sonra yeniden uygulanir.
+// Kaynak tek yerdir: duzeltmenin kendi migration dosyasi.
+const tarihMig = readFileSync(kok + 'docs/kurulum/2026-09-17-stok-guncelleme-tarihi.sql', 'utf8');
+const tarihGovdeleri = tarihMig.slice(
+  tarihMig.indexOf('create or replace function public.stok_ekle'),
+  tarihMig.indexOf('-- 2) ACL')).trim();
+if (!/guncelleme_tarihi = now\(\)/.test(tarihGovdeleri)) {
+  throw new Error('tarih duzeltmesi govdeleri okunamadi: 2026-09-17-stok-guncelleme-tarihi.sql degismis olabilir');
+}
+// EXECUTE tek ifade calistirir; iki fonksiyon ayri ayri verilir.
+const tarihIfadeleri = tarihGovdeleri.split(/\$function\$;\s*/).filter((p) => p.trim())
+  .map((p) => p.trim() + '$function$;');
+
+// Olcum, eski govdeler YAZILMADAN ONCE alinmali: geri yazim sutunu gotururdu
+// ve kontrol kendi sonucunu okurdu.
+const tarihiOlc = `
+-- Tarih duzeltmesi su an canli mi? (eski govdeler yazilmadan ONCE olculur)
+create temp table _a1_geri_tarih on commit drop as
+select coalesce(bool_and(prosrc ~* 'guncelleme_tarihi'), false) as vardi
+  from pg_proc where pronamespace = 'public'::regnamespace
+   and proname in ('stok_ekle', 'stok_transfer');
+`;
+const tarihiKoru = `
+-- 2026-09-17 guncelleme_tarihi duzeltmesi canliysa KORUNUR (A1'e ait degildir).
+do $tarih$
+begin
+  if (select vardi from _a1_geri_tarih) then
+    raise notice 'Tarih duzeltmesi geri alinmiyor; eski govdelerin uzerine yeniden uygulaniyor.';
+${tarihIfadeleri.map((s) => `    execute $ddl$${s}$ddl$;`).join('\n')}
+  end if;
+end
+$tarih$;
+`;
+
 const govde = `-- ============================================================================
 -- GERI AL: 2026-09-17-bar-a1-guvenlik.sql
 -- ============================================================================
@@ -1718,9 +1771,11 @@ const govde = `-- ==============================================================
 -- Uretilen dosya: node scripts/bar-a1-geri-al-uret.mjs (kaynak: ${SEMA_DOKUMU.split('/').pop()})
 -- VERI KORUNUR: yeni sutunlar, bar_ayarlari ve bar_stok_tuketimleri SILINMEZ;
 -- yalniz eski fonksiyonlarin calisabilmesi icin NOT NULL/CHECK gevsetilir.
+-- A1 DISI DUZELTMELER KORUNUR: 2026-09-17 guncelleme_tarihi duzeltmesi canliysa
+-- eski govdeler yazildiktan sonra yeniden uygulanir (asagida).
 -- ============================================================================
 begin;
-
+${tarihiOlc}
 drop function if exists public.bar_siparis_oda_onayla(uuid);
 drop function if exists public.bar_siparis_oda_reddet(uuid, text);
 drop function if exists public.bar_masa_yetki_kapsami();
@@ -1740,7 +1795,7 @@ alter table public.bar_siparisleri
   alter column oda_onay_durumu drop not null;
 
 ${eskiler.map((ad) => fonksiyon(ad) + '\n\n' + yetkiler(ad)).join('\n\n')}
-
+${tarihiKoru}
 drop function if exists public.stok_cikis_korumasi(text, text, numeric);
 drop function if exists public._stok_kilitle(text, text);
 
@@ -1769,7 +1824,10 @@ const DEPO810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000
 const VISKI = '22222222-0000-0000-0000-000000000002', BIRA = '22222222-0000-0000-0000-000000000001';
 
 try {
-  await O.kur({ onceki: ['docs/kurulum/2026-09-14-stok-liste-ozet.sql', 'docs/kurulum/2026-09-17-bar-a1-guvenlik.sql'] });
+  // Uretimdeki sira: tarih duzeltmesi once, A1 sonra.
+  await O.kur({ onceki: ['docs/kurulum/2026-09-14-stok-liste-ozet.sql',
+    'docs/kurulum/2026-09-17-stok-guncelleme-tarihi.sql',
+    'docs/kurulum/2026-09-17-bar-a1-guvenlik.sql'] });
   O.sql(`insert into public.bar_ayarlari (bar_depo_id, otel_id) values ('810_CSM302','810');`);
   const yeni = O.kimlikle(BAR810, `select public.bar_siparis_olustur('810','810_CSM302','M',null,'[{"menu_urun_id":"${BIRA}","adet":1}]'::jsonb);`).out;
   O.kimlikle(BAR810, `select public.bar_siparis_durum_guncelle('${yeni}','hazirlaniyor'); select public.bar_siparis_durum_guncelle('${yeni}','hazir'); select public.bar_siparis_teslim_et('${yeni}');`);
@@ -1785,8 +1843,19 @@ try {
   sonuc(iptal.ok, 'eski bar_siparis_iptal(uuid) imzasi geri geldi', iptal.ok ? '' : iptal.err.slice(-150));
 
   O.kimlikle(BAR810, `select public.bar_siparis_olustur('810','810_CSM302','M',null,'[{"menu_urun_id":"${BIRA}","adet":8}]'::jsonb);`);
+  O.sql(`update public.stok set guncelleme_tarihi = '2026-07-09 07:23:10+00';`);
   const cikis = O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','810_CSM302','810',-5);`);
   sonuc(cikis.ok, 'eski stok_ekle geri geldi (rezerve korumasi yok)', cikis.ok ? cikis.out : hataKodu(cikis));
+
+  // A1 geri alindi; A1'e AIT OLMAYAN tarih duzeltmesi geri ALINMAMALI.
+  sonuc(O.sql(`select bool_and(prosrc ~* 'guncelleme_tarihi') from pg_proc
+                where pronamespace = 'public'::regnamespace
+                  and proname in ('stok_ekle','stok_transfer');`).out === 't',
+    'geri alma 2026-09-17 tarih duzeltmesini KORUDU (govdelerde duruyor)');
+  sonuc(O.sql(`select count(*) from public.stok
+                where urun_kodu = 'BIRA' and depo_kodu = '810_CSM302'
+                  and guncelleme_tarihi > '2026-07-10'::timestamptz;`).out === '1',
+    'geri alma sonrasi stok_ekle tarihi hala guncelliyor (davranis olarak)');
 
   sonuc(O.sql(`select count(*) from public.bar_stok_tuketimleri;`).out === tuketimOnce && tuketimOnce === '1',
     'A1 doneminde yazilan tuketim kayitlari KORUNDU');
