@@ -10,7 +10,7 @@ birebir aynı — özetle doğrulandı).
 
 ## Gereksinimler ve tercihlerin kaynağı
 
-Bu belgede üç tür madde vardır; birbirine karıştırılmaz.
+Bu belgede dört tür madde vardır; birbirine karıştırılmaz: kesin talep (T), kesinleşmemiş çalışma varsayımı (V), tasarım önerisi (Ö), ölçüm sonucu (Z).
 
 ### A. Kullanıcının yazılı talebi (kesin)
 
