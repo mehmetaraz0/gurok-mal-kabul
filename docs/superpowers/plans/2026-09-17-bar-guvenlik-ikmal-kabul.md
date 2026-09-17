@@ -8,7 +8,15 @@
 
 **Tech Stack:** PostgreSQL 17 (Supabase), plpgsql, statik HTML/JS (GitHub Pages), Supabase Edge Functions (Deno — yerelde çalışma zamanı YOK), Node 24 test betikleri, Docker `postgres:17`.
 
-**Spec:** `docs/superpowers/specs/2026-09-17-bar-guvenlik-ikmal-kabul-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-17-bar-guvenlik-ikmal-kabul-design.md` (revizyon 2)
+
+**Durum:** Aşama 0 tamamlandı (8 OK / 0 FAIL). Aşama 1 **başlamadı**.
+
+**Tercihlerin kaynağı:** Bu plandaki kod, spec'in "Gereksinimler ve tercihlerin kaynağı"
+bölümüne dayanır. Kesin olan yalnız kullanıcının yazılı talepleridir (T1–T15). **V1–V4 çalışma
+varsayımıdır, Ö1–Ö6 tasarım önerisidir; hiçbiri kesinleşmiş kullanıcı kararı değildir.** Z1–Z4
+ölçüm sonucudur. Aşama 1 kodu V1, V4, Ö1, Ö2, Ö6 ve Z2'nin kabulüne dayanır; bunlar
+kesinleşmeden Aşama 1'e geçilmez, farklı çıkarsa Task 1.2–1.6 o tercihe göre yeniden yazılır.
 
 ## Global Constraints
 
@@ -18,8 +26,10 @@
 - Eski tarihli SQL dosyaları değiştirilmez; her değişiklik yeni tarihli dosyadır ve başlığında `URETIME UYGULANMADI` bandı taşır.
 - Her yeni fonksiyon: `set search_path to 'pg_catalog', 'public', 'pg_temp'`; `revoke all … from public, anon`; dışa açık olanlar `grant execute … to authenticated, service_role`; `_` ile başlayan iç fonksiyonlar **authenticated ve service_role'dan da** revoke edilir.
 - Hata metinleri sabit bir **kod önekiyle** başlar: `KOD: açıklama` (kodlar spec'teki listeden).
-- Operasyon günü: `((zaman AT TIME ZONE 'Europe/Istanbul') − gun_sonu_saati)::date`, varsayılan `06:00`.
-- İzole test tabanı: `scripts/supabase-shim.sql` → `scripts/bar-test-auth.sql` → `C:\Users\USER\ERP-Yedek\2026-09-13-post-faz2-sema-dokumu.sql` (yükleme hatası **0** olmalı) → `docs/kurulum/2026-09-14-stok-liste-ozet.sql` → aşama migration'ları.
+- Operasyon günü: `((zaman AT TIME ZONE 'Europe/Istanbul') − gun_sonu_saati)::date`; varsayılan `06:00` **çalışma varsayımıdır (V4)** — değişirse yalnız `bar_ayarlari.gun_sonu_saati` varsayılanı değişir, mekanizma aynı kalır.
+- İzole test tabanı: `scripts/supabase-shim.sql` → `scripts/bar-test-auth.sql` → `C:\Users\USER\ERP-Yedek\2026-09-13-post-faz2-sema-dokumu.sql` (gerçek hata **0**; tek istisna tam eşleşmeli `schema "public" already exists`, sayısı raporlanır — Z4) → `docs/kurulum/2026-09-14-stok-liste-ozet.sql` → aşama migration'ları.
+- Stok çıkış koruması **SECURITY DEFINER** olmak zorundadır (Z1); testte bar yetkisi olmayan depo kullanıcısıyla, rezervasyonu göremediği önce kanıtlanarak sınanır.
+- Edge Function çalışma zamanı yerelde sınanamaz (Z3); yetki kararı veritabanı fonksiyonuna taşınır ve raporda "sınanmadı" satırı zorunludur.
 - Bir test ancak koruması kaldırıldığında **düşüyorsa** kanıt sayılır; kritik korumalarda negatif kontrol zorunludur.
 - Test çıkış kodu ayrı okunur (`; kod=$?`); `| tail` zincirinin arkasına commit/push bağlanmaz.
 - Commit yapılır, **push yapılmaz**.
@@ -151,6 +161,9 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
 
   const uygula = (dosya) => sql(readFileSync(kok + dosya, 'utf8'));
 
+  // Kurulumun olculen ozeti: testler raporda gostersin diye.
+  const kurulumBilgisi = { dokumHata: null, dokumZararsiz: null };
+
   async function kur({ onceki = [] } = {}) {
     if (!existsSync(SEMA_DOKUMU)) throw new Error('Sema dokumu yok: ' + SEMA_DOKUMU);
     temizle();
@@ -165,16 +178,23 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
     zorunlu(sql(readFileSync(kok + 'scripts/supabase-shim.sql', 'utf8')), 'shim');
     zorunlu(sql(readFileSync(kok + 'scripts/bar-test-auth.sql', 'utf8')), 'kimlik katmani');
 
-    // Dokum ON_ERROR_STOP OLMADAN yuklenir ki TUM hatalar sayilabilsin; sifir olmali.
+    // Dokum ON_ERROR_STOP OLMADAN yuklenir ki TUM hatalar sayilabilsin.
+    // TEK ISTISNA, tam eslesmeyle: pg_dump 'CREATE SCHEMA public;' yazar ve
+    // public her bos veritabaninda zaten vardir. E-5 provasi ve
+    // scripts/dokum-dogrula.mjs de yalniz bu satiri zararsiz sayar.
     const r = sonucla(d(psqlArg(['-q']), readFileSync(SEMA_DOKUMU, 'utf8')));
-    const hatalar = r.err.split('\n').filter((l) => /ERROR:/.test(l));
+    const tumHatalar = r.err.split('\n').filter((l) => /ERROR:/.test(l));
+    const zararsiz = tumHatalar.filter((l) => /ERROR:\s+schema "public" already exists$/.test(l.trim()));
+    const hatalar = tumHatalar.filter((l) => !zararsiz.includes(l));
+    kurulumBilgisi.dokumHata = hatalar.length;
+    kurulumBilgisi.dokumZararsiz = zararsiz.length;
     if (hatalar.length) throw new Error('Sema dokumu ' + hatalar.length + ' hatayla yuklendi:\n' + hatalar.slice(0, 8).join('\n'));
 
     for (const m of onceki) zorunlu(uygula(m), m);
     zorunlu(sql(readFileSync(kok + 'scripts/bar-test-tohum.sql', 'utf8')), 'tohum');
   }
 
-  return { kur, uygula, sql, kimlikle, paralel, temizle };
+  return { kur, uygula, sql, kimlikle, paralel, temizle, kurulumBilgisi };
 }
 ```
 
@@ -293,7 +313,8 @@ set session_replication_role = origin;
 
 ```js
 // scripts/bar-test-taban.test.mjs — izole tabanin kendisini dogrular.
-import { barOrtami } from './bar-test-ortam.mjs';
+import { readFileSync } from 'node:fs';
+import { barOrtami, SEMA_DOKUMU } from './bar-test-ortam.mjs';
 
 const O = barOrtami({ ad: 'bar-taban' });
 let ok = 0, fail = 0;
@@ -301,7 +322,28 @@ const sonuc = (g, ad, ek) => { console.log((g ? 'OK   ' : 'FAIL ') + ad + (ek ? 
 
 try {
   await O.kur({ onceki: ['docs/kurulum/2026-09-14-stok-liste-ozet.sql'] });
-  sonuc(true, 'taban kuruldu: shim + kimlik katmani + uretim dokumu (0 hata) + stok migration + tohum');
+  const kb = O.kurulumBilgisi;
+  sonuc(kb.dokumHata === 0 && kb.dokumZararsiz === 1,
+    'taban kuruldu: shim + kimlik katmani + uretim dokumu + stok migration + tohum',
+    `dokum: ${kb.dokumHata} hata, ${kb.dokumZararsiz} bilinen zararsiz (schema public already exists)`);
+
+  // Beklenen sayilar TAHMIN edilmez: dokumun kendisinden sayilir ve yuklenen
+  // katalogla karsilastirilir. Sessizce eksik yuklenen nesne burada gorunur.
+  const dokum = readFileSync(SEMA_DOKUMU, 'utf8');
+  const dokumSay = (re) => (dokum.match(re) || []).length;
+  const bekFonk = dokumSay(/^CREATE FUNCTION public\.bar_[a-z_]+\(/gm);
+  const bekPol = dokumSay(/^CREATE POLICY \S+ ON public\.(bar_siparisleri|bar_siparis_kalemleri|menu_urunler|recete_bilesenleri|stok_rezervasyonlari) /gm);
+  const bekTet = dokumSay(/^CREATE TRIGGER \S+ (BEFORE|AFTER) [^\n]* ON public\.bar_siparisleri /gm);
+  const nesne = O.sql(`select
+      (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+        where n.nspname='public' and p.proname like 'bar\\_%'),
+      (select count(*) from pg_policy where polrelid in ('public.bar_siparisleri'::regclass,'public.bar_siparis_kalemleri'::regclass,
+         'public.menu_urunler'::regclass,'public.recete_bilesenleri'::regclass,'public.stok_rezervasyonlari'::regclass)),
+      (select count(*) from pg_trigger where tgrelid='public.bar_siparisleri'::regclass and not tgisinternal);`);
+  const bek = `${bekFonk}|${bekPol}|${bekTet}`;
+  sonuc(nesne.ok && bekFonk > 0 && nesne.out === bek,
+    'uretim bar nesneleri dokumdeki sayilarla birebir yuklendi (fonksiyon|politika|tetikleyici)',
+    `katalog ${nesne.out || nesne.err} / dokum ${bek}`);
 
   const uid = O.kimlikle({ rol: 'authenticated', sub: '11111111-0000-0000-0000-000000000810' }, 'select auth.uid();');
   sonuc(uid.out === '11111111-0000-0000-0000-000000000810', 'auth.uid() request.jwt.claims JSONundan okunuyor', uid.out || uid.err);
@@ -320,6 +362,16 @@ try {
   const r = O.kimlikle({ rol: 'authenticated', sub: '11111111-0000-0000-0000-000000000810' },
     `select public.bar_siparis_olustur('810','810_CSM302','Masa 1',null,'[{"menu_urun_id":"22222222-0000-0000-0000-000000000001","adet":2}]'::jsonb) is not null;`);
   sonuc(r.out === 't', 'mevcut (uretim) bar_siparis_olustur tabanda calisiyor', r.out || r.err.slice(-160));
+
+  // TASARIM OLCUMU (Z1): bar yetkisi olmayan depo kullanicisi aktif rezervasyonu
+  // GOREBILIYOR mu? Goremiyorsa, cagiranin haklariyla calisan bir stok cikis
+  // korumasi rezervasyon toplamini 0 okur ve sessizce devre disi kalir.
+  const gercek = O.sql(`select count(*) from public.stok_rezervasyonlari where durum='aktif';`).out;
+  const depo = O.kimlikle({ rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000cc' },
+    'select count(*) from public.stok_rezervasyonlari;');
+  sonuc(gercek === '1' && depo.ok && depo.out === '0',
+    'Z1 olcumu: aktif rezervasyon var ama depo kullanicisi onu RLS yuzunden GOREMIYOR',
+    `gercek ${gercek}, depo kullanicisi goruyor ${depo.out || depo.err}`);
 } catch (e) {
   sonuc(false, 'taban kurulumu', e.message);
 } finally {
@@ -332,7 +384,9 @@ process.exit(fail ? 1 : 0);
 - [ ] **Step 3: Çalıştır**
 
 Run: `node scripts/bar-test-taban.test.mjs; echo "kod=$?"`
-Expected: `BAR TABAN SONUC: 6 OK / 0 FAIL` ve `kod=0`. Döküm yükleme hatası varsa hatalar listelenir; **tohum ya da katman değiştirilerek değil, hatanın nedeni ölçülerek** çözülür.
+Expected: `BAR TABAN SONUC: 8 OK / 0 FAIL` ve `kod=0`.
+
+**Sonuç (2026-09-17, çalıştırıldı):** ilk koşu döküm yüklemesinde `schema "public" already exists` ile **düştü**. Neden ölçüldü: `pg_dump` `CREATE SCHEMA public;` yazar, `public` her boş veritabanında vardır; E-5 provası ve `scripts/dokum-dogrula.mjs` yalnız bu satırı zararsız sayar. Ortam aynı kuralı **tam eşleşmeyle** uygular ve sayısını raporlar. Ayrıca "bar nesneleri dökümdeki sayılarla birebir yüklendi" kontrolü eklendi (beklenen sayılar dökümden sayılır). İkinci koşu: 7 OK / 0 FAIL. Ardından Z1 (depo kullanıcısı rezervasyonu göremiyor) ölçüm olarak eklendi; üçüncü koşu: **8 OK / 0 FAIL, kod=0** — gerçek aktif rezervasyon 1, depo kullanıcısının gördüğü 0 — döküm 0 hata + 1 bilinen zararsız; katalog 5|13|5 = döküm 5|13|5. Döküm yükleme hatası varsa hatalar listelenir; **tohum ya da katman değiştirilerek değil, hatanın nedeni ölçülerek** çözülür.
 
 - [ ] **Step 4: Commit**
 
@@ -1530,6 +1584,14 @@ git commit -m "feat(bar): A1 aday migration — dogrulamali siparis, oda onayi, 
   {
     sifirla();
     olustur(U.BAR810, [{ menu_urun_id: M.bira, adet: 8 }]);
+    // Z1 on kosulu: rezervasyon GERCEKTEN var, ama depo kullanicisi (bar yetkisi yok)
+    // onu RLS yuzunden GOREMIYOR. Koruma asagida yine calisiyorsa SECURITY DEFINER
+    // gerekliligi kanitlanmis olur. Bu bolum ayni zamanda Z2'nin (sayim da stok_ekle
+    // negatif delta ile yazar) olcumudur.
+    const gercekRez = tek(`select count(*) from public.stok_rezervasyonlari where durum='aktif'`);
+    const depoGorur = O.kimlikle(U.DEPO810, `select count(*) from public.stok_rezervasyonlari;`);
+    sonuc(gercekRez === '1' && depoGorur.ok && depoGorur.out === '0',
+      'on kosul (Z1): aktif rezervasyon var, depo kullanicisi onu GOREMIYOR', `gercek ${gercekRez}, depo goruyor ${depoGorur.out || depoGorur.err}`);
     let r = rpc(U.DEPO810, `public.stok_ekle('BIRA','${DEPO}','810',-5)`);
     sonuc(hataKodu(r) === 'REZERVE_STOK' && stok('BIRA') === '10.000',
       'stok takip cikisi rezerve stoga INEMIYOR (depo kullanicisi rezervasyonu goremese bile)', hataKodu(r) || 'gecti');
@@ -2353,6 +2415,9 @@ git commit -m "docs(bar): asama 1 yayin sorgulari ve test raporu"
 
 ## Aşama 2 — Gün sonu ikmal taslağı (pilot bar) · sabitlenmiş sözleşme
 
+> Kaptan için yeni rol (`bar_kaptan`) **V2 çalışma varsayımıdır**; zayinin taslağa girmemesi
+> **Ö4 önerisidir**. Bu aşamanın ayrıntılı planı yazılmadan önce ikisi kesinleşmelidir.
+
 **Migration:** `docs/kurulum/2026-09-XX-bar-a2-ikmal-taslak.sql` (A1'e bağımlı) · **Geri alma:** üretici betikle · **Test:** `scripts/bar-a2-ikmal-taslak.test.mjs` · **Rapor:** `docs/superpowers/reports/2026-09-XX-bar-asama2-rapor.md`
 
 **Veri:**
@@ -2392,6 +2457,8 @@ git commit -m "docs(bar): asama 1 yayin sorgulari ve test raporu"
 
 ## Aşama 3 — Cuma pazar ilavesi (pilot bar) · sabitlenmiş sözleşme
 
+> Giriş penceresinin teslim tarihine bağlanması **Ö3 önerisidir**, kesinleşmedi.
+
 **Migration:** `docs/kurulum/2026-09-XX-bar-a3-pazar-ilavesi.sql` (A2'ye bağımlı) · **Test:** `scripts/bar-a3-pazar-ilavesi.test.mjs` · **Rapor:** `…-bar-asama3-rapor.md`
 
 **Fonksiyonlar:**
@@ -2415,6 +2482,9 @@ git commit -m "docs(bar): asama 1 yayin sorgulari ve test raporu"
 ---
 
 ## Aşama 4 — Teslim kabulü (pilot bar) · sabitlenmiş sözleşme
+
+> Açık farkın depoca "geri al / kayıp" ile kapatılması **V3 çalışma varsayımıdır**; ayrı ikmal
+> tabloları **Ö5 önerisidir**. Bu aşamanın ayrıntılı planından önce kesinleşmelidir.
 
 **Migration:** `docs/kurulum/2026-09-XX-bar-a4-teslim-kabul.sql` (A2–A3'e bağımlı) · **Test:** `scripts/bar-a4-teslim-kabul.test.mjs` · **Rapor:** `…-bar-asama4-rapor.md`
 
