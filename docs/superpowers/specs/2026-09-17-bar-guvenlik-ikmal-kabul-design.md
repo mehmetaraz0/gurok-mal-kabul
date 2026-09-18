@@ -1,7 +1,7 @@
 # Bar Güvenliği, Gün Sonu İkmal ve Teslim Kabulü — Tasarım
 
-**Tarih:** 2026-09-17 · **Revizyon:** 4 (2026-09-18) · **Durum:** incelemede — açık tercih ve
-sorular kesinleşmedi; hiçbir aşama uygulanmadı (Aşama 0 test tabanı hariç)
+**Tarih:** 2026-09-17 · **Revizyon:** 5 (2026-09-18) · **Durum:** A1 kararları verildi (bölüm 15);
+A1 yalnız yerel/izole ortamda uygulanıyor — push, deploy, canlı migration yok
 
 ## Revizyon 4'te değişenler (2026-09-18)
 
@@ -628,3 +628,26 @@ Tek koşul: Aşama 2 yayınlandığında pilot bar temiz başlar — bu, A1'e i�
 | 14.3 sayım | stok çıkış koruması, sayım RPC'si, stok-takip sayım ekranı |
 | 14.4 yayın + Edge | uçtan uca ortam (indirme izni), `rapid-handler`, yayın sırası |
 | 14.5 servis | — (Aşama 2) |
+
+---
+
+## 15. Kararlar (2026-09-18) ve A1 uygulama tercihleri
+
+### 15.1 Kullanıcı kararları (kesin — T)
+
+| # | Karar |
+|---|---|
+| T23 | **Ücretli sipariş:** personelin açık oda/misafir doğrulaması zorunlu; doğrulayan kaydedilir. (14.1 önerileni; tüm barlar.) |
+| T24 | **İptal:** kullanılan miktar kaydedilir, **otomatik zayi sayılmaz**; kullanım nedeni ayrı tutulur. **Kapalı folyo:** "servis edildi" istisnası yalnız **yetkili** personelce açılır; aynı siparişten **ikinci stok düşümü ya da ikinci borç oluşmaz**; istisna çözülmeden sipariş **tamamlanmış sayılmaz**. |
+| T25 | **Sayım:** fiziksel gözlem saklanır; rezervasyonla çelişen düzeltme bekler. Bekleyen düzeltme uygulanırken **aradaki stok hareketleri dikkate alınır**; eski sayım miktarı güncel stoğun üzerine doğrudan **yazılmaz**. Kısmi uygulama ekranda **açık görünür**. |
+| T26 | **Kapsam:** A1 tüm barları kapsayan yayın adayı; uçtan uca Edge testi geçmeden yayın yok. Yerel test bağımlılıkları indirilebilir; sürüm/imaj özetleri sabitlenir; üretim sırrı/verisi test ortamına taşınmaz; aynı çalışma zamanı ailesi **üretimle sürüm eşitliği diye raporlanmaz**. Push, deploy ve canlı migration yetkisi **yok**. |
+
+### 15.2 Uygulama tercihleri (Ö — kararların A1'deki karşılığı; raporda ayrıca sorulur)
+
+| # | Tercih | Dayandığı karar |
+|---|---|---|
+| Ö11 | İptalde kullanılan miktar `bar_stok_tuketimleri`'ne `tur = 'iptal_kullanimi'` olarak yazılır (**`zayi` değil**) ve `kullanim_nedeni` zorunludur (`hazirlandi_servis_edilmedi` · `dokuldu_kirildi` · `misafir_iade` · `diger` + açıklama). Kullanılan miktar fiziksel olarak tükendiği için **stoktan düşer**; kalan rezervasyon serbest bırakılır. `yeni` iptalde giriş yok; `hazirlaniyor` ve `hazir` iptalinde her rezerve bileşen için giriş zorunlu. | T19, T24 |
+| Ö12 | "Servis edildi" istisnasını **açma** yetkisi: `bar_siparis_yonetimi` = `tam`. **Çözme** yetkisi (elle seçilen açık folyoya borç ya da tahsil edilemedi): `pms_folio` ≥ `kayit`. İkisi de siparişin oteline erişim ister. | T24 (S6'nın karşılığı) |
+| Ö13 | İstisnalı teslimde sipariş `teslim_edildi` **olmaz**, yeni `istisna_bekliyor` durumuna geçer (stok düşmüştür, borç yoktur). Çözüm siparişi `teslim_edildi` yapar; folyo köprüsü istisnalı siparişte **çalışmaz** (borcu çözüm fonksiyonu seçilen folyoya bir kez yazar). Tekillik: `bar_stok_tuketimleri(rezervasyon_id)`, `bar_borc_istisnalari(siparis_id)`, `pms_folio_hareketleri(kaynak_tip, kaynak_id, ters_kayit)`. | T24 |
+| Ö14 | Sayım onayı sunucuda tek RPC'dir (`stok_sayim_onayla`). Her kalem kilit altında: `fark = sayılan − onay anındaki stok`. Çıkış sonrası miktar aktif rezervasyonun altına inmiyorsa **fark** uygulanır; iniyorsa kalem `stok_sayim_bekleyenleri`'ne **fark** (delta) ile yazılır. Bekleyen uygulandığında **o anki** stoğa fark eklenir (aradaki hareketler korunur); sayılan miktar doğrudan yazılmaz. Oturum `kismi_uygulandi = true` işaretlenir ve RPC kalem bazında sonucu döner. | T22, T25 |
+| Ö15 | Bekleyen düzeltmeyi **uygulama/iptal** yetkisi: `stok_takip` = `tam`, otel erişimi. Uygulama anında hâlâ çelişki varsa `REZERVE_STOK` ile reddedilir. | T25 (S9'un karşılığı) |
