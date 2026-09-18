@@ -1,7 +1,16 @@
 # Bar Güvenliği, Gün Sonu İkmal ve Teslim Kabulü — Tasarım
 
-**Tarih:** 2026-09-17 · **Revizyon:** 3 (2026-09-17) · **Durum:** incelemede — açık tercih ve
+**Tarih:** 2026-09-17 · **Revizyon:** 4 (2026-09-18) · **Durum:** incelemede — açık tercih ve
 sorular kesinleşmedi; hiçbir aşama uygulanmadı (Aşama 0 test tabanı hariç)
+
+## Revizyon 4'te değişenler (2026-09-18)
+
+| Konu | Değişiklik |
+|---|---|
+| Stok tarih düzeltmesi | 2026-09-18'de üretime alındı (`stok_ekle`/`stok_transfer` UPDATE yollarında `guncelleme_tarihi = now()`). A1 bu iki fonksiyonu yeniden tanımlar ve sayım için yeni bir yazma yolu ekleyebilir; düzeltmenin korunması **gereksinim** olarak eklendi (Z9, bölüm 3.5.1) ve testle kanıtlanır. |
+| Plan | Eski plan (`2026-09-17-bar-guvenlik-ikmal-kabul.md`) **tamamıyla** tarihsel ve uygulanamaz ilan edildi; yeni plan ayrı: `docs/superpowers/plans/2026-09-18-bar-a1-plan.md`. |
+| Edge Function testi | Yerel araç envanteri ölçüldü (Z3 güncellendi); A1'in hangi fonksiyonu değiştirdiği, hangisini yalnız davranışça etkilediği ayrıldı (bölüm 5.1). Test açığını belgeye yazmak bileşeni **yayına hazır yapmaz** (bölüm 5.3). |
+| Kararlar | Açık tercihler dört bağımlı gruba toplandı: önerilen seçenek, işletmeye etkisi, alternatif (bölüm 14). Servis kaydı soruları (S1–S4) yalnız Aşama 2'yi etkiler; A1'i bekletmez (bölüm 14.5). |
 **Kapsam dışı ilkesi:** mevcut bar modülü **yeniden kurulmaz**; tablolar, sayfalar ve Edge
 Function'lar yerinde genişletilir.
 **Dayanak:** `docs/BAR-MODULU-ISLEYIS.md` (2026-09-16 bulguları) · üretim şeması
@@ -96,7 +105,8 @@ ve bir tercihtir; türü belirtilir.
 |---|---|---|---|
 | Z1 | Bar yetkisi olmayan kullanıcı `stok_rezervasyonlari` satırlarını RLS nedeniyle **göremez**. | **İzole ölçüm** (Aşama 0): aktif rezervasyon 1 iken depo kullanıcısı 0 satır görüyor. | **Seçilen çözüm:** stok çıkış koruması SECURITY DEFINER bir fonksiyonda toplamı okur (bölüm 3.5). Alternatif (depo rollerine rezervasyon okuma izni vermek) seçilmedi: rezervasyon satırları sipariş/oda bilgisine bağlı ve izin genişlemesi RLS sınırını değiştirir. |
 | Z2 | Stok takipteki sayım onayı stoğu `stok_ekle` üzerinden **delta** olarak yazar. | **Koddan okundu:** `stok-takip.html` sayım onayı → `saveStok` → `rpc/stok_ekle`. İzole ortamda ölçülmedi. | Stok çıkış koruması `stok_ekle`'ye eklenirse sayım da onun altına girer. Sayımın **nasıl** davranacağı bir **tasarım tercihidir** (Ö10); rezervasyonda durdurmak teknik zorunluluk değildir. |
-| Z3 | Bu makinede Deno, Supabase CLI ve Supabase Edge Runtime / GoTrue Docker imajları **yok**; yalnız `postgrest/postgrest` imajları var. | **Komutla kontrol** (2026-09-17): `deno --version`, `supabase --version`, `docker images`. | Edge Function'lar şu an izole çalıştırılamıyor. Uçtan uca test **açığı açık** (T21). Seçenekler bölüm 5'te; hepsi indirme gerektirir, **izin alınmadan hiçbir şey indirilmedi**. |
+| Z3 | Bu makinede Deno, Supabase CLI ve Supabase Edge Runtime / GoTrue Docker imajları **yok**; yalnız `postgres:16/17` ve `postgrest/postgrest` imajları var. Node 24 ve Bun kurulu; yerel `strix-sandbox` imajında da Deno yok. Edge Function'lar `Deno.serve`/`Deno.env` kullanır, `supabase-js`'i çalışma anında `esm.sh`'tan içe aktarır, kimliği `/auth/v1/user` (GoTrue) ile doğrular. | **Komutla kontrol** (2026-09-17 ve 2026-09-18): `deno --version`, `supabase --version`, `npm ls -g`, `docker images`, yerel imaj içinde `command -v deno`; kaynak: `docs/kurulum/musteri-projesi/*/index.ts`. | Node/Bun Deno API'lerini çalıştırmaz; uçtan uca test **indirme gerektirir** (bölüm 14.4). **İzin alınmadan hiçbir şey indirilmedi.** |
+| Z9 | 2026-09-18'den beri üretimde `stok_ekle`/`stok_transfer` her UPDATE yolunda `guncelleme_tarihi = now()` yazar; `stok-takip` ekranı tarihi yazmadan sonra sunucudan okur. Test tabanı üretim gövdelerini md5 ile doğrular (`scripts/stok-rpc-govde.mjs`). | **Üretim yayını ve duman testi** (runbook §13). | A1 bu fonksiyonları yeniden tanımladığı için düzeltmeyi **taşımak zorundadır** (bölüm 3.5.1). |
 | Z4 | Şema dökümü yüklenirken `schema "public" already exists` hatası çıkar ve zararsızdır. | **İzole ölçüm** (Aşama 0 koşu 1) + döküm satır 33 (`CREATE SCHEMA public;`). | Test ortamı yalnız bu satırı tam eşleşmeyle istisna sayar ve sayısını raporlar (E-5 provası ve `dokum-dogrula.mjs` ile aynı kural). |
 | Z5 | Sistemde bar için **servis/vardiya kaydı kavramı yok** (yalnız `sayim_oturumlari`). | **Şemadan okundu:** döküm tablo adları taraması. | Ö8 yeni kavram önerir. |
 | Z6 | Sistemde **depo takvimi / çalışma günü / tatil** kavramı yok. | **Şema ve kod araması** (tablo adları; `takvim|tatil|kapali_gun` kod taraması yalnız tarih yardımcılarını buldu). | Ö9 yeni kavram önerir. |
@@ -241,6 +251,28 @@ akışına dokunur; sayım yolunun `stok_ekle` yerine ayrı bir RPC'ye alınmas�
 kesinleşmeden Aşama 1'in stok koruması yayınlanmamalıdır (aksi halde bar depolarında sayım
 fiilen reddedilir).
 
+#### 3.5.1 Stok tarih düzeltmesinin korunması (Z9) — gereksinim
+
+A1 `stok_ekle` ve `stok_transfer`'i yeniden tanımlar; Ö10 seçilirse sayım için yeni bir stok
+yazma RPC'si de ekler. Son uygulanan gövde kazandığı için bu gereksinimler kesindir:
+
+1. **Her stok yazma yolu tarihi yazar.** Yeniden tanımlanan `stok_ekle` (insert-on-conflict
+   yolu), `stok_transfer` (kaynak ve hedef bacağı) ve A1'in eklediği her yeni stok yazma
+   fonksiyonu (sayım, teslim tüketimi, iptal zayisi) güncellediği satırda `guncelleme_tarihi = now()`
+   yazar. Rezervasyon **stok satırını değiştirmediği** için tarihi değiştirmez.
+2. **Ön koşul, gövdeyi ölçerek korur.** A1 migration'ı yeniden tanımladığı her fonksiyonun
+   mevcut gövdesinde `guncelleme_tarihi` bulunduğunu doğrular; bulunmazsa (tarih düzeltmesi
+   geri alınmış ya da henüz uygulanmamışsa) hiçbir şey değiştirmeden durur.
+3. **Geri alma, A1'e ait olmayanı geri almaz.** A1 geri alma dosyası eski gövdeleri yazmadan
+   önce tarih düzeltmesinin canlı olup olmadığını ölçer; canlıysa eski gövdelerin üzerine yeniden
+   uygular. Kaynak tek yerdir: `docs/kurulum/2026-09-17-stok-guncelleme-tarihi.sql`.
+4. **Ekran kuralı sürer.** A1'in değiştirdiği ekranlar (sayım akışı dahil) stok satırının tarihini
+   yerel saatle doldurmaz; yazma sonrası sunucudan okur, okuyamazsa "bilinmiyor" gösterir.
+5. **Kanıt gerçek dosyayla.** Sıra testi (tarih migration'ı → A1) ve geri alma testi, plan
+   metninden alıntıyı değil **gerçek A1 migration dosyasını** ve **gerçek geri alma dosyasını**
+   çalıştırır; tarih güncellemesi, rezervasyon koruması ve geri almada tarihin korunması birlikte
+   ve negatif kontrolle kanıtlanır.
+
 ### 3.6 İptal (T5, T19; Ö7, S5)
 
 `bar_siparis_iptal(siparis_id, neden, kullanilanlar jsonb default null)` — `neden` zorunlu:
@@ -356,6 +388,14 @@ Veritabanı fonksiyonu testleri (ör. `bar_masa_yetki_kapsami`) bu listenin yaln
 kararı** kısmını kapsar; HTTP katmanı, kimlik doğrulama çağrısı, iki proje arasındaki köprü ve
 yanıt biçimi kapsam dışıdır.
 
+**A1'in Edge Function etkisi (koddan okundu, 2026-09-18):**
+
+| Fonksiyon | A1'de kodu değişir mi | Davranışı değişir mi | Neden |
+|---|---|---|---|
+| `rapid-handler` (`masa-yonetim/index.ts`) | **Evet** | Evet | Kimlik `auth.getUser()`, pasif kullanıcı reddi, otel kapsamı (3.7). |
+| `hyper-api` (`siparis-gonder/index.ts`) | Hayır | **Evet** | Kalemleri olduğu gibi `bar_siparis_olustur`'a iletir ve hata mesajını müşteriye döndürür. A1 bu RPC'ye fiyat kontrolü, oda zorunluluğu ve `bekliyor` başlangıcını ekler; canlı QR sipariş yolu doğrudan etkilenir. |
+| `smooth-service` (`menu-yayinla/index.ts`) | Hayır | Hayır (A1 menü yayınına dokunmaz) | Regresyon olarak bir kez koşulur. |
+
 ### 5.2 Araştırılan izole seçenekler
 
 Hiçbiri **çalıştırılmadı**. Hepsi indirme gerektirir (Z3); boyutlar indirmeden ölçülmedi.
@@ -376,6 +416,12 @@ katmanını sınamamış olur ve uçtan uca sayılmaz.
 raporunda şu satır zorunludur: "Edge Function uçtan uca testi yapılmadı; yalnız veritabanı yetki
 kararı izole test edildi." Yayın sırasında Edge Function değişiklikleri yalnız canlı duman
 testiyle doğrulanmış olur ve bu da raporda ayrıca yazılır.
+
+> **Revizyon 4 kuralı:** Test açığını belgeye yazmak o bileşeni **yayına hazır yapmaz.** Kodu
+> değişen (`rapid-handler`) ya da davranışı değişen (`hyper-api`) bir Edge Function, uçtan uca
+> testi izole ortamda geçmeden A1 yayınına **girmez**. `bar_siparis_olustur` değişikliği
+> `hyper-api`'nin davranışını değiştirdiği için bu kural A1'in veritabanı değişikliğini de
+> kapsar. Yöntem ve indirme kararı: bölüm 14.4.
 
 ---
 
@@ -464,6 +510,9 @@ Aşama 2–4: `SERVIS_KAYDI_YOK`, `SERVIS_KAYDI_ACIK`, `TALEP_KILITLI`, `PILOT_K
 - **Eşzamanlılık:** iki ayrı bağlantıda açık işlemlerle gerçek yarış.
 - **Test açıkları her raporda ayrı başlıktır:** Edge Function uçtan uca (bölüm 5), gerçek
   PostgREST üzerinden HTTP akışı, üretim verisiyle geçiş.
+- **Stok tarih düzeltmesi (3.5.1):** sıra testi ve geri alma testi gerçek A1 migration ve geri alma
+  dosyalarını çalıştırır; test tabanı 2026-09-18 sonrası üretim gövdeleriyle (tarih düzeltmeli)
+  kurulur ve gövdeler md5 ile doğrulanır.
 
 | Aşama | Asgari senaryolar |
 |---|---|
@@ -499,3 +548,83 @@ Aşama 2–4: `SERVIS_KAYDI_YOK`, `SERVIS_KAYDI_ACIK`, `TALEP_KILITLI`, `PILOT_K
 | **2** | V2 · Ö4 · Ö5 · Ö8 + S1–S4 (servis kaydı) · Ö9 + S7 (depo takvimi) · pilot bar kodu |
 | **3** | Ö3 · S8 |
 | **4** | V3 |
+
+Kararlar sade dille ve birbirine bağlı gruplar hâlinde bölüm 14'te sunulur.
+
+---
+
+## 14. Karar tablosu — A1 (2026-09-18)
+
+Her grup birbirine bağlı kararları birlikte sunar. **Önerilen** bir tasarım önerisidir (Ö), kullanıcı
+kararı değildir; seçilene kadar A1 planı o gruba bağlı görevlere geçmez.
+
+### 14.1 Personelin oda/misafir doğrulaması (V1, Ö1, Ö2)
+
+| | |
+|---|---|
+| **Önerilen** | Ücretli siparişte oda numarası sunucuda zorunlu; sunucu aktif konaklama ve açık folyo arar. Sipariş (QR ya da garson) **doğrulama bekliyor** başlar. Bar personeli ayrı bir adımda "Misafirin oda kartını/kimliğini kontrol ettim" beyanıyla **Doğrula**'ya basar; doğrulayan, zaman ve beyan kaydedilir. Beyan gelmeden sipariş hazırlanamaz. Kural **tüm barlara** uygulanır (güvenlik açığı; pilot yalnız ikmal için). |
+| **İşletmeye etkisi** | Ücretli her siparişte personele bir ek dokunuş; beyansız sipariş kuyrukta bekler. İtirazda kimin doğruladığı bellidir. PMS ve check-in akışı değişmez. Ücretsiz siparişler bugünkü gibi akar. |
+| **Alternatif A — Oda PIN'i** | Misafir QR'da oda PIN'i girer; personel yükü yok, QR siparişi hızlı. **Bedeli:** PMS check-in'e PIN üretimi/dağıtımı ve şema değişikliği; kayıp PIN süreci. |
+| **Alternatif B — Oda no + soyad** | Sunucu soyadı eşleştirir; PMS değişmez, personel yükü yok. **Bedeli:** soyad tahmin edilebilir (zayıf kanıt), misafirden kişisel veri girişi istenir. |
+| **Alternatif C — Yalnız pilot barda** | Diğer barlarda bugünkü açık (oda no bilmek borçlandırmaya yeter) sürer. Önerilmez. |
+
+### 14.2 Hazırlanmış ürünün iptali ve folyo kapandığında yapılacak işlem (Ö7 + S5, Ö6 + S6)
+
+Birlikte sunulur: ikisi de "fiziksel olarak kullanılan/servis edilen ürün kaydı ile parasal kayıt
+ayrıdır" ilkesine dayanır (ilke 2).
+
+| | |
+|---|---|
+| **Önerilen — iptal** | `hazirlaniyor` **ve** `hazir` durumunda iptal, siparişin her rezerve bileşeni için **kullanılan miktar** ister (varsayılan yok, 0 açıkça girilir). Kullanılan kadar zayi yazılır, kalan serbest bırakılır. `yeni` iptalde giriş istenmez. |
+| **Önerilen — folyo kapalı** | Teslim ilk denemede `FOLYO_KAPALI` ile durur. Personel "ürün fiziksel olarak servis edildi" beyan ederse stok satış olarak düşer, **borç yazılmaz**, aynı işlemde bir **borç istisnası** kaydı açılır. İstisnayı **ön büro şefi ya da muhasebe** rolü çözer: misafir yeniden doğrulanarak elle seçilen açık folyoya borç, ya da "tahsil edilemedi". Başka folyoya otomatik aktarım yok. A1'de istisna yalnız kaydedilir ve listelenir; çözüm ekranı sonraki iş. |
+| **İşletmeye etkisi** | İptalde personel bileşen başına bir miktar girer (birkaç saniye). Zayi raporu gerçek kullanımı gösterir. Kapanmış folyoda servis edilen ürün kaybolmaz; bir **tahsilat listesi** oluşur ve takip eden bir rol gerekir. |
+| **Alternatif A — `hazir` iptali tam tüketim sayılır** | Daha hızlı; ama hazırlanıp servis edilmeyen ürün fazla zayi görünür. `hazirlaniyor` için T19 gereği uygulanamaz. |
+| **Alternatif B — Folyo kapalıysa teslim tamamen engellenir** | Borç kaybı kaydı hiç oluşmaz; ama servis edilmiş ürün sistemde görünmez, stok ile gerçek ayrışır (T20'ye aykırı). |
+| **Alternatif C — İstisnayı bar kaptanı çözer** | Bar tarafında hızlı; ama folyo seçimi ve tahsilat ön büro/muhasebe yetkisi gerektirir. |
+
+### 14.3 Fiziksel sayımın rezervasyonlarla çelişmesi (Ö10 + S9)
+
+| | |
+|---|---|
+| **Önerilen** | Sayılan miktar **her zaman** gözlem olarak kaydedilir. Bir kalemin sayılan miktarı o depodaki aktif rezervasyonun altındaysa o kalemin stok düzeltmesi "rezervasyon çelişkisi — bekliyor" olur; diğer kalemler normal uygulanır. İlgili siparişler teslim/iptal edildiğinde ya da **depo sorumlusu / maliyet kontrol** karar verdiğinde düzeltme o anki duruma göre yeniden hesaplanıp uygulanır. Sayım yazması `stok_ekle`'den ayrı bir RPC'ye alınır ve tarih düzeltmesini taşır (3.5.1). |
+| **İşletmeye etkisi** | Sayım hiçbir zaman reddedilmez. Bar depolarında ara sıra "bekleyen düzeltme" listesi oluşur ve birinin kapatması gerekir. 2026-09-15'te yayınlanan sayım ekranı değişir (yeni test ve yayın). |
+| **Alternatif A — Sayımı rezervasyon altında reddet** | Basit; ama gerçek gözlem kaybolur (T22'ye aykırı) ve bar depolarında sayım fiilen durur. |
+| **Alternatif B — Sayım stoğu yazar, rezervasyon kendiliğinden kısılır** | Gözlem korunur; bekleyen siparişler sessizce karşılıksız kalır ve teslimde `STOK_TUTARSIZ` alır. |
+| **Alternatif C — Stok koruması sayıma uygulanmaz** | Sayım bugünkü gibi; çelişki teslim anında ortaya çıkar. En az değişiklik, en geç fark edilen hata. |
+
+**Bağımlılık:** A1'in stok çıkış koruması bu karar olmadan **yayınlanamaz** (3.5; risk 12.3).
+
+### 14.4 Yayın kapsamı ve Edge Function test yöntemi (Ö2, S10)
+
+| | |
+|---|---|
+| **Önerilen** | Önce yerel uçtan uca ortam kurulur; `hyper-api` ve `rapid-handler` orada test edilir; `smooth-service` regresyon olarak bir kez koşulur. Ortam: iki proje (ana + müşteri) için mevcut `postgres:17` ve `postgrest` imajları, **Supabase Edge Runtime** (üretimle aynı çalışma zamanı), **GoTrue** (`auth.getUser()` için gerçek kimlik servisi) ve yolları eşleyen küçük bir Node yönlendiricisi (mevcut Node). A1 **tek yayın**, tüm barlar; Edge testi geçmeden yayın yok (5.3). |
+| **Gereken indirme (tek seferde)** | 1) `supabase/edge-runtime` Docker imajı — Edge Function'lar `Deno.serve`/`Deno.env` kullanır; makinede hiçbir Deno çalışma zamanı yok (Z3). 2) `supabase/gotrue` Docker imajı — `rapid-handler` ve `smooth-service` kimliği `/auth/v1/user` ile doğrular; taklit kimlik uçtan uca sayılmaz. 3) `@supabase/supabase-js@2` modülü — fonksiyonlar çalışma anında `esm.sh`'tan içe aktarır; bir kez indirilip test ortamına sabitlenir (sürüm kilidi). Boyutlar indirmeden ölçülmedi. |
+| **İşletmeye etkisi** | A1 yayını ortam kurulup testler geçene kadar gecikir. Kazanç: canlı QR sipariş yolundaki kırılma (ör. eski menü sayfası fiyatsız sipariş yollarsa `FIYAT_DEGISTI`) yayından **önce** görülür. |
+| **Alternatif A — Deno imajı (`denoland/deno`)** | Edge Runtime yerine düz Deno; muhtemelen daha küçük. **Bedeli:** üretim çalışma zamanı değil, davranış farkı olabilir. GoTrue yine gerekir. |
+| **Alternatif B — Bulutta ayrı staging projesi** | Gerçek platform, yerel indirme yok. **Bedeli:** izole değil; proje oluşturma, dağıtım ve olası ücret kullanıcı işi. |
+| **Alternatif C — A1'i böl: önce yalnız `rapid-handler` dışı** | Uygulanamaz: `bar_siparis_olustur` değişikliği `hyper-api`'nin davranışını değiştirir, yani QR yolu yine uçtan uca testsiz yayına girer (5.3 kuralı). |
+| **Alternatif D — Yalnız pilot barda yayın** | Diğer barlarda güvenlik açıkları sürer (14.1 C ile aynı gerekçe). |
+
+### 14.5 Servis açma/kapatma — A1'i bekletmez
+
+| Karar | Etkilediği aşama | A1'e etkisi |
+|---|---|---|
+| S1 servisi kim açar/kapatır | Aşama 2 | Yok |
+| S2 açık servis yokken gelen sipariş | Aşama 2 | Yok — A1'de siparişin servis kaydı alanı yok |
+| S3 açık siparişle servis kapatma | Aşama 2 | Yok |
+| S4 kapatılmayı unutulan servis | Aşama 2 | Yok |
+
+**Neden:** A1 operasyon günü yazmaz; tüketimi sipariş ve zamanla kaydeder (3.3). Servis kaydı ve
+operasyon günü Aşama 2'de eklenir; A1 döneminde oluşan siparişler ikmal taslağına girmez (4.1).
+Tek koşul: Aşama 2 yayınlandığında pilot bar temiz başlar — bu, A1'e iş eklemez.
+
+### 14.6 Özet — A1'e geçmek için gerekenler
+
+| Grup | A1'de bağlı olduğu görevler |
+|---|---|
+| 14.1 doğrulama | sipariş oluşturma, doğrulama RPC'si, kuyruk/garson/menü ekranları |
+| 14.2 iptal + folyo | teslim ve iptal RPC'leri, istisna tablosu, kuyruk ekranı |
+| 14.3 sayım | stok çıkış koruması, sayım RPC'si, stok-takip sayım ekranı |
+| 14.4 yayın + Edge | uçtan uca ortam (indirme izni), `rapid-handler`, yayın sırası |
+| 14.5 servis | — (Aşama 2) |

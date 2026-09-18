@@ -1,6 +1,23 @@
-# Bar Güvenliği, Gün Sonu İkmal ve Teslim Kabulü — Uygulama Planı
+# [TARİHSEL — UYGULANAMAZ] Bar Güvenliği, Gün Sonu İkmal ve Teslim Kabulü — Uygulama Planı (revizyon 2)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> ## ⛔ BU BELGENİN TAMAMI UYGULANAMAZ (2026-09-18)
+>
+> Bu plan tasarım **revizyon 2**'ye göre yazıldı. Tasarım revizyon 3 ve 4 onu geçersiz kıldı.
+> **Hiçbir bölümü uygulanmaz** — Global Constraints, Dosya yapısı, Aşama 0 metni, Aşama 1–4
+> görevleri, kod blokları, testler ve geri alma betiği dahil. Özellikle şu kurallar **artık
+> geçerli değildir**: operasyon gününün 06:00 saat kesimiyle hesaplanması (`gun_sonu_saati`),
+> garsonun siparişi girmesinin doğrulama sayılması, `bar_siparis_oda_onayla` akışı, iptalde ve
+> folyo kapanmasında otomatik tam zayi, veritabanı yetki testinin Edge Function testi sayılması.
+>
+> Aşama 0'ın **sonucu** (izole taban 8 OK / 0 FAIL) geçerlidir; kaydı
+> `docs/superpowers/reports/2026-09-17-bar-asama0-rapor.md`'dedir.
+>
+> **Güncel plan:** `docs/superpowers/plans/2026-09-18-bar-a1-plan.md` ·
+> **Güncel tasarım:** `docs/superpowers/specs/2026-09-17-bar-guvenlik-ikmal-kabul-design.md` (revizyon 4).
+>
+> Bu dosya yalnız neyin neden değiştiğini izlemek için tutulur. Alıntı yapan araç ya da test
+> (ör. `scripts/stok-guncelleme-tarihi-bar-sira.test.mjs`) buradaki SQL'e **dayanmamalıdır**;
+> yeni plan, sıra testinin gerçek A1 migration dosyasını çalıştırmasını şart koşar.
 
 **Goal:** Mevcut bar modülünü yeniden kurmadan; ücretli siparişte oda/folyo doğrulaması, fiyat anlık görüntüsü, tekil ve tutarlı teslim, rezervasyon yarışı ve stok çıkışı koruması, otel/pasif kullanıcı kontrolleri (Aşama 1); tüketimden gün sonu ikmal taslağı (Aşama 2); Cuma pazar ilavesi (Aşama 3); onay → sevk → kabul ayrımıyla teslim kabulü (Aşama 4).
 
@@ -29,7 +46,11 @@ varsayımıdır, Ö1–Ö6 tasarım önerisidir; hiçbiri kesinleşmiş kullanı
 ölçüm sonucudur. Aşama 1 kodu V1, V4, Ö1, Ö2, Ö6 ve Z2'nin kabulüne dayanır; bunlar
 kesinleşmeden Aşama 1'e geçilmez, farklı çıkarsa Task 1.2–1.6 o tercihe göre yeniden yazılır.
 
-## Global Constraints
+## Global Constraints — ⛔ TARİHSEL, UYGULANAMAZ
+
+> Aşağıdaki kısıtlar revizyon 2'ye aittir. **Geçerli kısıtlar yeni plandadır**
+> (`docs/superpowers/plans/2026-09-18-bar-a1-plan.md`). Bu listedeki operasyon günü formülü
+> (06:00 / `gun_sonu_saati`) ve test tabanı sırası artık kullanılmaz.
 
 - Üretime **hiçbir** migration, `CREATE/ALTER/DROP`, `INSERT/UPDATE/DELETE`, `GRANT/REVOKE`, deploy ya da push yapılmaz; kullanıcı açıkça **`CANLIYA UYGULA`** demeden. Her aşama ayrı onaya bağlıdır.
 - Kullanıcıdan DB parolası ya da tam bağlantı adresi istenmez; sır dosyaya/komut geçmişine yazılmaz.
@@ -48,7 +69,7 @@ kesinleşmeden Aşama 1'e geçilmez, farklı çıkarsa Task 1.2–1.6 o tercihe 
 
 ---
 
-## Dosya yapısı
+## Dosya yapısı — ⛔ TARİHSEL, UYGULANAMAZ
 
 | Dosya | Aşama | Sorumluluk |
 |---|---|---|
