@@ -70,6 +70,12 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
   }
 
   const uygula = (dosya) => sql(readFileSync(kok + dosya, 'utf8'));
+  // Uretim kanaliyla ayni kip: sql-uygula.ps1 --single-transaction + ON_ERROR_STOP.
+  // Enum'a deger ekleme gibi "ayni islemde kullanilamaz" kurallari yalniz bu
+  // kipte dogru sinanir. Metin de dogrudan verilebilir (negatif kontroller icin).
+  const uygulaTekIslem = (dosyaVeyaMetin, { metin = false } = {}) => sonucla(d(
+    psqlArg(['-q', '-At', '--single-transaction', '-v', 'ON_ERROR_STOP=1']),
+    metin ? dosyaVeyaMetin : readFileSync(kok + dosyaVeyaMetin, 'utf8')));
 
   // Kurulumun olculen ozeti: testler raporda gostersin diye.
   const kurulumBilgisi = { dokumHata: null, dokumZararsiz: null, stokMd5: null };
@@ -119,5 +125,5 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
     zorunlu(sql(readFileSync(kok + 'scripts/bar-test-tohum.sql', 'utf8')), 'tohum');
   }
 
-  return { kur, uygula, sql, kimlikle, paralel, temizle, kurulumBilgisi };
+  return { kur, uygula, uygulaTekIslem, sql, kimlikle, paralel, temizle, kurulumBilgisi };
 }
