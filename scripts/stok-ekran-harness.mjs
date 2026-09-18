@@ -118,7 +118,7 @@ export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_
      var kullaniciYetkileriGetir=async function(){return {};};
      var oturumAccessTokenGetir=function(){return 'test';};`, baglam, { filename: 'test-config.js' });
 
-  for (const dosya of ['otel-config.js', 'ortak.js', 'filtre.js', 'stok-veri.js']) {
+  for (const dosya of ['otel-config.js', 'ortak.js', 'filtre.js', 'stok-veri.js', 'hata-kodlari.js']) {
     vm.runInContext(readFileSync(kok + dosya, 'utf8'), baglam, { filename: dosya });
   }
 

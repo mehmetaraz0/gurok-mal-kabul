@@ -8,6 +8,7 @@
 // ===========================================================================
 import { spawnSync, spawn } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
+import { createHmac } from 'node:crypto';
 import { setTimeout as bekle } from 'node:timers/promises';
 
 export const kok = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
@@ -36,8 +37,24 @@ export function hataKodu(sonuc) {
   return m ? m[1] : null;
 }
 
-export function barOrtami({ ad = 'bar-test' } = {}) {
+// Imajlar OZETLE sabit (kullanici karari: surum/ozet sabitlenir). Ozetler
+// 2026-09-18'de yerel imajlardan okundu. Bunlar TEST ortaminin surumleridir;
+// uretimle surum esitligi IDDIA EDILMEZ.
+export const PG_IMAJ = 'postgres@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc2973bccb291ce937dce88ad5675'; // postgres:17
+export const PGRST_IMAJ = 'postgrest/postgrest@sha256:729bf65c733b73f5b52777f0e4b853f22ed73aa67a22d38269d289779b0a8401'; // v12.2.3
+// Yerel JWT siri — uretim sirlariyla ilgisi yoktur.
+export const YEREL_JWT_SIRRI = 'bar-a1-yerel-test-sirri-uretimle-ilgisi-yok-32+';
+
+export function yerelJwt(rol, sub, sir = YEREL_JWT_SIRRI, ek = {}) {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const bas = b64({ alg: 'HS256', typ: 'JWT' });
+  const govde = b64({ role: rol, ...(sub ? { sub } : {}), ...ek, exp: Math.floor(Date.now() / 1000) + 3600 });
+  return bas + '.' + govde + '.' + createHmac('sha256', sir).update(bas + '.' + govde).digest('base64url');
+}
+
+export function barOrtami({ ad = 'bar-test', ag = null } = {}) {
   const K = ad + '-db';
+  const R = ad + '-rest';
   const d = (a, girdi) => spawnSync('docker', a,
     { input: girdi, encoding: 'utf8', timeout: 600000, maxBuffer: 256 * 1024 * 1024 });
   const psqlArg = (ek = []) => ['exec', '-i', K, 'psql', '-X', '-U', 'postgres', '-d', 'bar', ...ek];
@@ -62,7 +79,10 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
     });
   }
 
-  function temizle() { spawnSync('docker', ['rm', '-f', K]); }
+  function temizle() {
+    spawnSync('docker', ['rm', '-f', R, K]);
+    if (ag) spawnSync('docker', ['network', 'rm', ag]);
+  }
 
   function zorunlu(r, adim) {
     if (!r.ok) throw new Error(adim + ' basarisiz:\n' + r.err.split('\n').slice(-8).join('\n'));
@@ -83,8 +103,9 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
   async function kur({ onceki = [], uretimSonrasi = true } = {}) {
     if (!existsSync(SEMA_DOKUMU)) throw new Error('Sema dokumu yok: ' + SEMA_DOKUMU);
     temizle();
-    zorunlu(sonucla(d(['run', '--detach', '--rm', '--name', K, '--tmpfs', '/var/lib/postgresql/data',
-      '-e', 'POSTGRES_HOST_AUTH_METHOD=trust', 'postgres:17'])), 'konteyner');
+    if (ag) spawnSync('docker', ['network', 'create', ag]);
+    zorunlu(sonucla(d(['run', '--detach', '--rm', '--name', K, ...(ag ? ['--network', ag] : []),
+      '--tmpfs', '/var/lib/postgresql/data', '-e', 'POSTGRES_HOST_AUTH_METHOD=trust', PG_IMAJ])), 'konteyner');
     for (let i = 0; i < 60; i++) {
       if (spawnSync('docker', ['exec', K, 'pg_isready', '-U', 'postgres']).status === 0) break;
       await bekle(1000);
@@ -125,5 +146,26 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
     zorunlu(sql(readFileSync(kok + 'scripts/bar-test-tohum.sql', 'utf8')), 'tohum');
   }
 
-  return { kur, uygula, uygulaTekIslem, sql, kimlikle, paralel, temizle, kurulumBilgisi };
+  // PostgREST: ekranlarin ve Edge Function'larin konustugu REST katmani.
+  // authenticator uretimdeki gibi anon/authenticated/service_role'u devralir.
+  async function restBaslat({ port, maxRows = 1000, sir = YEREL_JWT_SIRRI } = {}) {
+    if (!ag) throw new Error('restBaslat icin ortam bir ag ile kurulmali');
+    zorunlu(sql(`alter role authenticator login password 'yerel-test';`), 'authenticator');
+    spawnSync('docker', ['rm', '-f', R]);
+    zorunlu(sonucla(d(['run', '--detach', '--rm', '--name', R, '--network', ag, '-p', port + ':3000',
+      '-e', 'PGRST_DB_URI=postgres://authenticator:yerel-test@' + K + ':5432/bar',
+      '-e', 'PGRST_DB_SCHEMAS=public', '-e', 'PGRST_DB_ANON_ROLE=anon',
+      '-e', 'PGRST_JWT_SECRET=' + sir, '-e', 'PGRST_DB_MAX_ROWS=' + maxRows, PGRST_IMAJ])), 'postgrest');
+    const url = 'http://127.0.0.1:' + port;
+    for (let i = 0; i < 60; i++) {
+      try {
+        const c = await fetch(url + '/', { headers: { Authorization: 'Bearer ' + yerelJwt('authenticated', null, sir) } });
+        if (c.ok) return url;
+      } catch (e) { /* henuz hazir degil */ }
+      await bekle(500);
+    }
+    throw new Error('postgrest hazir olmadi:\n' + d(['logs', R]).stderr.slice(-800));
+  }
+
+  return { kur, uygula, uygulaTekIslem, sql, kimlikle, paralel, temizle, kurulumBilgisi, restBaslat, konteyner: K };
 }
