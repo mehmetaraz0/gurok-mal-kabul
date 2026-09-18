@@ -710,3 +710,71 @@ Tarif ve provası: `docs/superpowers/plans/2026-09-14-stok-veri-eksiksizligi-uyg
 → commit → push. Veritabanı nesnelerini düşürmek acil değildir; eski arayüz
 `stok` tablosunu doğrudan okur ve bu nesnelerden etkilenmez. Sıra: önce
 arayüz, eski ekranın çalıştığı doğrulandıktan sonra (istenirse) nesneler.
+
+---
+
+## 13. Stok güncelleme tarihi + denetleyici CRLF düzeltmesi — 2026-09-18 (tam kayıt)
+
+### Zorunlu kayıt (§1)
+
+| Alan | Değer |
+|---|---|
+| Tarih / saat | Migration `2026-09-18` ~16:58Z (T1 17:00:05Z) · arayüz push 17:00:59Z, canlıda 17:02:05Z · duman testi 17:31–18:04Z |
+| Kullanıcı onayı | `CANLIYA UYGULA` — kullanıcı mesajı, 2026-09-18. Kapsam: yalnız denetleyici düzeltmesi + stok güncelleme tarihi paketi; **bar A1 kapsam dışı**. Duman testi (YIY06000002, 1 KG) ve kalıcı test kayıtları ayrıca onaylandı; belge silinmeyecek, LN'e aktarılmayacak. |
+| Uygulanan commit | `origin/main` `9d31e17` → `5c0e95d` (hızlı ileri sarma, 8 commit; en altta `71305e3` denetleyici düzeltmesi) |
+| Migration | `2026-09-17-stok-guncelleme-tarihi.sql`, SHA-256 `3DEAEF8D…B222`, `--single-transaction`, `BASARILI` |
+| Yedek | `2026-09-18-pre-stok-tarih-veri-yedegi.sql.enc` (781.011 bayt, SHA-256 `CBDD3634…3EA0`, şifreli) · auth `AA9DFE30…4FBC` · sayaçlar stok 24 / hareket 78 / erp_islem_audit 56 / mal_kabuller 30 — T0 ile aynı |
+| Geri alma | Migration: 2026-09-17 teşhisindeki gövdeler (`scripts/stok-rpc-govde.mjs`, md5 `24d255cc…` / `4c6fe121…`) `create or replace`; satır verisi değişmedi. Arayüz: `stok-takip.html`'i `9d31e17` sürümüne döndüren commit + push. |
+
+### Yayın kapısı
+
+Kullanıcı, denetleyicinin kırmızı öz-testi için istisnayı **reddetti**; önce
+düzeltildi. Kök neden: yönergeler `\n` ile bölünüyordu, CRLF dosyada
+`@append-only: (.+)$` eşleşmiyordu → R6 (append-only yazma + tetikleyici)
+**tamamen atlanıyordu**. Düzeltme sonrası denetleyici testleri 15/15 (her
+sabotaj LF ve CRLF'de aynı bulguyu vermek zorunda); stok paketi LF+CRLF 0 HATA.
+
+### Sıra ve ölçümler (`scripts/stok-tarih-yayin-karsilastir.mjs`)
+
+| Adım | Sonuç |
+|---|---|
+| T0 15:48Z | gövdeler ölçümle aynı, düzeltme yok, A1 izi yok, ACL + sütun yetkisi beklenen; YIY06000002 90/20; parmak izi `f63e4dc7…` |
+| Yedek 15:50Z | sayaçlar T0 ile aynı |
+| Migration | ilk iki deneme **parola hatasıyla bağlanamadı** (hiçbir şey gönderilmedi); üçüncüsü `BASARILI` |
+| T1 17:00Z | iki fonksiyon düzeltmeyi taşıyor (md5 `43ec3cfc…` / `8dd27c19…`), A1 izi yok; parmak izi **T0 ile aynı** (migration satıra dokunmadı) |
+| Arayüz 17:02Z | canlı `stok-takip.html` SHA-256 `03e68f71…` = yayın commit'i |
+| Giriş `MK-2026-00031` → T2a-3 | 810_100 90 → 91, tarih sunucuda 17:31:13.515Z; `erp_islem_audit` +4 |
+| Transfer 810_100 → 810_CMM201 → T2b | 91 → 90 ve 20 → 21, **iki taraf** 17:57:30.978Z; +1 |
+| Çıkış 810_CMM201 (neden Diğer) → T2c | 21 → 20, 18:03:54.418Z; +1 |
+| Dokunulmayan 22 satır | T0 ↔ T2c birebir aynı (miktar + mikrosaniye tarih) |
+| Sayfa yenileme | 810_100 kartı `18.09.2026 20:57:30`, 810_CMM201 kartı `18.09.2026 21:03:54` — karşılaştırıcının öngördüğü metinle aynı |
+| **Genel karar** | `GECTI`; net stok etkisi sıfır (90 / 20) |
+
+Ölçüm dosyaları `C:\Users\USER\ERP-Yedek\2026-09-18-stok-tarih-*.txt`
+(T0, T1, T2a, T2a-2, T2a-3, T2b, T2c, belge-kontrol-1, karsilastirma).
+
+### Üretimde kalıcı test kaydı
+
+`MK-2026-00031` (`DUMAN TESTI — SILINECEK`, irsaliye `DUMAN-2026-09-18`,
+id `37079880-e4e8-…`), üç stok hareketi, `erp_islem_audit` +6, `audit_log` +2.
+**Silinmez**: `mk_no` tekil ve numara "bu yılın belge sayısı + 1" ile üretilir;
+silme sonraki mal kabullerin kaydını kilitler. **LN'e aktarılmaz.**
+
+### Yayın sırasında öğrenilenler
+
+1. **Zincirlenmiş komut başarısızlığı gizler.** Migration ve T1 `;` ile
+   zincirlenince migration parola hatasıyla düştü, T1 yine koştu ve "migration
+   yok" gösterdi. Yazan adım **tek başına** çalıştırılır, sonucu okunmadan
+   sonraki adıma geçilmez.
+2. **Sayaçlar kaydın yokluğunu kanıtlamaz.** "Denetim sayacı artmadı → belge
+   yok" çıkarımı kullanıcı tarafından reddedildi; belge numara, irsaliye, firma
+   ve notla doğrudan arandı (`2026-09-18-stok-tarih-duman-belge-kontrol.sql`).
+3. **Tarayıcı paneli `confirm()`'i otomatik reddeder.** Kalite onayı panelde
+   sessizce hiçbir şey yapmadı; onayı kullanıcı verdi. Otomasyonla yapılan
+   onaylarda diyalog davranışı önceden doğrulanmalı.
+4. **Ürün seçiminde kod değil ad aranır.** Kodu yazmak kalemi `kod: ""` ile
+   bırakıyordu; kaydedilseydi onay kodsuz kalemi **sessizce** stoğa işlemezdi.
+5. **Transfer, hedef deponun önbellek miktarını uydurur** (sunucu 21, bellek
+   1; eski davranış, görünür değil). Ayrı iş olarak açıldı.
+6. **Numara RLS'e göre sayılır.** Tek otel gören kullanıcı kullanılmış numara
+   üretir; kaydetmeden önce formdaki numara güncel durumla karşılaştırıldı.
