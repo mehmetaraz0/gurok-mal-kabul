@@ -1,8 +1,23 @@
-// Supabase Edge Function: masa-yonetim
-// Personel masa/token CRUD köprüsü. JWT'yi GoTrue ile doğrular (apikey = MAIN_SERVICE_KEY,
-// bilinen-çalışan) → email'den kullanıcı id → rolü service_role ile okur → bar_siparis_yonetimi
-// kayıt yetkisi → customer masa_tokenlari işlem. Not: MAIN_ANON_KEY GEREKMEZ.
-// Secret: MAIN_SB_URL, MAIN_SERVICE_KEY, CUSTOMER_SB_URL, CUSTOMER_SERVICE_KEY.
+// Supabase Edge Function: masa-yonetim  (CANLI AD: "rapid-handler")
+// Personel masa/token köprüsü: ANA projedeki personel kimliği + yetkisi → MÜŞTERİ
+// projesindeki masa_tokenlari işlemi.
+//
+// A1 (tasarım 3.7, 2026-09-18) — ÖNCEKİ SÜRÜMÜN AÇIKLARI:
+//   * kullanıcı e-posta önekinden bulunuyordu (kullanicilar.id = email.split('@')[0])
+//   * kullanicilar.aktif'e bakılmıyordu (pasif personel masa yönetebiliyordu)
+//   * otel kapsamı yoktu (810 personeli 811 masalarını görüp değiştirebiliyordu)
+// ŞİMDİ:
+//   * kimlik: auth.getUser() — personel JWT'si ANA projenin GoTrue'sunda doğrulanır
+//   * yetki + otel kapsamı: bar_masa_yetki_kapsami() ÇAĞIRANIN JWT'siyle (service_role
+//     ile DEĞİL). Pasif kullanıcı, yetki fonksiyonlarında zaten reddedilir.
+//   * liste: yalnız erişilebilen otellerin masaları; ekle/durum: başka otel REDDEDİLİR;
+//     ekle: depo_id öneki otel_id olmalı ('810_CSM302' → '810').
+//   * HTTP kodları: 400 girdi, 401 oturum, 403 yetki/kapsam, 404 masa yok, 500 sunucu.
+//     İstemci sözleşmesi aynı: gövde { jwt, anon, action, ... } → { ok, mesaj?, ... }.
+//
+// Secret: MAIN_SB_URL, CUSTOMER_SB_URL, CUSTOMER_SERVICE_KEY; MAIN_ANON_KEY önerilir.
+// MAIN_SERVICE_KEY artık KULLANILMAZ (ana projeye yalnız çağıranın JWT'siyle gidilir).
+// MAIN_ANON_KEY yoksa gövdedeki 'anon' (istemcide zaten açık olan public anahtar) kullanılır.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -14,58 +29,64 @@ Deno.serve(async (req) => {
   try {
     let body:any; try { body = await req.json(); } catch { return json({ ok:false, mesaj:"Geçersiz JSON" }, 400, cors); }
     const { jwt, action } = body ?? {};
-    // Sürüm kontrolü (jwt gerektirmez) — controller deploy'un tuttuğunu buradan doğrular
-    if (action === "ping") return json({ ok:true, v:"anon3", anonLen: (body && body.anon ? String(body.anon).length : 0) }, 200, cors);
-    if (!jwt) return json({ ok:false, mesaj:"Oturum yok" }, 401, cors);
+    // Sürüm kontrolü (jwt gerektirmez) — deploy'un tuttuğunu buradan doğrular
+    if (action === "ping") return json({ ok:true, v:"a1-kapsam" }, 200, cors);
+    if (!jwt || typeof jwt !== "string") return json({ ok:false, mesaj:"Oturum yok" }, 401, cors);
 
     const MAIN_URL = Deno.env.get("MAIN_SB_URL")!;
-    const MAIN_SVC = Deno.env.get("MAIN_SERVICE_KEY")!;
+    const ANON = Deno.env.get("MAIN_ANON_KEY") || (body && body.anon ? String(body.anon) : "");
+    if (!ANON) return json({ ok:false, mesaj:"Sunucu yapılandırması eksik" }, 500, cors);
 
-    // JWT'yi doğrula → email. apikey: sayfadan gelen anon (public, doğrulanmış çalışan);
-    // yoksa secret'lara düş. getUser kimliği Bearer token'dan belirler, apikey sadece geçit.
-    const ANON = (body && body.anon) ? String(body.anon) : (Deno.env.get("MAIN_ANON_KEY") || MAIN_SVC);
-    let email = "";
-    try {
-      const uRes = await fetch(MAIN_URL + "/auth/v1/user", { headers: { apikey: ANON, Authorization: "Bearer " + jwt } });
-      if (uRes.ok) { const u = await uRes.json(); email = (u && u.email) ? u.email : ""; }
-    } catch {}
-    if (!email) return json({ ok:false, mesaj:"Oturum geçersiz — tekrar giriş yapın" }, 200, cors);
+    // 1) Kimlik: ANA projede gerçek oturum mu?
+    const main = createClient(MAIN_URL, ANON, {
+      global: { headers: { Authorization: "Bearer " + jwt } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: u, error: uErr } = await main.auth.getUser(jwt);
+    if (uErr || !u?.user) return json({ ok:false, mesaj:"Oturum geçersiz — tekrar giriş yapın" }, 401, cors);
 
-    // Rolü service_role ile bul + yetki kontrolü
-    const main = createClient(MAIN_URL, MAIN_SVC);
-    const { data: kul } = await main.from("kullanicilar").select("rol_id").eq("id", email.split("@")[0]).maybeSingle();
-    if (!kul || !kul.rol_id) return json({ ok:false, mesaj:"Kullanıcı/rol bulunamadı" }, 200, cors);
-    const { data: modul } = await main.from("moduller").select("id").eq("kod","bar_siparis_yonetimi").eq("aktif",true).maybeSingle();
-    if (!modul || !modul.id) return json({ ok:false, mesaj:"Bar modülü kapalı" }, 200, cors);
-    const { data: yrow } = await main.from("yetki_matrisi").select("yetki").eq("rol_id", kul.rol_id).eq("modul_id", modul.id).maybeSingle();
-    if (!yrow || !["kayit","tam"].includes(yrow.yetki)) return json({ ok:false, mesaj:"Yetki yok" }, 200, cors);
+    // 2) Yetki + otel kapsamı: çağıranın JWT'siyle, veritabanı kararı
+    const { data: kapsam, error: kErr } = await main.rpc("bar_masa_yetki_kapsami");
+    if (kErr) return json({ ok:false, mesaj:"Yetki kontrolü başarısız" }, 403, cors);
+    const oteller: string[] = Array.isArray(kapsam?.oteller) ? kapsam.oteller.map(String) : [];
+    if (kapsam?.yetkili !== true || oteller.length === 0) return json({ ok:false, mesaj:"Yetki yok" }, 403, cors);
 
-    // Yetki tamam → customer service_role ile işlem
     const cust = createClient(Deno.env.get("CUSTOMER_SB_URL")!, Deno.env.get("CUSTOMER_SERVICE_KEY")!);
 
     if (action === "liste") {
-      const { data, error } = await cust.from("masa_tokenlari").select("token,otel_id,depo_id,masa_adi,bolge,aktif").order("bolge").order("masa_adi");
-      if (error) return json({ ok:false, mesaj:error.message }, 200, cors);
+      const { data, error } = await cust.from("masa_tokenlari")
+        .select("token,otel_id,depo_id,masa_adi,bolge,aktif")
+        .in("otel_id", oteller).order("bolge").order("masa_adi");
+      if (error) return json({ ok:false, mesaj:error.message }, 500, cors);
       return json({ ok:true, masalar:data }, 200, cors);
     }
     if (action === "ekle") {
       const { otel_id, depo_id, masa_adi, bolge } = body;
       if (!otel_id || !depo_id || !masa_adi) return json({ ok:false, mesaj:"otel/depo/masa adı zorunlu" }, 400, cors);
+      if (!oteller.includes(String(otel_id))) return json({ ok:false, mesaj:"Bu otel için yetkiniz yok" }, 403, cors);
+      if (!String(depo_id).startsWith(String(otel_id) + "_"))
+        return json({ ok:false, mesaj:"Depo bu otele ait değil" }, 400, cors);
       const token = crypto.randomUUID();
-      const { data, error } = await cust.from("masa_tokenlari").insert({ token, otel_id, depo_id, masa_adi, bolge: bolge || null, aktif:true }).select().single();
-      if (error) return json({ ok:false, mesaj:error.message }, 200, cors);
+      const { data, error } = await cust.from("masa_tokenlari")
+        .insert({ token, otel_id: String(otel_id), depo_id: String(depo_id), masa_adi, bolge: bolge || null, aktif:true })
+        .select().single();
+      if (error) return json({ ok:false, mesaj:error.message }, 500, cors);
       return json({ ok:true, masa:data }, 200, cors);
     }
     if (action === "durum") {
       const { token, aktif } = body;
       if (!token || typeof aktif !== "boolean") return json({ ok:false, mesaj:"token/aktif zorunlu" }, 400, cors);
-      const { error } = await cust.from("masa_tokenlari").update({ aktif }).eq("token", token);
-      if (error) return json({ ok:false, mesaj:error.message }, 200, cors);
+      // Masanın oteli ÖNCE okunur; kapsam dışıysa yazılmaz (varlığı da sızdırılmaz).
+      const { data: masa, error: mErr } = await cust.from("masa_tokenlari").select("otel_id").eq("token", token).maybeSingle();
+      if (mErr) return json({ ok:false, mesaj:mErr.message }, 500, cors);
+      if (!masa || !oteller.includes(String(masa.otel_id))) return json({ ok:false, mesaj:"Masa bulunamadı" }, 404, cors);
+      const { error } = await cust.from("masa_tokenlari").update({ aktif }).eq("token", token).in("otel_id", oteller);
+      if (error) return json({ ok:false, mesaj:error.message }, 500, cors);
       return json({ ok:true }, 200, cors);
     }
     return json({ ok:false, mesaj:"Bilinmeyen aksiyon" }, 400, cors);
-  } catch (e) {
-    return json({ ok:false, mesaj:"Sunucu hatası" }, 200, cors);
+  } catch (_e) {
+    return json({ ok:false, mesaj:"Sunucu hatası" }, 500, cors);
   }
 });
 
