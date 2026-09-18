@@ -333,7 +333,12 @@ function rolIcerir(roller, rol) {
 // 6) Kurallar
 // ---------------------------------------------------------------------------
 function dosyayiDenetle(yol) {
-  const ham = fs.readFileSync(yol, 'utf8');
+  // Satir sonlari TEK noktada normallestirilir. Windows calisma kopyasinda
+  // migration dosyalari CRLF'dir (core.autocrlf=true); satir bazli desenler
+  // "\r" ile biten satirda eslesmez (JS'te "." \r yutmaz). 2026-09-18'e kadar
+  // bu yuzden CRLF dosyada @append-only okunmuyor ve R6 TAMAMEN atlaniyordu.
+  // Satir sayisi degismez: bulgulardaki satir numaralari ayni kalir.
+  const ham = fs.readFileSync(yol, 'utf8').replace(/\r\n?/g, '\n');
   const yonerge = yonergeleriOku(ham);
   const sql = yorumlariSil(ham);
   const { tablolar, sekanslar, gorunumler, fonksiyonlar } = nesneleriBul(govdeleriBosalt(sql));

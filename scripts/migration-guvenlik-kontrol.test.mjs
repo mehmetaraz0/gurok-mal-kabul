@@ -26,11 +26,34 @@ const KONTROL = path.join(buDizin, 'migration-guvenlik-kontrol.mjs');
 
 const gecici = fs.mkdtempSync(path.join(os.tmpdir(), 'mig-guv-'));
 
-function denetle(sqlMetni, ad) {
+function tekKipDenetle(sqlMetni, ad) {
   const yol = path.join(gecici, ad + '.sql');
   fs.writeFileSync(yol, sqlMetni, 'utf8');
   const r = spawnSync(process.execPath, [KONTROL, yol], { encoding: 'utf8', cwd: kok });
   return { kod: r.status, cikti: (r.stdout || '') + (r.stderr || '') };
+}
+
+// Bulgular ve ozet; dosya yolu haric (iki kipte dosya adi farkli).
+const bulguOzeti = (cikti) => cikti.split(/\r?\n/)
+  .filter((s) => /^\s+(HATA|UYARI)\s/.test(s) || /^==> /.test(s))
+  .map((s) => s.trim()).join('\n');
+
+// HER metin iki kez denetlenir: LF ve CRLF. Iki kip AYNI bulgulari
+// vermezse test burada duser. Neden: Windows'ta calisma kopyasindaki
+// migration dosyalari CRLF'dir (core.autocrlf=true). 2026-09-18'e kadar
+// denetleyici CRLF dosyada "@append-only" yonergesini okuyamiyor ve R6'yi
+// TAMAMEN atliyordu; append-only tabloya DELETE grant'i "TEMIZ" geciyordu.
+// Boylece her sabotaj testi ayni zamanda satir sonu esitligini kanitlar.
+function denetle(sqlMetni, ad) {
+  const lf = sqlMetni.replace(/\r\n?/g, '\n');
+  const rLf = tekKipDenetle(lf, ad + '-lf');
+  const rCrlf = tekKipDenetle(lf.replace(/\n/g, '\r\n'), ad + '-crlf');
+  assert.equal(rCrlf.kod, rLf.kod,
+    'LF ve CRLF farkli cikis kodu verdi (' + rLf.kod + ' / ' + rCrlf.kod + ')\n--- LF:\n' +
+    rLf.cikti + '\n--- CRLF:\n' + rCrlf.cikti);
+  assert.equal(bulguOzeti(rCrlf.cikti), bulguOzeti(rLf.cikti),
+    'LF ve CRLF farkli bulgu verdi\n--- LF:\n' + rLf.cikti + '\n--- CRLF:\n' + rCrlf.cikti);
+  return rLf;
 }
 
 // Metni degistirir ve degisikligin GERCEKTEN oldugunu dogrular.
@@ -42,7 +65,10 @@ function boz(metin, eski, yeni, beklenenAdet = 1) {
   return metin.split(eski).join(yeni);
 }
 
-const sablon = fs.readFileSync(SABLON, 'utf8');
+// Sablon repoda CRLF ile commit edilmis olabilir; sabotaj metinleri (cok
+// satirli olanlar dahil) "\n" ile yazildigi icin sablon LF'e cevrilir.
+// Denetleyicinin CRLF davranisi ayrica denetle() icinde sinanir.
+const sablon = fs.readFileSync(SABLON, 'utf8').replace(/\r\n?/g, '\n');
 
 // ---------------------------------------------------------------------------
 // NEGATIF KONTROL — bozulmamis sablon YESIL olmali.
@@ -187,7 +213,7 @@ test('J: fonksiyon EXECUTE karari yok -> R9 (UYARI)', () => {
   assert.match(r.cikti, /R9-FONKSIYON-ACL-KARARI-YOK\s+ornek_kapat/);
 
   // --uyari-da-hata ile bloke edilebilmeli
-  const yol = path.join(gecici, 'j-fonksiyon-acl-yok.sql');
+  const yol = path.join(gecici, 'j-fonksiyon-acl-yok-lf.sql');
   const s = spawnSync(process.execPath, [KONTROL, yol, '--uyari-da-hata'],
     { encoding: 'utf8', cwd: kok });
   assert.equal(s.status, 1, s.stdout);
@@ -203,6 +229,40 @@ test('K: sekans REVOKE yok -> R8', () => {
   const r = denetle(bozuk, 'k-sekans');
   assert.equal(r.kod, 1, r.cikti);
   assert.match(r.cikti, /R8-SEKANS-REVOKE-YOK\s+ornek_no_seq/);
+});
+
+// ---------------------------------------------------------------------------
+// N) YONERGELER her satir sonunda okunur
+//    Gercek olay (2026-09-18): yonergeler satir satir "\n" ile bolunuyordu;
+//    CRLF dosyada her satir "\r" ile bitiyor ve "(.+)$" deseni eslesmiyordu
+//    (JS'te "." \r yutmaz). Sonuc: @append-only okunmuyor ve R6 TAMAMEN
+//    atlaniyordu; @erisim-yok ve gerekceli @acl-istisna da yok sayiliyordu.
+//    denetle() iki kipi zaten karsilastirir; burada her yonergenin GERCEKTEN
+//    etki ettigi (yok sayilmadigi) ayrica olculur.
+// ---------------------------------------------------------------------------
+test('N: @append-only, @erisim-yok ve gerekceli @acl-istisna okunur', () => {
+  const sql = [
+    '-- @append-only: n_kayit',
+    '-- @erisim-yok: n_ic',
+    '-- @acl-istisna: n_eski -- tarihsel tablo, ayri migrationda duzeltilecek',
+    'create table public.n_kayit (id int);',
+    'alter table public.n_kayit enable row level security;',
+    'revoke all on table public.n_kayit from public, anon, authenticated;',
+    'grant select, insert, delete on public.n_kayit to authenticated;',
+    'create table public.n_ic (id int);',
+    'alter table public.n_ic enable row level security;',
+    'revoke all on table public.n_ic from public, anon, authenticated;',
+    'create table public.n_eski (id int);',
+    'alter table public.n_eski enable row level security;',
+  ].join('\n');
+  const r = denetle(sql, 'n-yonergeler');
+  // @append-only okundu: DELETE grant'i ve eksik tetikleyici yakalanmali
+  assert.match(r.cikti, /R6-APPEND-ONLY-YAZMA\s+n_kayit/);
+  assert.match(r.cikti, /R6-APPEND-ONLY-TETIKLEYICI-YOK\s+n_kayit/);
+  // @erisim-yok okundu: n_ic icin GRANT karari istenmemeli
+  assert.doesNotMatch(r.cikti, /R3-GRANT-KARARI-YOK\s+n_ic/);
+  // gerekceli @acl-istisna okundu: n_eski hic denetlenmemeli
+  assert.doesNotMatch(r.cikti, /n_eski/);
 });
 
 // ---------------------------------------------------------------------------
