@@ -72,3 +72,35 @@ select tarih, tip, urun_kodu, depo_kodu, kaynak_depo_kodu, miktar
   from public.stok_hareketleri
  order by tarih desc
  limit 10;
+
+-- ---------------------------------------------------------------------------
+-- H) MAKINE OKUNUR KAYIT — scripts/stok-tarih-yayin-karsilastir.mjs okur.
+-- Tarihler UTC, mikrosaniye hassasiyetinde: gozle degil, esitlikle
+-- karsilastirilir. Son 3 gunun hareketleri, bir degisikligin DUMAN TESTINE
+-- mi yoksa BASKA bir isleme mi ait oldugunu ayirmak icin gerekir.
+-- ---------------------------------------------------------------------------
+\echo '=== H) MAKINE OKUNUR ==='
+\pset format unaligned
+\pset tuples_only on
+select '@ZAMAN|' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+select '@FONK|' || p.proname
+       || '|' || (p.prosrc ~* 'guncelleme_tarihi\s*=\s*now\(\)')::text
+       || '|' || (p.prosrc ~* 'stok_cikis_korumasi')::text
+  from pg_proc p
+ where p.pronamespace = 'public'::regnamespace and p.proname in ('stok_ekle', 'stok_transfer')
+ order by p.proname;
+select '@SATIR|' || urun_kodu || '|' || depo_kodu || '|' || miktar::text
+       || '|' || to_char(guncelleme_tarihi at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+  from public.stok
+ order by urun_kodu, depo_kodu;
+select '@HAREKET|' || id::text
+       || '|' || to_char(tarih at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+       || '|' || coalesce(tip, '') || '|' || coalesce(urun_kodu, '') || '|' || coalesce(depo_kodu, '')
+       || '|' || coalesce(kaynak_depo_kodu, '') || '|' || coalesce(miktar::text, '')
+       || '|' || coalesce(belge_no, '')
+  from public.stok_hareketleri
+ where tarih > now() - interval '3 days'
+ order by tarih;
+select '@SON';
+\pset tuples_only off
+\pset format aligned

@@ -1,0 +1,13 @@
+{
+  "_aciklama": "stok-tarih-yayin-karsilastir.mjs duman plani. Yer tutucular (<...>) duman hazirlik sorgusunun ciktisina gore doldurulur; dolmamis plan karsilastirici tarafindan REDDEDILIR. Dosya sirasi: T0 T1 T2a T2b T2c.",
+  "adimlar": [
+    { "ad": "T0" },
+    { "ad": "T1", "tur": "migration" },
+    { "ad": "T2a", "tur": "duman",
+      "islemler": [ { "tip": "giris", "urun": "<URUN>", "depo": "810_100", "miktar": 1, "belge": "<MK_NO>" } ] },
+    { "ad": "T2b", "tur": "duman",
+      "islemler": [ { "tip": "transfer", "urun": "<URUN>", "kaynak": "810_100", "hedef": "<IKINCI_DEPO>", "miktar": 1 } ] },
+    { "ad": "T2c", "tur": "duman",
+      "islemler": [ { "tip": "cikis", "urun": "<URUN>", "depo": "<IKINCI_DEPO>", "miktar": 1 } ] }
+  ]
+}
