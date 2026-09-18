@@ -14,6 +14,23 @@ export const kok = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]
 export const SEMA_DOKUMU = process.env.BAR_TEST_SEMA
   || 'C:/Users/USER/ERP-Yedek/2026-09-13-post-faz2-sema-dokumu.sql';
 
+// Dokumden (2026-09-13) SONRA uretime uygulanan migration'lar, uygulandiklari
+// sirayla. Taban bunlari dokumun ustune kurar; boylece yeni bir uretim dokumu
+// almadan (parola gerektirir) bugunku uretim temsil edilir.
+export const URETIM_SONRASI = [
+  'docs/kurulum/2026-09-14-stok-liste-ozet.sql',          // 2026-09-15 yayini
+  'docs/kurulum/2026-09-17-stok-guncelleme-tarihi.sql',   // 2026-09-18 yayini
+];
+
+// 2026-09-18 uretim olcumu (yayin T1, sql-uygula ile): stok RPC govdelerinin
+// md5(prosrc) degeri. Taban bunu tutturamazsa uretimi temsil etmiyor demektir
+// ve kurulum DURUR. md5 satir sonuna duyarlidir: migration dosyasi Windows
+// calisma kopyasinda CRLF'dir ve uretime de oyle uygulanmistir.
+export const URETIM_STOK_MD5 = {
+  stok_ekle: '43ec3cfcd28b9a8cb9e5d8b3ed03b47d',
+  stok_transfer: '8dd27c19ac2da9629a53dae9861766ba',
+};
+
 export function hataKodu(sonuc) {
   const m = String(sonuc && sonuc.err || '').match(/ERROR:\s+([A-Z][A-Z_]{3,}):/);
   return m ? m[1] : null;
@@ -55,9 +72,9 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
   const uygula = (dosya) => sql(readFileSync(kok + dosya, 'utf8'));
 
   // Kurulumun olculen ozeti: testler raporda gostersin diye.
-  const kurulumBilgisi = { dokumHata: null, dokumZararsiz: null };
+  const kurulumBilgisi = { dokumHata: null, dokumZararsiz: null, stokMd5: null };
 
-  async function kur({ onceki = [] } = {}) {
+  async function kur({ onceki = [], uretimSonrasi = true } = {}) {
     if (!existsSync(SEMA_DOKUMU)) throw new Error('Sema dokumu yok: ' + SEMA_DOKUMU);
     temizle();
     zorunlu(sonucla(d(['run', '--detach', '--rm', '--name', K, '--tmpfs', '/var/lib/postgresql/data',
@@ -83,7 +100,22 @@ export function barOrtami({ ad = 'bar-test' } = {}) {
     kurulumBilgisi.dokumZararsiz = zararsiz.length;
     if (hatalar.length) throw new Error('Sema dokumu ' + hatalar.length + ' hatayla yuklendi:\n' + hatalar.slice(0, 8).join('\n'));
 
-    for (const m of onceki) zorunlu(uygula(m), m);
+    if (uretimSonrasi) {
+      for (const m of URETIM_SONRASI) zorunlu(uygula(m), m);
+      const md5 = sql(`select proname || '=' || md5(prosrc) from pg_proc
+        where pronamespace = 'public'::regnamespace and proname in ('stok_ekle','stok_transfer') order by 1;`).out;
+      const beklenen = Object.entries(URETIM_STOK_MD5).map(([k, v]) => k + '=' + v).join('\n');
+      kurulumBilgisi.stokMd5 = md5;
+      if (md5 !== beklenen) {
+        throw new Error('Taban uretimi temsil etmiyor — stok RPC md5 farkli:\n  kurulan : '
+          + md5.replace(/\n/g, ' ') + '\n  beklenen: ' + beklenen.replace(/\n/g, ' '));
+      }
+    }
+    // Uretim-sonrasi migration'lar zaten uygulandiysa tekrar uygulanmaz.
+    for (const m of onceki) {
+      if (uretimSonrasi && URETIM_SONRASI.includes(m)) continue;
+      zorunlu(uygula(m), m);
+    }
     zorunlu(sql(readFileSync(kok + 'scripts/bar-test-tohum.sql', 'utf8')), 'tohum');
   }
 

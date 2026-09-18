@@ -7,11 +7,20 @@ let ok = 0, fail = 0;
 const sonuc = (g, ad, ek) => { console.log((g ? 'OK   ' : 'FAIL ') + ad + (ek ? ' — ' + ek : '')); if (g) ok++; else fail++; };
 
 try {
-  await O.kur({ onceki: ['docs/kurulum/2026-09-14-stok-liste-ozet.sql'] });
+  // Taban, dokumden sonra uretime uygulanan migration'lari (URETIM_SONRASI) kendisi kurar.
+  await O.kur();
   const kb = O.kurulumBilgisi;
   sonuc(kb.dokumHata === 0 && kb.dokumZararsiz === 1,
-    'taban kuruldu: shim + kimlik katmani + uretim dokumu + stok migration + tohum',
+    'taban kuruldu: shim + kimlik katmani + uretim dokumu + uretim-sonrasi migrationlar + tohum',
     `dokum: ${kb.dokumHata} hata, ${kb.dokumZararsiz} bilinen zararsiz (schema public already exists)`);
+
+  // Uretimi temsil ediyor mu: stok RPC govdeleri 2026-09-18 uretim olcumuyle ayni
+  // (kur() zaten tutmazsa durur; burada rapora gecsin diye ayrica yazilir) ve
+  // tarih duzeltmesini tasiyor.
+  const tarih = O.sql(`select bool_and(prosrc ~* 'guncelleme_tarihi\\s*=\\s*now\\(\\)') from pg_proc
+    where pronamespace = 'public'::regnamespace and proname in ('stok_ekle','stok_transfer');`);
+  sonuc(tarih.out === 't' && /43ec3cfc/.test(kb.stokMd5) && /8dd27c19/.test(kb.stokMd5),
+    'stok RPC govdeleri uretimle ayni (md5) ve tarih duzeltmesini tasiyor', kb.stokMd5.replace(/\n/g, ' '));
 
   // Beklenen sayilar TAHMIN edilmez: dokumun kendisinden sayilir ve yuklenen
   // katalogla karsilastirilir. Sessizce eksik yuklenen nesne burada gorunur.
