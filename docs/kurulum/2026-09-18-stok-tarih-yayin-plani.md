@@ -47,8 +47,8 @@ $Y = 'C:\Users\USER\ERP-Yedek'
 | 6 | **T1** + karşılaştırıcı (T0→T1) | kullanıcı + ben | migration aralığı `GECTI`/`BILGI`; `INCELE` varsa DUR |
 | 7 | Arayüz: `origin/main` tekrar kontrol, hızlı ileri sarma push | ben | canlı `stok-takip.html` SHA-256 = yayın commit'indeki dosya |
 | 8 | Giriş (mal kabul onayı) → **T2a** | kullanıcı | — |
-| 9 | Transfer `810_100 → <IKINCI_DEPO>` 1 birim → **T2b** | kullanıcı | — |
-| 10 | Çıkış `<IKINCI_DEPO>` 1 birim, neden `Diğer`, not `DUMAN TESTI 2026-09-18 — SILINECEK`, QR **okutulmaz** → **T2c** | kullanıcı | — |
+| 9 | Transfer `YIY06000002` `810_100 → 810_CMM201` 1 KG → **T2b** | kullanıcı | — |
+| 10 | Çıkış `YIY06000002` `810_CMM201` 1 KG, neden `Diğer`, not `DUMAN TESTI 2026-09-18 — SILINECEK`, QR **okutulmaz** → **T2c** | kullanıcı | — |
 | 11 | Karşılaştırıcı (tümü) | ben | `GENEL KARAR: GECTI/BILGI` |
 | 12 | Sayfa yenileme: kartlardaki "Son güncelleme" karşılaştırıcının yazdığı `KART` satırlarıyla aynı | kullanıcı | birebir aynı metin |
 | 13 | **Yazma penceresini kapat**, runbook §4'e kayıt | ben | — |
@@ -87,6 +87,28 @@ Karar kodları: `GECTI` · `BILGI` · `DUMAN_GECERSIZ` (tekrarla) · `INCELE`
 (insan kararı) · `BASARISIZ` (duman satırı tarihi sunucuda güncellenmedi ya
 da dokunulmayan satırın tarihi değişti).
 
+## Duman hazırlık ölçümü (2026-09-18, üretim, salt okuma)
+
+| Bölüm | Sonuç | Plana etkisi |
+|---|---|---|
+| 1 Operasyonel bekleyen belge | **0** | Giriş, etiketli test belgesiyle yapılır |
+| 2 Onaylı ama stoğa işlenmemiş | **0** | `stok-takip` açılınca kendiliğinden yazma olmaz |
+| 3 Tetikleyiciler | `phase0_islem_audit` (+`_del`): `mal_kabuller`, `stok_hareketleri`, `siparisler`; `phase0_otel_degismez`: `stok`, `koli_etiketleri`, `skt_kayitlari`, … | Her ekleme/güncelleme `erp_islem_audit`'e satır yazar (etki tablosu aşağıda) |
+| 4 RPC yazma hedefleri | `mal_kabul_kaydet` → `mal_kabuller`, `mal_kabul_urunleri`, `koli_etiketleri`; stok RPC'leri → yalnız `stok` | Koddan çıkarılanla aynı (koli girilmezse `koli_etiketleri` yazılmaz) |
+| 5 Numaralandırma | 30 belge, en büyük `MK-2026-00030`, **`mk_no` tekil** | Test belgesi `MK-2026-00031` olmalı (aşağıdaki kural) |
+| 6 Sessiz aday | 8 aday | **Seçim (kullanıcı): `YIY06000002` SOKLU PATATES ELMA DILIMLI 102, KG** |
+| 7 Yazma yoğunluğu | son 7 günde 3 hareket (hepsi 23:00) | Sistem neredeyse boşta; pencere için 23:00 dışı herhangi bir saat |
+
+**T0 beklentisi** (seçilen ürün): `YIY06000002@810_100` = 90, `YIY06000002@810_CMM201` = 20.
+Farklıysa, hazırlıktan bu yana bu ürüne yazma olmuş demektir: DUR, yeniden ölç.
+
+**Numara kuralı.** İstemci numarayı *görebildiği* belgelerin sayısı + 1 olarak
+üretir; `mal_kabuller` otel izolasyonuna (RLS) tabidir. Yalnız bir oteli gören
+kullanıcı daha az belge sayar ve zaten kullanılmış bir numara üretir; kayıt
+tekil kısıtta **reddedilir** (RPC atomik, hiçbir şey yazılmaz — zararsız ama
+testi bloklar). **Kaydetmeden önce formdaki numara `MK-2026-00031` değilse
+DUR**; test tüm otelleri gören bir kullanıcıyla yapılır.
+
 ## Giriş belgesi (Karar 2)
 
 **Öncelik:** Hazırlık sorgusunun 1. bölümünde, zaten operasyonel olarak
@@ -106,32 +128,36 @@ geri transfer (net sıfır) seçilebilir; plan buna göre değiştirilir.
 | Fatura no | **boş** (fiyat kontrol listesine girmesin) |
 | Sipariş bağlantısı | **yok** (sipariş kalemleri ve durumu değişmesin) |
 | Notlar | `DUMAN TESTI 2026-09-18 — stok guncelleme_tarihi yayini — SILINECEK` |
-| Kalem | `<URUN>` × 1 `<BIRIM>`; koli yok, SKT yok, QR yok |
+| Numara | `MK-2026-00031` (formda başka görünürse DUR — numara kuralı) |
+| Kalem | `YIY06000002` SOKLU PATATES ELMA DILIMLI 102 × 1 KG; koli yok, SKT yok, QR yok |
 
-### Test belgesinin kayıt etkileri (koddan çıkarıldı)
+### Test belgesinin kayıt etkileri (koddan çıkarıldı, tetikleyiciler üretimde ölçüldü)
 
-| Aşama | Yazılan | Etki |
-|---|---|---|
-| Oluşturma (`mal_kabul_kaydet` RPC) | `mal_kabuller` +1, `mal_kabul_urunleri` +1 | Koli ve SKT girilmediği için `koli_etiketleri`/`skt_kayitlari` yazılmaz |
-| Onay (`kaliteOnayla`) | `mal_kabuller.durum = onaylandi`, `stok_islendi = true` | — |
-| | `stok` `<URUN>@810_100` **+1**, tarih | çıkışla telafi edilir |
-| | `stok_hareketleri` +1 `giris` (belge = MK no) | kalıcı |
-| | `erp_islem_audit` +1 (`approve mal_kabul`) | kalıcı, silinmez |
-| Transfer | `stok` iki satır (−1 / +1), `stok_hareketleri` +1 `transfer` | kalıcı hareket |
-| Çıkış | `stok` `<URUN>@<IKINCI_DEPO>` −1, `stok_hareketleri` +1 `cikis` | kalıcı hareket |
-| **Net stok** | `810_100`: 0 · `<IKINCI_DEPO>`: 0 | |
+| Aşama | Yazılan | `erp_islem_audit` (tetikleyici) | Kalıcılık |
+|---|---|---|---|
+| Oluşturma (`mal_kabul_kaydet`) | `mal_kabuller` +1, `mal_kabul_urunleri` +1 | +1 (`mal_kabuller` ekleme) | kalıcı |
+| Onay (`kaliteOnayla`) | `mal_kabuller.durum = onaylandi` | +1 | kalıcı |
+| | `stok` `YIY06000002@810_100` **90 → 91**, tarih | — (`stok`'ta denetim tetikleyicisi yok) | çıkışla telafi |
+| | `stok_hareketleri` +1 `giris`, belge `MK-2026-00031` | +1 | kalıcı |
+| | `mal_kabuller.stok_islendi = true` | +1 | kalıcı |
+| | `audit_log` +1 (`approve mal_kabul`, istemci) | — | kalıcı |
+| Transfer | `stok` `810_100` 91 → 90, `810_CMM201` 20 → 21; `stok_hareketleri` +1 `transfer` | +1 | kalıcı hareket |
+| Çıkış (neden `Diğer`) | `stok` `810_CMM201` 21 → 20; `stok_hareketleri` +1 `cikis` | +1 | kalıcı hareket |
+| **Toplam** | **Net stok: `810_100` 90 · `810_CMM201` 20 (başlangıçla aynı)** | **+6** | `audit_log` +1 |
 
-Hazırlık sorgusunun 3. ve 4. bölümleri, bu tabloların üretimde koddan
-görünmeyen tetikleyicileri ya da ek yazmaları olup olmadığını ölçer; varsa
-tablo güncellenir.
+Sipariş bağlantısı olmadığı için `siparisler`/`siparis_kalemleri` yazılmaz
+(ve onların denetim tetikleyicileri çalışmaz). T0 ve T2c'deki `audit_satiri`
+farkı en az 6 olmalı; fazlası başka işlemlerdendir.
 
 ### Dikkat — belge görünürlüğü ve numara
 
 - **MK numarası:** `yeniMkNoUret()` numarayı *bu yılın belge sayısı + 1*
   olarak üretir. Test belgesi sayacı kalıcı olarak bir artırır. **Belge
   sonradan silinmemeli:** arada yeni belgeler açılırsa silme, bir sonraki
-  belgeye mevcut bir numarayı verdirir (hazırlık 5. bölümü `mk_no`'nun tekil
-  kısıtı olup olmadığını ölçer).
+  belgeye mevcut bir numarayı verdirir. `mk_no` tekil olduğu için (ölçüldü)
+  sonuç sessiz bir kopya değil, **yeni mal kabullerin kaydedilememesi** olur
+  — yani operasyonu durdurur. Silme ayrıca `phase0_islem_audit_del` ile
+  denetim izine yazılır.
 - **LN aktarımı (`mal-kabul-lnexport.html`):** aynı günün onaylı belgelerini
   listeler — test belgesi **aktarım listesinde görünür**. LN'e
   aktarılmamalı; aktarım yapan kişi bilgilendirilir.

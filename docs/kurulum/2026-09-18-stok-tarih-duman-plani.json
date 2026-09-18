@@ -1,13 +1,13 @@
 {
-  "_aciklama": "stok-tarih-yayin-karsilastir.mjs duman plani. Yer tutucular (<...>) duman hazirlik sorgusunun ciktisina gore doldurulur; dolmamis plan karsilastirici tarafindan REDDEDILIR. Dosya sirasi: T0 T1 T2a T2b T2c.",
+  "_aciklama": "stok-tarih-yayin-karsilastir.mjs duman plani. Urun ve depolar 2026-09-18 duman hazirlik sorgusundan secildi (kullanici karari): YIY06000002 SOKLU PATATES ELMA DILIMLI 102, KG; 810_100 = 90, 810_CMM201 = 20 (T0 beklentisi). Giris = etiketli test belgesi MK-2026-00031. Dosya sirasi: T0 T1 T2a T2b T2c.",
   "adimlar": [
     { "ad": "T0" },
     { "ad": "T1", "tur": "migration" },
     { "ad": "T2a", "tur": "duman",
-      "islemler": [ { "tip": "giris", "urun": "<URUN>", "depo": "810_100", "miktar": 1, "belge": "<MK_NO>" } ] },
+      "islemler": [ { "tip": "giris", "urun": "YIY06000002", "depo": "810_100", "miktar": 1, "belge": "MK-2026-00031" } ] },
     { "ad": "T2b", "tur": "duman",
-      "islemler": [ { "tip": "transfer", "urun": "<URUN>", "kaynak": "810_100", "hedef": "<IKINCI_DEPO>", "miktar": 1 } ] },
+      "islemler": [ { "tip": "transfer", "urun": "YIY06000002", "kaynak": "810_100", "hedef": "810_CMM201", "miktar": 1 } ] },
     { "ad": "T2c", "tur": "duman",
-      "islemler": [ { "tip": "cikis", "urun": "<URUN>", "depo": "<IKINCI_DEPO>", "miktar": 1 } ] }
+      "islemler": [ { "tip": "cikis", "urun": "YIY06000002", "depo": "810_CMM201", "miktar": 1 } ] }
   ]
 }
