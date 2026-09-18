@@ -66,7 +66,7 @@ alter table public.bar_siparisleri
 -- 3) ESKI BAR FONKSIYONLARI (uretim dokumunden) + yetkileri
 CREATE OR REPLACE FUNCTION public.bar_siparis_olustur(p_otel_id text, p_depo_id text, p_masa_token text, p_oda_no text, p_kalemler jsonb) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    SET search_path = 'pg_catalog', 'public', 'pg_temp'
     AS $$
 declare
   v_siparis_id uuid;
@@ -150,13 +150,13 @@ begin
 end;
 $$;
 
-REVOKE ALL ON FUNCTION public.bar_siparis_olustur(p_otel_id text, p_depo_id text, p_masa_token text, p_oda_no text, p_kalemler jsonb) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.bar_siparis_olustur(p_otel_id text, p_depo_id text, p_masa_token text, p_oda_no text, p_kalemler jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.bar_siparis_olustur(p_otel_id text, p_depo_id text, p_masa_token text, p_oda_no text, p_kalemler jsonb) TO service_role;
+REVOKE ALL ON FUNCTION public.bar_siparis_olustur(p_otel_id text, p_depo_id text, p_masa_token text, p_oda_no text, p_kalemler jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.bar_siparis_olustur(p_otel_id text, p_depo_id text, p_masa_token text, p_oda_no text, p_kalemler jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bar_siparis_olustur(p_otel_id text, p_depo_id text, p_masa_token text, p_oda_no text, p_kalemler jsonb) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.bar_siparis_durum_guncelle(p_siparis_id uuid, p_durum public.bar_durum) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    SET search_path = 'pg_catalog', 'public', 'pg_temp'
     AS $$
 declare v_otel text;
 begin
@@ -177,13 +177,13 @@ begin
 end;
 $$;
 
-REVOKE ALL ON FUNCTION public.bar_siparis_durum_guncelle(p_siparis_id uuid, p_durum public.bar_durum) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.bar_siparis_durum_guncelle(p_siparis_id uuid, p_durum public.bar_durum) TO authenticated;
-GRANT ALL ON FUNCTION public.bar_siparis_durum_guncelle(p_siparis_id uuid, p_durum public.bar_durum) TO service_role;
+REVOKE ALL ON FUNCTION public.bar_siparis_durum_guncelle(p_siparis_id uuid, p_durum public.bar_durum) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.bar_siparis_durum_guncelle(p_siparis_id uuid, p_durum public.bar_durum) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bar_siparis_durum_guncelle(p_siparis_id uuid, p_durum public.bar_durum) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.bar_siparis_teslim_et(p_siparis_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    SET search_path = 'pg_catalog', 'public', 'pg_temp'
     AS $$
 declare v_rez record; v_otel text;
 begin
@@ -211,13 +211,13 @@ begin
 end;
 $$;
 
-REVOKE ALL ON FUNCTION public.bar_siparis_teslim_et(p_siparis_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.bar_siparis_teslim_et(p_siparis_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.bar_siparis_teslim_et(p_siparis_id uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.bar_siparis_teslim_et(p_siparis_id uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.bar_siparis_teslim_et(p_siparis_id uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bar_siparis_teslim_et(p_siparis_id uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.bar_siparis_iptal(p_siparis_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    SET search_path = 'pg_catalog', 'public', 'pg_temp'
     AS $$
 declare v_otel text;
 begin
@@ -238,13 +238,13 @@ begin
 end;
 $$;
 
-REVOKE ALL ON FUNCTION public.bar_siparis_iptal(p_siparis_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.bar_siparis_iptal(p_siparis_id uuid) TO authenticated;
-GRANT ALL ON FUNCTION public.bar_siparis_iptal(p_siparis_id uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.bar_siparis_iptal(p_siparis_id uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.bar_siparis_iptal(p_siparis_id uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.bar_siparis_iptal(p_siparis_id uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.pms_bar_folio_koprusu() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    SET search_path = 'pg_catalog', 'public', 'pg_temp'
     AS $$
 declare
   v_tutar  numeric(12,2);
@@ -301,13 +301,13 @@ begin
 end;
 $$;
 
-REVOKE ALL ON FUNCTION public.pms_bar_folio_koprusu() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pms_bar_folio_koprusu() TO authenticated;
-GRANT ALL ON FUNCTION public.pms_bar_folio_koprusu() TO service_role;
+REVOKE ALL ON FUNCTION public.pms_bar_folio_koprusu() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pms_bar_folio_koprusu() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.pms_bar_folio_koprusu() TO service_role;
 
 CREATE OR REPLACE FUNCTION public.pms_bar_durum_kilit() RETURNS trigger
     LANGUAGE plpgsql
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    SET search_path = 'pg_catalog', 'public', 'pg_temp'
     AS $$
 begin
   if new.durum is not distinct from old.durum then
@@ -323,9 +323,9 @@ begin
 end;
 $$;
 
-REVOKE ALL ON FUNCTION public.pms_bar_durum_kilit() FROM PUBLIC;
-GRANT ALL ON FUNCTION public.pms_bar_durum_kilit() TO authenticated;
-GRANT ALL ON FUNCTION public.pms_bar_durum_kilit() TO service_role;
+REVOKE ALL ON FUNCTION public.pms_bar_durum_kilit() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pms_bar_durum_kilit() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.pms_bar_durum_kilit() TO service_role;
 
 -- 4) STOK RPC'LERI — A1 oncesi (TARIH DUZELTMELI) hal
 do $$

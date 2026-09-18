@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Menü & Sipariş</title>
 <script src="bar-config.js"></script>
+<script src="hata-kodlari.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f3f5;color:#15213a;padding-bottom:90px}
@@ -32,6 +33,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="sepet">
   <div class="oda-alani" id="odaAlani" style="display:none">
     <input id="odaNo" placeholder="Oda numaranız (ücretli ürün için zorunlu)">
+    <div style="font-size:12px;color:#555;margin-top:6px">Ücretli siparişinizde personelimiz oda kartınızı kontrol edecektir.</div>
   </div>
   <div class="mesaj" id="mesaj"></div>
   <button class="gonder" id="gonderBtn" onclick="gonder()">Sipariş Ver</button>
@@ -96,8 +98,31 @@ function odaAlaniGuncelle(){
   document.getElementById('odaAlani').style.display = ucretliVar() ? 'block' : 'none';
 }
 
+// Ucretli kalemde musterinin GORDUGU fiyat gonderilir; sunucu farkliysa
+// FIYAT_DEGISTI doner (A1, tasarim 3.1).
+function kalemleriHazirla(){
+  return Object.entries(SEPET).map(([menu_urun_id, v]) => {
+    const u = MENU.find(x => x.id === menu_urun_id);
+    const k = { menu_urun_id, adet: v.adet };
+    if(u && u.ucretli) k.gosterilen_fiyat = Number(u.fiyat);
+    return k;
+  });
+}
+
+// FIYAT_DEGISTI mesaji urun kimligini ve guncel fiyati tasir. Menu kopyasi
+// henuz yayinlanmamis olabilir; musteriye YENI fiyat gosterilir ve yeniden
+// gondermesi istenir. Donus: guncellenen urun adi ya da null.
+function fiyatiGuncelle(mesaj){
+  const m = String(mesaj || '').match(/guncel fiyat ([0-9.]+) \[urun ([0-9a-f-]{36})\]/);
+  if(!m) return null;
+  const u = MENU.find(x => x.id === m[2]);
+  if(!u) return null;
+  const eski = u.fiyat; u.fiyat = Number(m[1]);
+  return { ad: u.ad, eski, yeni: u.fiyat };
+}
+
 async function gonder(){
-  const kalemler = Object.entries(SEPET).map(([menu_urun_id, v]) => ({ menu_urun_id, adet: v.adet }));
+  const kalemler = kalemleriHazirla();
   const mesaj = document.getElementById('mesaj');
   if(!kalemler.length){ mesaj.className = 'mesaj err'; mesaj.textContent = 'Sepetiniz boş.'; return; }
   const odaNo = document.getElementById('odaNo').value.trim();
@@ -110,7 +135,15 @@ async function gonder(){
     });
     const d = await r.json();
     if(d.ok){ mesaj.className = 'mesaj ok'; mesaj.textContent = '✅ Siparişiniz alındı!'; SEPET = {}; render(); }
-    else { mesaj.className = 'mesaj err'; mesaj.textContent = '❌ ' + (d.mesaj || 'Sipariş alınamadı'); }
+    else if(hataKodunuBul(d.mesaj) === 'FIYAT_DEGISTI'){
+      const f = fiyatiGuncelle(d.mesaj);
+      render();
+      mesaj.className = 'mesaj err';
+      mesaj.textContent = f
+        ? `❌ ${f.ad} fiyatı değişti: ${f.eski} ₺ → ${f.yeni} ₺. Kontrol edip tekrar gönderin.`
+        : '❌ ' + hataMetni(d.mesaj);
+    }
+    else { mesaj.className = 'mesaj err'; mesaj.textContent = '❌ ' + hataMetni(d.mesaj, 'Sipariş alınamadı'); }
   }catch(e){ mesaj.className = 'mesaj err'; mesaj.textContent = '❌ Bağlantı hatası'; }
   btn.disabled = false;
 }

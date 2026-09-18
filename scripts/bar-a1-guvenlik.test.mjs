@@ -315,6 +315,19 @@ try {
     'E4 bekleyen DELTA olarak uygulandi: 30 + (-5) = 25 — aradaki +20 korundu, sayilan 5 USTUNE YAZILMADI', 'stok ' + stok('BIRA'));
   sonuc(!/2026-07-09/.test(tek(`select guncelleme_tarihi::text from public.stok where urun_kodu='BIRA' and depo_kodu='${BAR}';`)),
     'E5 sayim uygulamasi stok tarihini yazdi (3.5.1)');
+  // Eksik kaydedilmis oturum: 3 urun bildirildi, 1 detay var -> tek satir yazmadan durur.
+  O.sql(`insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum, toplam_urun_sayisi)
+           values ('99999999-0000-0000-0000-000000000002','${BAR}','810','Test','onay_bekliyor',3);
+         insert into public.sayim_detaylari (id, oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark) values
+           ('99999999-0000-0000-0000-0000000000c1','99999999-0000-0000-0000-000000000002','VISKI','Viski',3,9,6);`);
+  const e6 = q(K.DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000002');`);
+  sonuc(kod(e6) === 'SAYIM_EKSIK' && stok('VISKI') === '3.000'
+     && tek(`select durum from public.sayim_oturumlari where id='99999999-0000-0000-0000-000000000002';`) === 'onay_bekliyor',
+    'E6 eksik kaydedilmis sayim onaylanmaz (SAYIM_EKSIK); stok ve oturum degismedi', e6.out);
+  O.sql(`insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum)
+           values ('99999999-0000-0000-0000-000000000003','${BAR}','810','Test','onay_bekliyor');`);
+  sonuc(kod(q(K.DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000003');`)) === 'SAYIM_EKSIK',
+    'E6b detay satiri olmayan oturum onaylanmaz (SAYIM_EKSIK)');
 
   // ---------------- F) Guvenlik yuzeyi ----------------
   const anonAcik = tek(`select count(*) from pg_proc p where p.pronamespace='public'::regnamespace

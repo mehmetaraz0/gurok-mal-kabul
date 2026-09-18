@@ -10,6 +10,7 @@
 <script src="ortak-excel.js"></script>
 <script src="filtre.js"></script>
 <script src="stok-veri.js"></script>
+<script src="hata-kodlari.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Dornevi — Stok Takip</title>
@@ -283,6 +284,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     </div>
     <div id="sayim-onay-alani" style="display:none">
       <div id="sayim-onay-liste"></div>
+      <div id="sayim-bekleyen-liste" style="margin-top:12px"></div>
     </div>
   </div>
 
@@ -2404,6 +2406,57 @@ async function sayimOnayBekleyenleriYukle(){
   hideLoading();
   renderSayimOnayListesi();
   sayimOnayBekleyenSayisiGuncelle();
+  sayimBekleyenDuzeltmeleriYukle();
+}
+
+// ---- Bekleyen sayim duzeltmeleri (A1, O15) ----
+// Rezervasyonla celistigi icin UYGULANMAMIS eksi duzeltmeler. Uygula: o anki
+// stoga FARK eklenir (aradaki hareketler korunur). Yalniz stok_takip=tam.
+let _sayimBekleyenler=[], _sayimBekleyenHata='';
+async function sayimBekleyenDuzeltmeleriYukle(){
+  try{
+    const r=await SV.tumSayfalariCek('/rest/v1/stok_sayim_bekleyenleri?durum=eq.bekliyor&select=*&order=olusturma_zamani');
+    _sayimBekleyenler=r.satirlar; _sayimBekleyenHata='';
+  }catch(e){ _sayimBekleyenler=[]; _sayimBekleyenHata=(e&&e.message)||'okunamadı'; }
+  renderSayimBekleyenler();
+}
+function renderSayimBekleyenler(){
+  const c=document.getElementById('sayim-bekleyen-liste'); if(!c)return;
+  if(_sayimBekleyenHata){c.innerHTML='<div class="card" style="color:var(--danger)">⚠️ Bekleyen sayım düzeltmeleri okunamadı: '+escapeHtml(_sayimBekleyenHata)+'</div>';return;}
+  if(!_sayimBekleyenler.length){c.innerHTML='';return;}
+  const tam=YETKI_HARITASI['stok_takip']==='tam';
+  c.innerHTML='<div class="card-title" style="margin:4px 0 8px">⏳ Bekleyen sayım düzeltmeleri ('+_sayimBekleyenler.length+')</div>'
+    +_sayimBekleyenler.map(b=>`<div class="card">
+      <div style="font-weight:700;font-size:13px">${escapeHtml(depoAdi(b.depo_kodu))} — ${escapeHtml(b.urun_kodu)}</div>
+      <div style="font-size:12px;color:var(--gray-600);margin:4px 0">Sayılan ${b.sayilan_miktar} • onay anındaki stok ${b.onay_anindaki_stok} (ayrılmış ${b.onay_anindaki_rezerve}) • fark <b>${b.fark}</b><br>
+      ${new Date(b.olusturma_zamani).toLocaleString('tr-TR')} — uygulanırsa o anki stoğa fark eklenir.</div>
+      ${tam?`<div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" onclick="sayimBekleyenUygula('${jsAttrStr(b.id)}')">Uygula</button>
+      <button class="btn btn-secondary btn-sm" onclick="sayimBekleyenIptal('${jsAttrStr(b.id)}')">İptal</button></div>`
+      :'<div style="font-size:11px;color:var(--gray-500)">Uygulama/iptal için stok tam yetkisi gerekir.</div>'}
+    </div>`).join('');
+}
+async function sayimBekleyenRpc(fn,govde,basari){
+  showLoading();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:SB_HEADERS,body:JSON.stringify(govde)});
+    const metin=await r.text();
+    if(!r.ok) showToast('❌ '+hataMetni(metin),5000);
+    else { const d=JSON.parse(metin); showToast(basari(d)); if(aktifDepoId)await stokListesiYenile(); }
+  }catch(e){ showToast('❌ Bağlantı hatası'); }
+  hideLoading();
+  await sayimBekleyenDuzeltmeleriYukle();
+}
+function sayimBekleyenUygula(id){
+  const b=_sayimBekleyenler.find(x=>x.id===id); if(!b)return;
+  if(!confirm('Fark ('+b.fark+') ŞU ANKİ stoğa eklenecek. Sayımdan sonraki hareketler korunur. Devam?'))return;
+  return sayimBekleyenRpc('stok_sayim_bekleyen_uygula',{p_bekleyen_id:id},
+    d=>d.sonuc==='uygulandi'?'✅ Uygulandı: '+d.onceki_stok+' → '+d.yeni_stok:'ℹ️ Kayıt zaten '+String(d.sonuc).replace('zaten_',''));
+}
+function sayimBekleyenIptal(id){
+  const neden=prompt('İptal nedeni (zorunlu):',''); if(neden===null)return;
+  if(!neden.trim()){showToast('⚠️ İptal nedeni zorunlu');return;}
+  return sayimBekleyenRpc('stok_sayim_bekleyen_iptal',{p_bekleyen_id:id,p_neden:neden.trim()},
+    d=>d.sonuc==='iptal'?'✅ Bekleyen düzeltme iptal edildi':'ℹ️ Kayıt zaten '+String(d.sonuc).replace('zaten_',''));
 }
 
 async function sayimOnayBekleyenSayisiGuncelle(){
@@ -2509,89 +2562,34 @@ async function sayimOnayla(oturumId){
       showToast('❌ Onay başlatılmadı — bu oturumda detay satırı yok',4000);
       _sayimOnayIsleniyor=false;hideLoading();return;
     }
-    const hareketler=[];
-    const yazilanlar=[]; // {depoId,kod,urunAd,beklenen} — yazma sonrası doğrulanacak satırlar
-    const atlananUrunler=[]; // canlı GET başarısız olduğu için hiç işlenemeyen ürün adları
-    for(const d of detaylar){
-      // Bayat veri kontrolü: onay anındaki GÜNCEL sistem miktarını yeniden oku, oturumdaki donmuş değeri değil
-      const guncelR=await fetch(SB_URL+'/rest/v1/stok?depo_kodu=eq.'+encodeURIComponent(oturum.depo_kodu)+'&urun_kodu=eq.'+encodeURIComponent(d.urun_kodu)+'&select=miktar,guncelleme_tarihi',{headers:SB_HEADERS});
-      if(!guncelR.ok){
-        // Canlı okuma başarısız oldu — bunu "ürün stok tablosunda yok, miktar 0" ile
-        // ASLA karıştırma. Bu satırı tamamen atla ve onayı engelleyecek şekilde işaretle.
-        atlananUrunler.push(d.urun_adi);
-        continue;
-      }
-      const guncelD=await guncelR.json();
-      const guncelMiktar=guncelD.length?parseFloat(guncelD[0].miktar)||0:0;
-      const guncelFark=round2(parseFloat(d.sayilan_miktar)-guncelMiktar);
-      if(guncelFark===0)continue;
-      // Bellek içi önbelleği (db.stok) az önce okunan CANLI değerle senkronize et.
-      // Aksi halde giris()/cikis() bu farkı sayfa yüklemesinde donmuş kalan eski
-      // db.stok değeri üzerine uygular ve saveStok() bu yanlış sonucu (tam değer
-      // upsert olarak) Supabase'e yazıp canlı yeniden-okumanın tüm amacını boşa çıkarır.
-      if(!db.stok[oturum.depo_kodu])db.stok[oturum.depo_kodu]={};
-      db.stok[oturum.depo_kodu][d.urun_kodu]={lnKod:d.urun_kodu,urunAd:d.urun_adi,miktar:guncelMiktar,birim:d.birim,
-        sonGuncelleme:(guncelD.length?guncelD[0].guncelleme_tarihi:null)||null};
-      const h=guncelFark>0
-        ?giris(oturum.depo_kodu,d.urun_kodu,d.urun_adi,guncelFark,d.birim,'sayim',oturumId)
-        :cikis(oturum.depo_kodu,d.urun_kodu,d.urun_adi,Math.abs(guncelFark),d.birim,'sayim',d.aciklama||'Fiziksel sayım düzeltmesi');
-      hareketler.push(h);
-      yazilanlar.push({depoId:oturum.depo_kodu,kod:d.urun_kodu,urunAd:d.urun_adi,beklenen:parseFloat(d.sayilan_miktar)});
+    // A1 (T25, O14): onay TEK sunucu islemi. Her urunde fark, onay anindaki
+    // GUNCEL stoga delta olarak eklenir; rezervasyonla celisen eksi duzeltme
+    // uygulanmaz, gozlem saklanir ve "bekleyen" olur. Istemci stoga yazmaz.
+    const r=await fetch(SB_URL+'/rest/v1/rpc/stok_sayim_onayla',{method:'POST',headers:SB_HEADERS,
+      body:JSON.stringify({p_oturum_id:oturumId})});
+    const metin=await r.text();
+    if(!r.ok){
+      showToast('❌ Onay yapılmadı — '+hataMetni(metin),5000);
+      _sayimOnayIsleniyor=false;hideLoading();return;
     }
-    if(hareketler.length){
-      await saveStok(hareketler);
-      for(const h of hareketler)await saveHareket(h);
-    }
-    if(yazilanlar.length){
-      // Bu çağrıda en az bir satır yazıldı — genel onay bloklansa bile (başka bir satır
-      // atlandı/doğrulanamadı) bunu kalıcı olarak işaretle, böylece sayimReddet bu oturumu
-      // artık "stok değişmedi" diyerek reddedemez. Tam başarılı onayda da zararsız: durum
-      // hemen 'onaylandi'ya geçtiği için kismi_uygulandi bir daha kontrol edilmez.
-      // Bu PATCH'in HTTP düzeyinde başarısı response.ok ile kontrol edilir (sadece throw
-      // yeterli değil — 5xx/izin hatası gibi durumlar normal şekilde ok:false ile döner).
-      // Başarısız olursa kısa bir gecikmeyle bir kez daha denenir. İkinci deneme de
-      // başarısız olursa: bu kod tabanında hiçbir yerde veritabanı transaction'ı
-      // kullanılmadığından tutarlılığı garanti etmenin bir yolu yoktur — tek telafi edici
-      // kontrol, cost_control kullanıcısını engelleyici/yüksek sesli bir alert() ile uyarıp
-      // bu oturumu reddetmemesini istemektir.
-      let kismiPatchOk=false;
-      for(let deneme=0;deneme<2 && !kismiPatchOk;deneme++){
-        if(deneme>0)await new Promise(r=>setTimeout(r,500));
-        try{
-          const kismiPatchR=await fetch(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({kismi_uygulandi:true})});
-          kismiPatchOk=kismiPatchR.ok;
-          if(!kismiPatchOk)console.warn('kismi_uygulandi işaretlenemedi (HTTP '+kismiPatchR.status+', deneme '+(deneme+1)+')');
-        }catch(e){
-          console.warn('kismi_uygulandi işaretlenemedi (deneme '+(deneme+1)+')',e);
-        }
-      }
-      if(!kismiPatchOk){
-        alert('⚠️ DİKKAT: Bu sayımda bazı ürünlerin stoğu güncellendi, ancak sistem bunu güvenlik bayrağıyla (kismi_uygulandi) işaretleyemedi. BU OTURUMU HİÇBİR ŞEKİLDE REDDETMEYİN — stok zaten değişmiş olabilir ve reddetme "stok değişmedi" gibi yanlış bir mesaj gösterecektir. Lütfen "Onayla" işlemini tekrar deneyin (tekrar denemek güvenlidir) veya bir yöneticiyle iletişime geçin.');
-      }
-    }
-    // saveStok/saveHareket hatayı içeride yutuyor (catch(e){console.warn(e)}, rethrow yok)
-    // — bu yüzden PATCH'ten önce her yazılan satırın gerçekten kalıcı olduğunu canlı bir
-    // GET ile doğrula. Doğrulanamayan ya da hiç denenmemiş (atlanan) satır varsa onaylama.
-    const dogrulanamayanUrunler=[];
-    for(const y of yazilanlar){
-      const dogR=await fetch(SB_URL+'/rest/v1/stok?depo_kodu=eq.'+encodeURIComponent(y.depoId)+'&urun_kodu=eq.'+encodeURIComponent(y.kod)+'&select=miktar',{headers:SB_HEADERS});
-      if(!dogR.ok){dogrulanamayanUrunler.push(y.urunAd);continue;}
-      const dogD=await dogR.json();
-      const yazilanMiktar=dogD.length?parseFloat(dogD[0].miktar)||0:0;
-      if(round2(yazilanMiktar)!==round2(y.beklenen))dogrulanamayanUrunler.push(y.urunAd);
-    }
-    if(atlananUrunler.length||dogrulanamayanUrunler.length){
-      const basarisizListesi=[...new Set([...atlananUrunler,...dogrulanamayanUrunler])].join(', ');
-      showToast(`❌ Onay tamamlanamadı — doğrulanamayan ürünler: ${basarisizListesi}. Tekrar deneyin.`,4000);
+    const sonuc=JSON.parse(metin);
+    closeModal('modal-sayim-detay');
+    if(sonuc.sonuc==='zaten_onaylandi'){
+      showToast('ℹ️ Bu sayım zaten onaylanmış');
+    }else if(sonuc.kismi){
+      // Kismi uygulama ACIKCA gosterilir (kullanici karari 3).
+      const bekleyenler=(sonuc.kalemler||[]).filter(k=>k.durum==='bekliyor');
+      alert('⚠️ SAYIM KISMEN UYGULANDI\n\n'
+        +sonuc.uygulanan+' üründe stok düzeltildi, '+sonuc.fark_yok+' üründe fark yok.\n'
+        +sonuc.bekleyen+' üründe düzeltme BEKLİYOR (bar siparişlerine ayrılmış stokla çelişiyor):\n\n'
+        +bekleyenler.map(k=>'• '+k.urun_kodu+': sayılan '+k.sayilan+', onay anındaki stok '+k.onay_anindaki_stok+', fark '+k.fark).join('\n')
+        +'\n\nBekleyen düzeltmeler "Bekleyen sayım düzeltmeleri" listesinden uygulanır ya da iptal edilir. '
+        +'Uygulandığında o anki stoğa FARK eklenir; sayılan miktar doğrudan yazılmaz.');
     }else{
-      await sbYaz(SB_URL+'/rest/v1/sayim_oturumlari?id=eq.'+oturumId,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify({
-        durum:'onaylandi',onaylayan_ad:currentUser?.ad||'—',onay_tarihi:new Date().toISOString()
-      })});
-      showToast(`✅ Sayım onaylandı — ${hareketler.length} üründe stok güncellendi`);
-      closeModal('modal-sayim-detay');
-      if(aktifDepoId)renderStok();
-      await sayimOnayBekleyenleriYukle();
+      showToast('✅ Sayım onaylandı — '+sonuc.uygulanan+' üründe stok güncellendi');
     }
+    if(aktifDepoId)await stokListesiYenile();
+    await sayimOnayBekleyenleriYukle();
   }catch(e){
     console.warn(e);
     showToast('❌ Onaylama başarısız, tekrar deneyin');

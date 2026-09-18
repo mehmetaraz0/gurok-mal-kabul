@@ -35,6 +35,19 @@ const ESKI = '2026-07-09 07:23:10+00';
 const BAR810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-000000000810' };
 const DEPO810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000cc' };
 
+// Eski fonksiyonlarin govde + ayar + ETKIN yetki izi (A1 oncesi / geri alma sonrasi karsilastirmasi).
+const IZ_SORGUSU = `select string_agg(p.oid::regprocedure::text || ' ' || md5(p.prosrc) || ' '
+    || coalesce(array_to_string(p.proconfig, ';'), '-') || ' '
+    || coalesce((select string_agg(coalesce(nullif(a.grantee, 0)::regrole::text, 'PUBLIC') || ':' || a.privilege_type, ','
+                                   order by 1)
+                   from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a), '-'),
+    E'\\n' order by p.oid::regprocedure::text)
+  from pg_proc p where p.pronamespace = 'public'::regnamespace
+   and p.oid::regprocedure::text in ('bar_siparis_olustur(text,text,text,text,jsonb)',
+     'bar_siparis_durum_guncelle(uuid,bar_durum)', 'bar_siparis_teslim_et(uuid)', 'bar_siparis_iptal(uuid)',
+     'pms_bar_folio_koprusu()', 'pms_bar_durum_kilit()', 'stok_ekle(text,text,text,numeric)',
+     'stok_transfer(text,text,text,text,numeric)');`;
+
 let ok = 0, fail = 0;
 const sonuc = (g, ad, ek) => { console.log((g ? 'OK   ' : 'FAIL ') + ad + (ek ? ' — ' + ek : '')); if (g) ok++; else fail++; };
 
@@ -60,6 +73,7 @@ async function main() {
   const O = barOrtami({ ad: 'bar-sira' });
   try {
     await O.kur();
+    const izOnce = O.sql(IZ_SORGUSU).out;
     const u = O.uygulaTekIslem(A1);
     sonuc(u.ok, '1a A1 migration tarih duzeltmeli tabana tek islemde uygulandi', u.ok ? '' : u.err.slice(-300));
     const t = tarihSeti(O);
@@ -97,6 +111,10 @@ async function main() {
                         where pronamespace='public'::regnamespace and proname in ('stok_ekle','stok_transfer');`).out;
     sonuc(govde === 'true' && md5 === '43ec3cfcd28b9a8cb9e5d8b3ed03b47d,8dd27c19ac2da9629a53dae9861766ba',
       '4b geri alma sonrasi stok govdeleri A1-ONCESI uretim haliyle BIREBIR ayni (md5) ve tarih duzeltmesini tasiyor', md5);
+    const izSonra = O.sql(IZ_SORGUSU).out;
+    sonuc(izSonra === izOnce && (izOnce.match(/\n/g) || []).length === 7,
+      '4b2 geri alma sonrasi 8 fonksiyonun govdesi, search_path ayari ve ETKIN yetkileri A1 oncesiyle BIREBIR ayni',
+      izSonra === izOnce ? '' : 'ONCE:\n' + izOnce + '\nSONRA:\n' + izSonra);
     const t2 = tarihSeti(O);
     sonuc(t2.ekle.ok && t2.ekle.bar === 'true' && t2.transfer.bar === 'true' && t2.transfer.merkez === 'true',
       '4c geri alma sonrasi tarih duzeltmesi DAVRANIS olarak calisiyor (ekle + transferin iki bacagi)');
@@ -165,6 +183,20 @@ async function main() {
     sonuc(g.ok && t.ekle.bar === 'false',
       'N3 NEGATIF KONTROL: geri alma duzeltmesiz govdeleri yazinca tarih kayboluyor ve test bunu goruyor', g.ok ? '' : g.err.slice(-200));
   } catch (e) { sonuc(false, 'beklenmeyen hata (N3)', e.stack || e.message); } finally { N3.temizle(); }
+  // ---------------- N4: geri alma bir yetkiyi farkli birakirsa ----------------
+  const N4 = barOrtami({ ad: 'bar-sira-n4' });
+  try {
+    await N4.kur();
+    const izOnce = N4.sql(IZ_SORGUSU).out;
+    N4.uygulaTekIslem(A1);
+    const geri = readFileSync(kok + GERI, 'utf8');
+    const isaret = '-- 4) STOK RPC';
+    if (!geri.includes(isaret)) throw new Error('N4 bozma kurulamadi');
+    const bozuk = geri.replace(isaret, 'grant execute on function public.bar_siparis_iptal(uuid) to anon;\n' + isaret);
+    const g = N4.uygulaTekIslem(bozuk, { metin: true });
+    sonuc(g.ok && N4.sql(IZ_SORGUSU).out !== izOnce,
+      'N4 NEGATIF KONTROL: geri alma anon a fazladan yetki birakirsa 4b2 karsilastirmasi farki goruyor', g.ok ? '' : g.err.slice(-200));
+  } catch (e) { sonuc(false, 'beklenmeyen hata (N4)', e.stack || e.message); } finally { N4.temizle(); }
 }
 
 await main();

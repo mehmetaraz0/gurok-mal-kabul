@@ -8,6 +8,7 @@
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
 <script src="bar-config.js"></script>
+<script src="hata-kodlari.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dornevi — Garson Sipariş</title>
@@ -65,6 +66,18 @@ html,body{min-height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI
     <input id="odaNo" placeholder="Oda numarası (ücretli ürün için zorunlu)">
   </div>
   <button class="gonder" id="gonderBtn" onclick="gonder()">Sipariş Ver</button>
+</div>
+
+<!-- A1 (T23): ucretli sipariste personelin ACIK dogrulamasi; siparis girmek dogrulama sayilmaz. -->
+<div class="sepet" id="dogrulamaPanel" style="display:none;background:#fff8e1;border-top:2px solid #f0ad4e">
+  <div style="font-size:13px;font-weight:700;margin-bottom:6px">Oda doğrulaması — <span id="dogrulamaOda"></span></div>
+  <div style="font-size:12px;color:#555;margin-bottom:8px">Ücretli sipariş, oda doğrulanmadan hazırlanamaz ve teslim edilemez.</div>
+  <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:8px">
+    <input type="checkbox" id="dogrulamaBeyan" onchange="document.getElementById('dogrulaBtn').disabled=!this.checked">
+    Misafirin oda kartını/kimliğini kontrol ettim
+  </label>
+  <button class="gonder" id="dogrulaBtn" disabled onclick="odaDogrula()">Doğrula</button>
+  <button class="gonder" style="background:#888;margin-top:6px" onclick="dogrulamaKapat()">Sonra (kuyrukta doğrulanacak)</button>
 </div>
 
 <div id="toast"></div>
@@ -158,18 +171,53 @@ function odaAlaniGuncelle(){ document.getElementById('odaAlani').style.display=u
 async function gonder(){
   if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
   if(!seciliMasa){ toast('⚠️ Masa seçin'); return; }
-  const kalemler=Object.entries(SEPET).map(([menu_urun_id,v])=>({menu_urun_id,adet:v.adet}));
+  // Ucretli kalemde personelin GORDUGU fiyat gonderilir (A1, tasarim 3.1).
+  const kalemler=Object.entries(SEPET).map(([menu_urun_id,v])=>{
+    const u=MENU.find(x=>x.id===menu_urun_id); const k={menu_urun_id,adet:v.adet};
+    if(u&&u.ucretli) k.gosterilen_fiyat=Number(u.fiyat);
+    return k;
+  });
   if(!kalemler.length){ toast('Sepet boş'); return; }
   const odaNo=document.getElementById('odaNo').value.trim();
-  if(ucretliVar()&&!odaNo){ toast('⚠️ Ücretli ürün için oda no zorunlu'); return; }
+  const ucretli=ucretliVar();
+  if(ucretli&&!odaNo){ toast('⚠️ Ücretli ürün için oda no zorunlu'); return; }
   const btn=document.getElementById('gonderBtn'); btn.disabled=true; sLD();
   try{
     const r=await fetch(SB_URL+'/rest/v1/rpc/bar_siparis_olustur',{method:'POST',headers:JH(),
-      body:JSON.stringify({p_otel_id:seciliMasa.otel_id,p_depo_id:seciliMasa.depo_id,p_masa_token:seciliMasa.masa_adi,p_oda_no:ucretliVar()?odaNo:null,p_kalemler:kalemler})});
+      body:JSON.stringify({p_otel_id:seciliMasa.otel_id,p_depo_id:seciliMasa.depo_id,p_masa_token:seciliMasa.masa_adi,p_oda_no:ucretli?odaNo:null,p_kalemler:kalemler})});
     hLD(); btn.disabled=false;
-    if(!r.ok){ const t=await r.text(); toast('❌ '+t.slice(0,120)); return; }
+    if(!r.ok){
+      const t=await r.text();
+      if(hataKodunuBul(t)==='FIYAT_DEGISTI'){ toast('❌ '+hataMetni(t)); await masaDegisti(); return; }
+      toast('❌ '+hataMetni(t)); return;
+    }
+    const siparisId=await r.json();
     toast('✅ Sipariş gönderildi'); SEPET={}; document.getElementById('odaNo').value=''; render();
+    // Siparisi girmek dogrulama DEGILDIR: ucretli sipariste ayri, acik adim.
+    if(ucretli) dogrulamaAc(siparisId, odaNo);
   }catch(e){ hLD(); btn.disabled=false; toast('❌ Bağlantı hatası'); }
+}
+
+let _dogrulanacak=null;
+function dogrulamaAc(siparisId, odaNo){
+  _dogrulanacak=siparisId;
+  document.getElementById('dogrulamaOda').textContent='Oda '+odaNo;
+  document.getElementById('dogrulamaBeyan').checked=false;
+  document.getElementById('dogrulaBtn').disabled=true;
+  document.getElementById('dogrulamaPanel').style.display='';
+}
+function dogrulamaKapat(){ _dogrulanacak=null; document.getElementById('dogrulamaPanel').style.display='none'; }
+async function odaDogrula(){
+  if(!_dogrulanacak) return;
+  const beyan=document.getElementById('dogrulamaBeyan').checked;
+  sLD();
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/bar_siparis_oda_dogrula',{method:'POST',headers:JH(),
+      body:JSON.stringify({p_siparis_id:_dogrulanacak,p_beyan:beyan})});
+    hLD();
+    if(!r.ok){ toast('❌ '+hataMetni(await r.text())); return; }
+    toast('✅ Oda doğrulandı — sipariş hazırlanabilir'); dogrulamaKapat();
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); }
 }
 
 (async function(){

@@ -499,7 +499,10 @@ begin
       v_ucretli_var := true;
       v_gosterilen := nullif(v_kalem ->> 'gosterilen_fiyat', '')::numeric;
       if v_gosterilen is null or v_gosterilen <> coalesce(v_menu.fiyat, 0) then
-        raise exception 'FIYAT_DEGISTI: % icin guncel fiyat %', v_menu.ad, coalesce(v_menu.fiyat, 0);
+        -- Urun kimligi ve guncel fiyat mesajdadir: musteri menusu (musteri projesindeki
+        -- kopya) henuz yeniden yayinlanmadiysa istemci fiyati buradan gunceller ve
+        -- musteriye YENI fiyati gosterip yeniden onaylatir (sonsuz ret dongusu olmaz).
+        raise exception 'FIYAT_DEGISTI: % icin guncel fiyat % [urun %]', v_menu.ad, coalesce(v_menu.fiyat, 0), v_menu.id;
       end if;
     end if;
   end loop;
@@ -1118,6 +1121,16 @@ begin
   end if;
   if v_o.durum <> 'onay_bekliyor' then
     raise exception 'GECERSIZ_DURUM: % durumundaki sayim onaylanamaz', v_o.durum;
+  end if;
+  -- Eksiksizlik kapisi (istemcideki 2026-09-15 kapisinin sunucu karsiligi):
+  -- oturum eksik kaydedildiyse tek satir yazmadan dur.
+  -- toplam_urun_sayisi varsayilani 0 (eski kayitlar): istemci kapisi gibi yalniz > 0 ise
+  -- karsilastirilir. Hic detay satiri olmayan oturum da onaylanmaz.
+  if not exists (select 1 from public.sayim_detaylari where oturum_id = v_o.id)
+     or (coalesce(v_o.toplam_urun_sayisi, 0) > 0
+         and v_o.toplam_urun_sayisi <> (select count(*) from public.sayim_detaylari where oturum_id = v_o.id)) then
+    raise exception 'SAYIM_EKSIK: oturumda % urun bekleniyor, % detay satiri var; sayim yeniden kaydedilmeli',
+      v_o.toplam_urun_sayisi, (select count(*) from public.sayim_detaylari where oturum_id = v_o.id);
   end if;
   v_otel := split_part(v_o.depo_kodu, '_', 1)::public.otel_id;
   v_belge := 'SAYIM-' || left(v_o.id::text, 8);

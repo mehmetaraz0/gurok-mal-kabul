@@ -24,7 +24,14 @@ export function dokumFonksiyonu(ad, imzaBasi = '') {
 }
 function dokumYetkileri(ad) {
   return dokum.split('\n').map((l) => l.replace(/\r$/, ''))
-    .filter((l) => new RegExp(`^(GRANT|REVOKE) ALL ON FUNCTION public\\.${ad}\\(`).test(l)).join('\n');
+    .filter((l) => new RegExp(`^(GRANT|REVOKE) ALL ON FUNCTION public\\.${ad}\\(`).test(l))
+    // Standart bicim (migration-guvenlik-kontrol R4/R9); ETKIN yetki ayni kalir:
+    //  * fonksiyonda tek hak EXECUTE'tur -> GRANT ALL == GRANT EXECUTE
+    //  * dokumde anon'a GRANT yok -> anon'dan REVOKE A1 oncesi hali degistirmez
+    // Sira testi geri alma sonrasi ACL'yi A1 oncesiyle birebir karsilastirir.
+    .map((l) => l.replace(/^GRANT ALL ON FUNCTION/, 'GRANT EXECUTE ON FUNCTION')
+                 .replace(/^(REVOKE ALL ON FUNCTION .*) FROM PUBLIC;$/, '$1 FROM PUBLIC, anon;'))
+    .join('\n');
 }
 
 // A1 oncesi stok govdeleri: tarih duzeltmesi migration'inin fonksiyon bolumu.
@@ -52,7 +59,10 @@ const ESKI = [
 export function uret() {
   const eskiler = ESKI.map(([ad, imza]) => {
     const yetki = dokumYetkileri(ad);
-    return dokumFonksiyonu(ad, imza || '') + (yetki ? '\n\n' + yetki : '');
+    // 'SET search_path TO' ile '=' ayni ayardir (proconfig); '=' denetleyicinin
+    // tanidigi bicimdir. Govde (prosrc) degismez.
+    const tanim = dokumFonksiyonu(ad, imza || '').replace(/^    SET search_path TO /m, '    SET search_path = ');
+    return tanim + (yetki ? '\n\n' + yetki : '');
   }).join('\n\n');
 
   return `-- ============================================================================

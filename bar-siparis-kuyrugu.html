@@ -8,6 +8,7 @@
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
 <script src="bar-config.js"></script>
+<script src="hata-kodlari.js"></script>
 <link rel="stylesheet" href="theme.css">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Dornevi — Bar Sipariş Kuyruğu</title>
@@ -58,10 +59,26 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
     <button class="ftab" onclick="filtrele('yeni',this)">🔴 Yeni</button>
     <button class="ftab" onclick="filtrele('hazirlaniyor',this)">👨‍🍳 Hazırlanıyor</button>
     <button class="ftab" onclick="filtrele('hazir',this)">🔔 Hazır</button>
+    <button class="ftab" onclick="filtrele('istisna_bekliyor',this)">⚠️ İstisna</button>
     <button class="ftab" onclick="filtrele('teslim_edildi',this)">✅ Teslim</button>
     <button class="ftab" onclick="filtrele('iptal',this)">✕ İptal</button>
   </div>
   <div class="sc" id="liste"></div>
+</div>
+
+<!-- A1 (T24, O11): hazirlanan siparisin iptalinde her bilesen icin kullanilan miktar + neden. -->
+<div id="iptalForm" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:16px;max-width:420px;width:92%;max-height:85vh;overflow:auto">
+    <div style="font-weight:700;margin-bottom:6px">Hazırlanan siparişi iptal et</div>
+    <div style="font-size:12px;color:#555;margin-bottom:10px">Her bileşen için gerçekte kullanılan miktarı girin (kullanılmadıysa 0). Kullanılan miktar stoktan düşer ve "iptal kullanımı" olarak kaydedilir — otomatik zayi yazılmaz.</div>
+    <label style="font-size:12px;font-weight:600">İptal nedeni</label>
+    <input id="iptalNeden" style="width:100%;padding:8px;margin:4px 0 10px;border:1px solid #ccc;border-radius:6px">
+    <div id="iptalBilesenler"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-secondary" style="flex:1" onclick="iptalFormKapat()">Vazgeç</button>
+      <button class="btn btn-danger" style="flex:1" onclick="iptalFormGonder()">İptal et</button>
+    </div>
+  </div>
 </div>
 <div id="toast"></div>
 <div id="ld"><div class="sp"></div><div style="font-size:13px">Yükleniyor...</div></div>
@@ -81,11 +98,14 @@ function zamanKisa(iso){
 
 async function yukle(){
   try{
-    const r=await fetch(SB_URL+'/rest/v1/bar_siparisleri?select=*,bar_siparis_kalemleri(adet,menu_urunler(ad))&order=olusturma_zamani.desc',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/bar_siparisleri?select=*,bar_siparis_kalemleri(id,adet,menu_urunler(ad))&order=olusturma_zamani.desc',{headers:SB_HEADERS});
     if(r.ok) SIPARISLER=await r.json();
   }catch(e){}
   render();
 }
+
+const DURUM_AD={yeni:'yeni',hazirlaniyor:'hazırlanıyor',hazir:'hazır',teslim_edildi:'teslim edildi',iptal:'iptal',
+  istisna_bekliyor:'istisna — ön büro çözümü bekliyor'};
 
 function filtrele(f,btn){
   aktifFilter=f;
@@ -97,30 +117,40 @@ function filtrele(f,btn){
 function render(){
   const el=document.getElementById('liste');
   let liste=SIPARISLER;
-  if(aktifFilter==='aktif') liste=SIPARISLER.filter(s=>['yeni','hazirlaniyor','hazir'].includes(s.durum));
+  if(aktifFilter==='aktif') liste=SIPARISLER.filter(s=>['yeni','hazirlaniyor','hazir','istisna_bekliyor'].includes(s.durum));
   else liste=SIPARISLER.filter(s=>s.durum===aktifFilter);
   if(!liste.length){ el.innerHTML='<div class="es"><div class="ei">🍸</div><div class="et">Bu filtrede sipariş yok</div></div>'; return; }
   const yzb=yazabilir();
   el.innerHTML=liste.map(s=>{
     const kalemler=(s.bar_siparis_kalemleri||[]).map(k=>`<div class="kalem">• ${escapeHtml((k.menu_urunler&&k.menu_urunler.ad)||'—')} × ${k.adet}</div>`).join('');
     const odaSatiri=s.oda_no?`<div class="oda">🏨 Oda: ${escapeHtml(s.oda_no)} (ücretli)</div>`:'';
+    const dogrulama=s.oda_dogrulama_durumu==='bekliyor'
+      ?'<div class="oda" style="color:#9b1c1c;font-weight:700">🔒 Oda doğrulaması bekliyor — hazırlanamaz</div>'
+      :(s.oda_dogrulama_durumu==='dogrulandi'?'<div class="oda" style="color:#155724">✔ Oda doğrulandı</div>':'');
     return `<div class="skart ${s.durum}">
       <div class="skart-ust">
         <span class="skart-masa">${escapeHtml(s.masa_token||'—')}</span>
-        <span class="chip chip-${s.durum}">${s.durum}</span>
+        <span class="chip chip-${s.durum}">${escapeHtml(DURUM_AD[s.durum]||s.durum)}</span>
       </div>
       <div class="skart-zaman">${zamanKisa(s.olusturma_zamani)}</div>
       ${kalemler}
       ${odaSatiri}
+      ${dogrulama}
       ${aksiyonButonlari(s, yzb)}
     </div>`;
   }).join('');
 }
 
 function aksiyonButonlari(s, yzb){
-  if(s.durum==='teslim_edildi'||s.durum==='iptal') return '';
+  // Son durumlar ve istisna (cozumu on buroda) icin kuyrukta aksiyon yok.
+  if(['teslim_edildi','iptal','istisna_bekliyor'].includes(s.durum)) return '';
   const dis = yzb?'':'disabled';
   let b='<div class="brow">';
+  if(s.oda_dogrulama_durumu==='bekliyor'){
+    b+=`<button class="btn btn-primary" ${dis} onclick="odaDogrula('${s.id}')">Doğrula</button>`;
+    b+=`<button class="btn btn-danger" ${dis} onclick="odaReddet('${s.id}')">Reddet</button>`;
+    return b+'</div>';
+  }
   if(s.durum==='yeni') b+=`<button class="btn btn-primary" ${dis} onclick="durumGuncelle('${s.id}','hazirlaniyor')">Hazırlanıyor</button>`;
   if(s.durum==='hazirlaniyor') b+=`<button class="btn btn-info" ${dis} onclick="durumGuncelle('${s.id}','hazir')">Hazır</button>`;
   if(s.durum==='hazir') b+=`<button class="btn btn-success" ${dis} onclick="teslimEt('${s.id}')">Teslim Et</button>`;
@@ -129,37 +159,119 @@ function aksiyonButonlari(s, yzb){
   return b;
 }
 
-async function rpcCagir(fonksiyon, govde){
+// Donus: { ok, veri, metin } — hata metni kodla Turkceye cevrilir.
+async function rpcCagir(fonksiyon, govde, {sessiz=false}={}){
   sLD();
   try{
     const r=await fetch(SB_URL+'/rest/v1/rpc/'+fonksiyon,{
       method:'POST', headers:SB_HEADERS, body:JSON.stringify(govde)
     });
-    if(!r.ok){ const t=await r.text(); toast('❌ '+(t.slice(0,120))); hLD(); return false; }
-    hLD(); return true;
-  }catch(e){ toast('❌ Bağlantı hatası'); hLD(); return false; }
+    const metin=await r.text();
+    hLD();
+    if(!r.ok){ if(!sessiz) toast('❌ '+hataMetni(metin)); return {ok:false, metin}; }
+    let veri=null; try{ veri=JSON.parse(metin); }catch(e){}
+    return {ok:true, veri, metin};
+  }catch(e){ toast('❌ Bağlantı hatası'); hLD(); return {ok:false, metin:''}; }
 }
 
 async function durumGuncelle(id, durum){
   if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
-  if(await rpcCagir('bar_siparis_durum_guncelle', {p_siparis_id:id, p_durum:durum})){
-    toast('✅ '+durum); await yukle();
+  if((await rpcCagir('bar_siparis_durum_guncelle', {p_siparis_id:id, p_durum:durum})).ok){
+    toast('✅ '+(DURUM_AD[durum]||durum)); await yukle();
+  }
+}
+
+// A1 (T23): personelin ACIK beyani; dogrulayan sunucuda kaydedilir.
+async function odaDogrula(id){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  const s=SIPARISLER.find(x=>x.id===id);
+  const beyan=confirm('Oda '+((s&&s.oda_no)||'')+': Misafirin oda kartını/kimliğini kontrol ettim.\n\nOnaylıyor musunuz?');
+  if(!beyan) return;
+  if((await rpcCagir('bar_siparis_oda_dogrula', {p_siparis_id:id, p_beyan:true})).ok){
+    toast('✅ Oda doğrulandı'); await yukle();
+  }
+}
+
+async function odaReddet(id){
+  if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
+  const neden=prompt('Ret nedeni (zorunlu):','');
+  if(neden===null) return;
+  if(!neden.trim()){ toast('⚠️ Ret nedeni zorunlu'); return; }
+  if((await rpcCagir('bar_siparis_oda_reddet', {p_siparis_id:id, p_neden:neden.trim()})).ok){
+    toast('✅ Sipariş reddedildi'); await yukle();
   }
 }
 
 async function teslimEt(id){
   if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
-  if(await rpcCagir('bar_siparis_teslim_et', {p_siparis_id:id})){
-    toast('✅ Teslim edildi — stok düşüldü'); await yukle();
-  }
+  const r=await rpcCagir('bar_siparis_teslim_et', {p_siparis_id:id}, {sessiz:true});
+  if(r.ok){ toast(r.veri&&r.veri.sonuc==='zaten_teslim'?'ℹ️ Zaten teslim edilmiş':'✅ Teslim edildi — stok düşüldü'); await yukle(); return; }
+  if(hataKodunuBul(r.metin)!=='FOLYO_KAPALI'){ toast('❌ '+hataMetni(r.metin)); return; }
+  // A1 (T24): kapali folyo — yalniz YETKILI personel "servis edildi" istisnasi acar.
+  const beyan=confirm('Misafirin folyosu KAPALI.\n\nÜrün misafire fiziksel olarak SERVİS EDİLDİ mi?\n\n'
+    +'Evet derseniz stok düşer, borç YAZILMAZ ve ön büro çözene kadar sipariş "istisna" olarak bekler. '
+    +'Bu işlemi yalnız yetkili personel yapabilir.');
+  if(!beyan) return;
+  const r2=await rpcCagir('bar_siparis_teslim_et', {p_siparis_id:id, p_fiziksel_servis_beyani:true});
+  if(r2.ok){ toast('⚠️ İstisna açıldı — ön büro çözümü bekleniyor'); await yukle(); }
 }
 
+// ---- Iptal (A1 — T24, O11) ----
+let _iptalSiparis=null, _iptalRezler=[];
 async function iptalEt(id){
   if(!yazabilir()){ toast('⚠️ Yetkiniz yok'); return; }
-  if(!confirm('Bu siparişi iptal et? Rezerve edilen stok serbest bırakılacak.')) return;
-  if(await rpcCagir('bar_siparis_iptal', {p_siparis_id:id})){
-    toast('✅ İptal edildi'); await yukle();
+  const s=SIPARISLER.find(x=>x.id===id); if(!s) return;
+  if(s.durum==='yeni'){
+    const neden=prompt('İptal nedeni (zorunlu). Hazırlanmamış sipariş: ayrılan stok serbest bırakılır.','');
+    if(neden===null) return;
+    if(!neden.trim()){ toast('⚠️ İptal nedeni zorunlu'); return; }
+    if((await rpcCagir('bar_siparis_iptal', {p_siparis_id:id, p_neden:neden.trim()})).ok){ toast('✅ İptal edildi'); await yukle(); }
+    return;
   }
+  // hazirlaniyor / hazir: siparisin aktif rezervasyonlari (bilesenler) okunur.
+  const kalemIdler=(s.bar_siparis_kalemleri||[]).map(k=>k.id).filter(Boolean);
+  _iptalRezler=[];
+  if(kalemIdler.length){
+    try{
+      const r=await fetch(SB_URL+'/rest/v1/stok_rezervasyonlari?select=id,stok_kodu,miktar&durum=eq.aktif&siparis_kalem_id=in.('
+        +kalemIdler.map(encodeURIComponent).join(',')+')&order=stok_kodu',{headers:SB_HEADERS});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      _iptalRezler=await r.json();
+    }catch(e){ toast('❌ Bileşenler okunamadı — iptal başlatılmadı'); return; }
+  }
+  _iptalSiparis=id;
+  document.getElementById('iptalNeden').value='';
+  document.getElementById('iptalBilesenler').innerHTML=_iptalRezler.length?_iptalRezler.map((z,i)=>`
+    <div style="border:1px solid #eee;border-radius:8px;padding:8px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:600">${escapeHtml(z.stok_kodu)} — ayrılan ${z.miktar}</div>
+      <input type="number" step="any" min="0" max="${z.miktar}" id="kul-${i}" placeholder="Kullanılan (0 ise yok)" style="width:100%;padding:6px;margin:4px 0;border:1px solid #ccc;border-radius:6px">
+      <select id="ned-${i}" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:6px">
+        <option value="">— kullanım nedeni (kullanıldıysa zorunlu) —</option>
+        <option value="hazirlandi_servis_edilmedi">Hazırlandı, servis edilmedi</option>
+        <option value="dokuldu_kirildi">Döküldü / kırıldı</option>
+        <option value="misafir_iade">Misafir iade etti</option>
+        <option value="diger">Diğer (açıklama zorunlu)</option>
+      </select>
+      <input id="ack-${i}" placeholder="Açıklama" style="width:100%;padding:6px;margin-top:4px;border:1px solid #ccc;border-radius:6px">
+    </div>`).join(''):'<div style="font-size:12px;color:#555">Stok ayrılmış bileşen yok.</div>';
+  document.getElementById('iptalForm').style.display='flex';
+}
+function iptalFormKapat(){ _iptalSiparis=null; document.getElementById('iptalForm').style.display='none'; }
+async function iptalFormGonder(){
+  const neden=document.getElementById('iptalNeden').value.trim();
+  if(!neden){ toast('⚠️ İptal nedeni zorunlu'); return; }
+  const kullanilanlar=[];
+  for(let i=0;i<_iptalRezler.length;i++){
+    const ham=document.getElementById('kul-'+i).value;
+    if(ham===''){ toast('⚠️ Her bileşen için kullanılan miktarı girin (kullanılmadıysa 0)'); return; }
+    const k={rezervasyon_id:_iptalRezler[i].id, kullanilan_miktar:Number(ham)};
+    const n=document.getElementById('ned-'+i).value, a=document.getElementById('ack-'+i).value.trim();
+    if(n) k.kullanim_nedeni=n;
+    if(a) k.aciklama=a;
+    kullanilanlar.push(k);
+  }
+  const r=await rpcCagir('bar_siparis_iptal', {p_siparis_id:_iptalSiparis, p_neden:neden, p_kullanilanlar:kullanilanlar});
+  if(r.ok){ iptalFormKapat(); toast('✅ İptal edildi'+(r.veri&&r.veri.kullanilan_toplam>0?' — kullanılan '+r.veri.kullanilan_toplam+' stoktan düştü':'')); await yukle(); }
 }
 
 async function menuYayinla(){
