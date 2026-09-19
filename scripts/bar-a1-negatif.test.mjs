@@ -140,5 +140,26 @@ await varyant('K5', K5, async (O) => {
     'stok ' + stok(O));
 });
 
+// K6 — sayim_detaylari SELECT kapatmasi kaldirilir (15b)
+let K6 = degistir(A1, 'revoke select on table public.sayim_detaylari from authenticated;', '-- NEGATIF KONTROL: select kapatmasi kaldirildi');
+K6 = degistir(K6, "    raise exception 'SON KOSUL: sayim_detaylari dogrudan okunabiliyor — eski sayim istemcisi durdurulmadi.';", '    null;');
+await varyant('K6', K6, async (O) => {
+  const r = O.kimlikle(DEPO810, `select count(*) from public.sayim_detaylari;`);
+  sonuc(r.ok, 'K6 kapatma yokken sayim_detaylari dogrudan okunabiliyor -> eski istemci okuyup YAZABILIR (E12 testi bunu yakalar)',
+    r.ok ? 'okuma basarili' : r.err.split('\n')[0]);
+});
+
+// K7 — onay koruma tetikleyicisi kaldirilir (15b ikinci katman)
+let K7 = degistir(A1, `create trigger stok_sayim_oturum_koruma
+  before insert or update on public.sayim_oturumlari
+  for each row execute function public._stok_sayim_oturum_koruma();`, '-- NEGATIF KONTROL: tetikleyici kaldirildi');
+K7 = degistir(K7, "    raise exception 'SON KOSUL: sayim onay koruma tetikleyicisi yok.';", '    null;');
+await varyant('K7', K7, async (O) => {
+  O.sql(`insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum)
+           values ('99999999-0000-0000-0000-0000000000f7','${BAR}','810','x','onay_bekliyor');`);
+  const r = O.sql(`update public.sayim_oturumlari set durum='onaylandi', kismi_uygulandi=true where id='99999999-0000-0000-0000-0000000000f7';`);
+  sonuc(r.ok, 'K7 tetikleyici yokken sayim sunucu disinda onaylanmis isaretlenebiliyor (E14 testi bunu yakalar)');
+});
+
 console.log(`\nBAR A1 NEGATIF KONTROLLER: ${ok} OK / ${fail} FAIL`);
 process.exitCode = fail ? 1 : 0;

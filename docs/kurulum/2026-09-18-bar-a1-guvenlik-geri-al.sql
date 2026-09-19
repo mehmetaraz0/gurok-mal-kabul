@@ -54,6 +54,11 @@ drop function if exists public.stok_sayim_bekleyen_iptal(uuid, text);
 drop function if exists public.bar_masa_yetki_kapsami();
 drop function if exists public._bar_konaklama_bul(text, text);
 drop function if exists public._bar_folyo_gecerli(uuid, uuid);
+-- 15b: eski sayim istemcisi durdurmasi geri alinir (eski istemci detaylari dogrudan okur)
+drop trigger if exists stok_sayim_oturum_koruma on public.sayim_oturumlari;
+drop function if exists public._stok_sayim_oturum_koruma();
+drop function if exists public.stok_sayim_detaylari(uuid);
+grant select on table public.sayim_detaylari to authenticated;
 
 -- 2) ESKI FONKSIYONLAR CALISSIN DIYE GEVSETILEN KISITLAR (veri korunur)
 alter table public.bar_siparis_kalemleri

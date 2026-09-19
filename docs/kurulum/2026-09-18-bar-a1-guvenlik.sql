@@ -1177,6 +1177,7 @@ begin
                                                    'fark', v_fark);
   end loop;
 
+  perform set_config('a1.sayim_sunucu', '1', true);   -- 15b tetikleyicisi icin
   update public.sayim_oturumlari
      set durum = 'onaylandi',
          onaylayan_ad = coalesce((select k.ad from public.kullanicilar k where k.auth_user_id = auth.uid() limit 1), '—'),
@@ -1231,6 +1232,7 @@ begin
      set durum = 'uygulandi', karar_veren = auth.uid(), karar_zamani = now(), uygulama_oncesi_stok = v_mevcut
    where id = v_b.id;
   update public.sayim_detaylari set uygulama_durumu = 'sonradan_uygulandi' where id = v_b.detay_id;
+  perform set_config('a1.sayim_sunucu', '1', true);   -- 15b tetikleyicisi icin
   update public.sayim_oturumlari
      set kismi_uygulandi = exists (select 1 from public.stok_sayim_bekleyenleri x
                                     where x.oturum_id = v_b.oturum_id and x.durum = 'bekliyor')
@@ -1267,6 +1269,7 @@ begin
      set durum = 'iptal', karar_veren = auth.uid(), karar_zamani = now(), iptal_nedeni = btrim(p_neden)
    where id = v_b.id;
   update public.sayim_detaylari set uygulama_durumu = 'iptal' where id = v_b.detay_id;
+  perform set_config('a1.sayim_sunucu', '1', true);   -- 15b tetikleyicisi icin
   update public.sayim_oturumlari
      set kismi_uygulandi = exists (select 1 from public.stok_sayim_bekleyenleri x
                                     where x.oturum_id = v_b.oturum_id and x.durum = 'bekliyor')
@@ -1274,6 +1277,72 @@ begin
   return jsonb_build_object('sonuc', 'iptal');
 end;
 $$;
+
+
+-- ============================================================================
+-- 15b) ESKI SAYIM ISTEMCISI SUNUCUDA DURDURULUR (kullanici karari 2026-09-19)
+-- ============================================================================
+-- Sorun (gecis provasi G10, olculdu): migration'dan once acilmis ESKI stok-takip
+-- sekmesi sayimi istemcide hesaplar (fark = sayilan - O ANKI stok) ve farki
+-- rpc/stok_ekle ile yazar. stok_ekle normal giris/cikisin de yoludur; o cagri
+-- sayim diye ayirt edilemez. Eski istemci yazmadan ONCE detaylari dogrudan
+-- sayim_detaylari tablosundan okur (stok-veri.js sayimDetaylariniGetir); okuma
+-- basarisizsa tek satir yazmadan durur. Bu yuzden:
+--   1) sayim_detaylari'ndan dogrudan SELECT kapatilir; yeni istemci detaylari
+--      stok_sayim_detaylari() RPC'siyle okur (yetki + otel kapsami).
+--   2) Ikinci katman: oturumu 'onaylandi' yapmak ya da kismi_uygulandi bayragini
+--      degistirmek yalniz sunucu sayim fonksiyonlarinin icinden olur.
+revoke select on table public.sayim_detaylari from authenticated;
+
+create or replace function public.stok_sayim_detaylari(p_oturum_id uuid)
+returns setof public.sayim_detaylari
+language plpgsql stable security definer
+set search_path = pg_catalog, public, pg_temp
+as $$
+declare
+  v_depo text;
+begin
+  if auth.uid() is null or not (public.auth_yetki_var('stok_takip', 'kayit') is true) then
+    raise exception 'YETKI_YOK: sayim detaylari yalniz stok_takip kayit yetkili personele acik';
+  end if;
+  select o.depo_kodu into v_depo from public.sayim_oturumlari o where o.id = p_oturum_id;
+  if not found then
+    raise exception 'SAYIM_YOK: %', p_oturum_id;
+  end if;
+  if not (public.auth_otel_erisim(split_part(v_depo, '_', 1)) is true) then
+    raise exception 'OTEL_ERISIMI_YOK: bu sayim sizin otelinize ait degil';
+  end if;
+  return query select d.* from public.sayim_detaylari d where d.oturum_id = p_oturum_id;
+end;
+$$;
+
+-- Tetikleyici: onay durumu ve kismi bayrak yalniz sunucu fonksiyonlarindan.
+-- Bayrak 'a1.sayim_sunucu' islem-yerel ayardir; PostgREST istemcisi set_config'i
+-- cagiramaz (pg_catalog disa acik degil).
+create or replace function public._stok_sayim_oturum_koruma()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public, pg_temp
+as $$
+begin
+  if coalesce(current_setting('a1.sayim_sunucu', true), '') = '1' then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    if new.durum = 'onaylandi' or coalesce(new.kismi_uygulandi, false) then
+      raise exception 'SAYIM_ONAYI_SUNUCUDA: sayim onaylanmis olarak olusturulamaz';
+    end if;
+  elsif (new.durum = 'onaylandi' and old.durum is distinct from 'onaylandi')
+     or new.kismi_uygulandi is distinct from old.kismi_uygulandi then
+    raise exception 'SAYIM_ONAYI_SUNUCUDA: sayim onayi yalniz stok_sayim_onayla ile yapilir (eski ekran — sayfayi yenileyin)';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists stok_sayim_oturum_koruma on public.sayim_oturumlari;
+create trigger stok_sayim_oturum_koruma
+  before insert or update on public.sayim_oturumlari
+  for each row execute function public._stok_sayim_oturum_koruma();
 
 
 -- ============================================================================
@@ -1322,6 +1391,10 @@ revoke all on function public.stok_sayim_bekleyen_iptal(uuid, text) from public,
 grant execute on function public.stok_sayim_bekleyen_iptal(uuid, text) to authenticated, service_role;
 revoke all on function public.bar_masa_yetki_kapsami() from public, anon;
 grant execute on function public.bar_masa_yetki_kapsami() to authenticated, service_role;
+revoke all on function public.stok_sayim_detaylari(uuid) from public, anon;
+grant execute on function public.stok_sayim_detaylari(uuid) to authenticated, service_role;
+-- Tetikleyici fonksiyonu: dogrudan cagrilmaz.
+revoke all on function public._stok_sayim_oturum_koruma() from public, anon, authenticated, service_role;
 revoke all on function public.stok_cikis_korumasi(text, text, numeric) from public, anon;
 grant execute on function public.stok_cikis_korumasi(text, text, numeric) to authenticated, service_role;
 -- stok_ekle / stok_transfer: mevcut karar aynen (2026-08-09 pentest adim 3)
@@ -1392,6 +1465,12 @@ begin
      or not (select relrowsecurity from pg_class where oid = 'public.bar_borc_istisnalari'::regclass)
      or not (select relrowsecurity from pg_class where oid = 'public.stok_sayim_bekleyenleri'::regclass) then
     raise exception 'SON KOSUL: yeni tablolardan birinde RLS kapali.';
+  end if;
+  if has_table_privilege('authenticated', 'public.sayim_detaylari', 'SELECT') then
+    raise exception 'SON KOSUL: sayim_detaylari dogrudan okunabiliyor — eski sayim istemcisi durdurulmadi.';
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'stok_sayim_oturum_koruma' and tgrelid = 'public.sayim_oturumlari'::regclass) then
+    raise exception 'SON KOSUL: sayim onay koruma tetikleyicisi yok.';
   end if;
 end;
 $$;

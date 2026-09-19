@@ -221,10 +221,25 @@ try {
   await st.calistir('sayimOnayBekleyenleriYukle()');
   await st.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa01')`);
   await bekle(500);
+  // Olcum 2026-09-19 (15b oncesi): eski ekran burada stogu 90 yapiyordu (70 olmaliydi).
   const eskiSonuc = stok('LIMON');
-  sonuc(eskiSonuc === '90.000',
-    'G10 ESKI stok-takip + A1: eski istemci sayimi onay anindaki stoga gore yazar -> 70 yerine 90 (aradaki cikis kaybolur)',
-    '100 -> say 90 -> cikis 20 -> eski ekran sonucu ' + eskiSonuc);
+  const eskiToast = st.calistir(`(document.getElementById('toast')||{}).textContent||''`) || '';
+  const eskiIstekler = st.istekler.filter((u) => /stok_ekle|sayim_oturumlari\?id=eq/.test(u));
+  sonuc(eskiSonuc === '80.000'
+     && tek(`select durum||'|'||kismi_uygulandi from public.sayim_oturumlari where id='99999999-0000-0000-0000-00000000aa01';`) === 'onay_bekliyor|false'
+     && tek(`select count(*) from public.stok_hareketleri where urun_kodu='LIMON' and aciklama ilike '%sayim%';`) === '0'
+     && eskiIstekler.length === 0,
+    'G10 ESKI stok-takip + A1: eski istemci detay okuyamiyor ve TEK YAZMA YAPMADAN duruyor (stok 80, oturum onay bekliyor)',
+    `stok ${eskiSonuc}; yazma istegi ${eskiIstekler.length}`);
+  // Ayni oturum YENI ekranla onaylanir.
+  const yst = ekranKur({ restUrl: REST(B), jwt: J.depo810, depo: BAR, rol: 'cost_control' });
+  await bekle(1500);
+  await yst.calistir('sayimOnayBekleyenleriYukle()');
+  await yst.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa01')`);
+  await bekle(500);
+  sonuc(stok('LIMON') === '70.000'
+     && tek(`select durum from public.sayim_oturumlari where id='99999999-0000-0000-0000-00000000aa01';`) === 'onaylandi',
+    'G11 ayni sayim YENI stok-takip ile onaylaninca 100 -> 90 -> cikis 20 -> 70; sayim onaylandi', 'stok ' + stok('LIMON'));
 } catch (e) { sonuc(false, 'beklenmeyen hata (adim 2-3)', e.stack || e.message); console.log(B.edgeGunlugu().slice(-1500)); }
 finally { B.temizle(); rmSync(ESKI, { recursive: true, force: true }); rmSync(EK, { recursive: true, force: true }); }
 

@@ -318,6 +318,32 @@ try {
      && stok('BIRA') === '70.000' && sayimHareketi() === '1',
     'E11 bekleyen duzeltme 80 -> 70 uygulandi; eszamanli ikinci ve sonraki ucuncu deneme uygulanmadi', 'stok ' + stok('BIRA'));
 
+  // ---- Eski sayim istemcisi sunucuda durdurulur (15b) ----
+  const GORUNTU = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000bb' };   // bar goruntule, stok yetkisi YOK
+  const e12 = q(K.DEPO810, `select count(*) from public.sayim_detaylari;`);
+  sonuc(!e12.ok && /permission denied/.test(e12.err),
+    'E12 sayim_detaylari DOGRUDAN okunamaz (eski istemci detay okuyamaz, yazmadan durur)', e12.err.split('\n')[0]);
+  oturumKur(OT('e13'), 70, 60);
+  O.sql(`insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum, toplam_urun_sayisi)
+           values ('${OT('e14')}','811_CSM302','811','Test','onay_bekliyor',0);`);
+  const e13 = q(K.DEPO810, `select count(*) from public.stok_sayim_detaylari('${OT('e13')}');`);
+  sonuc(e13.ok && e13.out.split('\n').pop() === '1'
+     && kod(q(GORUNTU, `select * from public.stok_sayim_detaylari('${OT('e13')}');`)) === 'YETKI_YOK'
+     && kod(q(K.DEPO810, `select * from public.stok_sayim_detaylari('${OT('e14')}');`)) === 'OTEL_ERISIMI_YOK'
+     && kod(q(K.ANON, `select * from public.stok_sayim_detaylari('${OT('e13')}');`)) !== 'OK',
+    'E13 detaylar RPC ile okunur: stok kayit yetkili kendi otelinde okur; stok yetkisiz, baska otel ve anon REDDEDILIR',
+    [e13.out || e13.err, kod(q(GORUNTU, `select * from public.stok_sayim_detaylari('${OT('e13')}');`)), kod(q(K.DEPO810, `select * from public.stok_sayim_detaylari('${OT('e14')}');`)), kod(q(K.ANON, `select * from public.stok_sayim_detaylari('${OT('e13')}');`))].join(' | '));
+  const e14a = O.sql(`update public.sayim_oturumlari set durum = 'onaylandi' where id = '${OT('e13')}';`);
+  const e14b = O.sql(`update public.sayim_oturumlari set kismi_uygulandi = true where id = '${OT('e13')}';`);
+  const e14c = O.sql(`insert into public.sayim_oturumlari (depo_kodu, otel_id, olusturan_ad, durum) values ('${BAR}','810','x','onaylandi');`);
+  sonuc(kod(e14a) === 'SAYIM_ONAYI_SUNUCUDA' && kod(e14b) === 'SAYIM_ONAYI_SUNUCUDA' && kod(e14c) === 'SAYIM_ONAYI_SUNUCUDA'
+     && tek(`select durum from public.sayim_oturumlari where id='${OT('e13')}';`) === 'onay_bekliyor',
+    'E14 sayim onay durumu / kismi bayrak sunucu fonksiyonu disinda (sahip rolde bile) degistirilemez');
+  const e15 = onayla(OT('e13'));
+  sonuc(e15.ok && tek(`select durum from public.sayim_oturumlari where id='${OT('e13')}';`) === 'onaylandi'
+     && O.sql(`update public.sayim_oturumlari set olusturan_ad = 'duzeltme' where id = '${OT('e13')}';`).ok,
+    'E15 sunucu onayi calisir; onayla ilgisiz alan guncellemesi engellenmez');
+
   // ---------------- F) Guvenlik yuzeyi ----------------
   const anonAcik = tek(`select count(*) from pg_proc p where p.pronamespace='public'::regnamespace
     and (p.proname like 'bar\\_%' or p.proname like 'stok\\_sayim\\_%' or p.proname in ('stok_ekle','stok_transfer','stok_cikis_korumasi'))

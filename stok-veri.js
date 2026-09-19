@@ -117,8 +117,10 @@ function _stokVeriKur(secenekler) {
   // beklenenAdet: sayim_oturumlari.toplam_urun_sayisi. Verilirse IKINCI bir
   // eksiksizlik kaniti olur: sayfalama tamam dese bile adet tutmuyorsa firlat.
   async function sayimDetaylariniGetir(oturumId, beklenenAdet) {
-    const yol = onek + '/sayim_detaylari?oturum_id=eq.' + encodeURIComponent(oturumId)
-      + '&select=*&order=urun_kodu.asc';
+    // A1 (2026-09-19): tablo dogrudan okunamaz; RPC yetki + otel kapsamini
+    // denetler. Sayfalama ve Content-Range RPC'de de ayni calisir.
+    const yol = onek + '/rpc/stok_sayim_detaylari?p_oturum_id=' + encodeURIComponent(oturumId)
+      + '&order=urun_kodu.asc';
     const { satirlar } = await tumSayfalariCek(yol);
     if (beklenenAdet !== null && beklenenAdet !== undefined && Number(beklenenAdet) > 0
         && satirlar.length !== Number(beklenenAdet)) {

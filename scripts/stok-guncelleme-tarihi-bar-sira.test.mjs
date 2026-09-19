@@ -48,6 +48,14 @@ const IZ_SORGUSU = `select string_agg(p.oid::regprocedure::text || ' ' || md5(p.
      'pms_bar_folio_koprusu()', 'pms_bar_durum_kilit()', 'stok_ekle(text,text,text,numeric)',
      'stok_transfer(text,text,text,text,numeric)');`;
 
+// Sayim tablolarinin ETKIN tablo yetkileri + kullanici tetikleyicileri (15b geri alinmali).
+const TABLO_IZ_SORGUSU = `select string_agg(c.relname || ' ' ||
+    coalesce((select string_agg(coalesce(nullif(a.grantee, 0)::regrole::text, 'PUBLIC') || ':' || a.privilege_type, ',' order by 1)
+                from aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a), '-') || ' tetik:' ||
+    coalesce((select string_agg(t.tgname, ',' order by t.tgname) from pg_trigger t where t.tgrelid = c.oid and not t.tgisinternal), '-'),
+    E'\n' order by c.relname)
+  from pg_class c where c.relnamespace = 'public'::regnamespace and c.relname in ('sayim_oturumlari', 'sayim_detaylari');`;
+
 let ok = 0, fail = 0;
 const sonuc = (g, ad, ek) => { console.log((g ? 'OK   ' : 'FAIL ') + ad + (ek ? ' — ' + ek : '')); if (g) ok++; else fail++; };
 
@@ -74,6 +82,7 @@ async function main() {
   try {
     await O.kur();
     const izOnce = O.sql(IZ_SORGUSU).out;
+    const tabloOnce = O.sql(TABLO_IZ_SORGUSU).out;
     const u = O.uygulaTekIslem(A1);
     sonuc(u.ok, '1a A1 migration tarih duzeltmeli tabana tek islemde uygulandi', u.ok ? '' : u.err.slice(-300));
     const t = tarihSeti(O);
@@ -112,6 +121,10 @@ async function main() {
     sonuc(govde === 'true' && md5 === '43ec3cfcd28b9a8cb9e5d8b3ed03b47d,8dd27c19ac2da9629a53dae9861766ba',
       '4b geri alma sonrasi stok govdeleri A1-ONCESI uretim haliyle BIREBIR ayni (md5) ve tarih duzeltmesini tasiyor', md5);
     const izSonra = O.sql(IZ_SORGUSU).out;
+    const tabloSonra = O.sql(TABLO_IZ_SORGUSU).out;
+    sonuc(tabloSonra === tabloOnce && /sayim_detaylari .*authenticated:SELECT/.test(tabloOnce),
+      '4b3 geri alma sonrasi sayim tablolarinin etkin yetkileri ve tetikleyicileri A1 oncesiyle BIREBIR ayni (15b geri alindi)',
+      tabloSonra === tabloOnce ? '' : 'ONCE:\n' + tabloOnce + '\nSONRA:\n' + tabloSonra);
     sonuc(izSonra === izOnce && (izOnce.match(/\n/g) || []).length === 7,
       '4b2 geri alma sonrasi 8 fonksiyonun govdesi, search_path ayari ve ETKIN yetkileri A1 oncesiyle BIREBIR ayni',
       izSonra === izOnce ? '' : 'ONCE:\n' + izOnce + '\nSONRA:\n' + izSonra);

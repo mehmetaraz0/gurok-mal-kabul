@@ -99,6 +99,10 @@ async function kur_ortam() {
       oturum_id uuid not null, urun_kodu text not null, urun_adi text,
       sistem_miktar numeric(12,3), sayilan_miktar numeric(12,3),
       fark numeric(12,3), fark_yuzde numeric(12,3), birim text, aciklama text);
+    -- A1'den beri detaylar RPC ile okunur. Buradaki testin konusu SAYFALAMA
+    -- oldugu icin RPC'nin yetki kontrolu yok; yetki bar-a1-guvenlik.test'te sinanir.
+    create function public.stok_sayim_detaylari(p_oturum_id uuid) returns setof public.sayim_detaylari
+      language sql stable as $f$ select * from public.sayim_detaylari where oturum_id = p_oturum_id $f$;
 
     grant select on all tables in schema public to authenticated, service_role;
   `);
