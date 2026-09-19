@@ -19,7 +19,7 @@
 
 > **DÜZELTME (2026-09-19, üçüncü tur):** Bu madde erken kapatıldı. Detayları migration'dan ÖNCE okumuş
 > ve yazması migration sonrasına kalmış bir sekme okuma engeline takılmıyordu. Yazma yolunda ayrım
-> eklendi ve senaryo sınandı: .
+> eklendi ve senaryo sınandı: `2026-09-19-bar-a1-duraklatilmis-sekme-raporu.md`.
 
 **Mekanizma (migration §15b):** Eski ekran farkı istemcide hesaplayıp `stok_ekle` ile yazıyor;
 `stok_ekle` normal giriş/çıkışın da yolu olduğu için o çağrı ayırt edilemez. Eski ekran yazmadan
