@@ -46,6 +46,8 @@ const KISILER = {
   sef810: [K.SEF810.sub, 'sef810@test.local'],
   cc810: ['11111111-0000-0000-0000-0000000000c1', 'cc810@test.local'],
   depo810: [K.DEPO810.sub, 'depo810@test.local'],
+  onburo810: [K.ONBURO810.sub, 'onburo810@test.local'],
+  onburomud810: [K.ONBUROMUD810.sub, 'onburomud810@test.local'],
 };
 for (const [id, email] of Object.values(KISILER)) await E.kullaniciOlustur(id, email);
 const yayin = await E.fonksiyon('smooth-service', {}, { 'x-staff-token': await E.girisYap('bar810@test.local') });

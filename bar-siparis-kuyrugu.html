@@ -98,7 +98,7 @@ function zamanKisa(iso){
 
 async function yukle(){
   try{
-    const r=await fetch(SB_URL+'/rest/v1/bar_siparisleri?select=*,bar_siparis_kalemleri(id,adet,menu_urunler(ad))&order=olusturma_zamani.desc',{headers:SB_HEADERS});
+    const r=await fetch(SB_URL+'/rest/v1/bar_siparisleri?select=*,bar_siparis_kalemleri(id,adet,menu_urunler(ad)),bar_borc_istisnalari(durum,cozum_zamani)&order=olusturma_zamani.desc',{headers:SB_HEADERS});
     if(r.ok) SIPARISLER=await r.json();
   }catch(e){}
   render();
@@ -136,9 +136,20 @@ function render(){
       ${kalemler}
       ${odaSatiri}
       ${dogrulama}
+      ${istisnaSatiri(s)}
       ${aksiyonButonlari(s, yzb)}
     </div>`;
   }).join('');
+}
+
+// K5 (2026-09-19): istisnanin acik/cozuldu durumu kuyrukta gorunur; ayrica bildirim yok.
+// PostgREST bire-bir iliskiyi nesne olarak dondurur; dizi gelirse ilki alinir.
+const ISTISNA_SONUC={folyoya_yazildi:'borç folyoya yazıldı',tahsil_edilemedi:'tahsil edilemedi'};
+function istisnaSatiri(s){
+  const i=Array.isArray(s.bar_borc_istisnalari)?s.bar_borc_istisnalari[0]:s.bar_borc_istisnalari;
+  if(!i) return '';
+  if(i.durum==='acik') return '<div class="oda" style="color:#9a3412;font-weight:700">⏳ İstisna açık — ön büro çözümü bekliyor</div>';
+  return '<div class="oda" style="color:#155724">✔ İstisna çözüldü: '+escapeHtml(ISTISNA_SONUC[i.durum]||i.durum)+'</div>';
 }
 
 function aksiyonButonlari(s, yzb){

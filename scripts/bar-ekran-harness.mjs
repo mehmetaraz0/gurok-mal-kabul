@@ -51,7 +51,7 @@ export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, must
     console, setTimeout, clearTimeout, setInterval: () => 0, clearInterval() {},
     Promise, Date, Math, JSON, Map, Set, Object, Array, String, Number, Boolean,
     Error, TypeError, RegExp, Intl, URL, URLSearchParams, encodeURIComponent, decodeURIComponent,
-    parseFloat, parseInt, isNaN, isFinite, Headers, Request, Response,
+    parseFloat, parseInt, isNaN, isFinite, Headers, Request, Response, crypto: globalThis.crypto,
     document: {
       getElementById: el, querySelector: () => null, querySelectorAll: () => [],
       createElement: () => sahteEleman('yeni'), addEventListener() {}, body: sahteEleman('body'),
@@ -89,9 +89,10 @@ export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, must
   }
   // toast/sLD ortak.js'ten gelir; kayit icin sarilir (davranis degismez).
   vm.runInContext(`var __toast=[];`, baglam);
-  const icBetik = metin.match(/<script>([\s\S]*?)<\/script>/);
-  if (!icBetik) throw new Error(html + ' icinde satir ici betik yok');
-  vm.runInContext(icBetik[1], baglam, { filename: html });
+  // Sayfadaki TUM satir ici betikler, sayfadaki sirasiyla (pms-folio.html'de iki tane var).
+  const icBetikler = [...metin.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  if (!icBetikler.length) throw new Error(html + ' icinde satir ici betik yok');
+  for (const b of icBetikler) vm.runInContext(b, baglam, { filename: html });
   baglam.toast = (m) => { kayit.toastlar.push(String(m)); };
   baglam.sLD = () => {}; baglam.hLD = () => {};
 

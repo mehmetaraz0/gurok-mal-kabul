@@ -38,6 +38,9 @@
     SAYIM_YOK: 'Sayım bulunamadı.',
     SAYIM_EKSIK: 'Sayım eksik kaydedilmiş — yeniden kaydedilmeli.',
     BEKLEYEN_YOK: 'Bekleyen düzeltme bulunamadı.',
+    SAYIM_ONAYI_SUNUCUDA: 'Bu ekran eski sürüm — sayfayı yenileyip sayımı yeniden onaylayın.',
+    FOLYO_BASKA_KONAKLAMA: 'Seçilen folyo, siparişi doğrulanan konaklamaya ait değil. Borç başka misafire yazılamaz.',
+    KONAKLAMA_BAGI_YOK: 'Bu istisnanın doğrulanmış konaklama bağı yok; borç folyoya yazılamaz.',
   };
 
   function govdeMesaji(metin) {

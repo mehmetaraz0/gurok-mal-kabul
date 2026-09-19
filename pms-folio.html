@@ -7,6 +7,7 @@
 <script src="nav-drawer.js"></script>
 <script src="otel-config.js"></script>
 <script src="ortak.js"></script>
+<script src="hata-kodlari.js"></script>
 <link rel="stylesheet" href="theme.css">
 <script>
 let CU = requireLogin();
@@ -74,6 +75,17 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
    tazelenmez. Element + stil diger tum ERP ekranlarindaki gibi eklendi. */
 #toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* Bar borc istisnalari (A1, kararlar K1-K4) */
+.ist-kutu{background:#fff7ed;border:1px solid #fdba74;border-radius:var(--radius);padding:10px 12px;margin-bottom:10px}
+.ist-baslik{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#9a3412}
+.ist-baslik span{flex:1}
+.ist-satir{background:white;border-radius:8px;padding:10px;margin-top:8px;font-size:12px;line-height:1.5}
+.ist-satir .ist-ust{display:flex;justify-content:space-between;gap:8px;font-weight:700;color:var(--primary);font-size:13px}
+.ist-meta{color:var(--gray-600)}
+.ist-yas{font-weight:700;color:#9a3412}
+.ist-form{border-top:1px dashed var(--gray-300);margin-top:8px;padding-top:8px}
+.ist-form label.kutu{display:flex;gap:6px;align-items:center;font-size:12px;margin:6px 0}
+.ist-form label.kutu input{width:auto}
 </style>
 </head>
 <body>
@@ -85,6 +97,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   </div>
   <div class="sc">
     <div id="uyari" class="uyari" style="display:none"></div>
+    <!-- Bar borc istisnalari: yalniz acik istisna varken gorunur (A1, K1) -->
+    <div id="istisnaAlani" class="ist-kutu" style="display:none">
+      <div class="ist-baslik"><span id="istisnaBaslik"></span>
+        <button class="btn btn-s btn-sm" id="istisnaDugme" onclick="istisnaAcKapat()">Göster</button></div>
+      <div id="istisnaListe" style="display:none"></div>
+    </div>
     <div class="card">
       <input id="ara" placeholder="Folyo no, rezervasyon no veya misafir ara…" oninput="ciz()" style="margin-bottom:8px">
       <div class="filtreler">
@@ -287,6 +305,119 @@ async function yukle(){
     const f = FOLYOLAR.find(x => x.id === ACIK.folio_id);
     ACIK = f ? folyoBilgi(f) : null;
   }
+  await istisnalariYukle();
+}
+
+// ---- Bar borc istisnalari (A1; kullanici kararlari K1-K4, 2026-09-19) ----
+// Kurallar SUNUCUDADIR (bar_borc_istisnasi_coz): K2 tahsil edilemedi = pms_folio TAM +
+// gerekce; K3 borc yalniz dogrulanmis konaklamanin acik folyosuna. Ekran yalniz gosterir.
+// Yerel confirm/prompt KULLANILMAZ: formlar sayfa icindedir.
+let ISTISNA = null, ISTISNA_ACIK = false, ISTISNA_FORM = null;   // FORM: {id, tip:'yaz'|'tahsil'}
+async function istisnalariYukle(){
+  const alan = document.getElementById('istisnaAlani');
+  try{
+    const r = await fetch(SB_URL + '/rest/v1/rpc/bar_istisna_listesi', { method:'POST', headers:SB_HEADERS, body:'{}' });
+    const metin = await r.text();
+    if(!r.ok){
+      // Yetkisi olmayan kullaniciya bolum hic gosterilmez; diger hata ACIKCA yazilir.
+      if(hataKodunuBul(metin) === 'YETKI_YOK'){ ISTISNA = null; alan.style.display = 'none'; return; }
+      ISTISNA = { hata: hataMetni(metin) };
+    } else ISTISNA = JSON.parse(metin);
+  }catch(e){ ISTISNA = { hata: 'Bar istisnaları okunamadı (bağlantı).' }; }
+  istisnaCiz();
+}
+function istisnaYas(iso){
+  const dk = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  if(dk < 60) return dk + ' dk';
+  const sa = Math.floor(dk / 60);
+  if(sa < 24) return sa + ' sa ' + (dk % 60) + ' dk';
+  return Math.floor(sa / 24) + ' gün ' + (sa % 24) + ' sa';
+}
+function istisnaAcKapat(){ ISTISNA_ACIK = !ISTISNA_ACIK; istisnaCiz(); }
+function istisnaFormAc(id, tip){ ISTISNA_FORM = { id, tip }; ISTISNA_ACIK = true; istisnaCiz(); }
+function istisnaFormKapat(){ ISTISNA_FORM = null; istisnaCiz(); }
+function istisnaCiz(){
+  const alan = document.getElementById('istisnaAlani');
+  const liste = document.getElementById('istisnaListe');
+  if(!ISTISNA){ alan.style.display = 'none'; return; }
+  const dugme = document.getElementById('istisnaDugme');
+  if(ISTISNA.hata){
+    alan.style.display = '';
+    document.getElementById('istisnaBaslik').textContent = '⚠️ ' + ISTISNA.hata;
+    dugme.style.display = 'none';
+    liste.style.display = 'none'; return;
+  }
+  const L = ISTISNA.istisnalar || [];
+  if(!L.length){ alan.style.display = 'none'; return; }
+  alan.style.display = '';
+  document.getElementById('istisnaBaslik').textContent = '⚠️ ' + L.length + ' bar istisnası çözüm bekliyor';
+  dugme.style.display = ''; dugme.textContent = ISTISNA_ACIK ? 'Gizle' : 'Göster';
+  liste.style.display = ISTISNA_ACIK ? '' : 'none';
+  if(!ISTISNA_ACIK) return;
+  liste.innerHTML = L.map(i => {
+    const hedefVar = i.konaklama_bagi_var && (i.hedef_folyolar || []).length > 0;
+    const idA = jsAttrStr(i.id);
+    let dugmeler = '';
+    if(ISTISNA.folyoya_yazabilir)
+      dugmeler += `<button class="btn btn-p btn-sm" ${hedefVar ? '' : 'disabled'} onclick="istisnaFormAc('${idA}','yaz')">Folyoya yaz</button>`;
+    if(ISTISNA.tahsil_edilemedi_diyebilir)
+      dugmeler += `<button class="btn btn-s btn-sm" onclick="istisnaFormAc('${idA}','tahsil')">Tahsil edilemedi</button>`;
+    let not = '';
+    if(ISTISNA.folyoya_yazabilir && !hedefVar)
+      not = '<div class="ist-meta">Bu konaklamanın açık folyosu yok — borç başka misafire yazılamaz'
+          + (ISTISNA.tahsil_edilemedi_diyebilir ? '.' : '; "tahsil edilemedi" kararı tam yetki (ön büro müdürü) gerektirir.') + '</div>';
+    let form = '';
+    if(ISTISNA_FORM && ISTISNA_FORM.id === i.id){
+      if(ISTISNA_FORM.tip === 'yaz'){
+        form = '<div class="ist-form"><div class="field"><label>Hedef folyo (yalnız bu konaklamanın açık folyoları)</label>'
+          + '<select id="istHedef"><option value="">— seçin —</option>'
+          + (i.hedef_folyolar || []).map(f => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.folio_no)} · ${escapeHtml(f.tip)}</option>`).join('')
+          + '</select></div>'
+          + '<label class="kutu"><input type="checkbox" id="istDogrula"> Misafiri yeniden doğruladım</label>'
+          + '<div class="field"><label>Not (isteğe bağlı)</label><input id="istNot" maxlength="200"></div>'
+          + '<div class="row"><button class="btn btn-s btn-sm" onclick="istisnaFormKapat()">Vazgeç</button>'
+          + `<button class="btn btn-p btn-sm" id="istGonder" onclick="istisnaGonder()">Borcu yaz (${tl(i.tutar)})</button></div></div>`;
+      } else {
+        form = '<div class="ist-form"><div class="field"><label>Gerekçe (zorunlu)</label><textarea id="istGerekce" rows="2" maxlength="300"></textarea></div>'
+          + '<div class="row"><button class="btn btn-s btn-sm" onclick="istisnaFormKapat()">Vazgeç</button>'
+          + '<button class="btn btn-p btn-sm" id="istGonder" onclick="istisnaGonder()">Tahsil edilemedi olarak kapat</button></div></div>';
+      }
+    }
+    return `<div class="ist-satir" data-istisna="${escapeHtml(i.id)}">`
+      + `<div class="ist-ust"><span>Oda ${escapeHtml(i.oda_no || '—')} · ${escapeHtml(i.kalemler || '')}</span><span class="para">${tl(i.tutar)}</span></div>`
+      + `<div class="ist-meta">Folyo kapandıktan sonra servis edildi — beyan: ${escapeHtml(i.beyan_veren)}, `
+      + `${new Date(i.beyan_zamani).toLocaleString('tr-TR')} · eski folyo ${escapeHtml(i.eski_folio_no || '—')}</div>`
+      + `<div class="ist-meta">Bekliyor: <span class="ist-yas">${istisnaYas(i.beyan_zamani)}</span></div>`
+      + not + (dugmeler ? '<div class="row" style="margin-top:6px">' + dugmeler + '</div>' : '') + form + '</div>';
+  }).join('');
+}
+async function istisnaGonder(){
+  if(!ISTISNA_FORM) return;
+  const govde = { p_istisna_id: ISTISNA_FORM.id };
+  if(ISTISNA_FORM.tip === 'yaz'){
+    const hedef = document.getElementById('istHedef').value;
+    if(!hedef){ toast('⚠️ Hedef folyo seçin'); return; }
+    if(!document.getElementById('istDogrula').checked){ toast('⚠️ Misafiri yeniden doğruladığınızı işaretleyin'); return; }
+    Object.assign(govde, { p_sonuc:'folyoya_yaz', p_hedef_folio_id:hedef, p_misafir_dogrulandi:true,
+                           p_not: document.getElementById('istNot').value.trim() || null });
+  } else {
+    const g = document.getElementById('istGerekce').value.trim();
+    if(!g){ toast('⚠️ Gerekçe zorunlu'); return; }
+    Object.assign(govde, { p_sonuc:'tahsil_edilemedi', p_not:g });
+  }
+  const btn = document.getElementById('istGonder'); if(btn) btn.disabled = true;
+  sLD();
+  try{
+    const r = await fetch(SB_URL + '/rest/v1/rpc/bar_borc_istisnasi_coz', { method:'POST', headers:SB_HEADERS, body:JSON.stringify(govde) });
+    const metin = await r.text();
+    hLD();
+    if(!r.ok){ toast('❌ ' + hataMetni(metin)); if(btn) btn.disabled = false; return; }
+    const d = JSON.parse(metin);
+    toast(d.sonuc === 'folyoya_yaz' ? '✅ Borç folyoya yazıldı'
+          : d.sonuc === 'tahsil_edilemedi' ? '✅ Tahsil edilemedi olarak kapatıldı' : 'ℹ️ Bu istisna zaten çözülmüş');
+    ISTISNA_FORM = null;
+    await yukle();
+  }catch(e){ hLD(); toast('❌ Bağlantı hatası'); if(btn) btn.disabled = false; }
 }
 
 function rezOf(id){ return REZ.find(r=>r.id===id) || null; }

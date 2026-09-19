@@ -218,9 +218,10 @@ try {
   // yalniz RESTRICTIVE politika, sayim_detaylari HIC politika tasir (ikisinde de
   // RLS acik). Oturum acmis kullanici bu satirlari GOREMEZ. Olculur, duzeltilmez.
   const okunan = (tablo) => q(K.DEPO810, `select count(*) from public.${tablo};`).out.split('\n').pop();
-  sonuc(okunan('sayim_oturumlari') === '0' && okunan('sayim_detaylari') === '0'
+  const detayOkuma = q(K.DEPO810, `select count(*) from public.sayim_detaylari;`);
+  sonuc(okunan('sayim_oturumlari') === '0' && !detayOkuma.ok && /permission denied/.test(detayOkuma.err)
      && tek(`select count(*) from public.sayim_oturumlari;`) === '1',
-    'S0 OLCUM (uretim semasi): stok yetkili kullanici sayim oturumu/detayi OKUYAMIYOR — permissive politika yok (A1 disi bulgu)');
+    'S0 OLCUM: oturumlar RLS nedeniyle gorunmuyor (uretim semasi, A1 disi bulgu); detaylar A1 15b ile dogrudan okunamiyor');
   // Ekran mantigini sinamak icin YALNIZ bu test ortaminda okuma politikasi. Uretimde YOK.
   O.sql(`create policy test_yalniz_okuma on public.sayim_oturumlari for select to authenticated using (true);
          create policy test_yalniz_okuma on public.sayim_detaylari for select to authenticated using (true);`);
@@ -248,6 +249,105 @@ try {
   await st2.calistir(`sayimBekleyenUygula('${bekId}')`);
   sonuc(stok('BIRA') === '25.000' && tek(`select durum from public.stok_sayim_bekleyenleri;`) === 'uygulandi',
     'S4 ekrandan bekleyen uygulama: 30 + (-5) = 25 — aradaki +20 korundu, sayilan 5 ustune yazilmadi', 'stok ' + stok('BIRA'));
+
+  // ---------------- On buro: bar borc istisnasi cozumu (kararlar K1-K5) ----------------
+  const istisnaAc = () => {
+    O.sql(`set session_replication_role = replica;
+      update public.pms_folyolar set durum = 'acik', kapanis_zamani = null where id = '${FOLYO101}';
+      update public.stok set miktar = 10 where urun_kodu = 'VISKI' and depo_kodu = '${BAR}';
+      set session_replication_role = origin;`);
+    const s = siparis(K.BAR810, VISKI1, '101').out;
+    q(K.BAR810, `select public.bar_siparis_oda_dogrula('${s}', true);`);
+    hazirla(s);
+    folyoKapat();
+    q(K.SEF810, `select public.bar_siparis_teslim_et('${s}', true);`);
+    return s;
+  };
+  const folyo = (id, rez, no, durum) => O.sql(`set session_replication_role = replica;
+    insert into public.pms_folyolar (id, otel_id, rezervasyon_id, folio_no, durum, kapanis_zamani)
+      values ('${id}','810','${rez}','${no}','${durum}', ${durum === 'kapali' ? 'now()' : 'null'})
+      on conflict (id) do update set durum = excluded.durum, kapanis_zamani = excluded.kapanis_zamani;
+    set session_replication_role = origin;`);
+  const REZ101 = '88888888-0000-0000-0000-000000000101';
+  const F1AA = '55555555-0000-0000-0000-0000000001aa', F1BB = '55555555-0000-0000-0000-0000000001bb';
+  const folio = (k, yetki, ad) => barEkranKur({ html: 'pms-folio.html', restUrl: REST, jwt: yerelJwt('authenticated', k.sub),
+    kullanici: { id: k.sub, ad, rol: 'muhasebe_calisani', otelId: '810' }, yetkiler: { pms_folio: yetki } });
+  const hazirF = async (e) => { for (let i = 0; i < 100 && e.calistir('ISTISNA') === null; i++) await bekle(50); };
+
+  sifirla();
+  const s9 = istisnaAc();
+  folyo(F1AA, REZ101, 'F-101B', 'acik');                                    // ayni konaklama
+  folyo(F1BB, '88888888-0000-0000-0000-000000000999', 'F-BASKA', 'acik');   // baska konaklama
+  const ob = folio(K.ONBURO810, 'kayit', 'Onburo 810');
+  await hazirF(ob);
+  ob.calistir('istisnaAcKapat()');
+  const obListe = ob.el('istisnaListe').innerHTML;
+  sonuc(ob.el('istisnaAlani').style.display === '' && /1 bar istisnası/.test(ob.el('istisnaBaslik').textContent)
+     && /Bekliyor: <span class="ist-yas">\d+ dk/.test(obListe) && /Folyoya yaz/.test(obListe) && !/Tahsil edilemedi/.test(obListe)
+     && /Viski ×1/.test(obListe) && /Sef 810/.test(obListe),
+    'O1 on buro (kayit): istisna bolumu gorunur, YAS gosterilir, Folyoya yaz var, Tahsil edilemedi YOK (K2/K4)');
+  const istId = ob.calistir('ISTISNA.istisnalar[0].id');
+  ob.calistir(`istisnaFormAc('${istId}','yaz')`);
+  const secenek = ob.el('istisnaListe').innerHTML;
+  sonuc(/F-101B/.test(secenek) && !/F-BASKA/.test(secenek),
+    'O2 hedef folyo listesinde YALNIZ ayni konaklamanin folyosu var (baska misafirin folyosu yok) (K3)');
+  ob.el('istHedef').value = F1BB;          // listede olmayan degeri zorla: sunucu kurali sinanir
+  ob.el('istDogrula').checked = true;
+  await ob.calistir('istisnaGonder()');
+  sonuc(/başka misafire yazılamaz/.test(ob.sonToast())
+     && tek(`select count(*) from public.pms_folio_hareketleri where kaynak_id='${s9}';`) === '0',
+    'O3 ekran atlatilip baska konaklamanin folyosu gonderilse de SUNUCU reddeder, borc yazilmaz (K3)', ob.sonToast());
+  ob.calistir(`istisnaFormAc('${istId}','yaz')`);
+  ob.el('istHedef').value = F1AA; ob.el('istDogrula').checked = false;
+  const istekOnceO = ob.kayit.istekler.length;
+  await ob.calistir('istisnaGonder()');
+  sonuc(ob.kayit.istekler.length === istekOnceO && /doğruladığınızı/.test(ob.sonToast()),
+    'O4 yeniden dogrulama isaretlenmeden istek GITMEZ');
+  ob.el('istDogrula').checked = true; ob.el('istNot').value = 'misafir ikinci folyo';
+  await ob.calistir('istisnaGonder()');
+  sonuc(tek(`select i.durum||'|'||i.cozen::text||'|'||s.durum||'|'||(select count(*) from public.pms_folio_hareketleri h where h.kaynak_id=s.id and h.folio_id='${F1AA}')
+               from public.bar_borc_istisnalari i join public.bar_siparisleri s on s.id=i.siparis_id where s.id='${s9}';`)
+        === `folyoya_yazildi|${K.ONBURO810.sub}|teslim_edildi|1`
+     && ob.el('istisnaAlani').style.display === 'none',
+    'O5 borc ayni konaklamanin folyosuna yazildi; aktor kaydedildi; siparis tamamlandi; bolum kapandi', ob.sonToast());
+
+  // Konaklamanin acik folyosu yokken: kayit yazamaz, tam "tahsil edilemedi" der
+  const s10 = istisnaAc();
+  folyo(F1AA, REZ101, 'F-101B', 'kapali');
+  const ob2 = folio(K.ONBURO810, 'kayit', 'Onburo 810');
+  await hazirF(ob2); ob2.calistir('istisnaAcKapat()');
+  sonuc(/disabled onclick="istisnaFormAc/.test(ob2.el('istisnaListe').innerHTML) && /açık folyosu yok/.test(ob2.el('istisnaListe').innerHTML),
+    'O6 konaklamanin acik folyosu yokken Folyoya yaz PASIF ve sebebi yaziyor');
+  const mud = folio(K.ONBUROMUD810, 'tam', 'OnBuroMud 810');
+  await hazirF(mud); mud.calistir('istisnaAcKapat()');
+  const i10 = mud.calistir('ISTISNA.istisnalar[0].id');
+  mud.calistir(`istisnaFormAc('${i10}','tahsil')`);
+  mud.el('istGerekce').value = '   ';
+  const istekOnceM = mud.kayit.istekler.length;
+  await mud.calistir('istisnaGonder()');
+  sonuc(mud.kayit.istekler.length === istekOnceM && /Gerekçe zorunlu/.test(mud.sonToast()),
+    'O7 tahsil edilemedi: gerekce bosken istek GITMEZ');
+  mud.el('istGerekce').value = 'Misafir otelden ayrildi';
+  await mud.calistir('istisnaGonder()');
+  sonuc(tek(`select durum||'|'||cozen::text||'|'||cozum_notu from public.bar_borc_istisnalari where siparis_id='${s10}';`)
+        === `tahsil_edilemedi|${K.ONBUROMUD810.sub}|Misafir otelden ayrildi`
+     && tek(`select count(*) from public.pms_folio_hareketleri where kaynak_id='${s10}';`) === '0',
+    'O8 on buro muduru (tam) tahsil edilemedi: gerekce ve AKTOR kaydedildi, borc yazilmadi (K2)');
+  const barF = folio(K.BAR810, 'yok', 'Bar 810');
+  await bekle(1500);
+  sonuc(barF.el('istisnaAlani').style.display !== '', 'O9 pms_folio yetkisi olmayan kullaniciya bolum GOSTERILMEZ');
+
+  // K5: kuyrukta istisna durumu
+  const s11 = istisnaAc();
+  const kq = kuyruk(K.BAR810, 'kayit');
+  await hazirOl(kq);
+  kq.calistir(`aktifFilter='aktif'; render();`);
+  const acikKart = kq.el('liste').innerHTML;
+  kq.calistir(`aktifFilter='teslim_edildi'; render();`);
+  const teslimKart = kq.el('liste').innerHTML;
+  sonuc(/İstisna açık — ön büro çözümü bekliyor/.test(acikKart)
+     && /İstisna çözüldü: borç folyoya yazıldı/.test(teslimKart) && /İstisna çözüldü: tahsil edilemedi/.test(teslimKart),
+    'O10 bar kuyrugunda istisnanin ACIK / COZULDU durumu gorunur (K5); ayri bildirim yok', s11 ? '' : 'istisna yok');
 
   sonuc(reddetmeler.length === 0, 'Z1 ekranlarda yakalanmayan hata yok', reddetmeler.slice(0, 3).join(' | '));
 } catch (e) {
