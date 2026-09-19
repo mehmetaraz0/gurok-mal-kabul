@@ -34,7 +34,7 @@
     ISTISNA_YOK: 'İstisna kaydı bulunamadı.',
     COZUM_NOTU_GEREKLI: 'Tahsil edilemedi kararı için gerekçe zorunlu.',
     GECERSIZ_COZUM: 'Geçersiz çözüm seçimi.',
-    REZERVE_STOK: 'Bu miktar bekleyen bar siparişlerine ayrılmış; çıkış yapılamaz.',
+    REZERVE_STOK: 'Bu miktar bekleyen bar siparişlerine ayrılmış; stoktan düşülemez (sipariş teslim ya da iptal edilince tekrar deneyin).',
     SAYIM_YOK: 'Sayım bulunamadı.',
     SAYIM_EKSIK: 'Sayım eksik kaydedilmiş — yeniden kaydedilmeli.',
     BEKLEYEN_YOK: 'Bekleyen düzeltme bulunamadı.',
