@@ -153,12 +153,49 @@ try {
   folyoKapat();
   q(K.SEF810, `select public.bar_siparis_teslim_et('${b7.out}', true);`);
   const i7 = tek(`select id from public.bar_borc_istisnalari where siparis_id='${b7.out}';`);
-  sonuc(kod(q(K.ONBURO810, `select public.bar_borc_istisnasi_coz('${i7}','tahsil_edilemedi');`)) === 'COZUM_NOTU_GEREKLI',
-    'B7a tahsil edilemedi kararinda gerekce zorunlu');
-  const c7 = q(K.ONBURO810, `select public.bar_borc_istisnasi_coz('${i7}','tahsil_edilemedi',null,false,'misafir ayrildi');`);
+  sonuc(kod(q(K.ONBURO810, `select public.bar_borc_istisnasi_coz('${i7}','tahsil_edilemedi',null,false,'misafir ayrildi');`)) === 'YETKI_YOK'
+     && tek(`select durum from public.bar_borc_istisnalari where id='${i7}';`) === 'acik',
+    'B7a K2: tahsil edilemedi karari pms_folio KAYIT yetkisiyle REDDEDILIR (tam gerekir)');
+  sonuc(kod(q(K.ONBUROMUD810, `select public.bar_borc_istisnasi_coz('${i7}','tahsil_edilemedi');`)) === 'COZUM_NOTU_GEREKLI',
+    'B7b tahsil edilemedi kararinda gerekce zorunlu (tam yetkili icin de)');
+  const c7 = q(K.ONBUROMUD810, `select public.bar_borc_istisnasi_coz('${i7}','tahsil_edilemedi',null,false,'misafir ayrildi');`);
   sonuc(c7.ok && tek(`select durum from public.bar_siparisleri where id='${b7.out}';`) === 'teslim_edildi'
-     && tek(`select count(*) from public.pms_folio_hareketleri where kaynak_id='${b7.out}';`) === '0',
-    'B7b tahsil edilemedi: borc yazilmadi, siparis tamamlandi');
+     && tek(`select count(*) from public.pms_folio_hareketleri where kaynak_id='${b7.out}';`) === '0'
+     && tek(`select cozen::text||'|'||cozum_notu||'|'||(cozum_zamani is not null) from public.bar_borc_istisnalari where id='${i7}';`)
+        === `${K.ONBUROMUD810.sub}|misafir ayrildi|true`,
+    'B7c tahsil edilemedi (tam): borc yazilmadi, siparis tamamlandi; AKTOR, gerekce ve zaman kaydedildi');
+
+  // K3: borc yalniz dogrulanmis konaklamanin acik folyosuna
+  sifirla();
+  const b8 = siparis(K.BAR810, VISKI1, '101');
+  q(K.BAR810, `select public.bar_siparis_oda_dogrula('${b8.out}', true);`);
+  hazirla(b8.out);
+  folyoKapat();
+  q(K.SEF810, `select public.bar_siparis_teslim_et('${b8.out}', true);`);
+  const i8 = tek(`select id from public.bar_borc_istisnalari where siparis_id='${b8.out}';`);
+  O.sql(`set session_replication_role = replica;
+         insert into public.pms_folyolar (id, otel_id, rezervasyon_id, folio_no, durum) values
+           ('55555555-0000-0000-0000-0000000001bb','810','88888888-0000-0000-0000-000000000999','F-BASKA','acik'),
+           ('55555555-0000-0000-0000-0000000001aa','810','88888888-0000-0000-0000-000000000101','F-101B','acik');
+         set session_replication_role = origin;`);
+  sonuc(kod(q(K.ONBURO810, `select public.bar_borc_istisnasi_coz('${i8}','folyoya_yaz','55555555-0000-0000-0000-0000000001bb',true);`)) === 'FOLYO_BASKA_KONAKLAMA'
+     && tek(`select count(*) from public.pms_folio_hareketleri where kaynak_id='${b8.out}';`) === '0',
+    'B8 K3: BASKA konaklamanin acik folyosuna yazma sunucuda REDDEDILIR (oda numarasi degil konaklama bagi esas)');
+  const liste = (kim) => q(kim, `select public.bar_istisna_listesi()::text;`);
+  const l1 = liste(K.ONBURO810);
+  let lj = null; try { lj = JSON.parse(l1.out.split('\n').pop()); } catch { /* asagida FAIL */ }
+  const hedefler = lj ? lj.istisnalar.flatMap((x) => x.hedef_folyolar.map((f) => f.folio_no)).join(',') : '';
+  const lm = (() => { try { return JSON.parse(liste(K.ONBUROMUD810).out.split('\n').pop()); } catch { return null; } })();
+  sonuc(lj && lj.istisnalar.length === 1 && hedefler === 'F-101B' && lj.folyoya_yazabilir === true
+     && lj.tahsil_edilemedi_diyebilir === false && lm && lm.tahsil_edilemedi_diyebilir === true
+     && /Viski ×1/.test(lj.istisnalar[0].kalemler) && lj.istisnalar[0].beyan_veren === 'Sef 810'
+     && kod(liste(K.BAR810)) === 'YETKI_YOK',
+    'B9 on buro listesi: yalniz acik istisna; hedef aday YALNIZ ayni konaklamanin folyosu (F-BASKA yok); yetki bayraklari kayit/tam; bar personeli goremez',
+    hedefler + ' | ' + (lj ? lj.istisnalar[0].kalemler : l1.err.slice(0, 120)));
+  O.sql(`set session_replication_role = replica; update public.bar_borc_istisnalari set eski_rezervasyon_id = null where id='${i8}';
+         set session_replication_role = origin;`);
+  sonuc(kod(q(K.ONBURO810, `select public.bar_borc_istisnasi_coz('${i8}','folyoya_yaz','55555555-0000-0000-0000-0000000001aa',true);`)) === 'KONAKLAMA_BAGI_YOK',
+    'B10 dogrulanmis konaklama bagi olmayan istisna hicbir folyoya yazilamaz');
 
   // ---------------- C) Iptal (T24, O11) ----------------
   sifirla();

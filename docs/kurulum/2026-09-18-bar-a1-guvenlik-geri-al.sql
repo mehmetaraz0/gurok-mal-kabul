@@ -48,6 +48,7 @@ drop function if exists public.bar_siparis_iptal(uuid, text, jsonb);
 drop function if exists public.bar_siparis_oda_dogrula(uuid, boolean);
 drop function if exists public.bar_siparis_oda_reddet(uuid, text);
 drop function if exists public.bar_borc_istisnasi_coz(uuid, text, uuid, boolean, text);
+drop function if exists public.bar_istisna_listesi();
 drop function if exists public.stok_sayim_onayla(uuid);
 drop function if exists public.stok_sayim_bekleyen_uygula(uuid);
 drop function if exists public.stok_sayim_bekleyen_iptal(uuid, text);

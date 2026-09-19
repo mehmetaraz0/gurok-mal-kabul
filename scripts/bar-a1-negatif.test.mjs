@@ -161,5 +161,39 @@ await varyant('K7', K7, async (O) => {
   sonuc(r.ok, 'K7 tetikleyici yokken sayim sunucu disinda onaylanmis isaretlenebiliyor (E14 testi bunu yakalar)');
 });
 
+// K8/K9 — istisna cozum kurallari (kullanici kararlari K3/K2, 2026-09-19)
+const { EK_TOHUM } = await import('./bar-a1-tohum.mjs');
+const ONBURO810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000d2' };   // pms_folio KAYIT
+function istisnaKur(O) {
+  const t = O.sql(EK_TOHUM); if (!t.ok) throw new Error('ek tohum: ' + t.err.slice(-200));
+  const s = siparis(O, 1).out;
+  O.sql(`set session_replication_role = replica;
+    update public.bar_siparisleri set durum = 'istisna_bekliyor' where id = '${s}';
+    insert into public.bar_borc_istisnalari (id, otel_id, siparis_id, oda_no, tutar, eski_folio_id, eski_rezervasyon_id, beyan_veren, beyan_metni)
+      values ('99999999-0000-0000-0000-0000000000e8', '810', '${s}', '101', 250, '55555555-0000-0000-0000-000000000101',
+              '88888888-0000-0000-0000-000000000101', '11111111-0000-0000-0000-0000000000d1', 'test');
+    insert into public.pms_folyolar (id, otel_id, rezervasyon_id, folio_no, durum)
+      values ('55555555-0000-0000-0000-0000000001bb', '810', '88888888-0000-0000-0000-000000000999', 'F-BASKA', 'acik');
+    set session_replication_role = origin;`);
+  return s;
+}
+const K8 = degistir(A1, `    if v_folio.rezervasyon_id is distinct from v_i.eski_rezervasyon_id then
+      raise exception 'FOLYO_BASKA_KONAKLAMA: secilen folyo siparisi dogrulanan konaklamaya ait degil';
+    end if;`, '    -- NEGATIF KONTROL: konaklama esitligi kaldirildi');
+await varyant('K8', K8, async (O) => {
+  const s = istisnaKur(O);
+  const r = O.kimlikle(ONBURO810, `select public.bar_borc_istisnasi_coz('99999999-0000-0000-0000-0000000000e8','folyoya_yaz','55555555-0000-0000-0000-0000000001bb',true);`);
+  const borc = O.sql(`select count(*) from public.pms_folio_hareketleri where kaynak_id = '${s}' and folio_id = '55555555-0000-0000-0000-0000000001bb';`).out;
+  sonuc(r.ok && borc === '1', 'K8 konaklama kontrolu yokken borc BASKA misafirin folyosuna yaziliyor (B8 testi bunu yakalar)', 'borc ' + borc);
+});
+const K9 = degistir(A1, `    if not (public.auth_yetki_var('pms_folio', 'tam') is true) then
+      raise exception 'YETKI_YOK: tahsil edilemedi karari pms_folio tam yetkisi gerektirir';
+    end if;`, '    -- NEGATIF KONTROL: tam yetki kontrolu kaldirildi');
+await varyant('K9', K9, async (O) => {
+  istisnaKur(O);
+  const r = O.kimlikle(ONBURO810, `select public.bar_borc_istisnasi_coz('99999999-0000-0000-0000-0000000000e8','tahsil_edilemedi',null,false,'deneme');`);
+  sonuc(r.ok, 'K9 tam yetki kontrolu yokken kayit yetkilisi tahsil edilemedi diyebiliyor (B7a testi bunu yakalar)');
+});
+
 console.log(`\nBAR A1 NEGATIF KONTROLLER: ${ok} OK / ${fail} FAIL`);
 process.exitCode = fail ? 1 : 0;

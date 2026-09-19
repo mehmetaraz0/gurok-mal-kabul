@@ -940,10 +940,19 @@ begin
     if p_misafir_dogrulandi is not true then
       raise exception 'DOGRULAMA_BEYANI_GEREKLI: borc yazilacak misafir yeniden dogrulanmali';
     end if;
+    -- Kullanici karari K3 (2026-09-19): borc YALNIZ dogrulanmis konaklamanin (siparis
+    -- dogrulamasinda baglanan rezervasyon) acik folyosuna yazilir. Oda numarasi esas
+    -- alinmaz; baska misafire aktarma ilk surumde YOK.
+    if v_i.eski_rezervasyon_id is null then
+      raise exception 'KONAKLAMA_BAGI_YOK: istisnanin dogrulanmis konaklama bagi yok; borc folyoya yazilamaz';
+    end if;
     select * into v_folio from public.pms_folyolar
      where id = p_hedef_folio_id and otel_id = v_i.otel_id and durum = 'acik';
     if not found then
       raise exception 'FOLYO_KAPALI: secilen folyo bu otelde acik degil';
+    end if;
+    if v_folio.rezervasyon_id is distinct from v_i.eski_rezervasyon_id then
+      raise exception 'FOLYO_BASKA_KONAKLAMA: secilen folyo siparisi dogrulanan konaklamaya ait degil';
     end if;
     insert into public.pms_folio_hareketleri (otel_id, folio_id, tip, aciklama, tutar, kaynak_tip, kaynak_id)
     values (v_folio.otel_id, v_folio.id, 'bar',
@@ -954,6 +963,10 @@ begin
            hedef_folio_id = v_folio.id, cozum_notu = nullif(btrim(p_not), '')
      where id = v_i.id;
   elsif p_sonuc = 'tahsil_edilemedi' then
+    -- Kullanici karari K2 (2026-09-19): gelir kaybi karari folyo modulunun TAM yetkisini ister.
+    if not (public.auth_yetki_var('pms_folio', 'tam') is true) then
+      raise exception 'YETKI_YOK: tahsil edilemedi karari pms_folio tam yetkisi gerektirir';
+    end if;
     if nullif(btrim(p_not), '') is null then
       raise exception 'COZUM_NOTU_GEREKLI: tahsil edilemedi kararinin gerekcesi zorunlu';
     end if;
@@ -967,6 +980,48 @@ begin
   -- Siparis ancak simdi tamamlanir (T24). Kopru istisnali siparisi atlar.
   update public.bar_siparisleri set durum = 'teslim_edildi' where id = v_i.siparis_id;
   return jsonb_build_object('sonuc', p_sonuc);
+end;
+$$;
+
+
+-- On buro istisna listesi (pms-folio.html bolumu; kararlar K1-K4, 2026-09-19).
+-- Yalniz ACIK istisnalar, otel kapsamli. Hedef folyo adaylari YALNIZ dogrulanmis
+-- konaklamanin (eski_rezervasyon_id) acik folyolaridir — K3'un ekrandaki karsiligi;
+-- asil kural bar_borc_istisnasi_coz'da. Misafir adi/rezervasyon ayrintisi
+-- dondurulmez (ayri modul yetkileri).
+create or replace function public.bar_istisna_listesi()
+returns jsonb
+language plpgsql stable security definer
+set search_path = pg_catalog, public, pg_temp
+as $$
+begin
+  if auth.uid() is null or not (public.auth_yetki_var('pms_folio', 'goruntule') is true) then
+    raise exception 'YETKI_YOK: bar istisnalari pms_folio goruntule yetkisi gerektirir';
+  end if;
+  return jsonb_build_object(
+    'folyoya_yazabilir', public.auth_yetki_var('pms_folio', 'kayit') is true,
+    'tahsil_edilemedi_diyebilir', public.auth_yetki_var('pms_folio', 'tam') is true,
+    'istisnalar', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', i.id, 'otel_id', i.otel_id, 'oda_no', i.oda_no, 'tutar', i.tutar,
+               'beyan_zamani', i.beyan_zamani, 'beyan_metni', i.beyan_metni,
+               'beyan_veren', coalesce((select k.ad from public.kullanicilar k where k.auth_user_id = i.beyan_veren limit 1), '—'),
+               'depo_id', s.depo_id,
+               'eski_folio_no', (select f.folio_no from public.pms_folyolar f where f.id = i.eski_folio_id),
+               'konaklama_bagi_var', i.eski_rezervasyon_id is not null,
+               'kalemler', (select string_agg(coalesce(m.ad, '?') || ' ×' || trim(to_char(k.adet, 'FM999990.###')), ', ' order by m.ad)
+                              from public.bar_siparis_kalemleri k left join public.menu_urunler m on m.id = k.menu_urun_id
+                             where k.siparis_id = i.siparis_id),
+               'hedef_folyolar', coalesce((
+                  select jsonb_agg(jsonb_build_object('id', f.id, 'folio_no', f.folio_no, 'tip', f.tip,
+                                                     'acilis_zamani', f.acilis_zamani) order by f.acilis_zamani)
+                    from public.pms_folyolar f
+                   where f.rezervasyon_id = i.eski_rezervasyon_id and f.otel_id = i.otel_id and f.durum = 'acik'),
+                  '[]'::jsonb))
+             order by i.beyan_zamani)
+        from public.bar_borc_istisnalari i join public.bar_siparisleri s on s.id = i.siparis_id
+       where i.durum = 'acik' and public.auth_otel_erisim(i.otel_id::text) is true),
+      '[]'::jsonb));
 end;
 $$;
 
@@ -1383,6 +1438,8 @@ revoke all on function public.bar_siparis_iptal(uuid, text, jsonb) from public, 
 grant execute on function public.bar_siparis_iptal(uuid, text, jsonb) to authenticated, service_role;
 revoke all on function public.bar_borc_istisnasi_coz(uuid, text, uuid, boolean, text) from public, anon;
 grant execute on function public.bar_borc_istisnasi_coz(uuid, text, uuid, boolean, text) to authenticated, service_role;
+revoke all on function public.bar_istisna_listesi() from public, anon;
+grant execute on function public.bar_istisna_listesi() to authenticated, service_role;
 revoke all on function public.stok_sayim_onayla(uuid) from public, anon;
 grant execute on function public.stok_sayim_onayla(uuid) to authenticated, service_role;
 revoke all on function public.stok_sayim_bekleyen_uygula(uuid) from public, anon;
