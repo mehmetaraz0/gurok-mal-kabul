@@ -52,7 +52,7 @@ function gecit(port, yollar) {
   return new Promise((coz) => sunucu.listen(port, '0.0.0.0', () => coz(sunucu)));
 }
 
-export function e2eOrtami({ ad = 'bar-e2e', a1 = true, negatifDizin = null } = {}) {
+export function e2eOrtami({ ad = 'bar-e2e', a1 = true, negatifDizin = null, ekDizin = negatifDizin } = {}) {
   const AG = ad + '-net';
   const ana = barOrtami({ ad: ad + '-ana', ag: AG });
   const MUS = ad + '-mus-db', MUS_REST = ad + '-mus-rest', GOT = ad + '-gotrue', EDGE = ad + '-edge';
@@ -128,7 +128,7 @@ export function e2eOrtami({ ad = 'bar-e2e', a1 = true, negatifDizin = null } = {
     zorunlu(d(['run', '--detach', '--rm', '--name', EDGE, '--network', AG, '-p', P.edge + ':9000',
       '--add-host', 'host.docker.internal:host-gateway',
       '-v', fn + ':/home/deno/functions/main:ro', '-v', src + ':/home/deno/functions/src:ro',
-      ...(negatifDizin ? ['-v', negatifDizin + ':/home/deno/functions/neg:ro'] : []),
+      ...(ekDizin ? ['-v', ekDizin + ':/home/deno/functions/neg:ro'] : []),
       '-e', `MAIN_SB_URL=http://host.docker.internal:${P.anaGecit}`, '-e', 'MAIN_SERVICE_KEY=' + servis,
       '-e', 'MAIN_ANON_KEY=' + anon,
       '-e', `CUSTOMER_SB_URL=http://host.docker.internal:${P.musGecit}`, '-e', 'CUSTOMER_SERVICE_KEY=' + servis,

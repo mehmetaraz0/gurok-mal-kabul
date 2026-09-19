@@ -30,7 +30,9 @@ function sahteEleman(id) {
   return el;
 }
 
-export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_control' }) {
+// kaynakKok: ekran dosyalarinin okunacagi kok (varsayilan: bu calisma kopyasi). Yayin gecis
+// provasi eski surumu (origin/main) ayri bir dizinden calistirir.
+export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_control', kaynakKok = kok }) {
   const elemanlar = new Map();
   const el = (id) => {
     if (!elemanlar.has(id)) elemanlar.set(id, sahteEleman(id));
@@ -119,10 +121,12 @@ export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_
      var oturumAccessTokenGetir=function(){return 'test';};`, baglam, { filename: 'test-config.js' });
 
   for (const dosya of ['otel-config.js', 'ortak.js', 'filtre.js', 'stok-veri.js', 'hata-kodlari.js']) {
-    vm.runInContext(readFileSync(kok + dosya, 'utf8'), baglam, { filename: dosya });
+    // Eski surumde olmayan yardimci dosya (or. hata-kodlari.js) atlanir.
+    let icerik; try { icerik = readFileSync(kaynakKok + dosya, 'utf8'); } catch { continue; }
+    vm.runInContext(icerik, baglam, { filename: dosya });
   }
 
-  const html = readFileSync(kok + 'stok-takip.html', 'utf8');
+  const html = readFileSync(kaynakKok + 'stok-takip.html', 'utf8');
   const m = html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/);
   if (!m) throw new Error('stok-takip.html icinde satir ici betik bulunamadi');
   vm.runInContext(m[1], baglam, { filename: 'stok-takip.html' });

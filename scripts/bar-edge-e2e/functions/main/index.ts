@@ -7,6 +7,8 @@ const ESLEME: Record<string, string> = {
   "smooth-service": "/home/deno/functions/src/menu-yayinla",
   // Negatif kontrol: testin bozdugu kopya (yalniz test bagladiysa vardir).
   "rapid-handler-negatif": "/home/deno/functions/neg/masa-yonetim",
+  // Yayin gecis provasi: origin/main'deki ESKI kod (yalniz test bagladiysa vardir).
+  "rapid-handler-eski": "/home/deno/functions/neg/masa-yonetim-eski",
 };
 
 Deno.serve(async (req: Request) => {

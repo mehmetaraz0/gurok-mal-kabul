@@ -29,7 +29,7 @@ function sahteEleman(id) {
   };
 }
 
-export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, musteriFetch = null, arama = '' }) {
+export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, musteriFetch = null, arama = '', kaynakKok = kok, musteriAnon = 'test-musteri-anon' }) {
   const elemanlar = new Map();
   const el = (id) => { if (!elemanlar.has(id)) elemanlar.set(id, sahteEleman(id)); return elemanlar.get(id); };
   const kayit = { toastlar: [], uyarilar: [], istekler: [], onaylar: [], sorular: [] };
@@ -74,7 +74,7 @@ export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, must
      var SB_KEY='test-anon';
      var SB_HEADERS={apikey:'test-anon',Authorization:'Bearer ' + ${JSON.stringify(jwt)},'Content-Type':'application/json'};
      var CUSTOMER_SB_URL=${JSON.stringify(MUSTERI)};
-     var CUSTOMER_ANON_KEY='test-musteri-anon';
+     var CUSTOMER_ANON_KEY=${JSON.stringify(musteriAnon)};
      var __kullanici=${JSON.stringify(kullanici)};
      var requireLogin=function(){return __kullanici;};
      var requireRole=function(){return true;};
@@ -82,10 +82,10 @@ export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, must
      var oturumAccessTokenGetir=function(){return ${JSON.stringify(jwt)};};`,
     baglam, { filename: 'test-config.js' });
 
-  const metin = readFileSync(kok + html, 'utf8');
+  const metin = readFileSync(kaynakKok + html, 'utf8');
   for (const m of metin.matchAll(/<script src="([^"]+)"><\/script>/g)) {
     if (ORTAM_DOSYALARI.has(m[1])) continue;
-    vm.runInContext(readFileSync(kok + m[1], 'utf8'), baglam, { filename: m[1] });
+    vm.runInContext(readFileSync(kaynakKok + m[1], 'utf8'), baglam, { filename: m[1] });
   }
   // toast/sLD ortak.js'ten gelir; kayit icin sarilir (davranis degismez).
   vm.runInContext(`var __toast=[];`, baglam);
