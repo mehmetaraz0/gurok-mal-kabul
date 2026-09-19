@@ -267,6 +267,57 @@ try {
   sonuc(kod(q(K.DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000003');`)) === 'SAYIM_EKSIK',
     'E6b detay satiri olmayan oturum onaylanmaz (SAYIM_EKSIK)');
 
+  // ---- Kullanici senaryosu (karar 3): sayim aninda 100, fiziksel 90, arada cikis 20 -> 70 ----
+  const oturumKur = (id, sistem, sayilan) => O.sql(`
+    insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum, toplam_urun_sayisi)
+      values ('${id}','${BAR}','810','Test','onay_bekliyor',1);
+    insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
+      values ('${id}','BIRA','Bira',${sistem},${sayilan},${sayilan - sistem});`);
+  const sayimHareketi = () => tek(`select count(*) from public.stok_hareketleri where aciklama like 'sayim%';`);
+  const onayla = (id, kim = K.DEPO810) => q(kim, `select public.stok_sayim_onayla('${id}');`);
+  const OT = (n) => '99999999-0000-0000-0000-' + String(n).padStart(12, '0');
+
+  sifirla();
+  O.sql(`update public.stok set miktar = 100 where urun_kodu='BIRA' and depo_kodu='${BAR}';`);
+  oturumKur(OT('e7'), 100, 90);                                           // sayim aninda sistem 100, fiziksel 90
+  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20);`);   // sayimdan sonra cikis 20 -> 80
+  const e7 = onayla(OT('e7'));
+  sonuc(e7.ok && stok('BIRA') === '70.000' && sayimHareketi() === '1'
+     && tek(`select uygulama_durumu from public.sayim_detaylari where oturum_id='${OT('e7')}';`) === 'uygulandi',
+    'E7 100 -> fiziksel 90 -> arada cikis 20 -> onay sonrasi 70: fark SAYIM ANINDAKI stoga gore (-10), cikis korundu', 'stok ' + stok('BIRA'));
+  const e8 = onayla(OT('e7'));
+  sonuc(/zaten_onaylandi/.test(e8.out) && stok('BIRA') === '70.000' && sayimHareketi() === '1',
+    'E8 ayni sayim ikinci kez onaylanamaz: zaten_onaylandi, stok 70, tek sayim hareketi');
+  oturumKur(OT('e9'), 70, 65);
+  const [e9a, e9b] = await Promise.all([
+    O.paralel(K.DEPO810, `select public.stok_sayim_onayla('${OT('e9')}'); select pg_sleep(2);`),
+    new Promise((r) => setTimeout(r, 700)).then(() => O.paralel(K.DEPO810, `select public.stok_sayim_onayla('${OT('e9')}');`)),
+  ]);
+  sonuc(e9a.ok && e9b.ok && /zaten_onaylandi/.test(e9b.out) && stok('BIRA') === '65.000' && sayimHareketi() === '2',
+    'E9 ayni sayimin ESZAMANLI iki onayi: fark bir kez uygulandi (70 -> 65)', 'stok ' + stok('BIRA'));
+
+  // Ayni senaryo, rezervasyonla celisen yol: duzeltme bekler, sonra delta uygulanir.
+  sifirla();
+  O.sql(`update public.stok set miktar = 100 where urun_kodu='BIRA' and depo_kodu='${BAR}';`);
+  oturumKur(OT('e10'), 100, 90);
+  const rezSip = siparis(K.BAR810, [{ menu_urun_id: M.BIRA, adet: 75 }]).out;           // 75 rezerve
+  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20);`);                  // 100 -> 80 (rezerve disi 25)
+  const e10 = onayla(OT('e10'));
+  sonuc(e10.ok && /"bekleyen": 1/.test(e10.out) && stok('BIRA') === '80.000'
+     && tek(`select fark::text||'|'||onay_anindaki_stok::text from public.stok_sayim_bekleyenleri;`) === '-10.000|80.000',
+    'E10 rezervasyonla celisen duzeltme BEKLER: 80 - 10 = 70 < 75 rezerve; stok 80, bekleyen fark -10',
+    'stok ' + stok('BIRA') + ' rez ' + tek(`select coalesce(sum(miktar),0)::text from public.stok_rezervasyonlari where durum='aktif';`) + ' | ' + (e10.out || e10.err).slice(0, 200));
+  q(K.BAR810, `select public.bar_siparis_iptal('${rezSip}', 'Test: rezervasyon kalkti');`);
+  const bek = tek(`select id from public.stok_sayim_bekleyenleri;`);
+  const [u1, u2] = await Promise.all([
+    O.paralel(K.DEPOSEF810, `select public.stok_sayim_bekleyen_uygula('${bek}'); select pg_sleep(2);`),
+    new Promise((r) => setTimeout(r, 700)).then(() => O.paralel(K.DEPOSEF810, `select public.stok_sayim_bekleyen_uygula('${bek}');`)),
+  ]);
+  const u3 = q(K.DEPOSEF810, `select public.stok_sayim_bekleyen_uygula('${bek}');`);
+  sonuc(u1.ok && u2.ok && /zaten_uygulandi/.test(u2.out) && /zaten_uygulandi/.test(u3.out)
+     && stok('BIRA') === '70.000' && sayimHareketi() === '1',
+    'E11 bekleyen duzeltme 80 -> 70 uygulandi; eszamanli ikinci ve sonraki ucuncu deneme uygulanmadi', 'stok ' + stok('BIRA'));
+
   // ---------------- F) Guvenlik yuzeyi ----------------
   const anonAcik = tek(`select count(*) from pg_proc p where p.pronamespace='public'::regnamespace
     and (p.proname like 'bar\\_%' or p.proname like 'stok\\_sayim\\_%' or p.proname in ('stok_ekle','stok_transfer','stok_cikis_korumasi'))

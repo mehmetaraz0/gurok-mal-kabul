@@ -1132,6 +1132,12 @@ begin
     raise exception 'SAYIM_EKSIK: oturumda % urun bekleniyor, % detay satiri var; sayim yeniden kaydedilmeli',
       v_o.toplam_urun_sayisi, (select count(*) from public.sayim_detaylari where oturum_id = v_o.id);
   end if;
+  -- Fark SAYIM ANINDAKI sistem miktarina gore hesaplanir (karar 3): sistem ya da sayilan
+  -- miktari olmayan satirla fark bilinemez; tek satir yazmadan dur.
+  if exists (select 1 from public.sayim_detaylari
+              where oturum_id = v_o.id and (sistem_miktar is null or sayilan_miktar is null)) then
+    raise exception 'SAYIM_EKSIK: sistem ya da sayilan miktari olmayan detay satiri var; sayim yeniden kaydedilmeli';
+  end if;
   v_otel := split_part(v_o.depo_kodu, '_', 1)::public.otel_id;
   v_belge := 'SAYIM-' || left(v_o.id::text, 8);
 
@@ -1140,7 +1146,10 @@ begin
     select s.miktar into v_mevcut from public.stok s
      where s.urun_kodu = v_d.urun_kodu and s.depo_kodu = v_o.depo_kodu for update;
     v_mevcut := coalesce(v_mevcut, 0);
-    v_fark := round(coalesce(v_d.sayilan_miktar, 0) - v_mevcut, 3);
+    -- Fiziksel gozlem ile SAYIM ANINDAKI sistem miktari arasindaki fark; sayimdan sonraki
+    -- hareketler (cikis, giris, transfer) v_mevcut'ta zaten var ve korunur. Ornek:
+    -- sayimda 100, fiziksel 90, arada cikis 20 -> 80 + (-10) = 70 (sayilan 90 yazilmaz).
+    v_fark := round(v_d.sayilan_miktar - v_d.sistem_miktar, 3);
 
     if v_fark = 0 then
       v_durum := 'fark_yok'; v_yok := v_yok + 1;

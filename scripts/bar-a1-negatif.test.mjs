@@ -124,5 +124,21 @@ await varyant('K4', K4, async (O) => {
     'K4 kapatma yokken personel siparisi RPCsiz teslim_edildi yapabiliyor, stok dusmeden (A11 testi bunu yakalar)', 'durum ' + d);
 });
 
+// K5 — sayim farki ONAY ANINDAKI stoga gore hesaplanir (2026-09-18 ilk surumun hatasi)
+const K5 = degistir(A1, 'v_fark := round(v_d.sayilan_miktar - v_d.sistem_miktar, 3);',
+  'v_fark := round(v_d.sayilan_miktar - v_mevcut, 3);   -- NEGATIF KONTROL');
+await varyant('K5', K5, async (O) => {
+  O.sql(`update public.stok set miktar = 100 where urun_kodu='BIRA' and depo_kodu='${BAR}';
+    insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum, toplam_urun_sayisi)
+      values ('99999999-0000-0000-0000-0000000000f5','${BAR}','810','Test','onay_bekliyor',1);
+    insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
+      values ('99999999-0000-0000-0000-0000000000f5','BIRA','Bira',100,90,-10);`);
+  O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20);`);
+  O.kimlikle(DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-0000000000f5');`);
+  sonuc(stok(O) === '90.000',
+    'K5 fark onay anindaki stoga gore hesaplaninca 100 -> say 90 -> cikis 20 senaryosu 90 veriyor, 70 degil (E7 testi bunu yakalar)',
+    'stok ' + stok(O));
+});
+
 console.log(`\nBAR A1 NEGATIF KONTROLLER: ${ok} OK / ${fail} FAIL`);
 process.exitCode = fail ? 1 : 0;
