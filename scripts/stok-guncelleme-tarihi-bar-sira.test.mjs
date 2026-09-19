@@ -66,8 +66,9 @@ function tarihOlc(O, cagri) {
                                         where urun_kodu='${u}' and depo_kodu='${d}';`).out;
   return { ok: r.ok, err: r.err, bar: t(BAR), merkez: t('810_100') };
 }
-const tarihSeti = (O) => ({
-  ekle: tarihOlc(O, `select public.stok_ekle('BIRA','${BAR}','810',1);`),
+// a1: A1 uygulanmissa stok_ekle 5 parametreyle (istemci nesli) cagrilir; geri alma sonrasi eski imza.
+const tarihSeti = (O, a1 = true) => ({
+  ekle: tarihOlc(O, `select public.stok_ekle('BIRA','${BAR}','810',1${a1 ? ',1' : ''});`),
   transfer: tarihOlc(O, `select public.stok_transfer('BIRA','810_100','${BAR}','810',1);`),
 });
 
@@ -94,13 +95,13 @@ async function main() {
     O.kimlikle(BAR810, `select public.bar_siparis_olustur('810','${BAR}','M1',null,
       '[{"menu_urun_id":"22222222-0000-0000-0000-000000000001","adet":8}]'::jsonb);`);
     O.sql(`update public.stok set guncelleme_tarihi = '${ESKI}' where urun_kodu='BIRA' and depo_kodu='${BAR}';`);
-    const c = O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-5);`);
+    const c = O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-5,1);`);
     const tr = O.kimlikle(DEPO810, `select public.stok_transfer('BIRA','${BAR}','810_100','810',5);`);
     const satir = O.sql(`select miktar::text||'|'||(guncelleme_tarihi > '2026-07-10')::text from public.stok
                           where urun_kodu='BIRA' and depo_kodu='${BAR}';`).out;
     sonuc(hataKodu(c) === 'REZERVE_STOK' && hataKodu(tr) === 'REZERVE_STOK' && satir === '10.000|false',
       '2 rezervasyon korumasi cikis ve transferi reddetti; satir (miktar ve TARIH) degismedi', satir);
-    const l = O.kimlikle(DEPO810, `select public.stok_ekle('LIMON','${BAR}','810',-1);`);
+    const l = O.kimlikle(DEPO810, `select public.stok_ekle('LIMON','${BAR}','810',-1,1);`);
     sonuc(l.ok && O.sql(`select (guncelleme_tarihi > '2026-07-10')::text from public.stok where urun_kodu='LIMON' and depo_kodu='${BAR}';`).out === 'true',
       '3 rezervasyonsuz kalemde davranis ayni, tarih yazildi');
 
@@ -128,7 +129,7 @@ async function main() {
     sonuc(izSonra === izOnce && (izOnce.match(/\n/g) || []).length === 7,
       '4b2 geri alma sonrasi 8 fonksiyonun govdesi, search_path ayari ve ETKIN yetkileri A1 oncesiyle BIREBIR ayni',
       izSonra === izOnce ? '' : 'ONCE:\n' + izOnce + '\nSONRA:\n' + izSonra);
-    const t2 = tarihSeti(O);
+    const t2 = tarihSeti(O, false);
     sonuc(t2.ekle.ok && t2.ekle.bar === 'true' && t2.transfer.bar === 'true' && t2.transfer.merkez === 'true',
       '4c geri alma sonrasi tarih duzeltmesi DAVRANIS olarak calisiyor (ekle + transferin iki bacagi)');
     const kalan = O.sql(`select count(*) from pg_proc where pronamespace='public'::regnamespace and proname in
@@ -192,7 +193,7 @@ async function main() {
     // Degisim GERCEKTEN yapilmali; yapilmazsa negatif kontrol bos gecerdi.
     if (bozuk === geri || !bozuk.includes(dokumGovdeleri.slice(0, 60))) throw new Error('N3 bozma kurulamadi');
     const g = N3.uygulaTekIslem(bozuk, { metin: true });
-    const t = tarihSeti(N3);
+    const t = tarihSeti(N3, false);
     sonuc(g.ok && t.ekle.bar === 'false',
       'N3 NEGATIF KONTROL: geri alma duzeltmesiz govdeleri yazinca tarih kayboluyor ve test bunu goruyor', g.ok ? '' : g.err.slice(-200));
   } catch (e) { sonuc(false, 'beklenmeyen hata (N3)', e.stack || e.message); } finally { N3.temizle(); }

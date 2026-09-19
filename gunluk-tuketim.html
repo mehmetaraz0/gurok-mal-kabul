@@ -317,10 +317,7 @@ async function tuketimKaydet(){
       // Önbellekteki (DB.stok) miktar bayat olabilir — yazmadan hemen önce canlı değeri
       // tazele, aksi halde eşzamanlı iki tüketim girişi birbirinin düşüşünü sessizce siler.
       // Atomik stok düşümü (rpc/stok_ekle, negatif delta) — yarış durumu yok
-      const rStok=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
-        method:'POST',headers:SB_HEADERS,
-        body:JSON.stringify({p_urun_kodu:u.kod,p_depo_kodu:depoId,p_otel_id:otelId,p_delta:-miktar})
-      });
+      const rStok=await stokEkleCagir({p_urun_kodu:u.kod,p_depo_kodu:depoId,p_otel_id:otelId,p_delta:-miktar});
       if(!rStok.ok){
         const hataMetni=await rStok.text();
         console.error('tuketimKaydet — stok_ekle RPC hatası:',hataMetni);
@@ -666,10 +663,7 @@ async function tuketKaydet(){
       const gerekli=k.miktar*porsiyon;
       // Önbellekteki (DB.stok) miktar bayat olabilir — yazmadan hemen önce canlı değeri tazele.
       // Atomik stok düşümü (rpc/stok_ekle, negatif delta) — yarış durumu yok
-      const rStok=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
-        method:'POST',headers:SB_HEADERS,
-        body:JSON.stringify({p_urun_kodu:k.kod,p_depo_kodu:depoId,p_otel_id:otelId,p_delta:-gerekli})
-      });
+      const rStok=await stokEkleCagir({p_urun_kodu:k.kod,p_depo_kodu:depoId,p_otel_id:otelId,p_delta:-gerekli});
       if(!rStok.ok){
         const hataMetni=await rStok.text();
         console.error('tuketKaydet — stok_ekle RPC hatası:',hataMetni);

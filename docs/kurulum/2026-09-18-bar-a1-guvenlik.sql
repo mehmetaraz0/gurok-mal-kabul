@@ -121,6 +121,18 @@ alter table public.bar_siparisleri
   add column iptal_zamani timestamptz;
 
 -- Gecis: acik ve ucretli eski siparisler dogrulama bekler; kapanmislar 'gecis'.
+-- bar_siparisleri'nde phase0 denetim tetikleyicisi (islem_audit) var: kimliksiz
+-- (postgres) DML'i 'Aktif ERP personeli gerekli' ile REDDEDER. Olculdu 2026-09-19:
+-- tabloda satir varken migration bu yuzden durdu (bos tabloda gorulmemisti).
+-- Tetikleyici ATLANMAZ (replica rolu kullanilmaz): gecis guncellemesi islem-yerel
+-- service_role kimligiyle yapilir ve denetim kaydina service_role olarak DUSER.
+-- Iki ayar birden: Supabase auth.role() ikisinden birini okur.
+do $$
+begin
+  perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+end;
+$$;
 update public.bar_siparisleri s
    set kanal = 'gecis',
        oda_dogrulama_durumu = case
@@ -128,6 +140,13 @@ update public.bar_siparisleri s
            then 'gerekmiyor'
          when s.durum in ('yeni', 'hazirlaniyor', 'hazir') then 'bekliyor'
          else 'gecis' end;
+-- Kimlik geri alinir: migration'in kalanindaki hicbir sey service_role olarak calismaz.
+do $$
+begin
+  perform set_config('request.jwt.claim.role', '', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
 
 alter table public.bar_siparisleri
   alter column kanal set not null,
@@ -369,7 +388,27 @@ $$;
 -- ============================================================================
 -- 6) stok_ekle / stok_transfer — koruma + TARIH DUZELTMESI (tasarim 3.5.1)
 -- ============================================================================
+-- YAZMA YOLUNDA ISTEMCI AYRIMI (kullanici karari 2026-09-19; gecis provasi G12):
+-- Migration'dan ONCE acilmis bir sekme sayim farkini eski kurala gore hesaplayip
+-- yazmayi migration SONRASINA birakabilir; okuma engeli (15b) o sekmeyi durdurmaz.
+-- Eski istemci stok_ekle'yi 4 parametreyle cagirir ve bu cagri normal giris/cikistan
+-- ayirt edilemez. Bu yuzden A1'den sonra 4 parametreli stok_ekle HICBIR SEY YAZMAZ ve
+-- ESKI_ISTEMCI doner; yeni ekranlar 5. parametre p_istemci_nesli ile cagirir. Sonuc:
+-- migration aninda acik kalmis HER eski stok ekrani (sayim dahil) yazamaz, sayfa
+-- yenilenince yeni surumle calisir. stok_transfer degismez (eski sayim yolu kullanmaz).
 create or replace function public.stok_ekle(p_urun_kodu text, p_depo_kodu text, p_otel_id text, p_delta numeric)
+returns numeric
+language plpgsql
+set search_path to 'pg_catalog', 'public', 'extensions', 'pg_temp'
+as $function$
+begin
+  raise exception 'ESKI_ISTEMCI: bu ekran guncelleme oncesi surum; sayfayi yenileyip islemi tekrar yapin'
+    using errcode = 'P0001';
+end;
+$function$;
+
+create or replace function public.stok_ekle(p_urun_kodu text, p_depo_kodu text, p_otel_id text, p_delta numeric,
+                                            p_istemci_nesli integer)
 returns numeric
 language plpgsql
 set search_path to 'pg_catalog', 'public', 'extensions', 'pg_temp'
@@ -377,6 +416,9 @@ as $function$
 declare
   v_yeni numeric;
 begin
+  if p_istemci_nesli is null or p_istemci_nesli < 1 then
+    raise exception 'ESKI_ISTEMCI: gecersiz istemci nesli (%)', p_istemci_nesli;
+  end if;
   if p_delta < 0 then
     perform public.stok_cikis_korumasi(p_depo_kodu, p_urun_kodu, -p_delta);
   end if;
@@ -1161,6 +1203,7 @@ declare
   v_uyg int := 0; v_bek int := 0; v_yok int := 0;
   v_belge text;
 begin
+  perform set_config('a1.sayim_sunucu', '1', true);   -- 15b: hareket + oturum tetikleyicileri icin
   if not (public.auth_yetki_var('stok_takip', 'kayit') is true) then
     raise exception 'YETKI_YOK: stok_takip kayit gerekli';
   end if;
@@ -1255,6 +1298,7 @@ declare
   v_rezerve numeric;
   v_yeni numeric;
 begin
+  perform set_config('a1.sayim_sunucu', '1', true);   -- 15b: hareket + oturum tetikleyicileri icin
   if auth.uid() is null or not (public.auth_yetki_var('stok_takip', 'tam') is true) then
     raise exception 'YETKI_YOK: bekleyen sayim duzeltmesini yalniz stok_takip tam yetkili uygular';
   end if;
@@ -1399,6 +1443,27 @@ create trigger stok_sayim_oturum_koruma
   before insert or update on public.sayim_oturumlari
   for each row execute function public._stok_sayim_oturum_koruma();
 
+-- Ucuncu katman: eski sayim istemcisi stok yazamasa bile (6: ESKI_ISTEMCI) hareketi
+-- stok_hareketleri'ne DOGRUDAN ekler (aciklama 'sayim' / 'sayim — ...'). Sayim
+-- hareketi artik yalniz sunucu sayim fonksiyonlarindan yazilir; disaridan gelen
+-- 'sayim' aciklamali hareket reddedilir (stok degismedigi halde sayim kaydi olusmasin).
+create or replace function public._stok_sayim_hareket_koruma()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public, pg_temp
+as $$
+begin
+  if coalesce(new.aciklama, '') ~* '^sayim' and coalesce(current_setting('a1.sayim_sunucu', true), '') <> '1' then
+    raise exception 'SAYIM_ONAYI_SUNUCUDA: sayim hareketi yalniz sunucu sayim onayiyla yazilir (eski ekran — sayfayi yenileyin)';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists stok_sayim_hareket_koruma on public.stok_hareketleri;
+create trigger stok_sayim_hareket_koruma
+  before insert on public.stok_hareketleri
+  for each row execute function public._stok_sayim_hareket_koruma();
+
 
 -- ============================================================================
 -- 16) MASA YONETIMI YETKI KAPSAMI (rapid-handler; tasarim 3.7)
@@ -1452,11 +1517,14 @@ revoke all on function public.stok_sayim_detaylari(uuid) from public, anon;
 grant execute on function public.stok_sayim_detaylari(uuid) to authenticated, service_role;
 -- Tetikleyici fonksiyonu: dogrudan cagrilmaz.
 revoke all on function public._stok_sayim_oturum_koruma() from public, anon, authenticated, service_role;
+revoke all on function public._stok_sayim_hareket_koruma() from public, anon, authenticated, service_role;
 revoke all on function public.stok_cikis_korumasi(text, text, numeric) from public, anon;
 grant execute on function public.stok_cikis_korumasi(text, text, numeric) to authenticated, service_role;
 -- stok_ekle / stok_transfer: mevcut karar aynen (2026-08-09 pentest adim 3)
 revoke all on function public.stok_ekle(text, text, text, numeric) from public, anon;
 grant execute on function public.stok_ekle(text, text, text, numeric) to authenticated, service_role;
+revoke all on function public.stok_ekle(text, text, text, numeric, integer) from public, anon;
+grant execute on function public.stok_ekle(text, text, text, numeric, integer) to authenticated, service_role;
 revoke all on function public.stok_transfer(text, text, text, text, numeric) from public, anon;
 grant execute on function public.stok_transfer(text, text, text, text, numeric) to authenticated, service_role;
 
@@ -1494,10 +1562,17 @@ declare
   v_f text;
 begin
   -- Tarih duzeltmesi tasindi (3.5.1).
-  if not (select bool_and(prosrc ~* 'guncelleme_tarihi\s*=\s*now\(\)') from pg_proc
-           where pronamespace = 'public'::regnamespace
-             and proname in ('stok_ekle', 'stok_transfer', '_bar_stok_dus', '_stok_delta_uygula')) then
+  if not (select bool_and(prosrc ~* 'guncelleme_tarihi\s*=\s*now\(\)') from pg_proc p
+           where p.pronamespace = 'public'::regnamespace
+             and p.oid::regprocedure::text in ('stok_ekle(text,text,text,numeric,integer)',
+                   'stok_transfer(text,text,text,text,numeric)')
+              or (p.pronamespace = 'public'::regnamespace and p.proname in ('_bar_stok_dus', '_stok_delta_uygula'))) then
     raise exception 'SON KOSUL: stok yazan fonksiyonlardan biri guncelleme_tarihi yazmiyor.';
+  end if;
+  -- Eski istemci yolu (4 parametre) hicbir sey yazmamali.
+  if exists (select 1 from pg_proc p where p.oid = 'public.stok_ekle(text,text,text,numeric)'::regprocedure
+              and (p.prosrc ~* '(insert|update|delete)\s' or p.prosrc !~ 'ESKI_ISTEMCI')) then
+    raise exception 'SON KOSUL: 4 parametreli stok_ekle hala yaziyor ya da ESKI_ISTEMCI dondurmuyor.';
   end if;
   -- Dogrudan yazma kapali.
   if has_table_privilege('authenticated', 'public.bar_siparisleri', 'UPDATE')

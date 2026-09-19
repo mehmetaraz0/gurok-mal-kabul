@@ -91,7 +91,7 @@ const K2 = degistir(A1, '  if v_rezerve = 0 then\n    return;   -- rezervasyon y
                         '  if true then\n    return;   -- NEGATIF KONTROL: koruma kaldirildi');
 await varyant('K2', K2, async (O) => {
   siparis(O, 8);
-  const c = O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-5);`);
+  const c = O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-5,1);`);
   sonuc(c.ok && stok(O) === '5.000', 'K2 koruma yokken depo kullanicisi 8 rezerveli stogu 5e dusurebiliyor (D1a testi bunu yakalar)',
     'stok 10 -> ' + stok(O));
 });
@@ -133,7 +133,7 @@ await varyant('K5', K5, async (O) => {
       values ('99999999-0000-0000-0000-0000000000f5','${BAR}','810','Test','onay_bekliyor',1);
     insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
       values ('99999999-0000-0000-0000-0000000000f5','BIRA','Bira',100,90,-10);`);
-  O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20);`);
+  O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20,1);`);
   O.kimlikle(DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-0000000000f5');`);
   sonuc(stok(O) === '90.000',
     'K5 fark onay anindaki stoga gore hesaplaninca 100 -> say 90 -> cikis 20 senaryosu 90 veriyor, 70 degil (E7 testi bunu yakalar)',
@@ -193,6 +193,34 @@ await varyant('K9', K9, async (O) => {
   istisnaKur(O);
   const r = O.kimlikle(ONBURO810, `select public.bar_borc_istisnasi_coz('99999999-0000-0000-0000-0000000000e8','tahsil_edilemedi',null,false,'deneme');`);
   sonuc(r.ok, 'K9 tam yetki kontrolu yokken kayit yetkilisi tahsil edilemedi diyebiliyor (B7a testi bunu yakalar)');
+});
+
+// K10 — 4 parametreli stok_ekle ret govdesi yerine eski yazan govde (istemci ayrimi yok)
+const K10 = degistir(A1, `begin
+  raise exception 'ESKI_ISTEMCI: bu ekran guncelleme oncesi surum; sayfayi yenileyip islemi tekrar yapin'
+    using errcode = 'P0001';
+end;`, `begin
+  -- NEGATIF KONTROL: eski istemci yazabiliyor
+  insert into stok (urun_kodu, depo_kodu, otel_id, miktar) values (p_urun_kodu, p_depo_kodu, p_otel_id::otel_id, greatest(0, p_delta))
+  on conflict (urun_kodu, depo_kodu) do update set miktar = greatest(0, stok.miktar + p_delta), guncelleme_tarihi = now();
+  return null;
+end;`);
+const K10b = degistir(K10, "    raise exception 'SON KOSUL: 4 parametreli stok_ekle hala yaziyor ya da ESKI_ISTEMCI dondurmuyor.';", '    null;');
+await varyant('K10', K10b, async (O) => {
+  const once = stok(O);
+  O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',10);`);
+  sonuc(Number(stok(O)) === Number(once) + 10, 'K10 istemci ayrimi yokken ESKI istemci (4 parametre) A1 sonrasi stok yaziyor (E16 ve G12 bunu yakalar)',
+    once + ' -> ' + stok(O));
+});
+
+// K11 — sayim hareketi tetikleyicisi kaldirilir
+const K11 = degistir(A1, `create trigger stok_sayim_hareket_koruma
+  before insert on public.stok_hareketleri
+  for each row execute function public._stok_sayim_hareket_koruma();`, '-- NEGATIF KONTROL: hareket tetikleyicisi kaldirildi');
+await varyant('K11', K11, async (O) => {
+  const r = O.kimlikle(DEPO810, `insert into public.stok_hareketleri (urun_kodu, depo_kodu, otel_id, tip, miktar, aciklama)
+                                 values ('BIRA','${BAR}','810','giris',10,'sayim');`);
+  sonuc(r.ok, 'K11 tetikleyici yokken eski istemci stok degismeden "sayim" hareketi yazabiliyor (E17 bunu yakalar)');
 });
 
 console.log(`\nBAR A1 NEGATIF KONTROLLER: ${ok} OK / ${fail} FAIL`);

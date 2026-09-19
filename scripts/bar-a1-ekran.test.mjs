@@ -238,7 +238,7 @@ try {
   const bListe = st.el('sayim-bekleyen-liste').innerHTML;
   sonuc(/BIRA/.test(bListe) && /Uygulama\/iptal için stok tam yetkisi gerekir/.test(bListe),
     'S2 bekleyen duzeltme listelenir; stok tam yetkisi olmayan kullaniciya uygula dugmesi gosterilmez', bListe.slice(0, 160));
-  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',20);`);                // aradaki hareket: 10 -> 30
+  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',20,1);`);                // aradaki hareket: 10 -> 30
   const st2 = ekranKur({ restUrl: REST, jwt: yerelJwt('authenticated', K.DEPOSEF810.sub), depo: BAR, rol: 'cost_control' });
   await bekle(1500);
   st2.calistir(`YETKI_HARITASI={stok_takip:'tam'};`);
@@ -249,6 +249,12 @@ try {
   await st2.calistir(`sayimBekleyenUygula('${bekId}')`);
   sonuc(stok('BIRA') === '25.000' && tek(`select durum from public.stok_sayim_bekleyenleri;`) === 'uygulandi',
     'S4 ekrandan bekleyen uygulama: 30 + (-5) = 25 — aradaki +20 korundu, sayilan 5 ustune yazilmadi', 'stok ' + stok('BIRA'));
+  // Yeni istemci stok_ekle'yi istemci nesliyle cagirir (A1 veritabani: 5 parametre).
+  const onceS5 = Number(stok('BIRA'));
+  const s5c = await st2.calistir(`stokEkleCagir({p_urun_kodu:'BIRA',p_depo_kodu:'${BAR}',p_otel_id:'810',p_delta:3}).then(async r=>({ok:r.ok,govde:await r.text()}))`);
+  const s5istek = st2.istekler.filter((u) => /rpc\/stok_ekle/.test(u)).length;
+  sonuc(s5c.ok && Number(stok('BIRA')) === onceS5 + 3 && s5istek === 1,
+    'S5 yeni istemci stok_ekle cagrisi A1 veritabaninda istemci nesliyle TEK istekte yazar (dusus yolu kullanilmadi)', s5c.govde);
 
   // ---------------- On buro: bar borc istisnasi cozumu (kararlar K1-K5) ----------------
   const istisnaAc = () => {

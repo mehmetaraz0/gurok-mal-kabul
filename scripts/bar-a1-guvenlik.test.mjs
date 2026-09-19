@@ -236,13 +236,13 @@ try {
   // ---------------- D) Stok cikis korumasi ----------------
   sifirla();
   siparis(K.BAR810, [{ menu_urun_id: M.BIRA, adet: 8 }]);
-  sonuc(kod(q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-5);`)) === 'REZERVE_STOK' && stok('BIRA') === '10.000',
+  sonuc(kod(q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-5,1);`)) === 'REZERVE_STOK' && stok('BIRA') === '10.000',
     'D1a bar yetkisi olmayan depo kullanicisi rezerve stogu TUKETEMEZ (ONCE-3 tersi)');
-  sonuc(q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-2);`).ok && stok('BIRA') === '8.000',
+  sonuc(q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-2,1);`).ok && stok('BIRA') === '8.000',
     'D1b rezerve disi miktar (2) cikabilir');
   sonuc(kod(q(K.DEPO810, `select public.stok_transfer('BIRA','${BAR}','810_100','810',1);`)) === 'REZERVE_STOK',
     'D2 rezerve stoktan transfer REDDEDILIR');
-  const d3 = q(K.DEPO810, `select public.stok_ekle('LIMON','${BAR}','810',-5);`);
+  const d3 = q(K.DEPO810, `select public.stok_ekle('LIMON','${BAR}','810',-5,1);`);
   sonuc(d3.ok && stok('LIMON') === '45.000'
      && !/2026-07-09/.test(tek(`select guncelleme_tarihi::text from public.stok where urun_kodu='LIMON' and depo_kodu='${BAR}';`)),
     'D3 rezervasyonsuz kalemde davranis ayni; tarih yazildi');
@@ -282,7 +282,7 @@ try {
   sonuc(kod(q(K.DEPOSEF810, `select public.stok_sayim_bekleyen_uygula('${bekId}');`)) === 'REZERVE_STOK',
     'E3 celiski surerken uygulama REDDEDILIR');
   // Aradaki hareket: +20 giris (mal kabul gibi). Rezervasyon hala 8.
-  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',20);`);           // stok 30
+  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',20,1);`);           // stok 30
   const e4 = q(K.DEPOSEF810, `select public.stok_sayim_bekleyen_uygula('${bekId}');`);
   sonuc(e4.ok && stok('BIRA') === '25.000' && /"onceki_stok": 30/.test(e4.out)
      && tek(`select kismi_uygulandi::text from public.sayim_oturumlari;`) === 'false'
@@ -317,7 +317,7 @@ try {
   sifirla();
   O.sql(`update public.stok set miktar = 100 where urun_kodu='BIRA' and depo_kodu='${BAR}';`);
   oturumKur(OT('e7'), 100, 90);                                           // sayim aninda sistem 100, fiziksel 90
-  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20);`);   // sayimdan sonra cikis 20 -> 80
+  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20,1);`);   // sayimdan sonra cikis 20 -> 80
   const e7 = onayla(OT('e7'));
   sonuc(e7.ok && stok('BIRA') === '70.000' && sayimHareketi() === '1'
      && tek(`select uygulama_durumu from public.sayim_detaylari where oturum_id='${OT('e7')}';`) === 'uygulandi',
@@ -338,7 +338,7 @@ try {
   O.sql(`update public.stok set miktar = 100 where urun_kodu='BIRA' and depo_kodu='${BAR}';`);
   oturumKur(OT('e10'), 100, 90);
   const rezSip = siparis(K.BAR810, [{ menu_urun_id: M.BIRA, adet: 75 }]).out;           // 75 rezerve
-  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20);`);                  // 100 -> 80 (rezerve disi 25)
+  q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20,1);`);                  // 100 -> 80 (rezerve disi 25)
   const e10 = onayla(OT('e10'));
   sonuc(e10.ok && /"bekleyen": 1/.test(e10.out) && stok('BIRA') === '80.000'
      && tek(`select fark::text||'|'||onay_anindaki_stok::text from public.stok_sayim_bekleyenleri;`) === '-10.000|80.000',
@@ -380,6 +380,23 @@ try {
   sonuc(e15.ok && tek(`select durum from public.sayim_oturumlari where id='${OT('e13')}';`) === 'onaylandi'
      && O.sql(`update public.sayim_oturumlari set olusturan_ad = 'duzeltme' where id = '${OT('e13')}';`).ok,
     'E15 sunucu onayi calisir; onayla ilgisiz alan guncellemesi engellenmez');
+
+  // ---- Yazma yolunda istemci ayrimi (2026-09-19; gecis provasi G12) ----
+  const once16 = stok('BIRA');
+  const e16a = q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',10);`);
+  const e16b = q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',10,0);`);
+  sonuc(kod(e16a) === 'ESKI_ISTEMCI' && kod(e16b) === 'ESKI_ISTEMCI' && stok('BIRA') === once16,
+    'E16 A1 sonrasi 4 parametreli (eski istemci) ve nesli gecersiz stok_ekle HICBIR SEY YAZMAZ: ESKI_ISTEMCI', 'stok ' + stok('BIRA'));
+  const e16c = q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',10,1);`);
+  sonuc(e16c.ok && Number(stok('BIRA')) === Number(once16) + 10, 'E16b yeni istemci (nesil 1) yazar');
+  const hareket = (acik) => q(K.DEPO810, `insert into public.stok_hareketleri (urun_kodu, depo_kodu, otel_id, tip, miktar, aciklama)
+                                           values ('BIRA','${BAR}','810','giris',1,${acik === null ? 'null' : `'${acik}'`});`);
+  const e17a = hareket('sayim');
+  const e17b = hareket('sayim — Fiziksel sayım düzeltmesi');
+  const e17c = hareket('Mal kabul');
+  sonuc(kod(e17a) === 'SAYIM_ONAYI_SUNUCUDA' && kod(e17b) === 'SAYIM_ONAYI_SUNUCUDA' && e17c.ok,
+    'E17 sunucu disindan "sayim" aciklamali hareket REDDEDILIR; diger dogrudan hareketler etkilenmez',
+    [kod(e17a), kod(e17b), kod(e17c)].join(' | '));
 
   // ---------------- F) Guvenlik yuzeyi ----------------
   const anonAcik = tek(`select count(*) from pg_proc p where p.pronamespace='public'::regnamespace

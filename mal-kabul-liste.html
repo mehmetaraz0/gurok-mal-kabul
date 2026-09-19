@@ -1128,10 +1128,7 @@ async function stoktanGeriAl(f){
     if(miktar<=0)continue;
     try{
       // Atomik stok düşümü (rpc/stok_ekle, negatif delta)
-      const rStok=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
-        method:'POST',headers:SB_HEADERS,
-        body:JSON.stringify({p_urun_kodu:u.kod,p_depo_kodu:depoKompozit,p_otel_id:otelId,p_delta:-miktar})
-      });
+      const rStok=await stokEkleCagir({p_urun_kodu:u.kod,p_depo_kodu:depoKompozit,p_otel_id:otelId,p_delta:-miktar});
       if(!rStok.ok){
         const hataMetni=await rStok.text();
         console.error('stoktanGeriAl — stok_ekle RPC hatası:',hataMetni);
@@ -1263,10 +1260,7 @@ async function stokaIsle(f){
     const miktar=parseFloat(u.miktar)||0;
     if(miktar<=0)continue;
     // Atomik stok girişi (rpc/stok_ekle) — yarış durumu yok, GET+hesapla+POST kalktı
-    const rStok=await fetch(SB_URL+'/rest/v1/rpc/stok_ekle',{
-      method:'POST',headers:SB_HEADERS,
-      body:JSON.stringify({p_urun_kodu:u.kod,p_depo_kodu:depoKompozit,p_otel_id:otelId,p_delta:miktar})
-    });
+    const rStok=await stokEkleCagir({p_urun_kodu:u.kod,p_depo_kodu:depoKompozit,p_otel_id:otelId,p_delta:miktar});
     if(!rStok.ok){
       const hataMetni=await rStok.text();
       console.error('stok_ekle RPC hatası:',hataMetni);

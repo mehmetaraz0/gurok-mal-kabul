@@ -50,6 +50,26 @@ function round2(n){return Math.round(((parseFloat(n)||0)+Number.EPSILON)*100)/10
 // akışı DEĞİŞTİRMEZ (throw etmez, mevcut mantık bozulmaz). Başarısızlıkta
 // konsola yazar + KALICI kırmızı şerit gösterir. Şerit kalıcıdır çünkü toast
 // tek elemanlıdır ve arkadan gelen "✅ kaydedildi" mesajı onu EZER.
+// ============================================================
+// STOK_EKLE — İSTEMCİ NESLİ (Bar A1, 2026-09-19)
+// ============================================================
+// A1 migration'ından sonra 4 parametreli rpc/stok_ekle HİÇBİR ŞEY YAZMAZ
+// (ESKI_ISTEMCI): güncelleme anında açık kalmış eski sekmeler — özellikle eski
+// kurala göre sayım farkı hesaplamış olanlar — stok yazamasın diye. Yeni ekranlar
+// 5. parametreyle çağırır. A1 ÖNCESİ veritabanında 5 parametreli fonksiyon yoktur
+// (PGRST202); yalnız o durumda eski imzaya düşülür, böylece ekranlar migration'dan
+// önce yayınlanabilir. Migration'dan sonra düşüş yolu da ESKI_ISTEMCI alır.
+const STOK_ISTEMCI_NESLI = 1;
+async function stokEkleCagir(govde){
+  const url = SB_URL + '/rest/v1/rpc/stok_ekle';
+  const r = await fetch(url, { method:'POST', headers:SB_HEADERS,
+    body: JSON.stringify({ ...govde, p_istemci_nesli: STOK_ISTEMCI_NESLI }) });
+  if (r.ok || r.status !== 404) return r;
+  const metin = await r.clone().text().catch(() => '');
+  if (!/PGRST202/.test(metin)) return r;
+  return fetch(url, { method:'POST', headers:SB_HEADERS, body: JSON.stringify(govde) });
+}
+
 async function sbYaz(url, opts, aciklama){
   let r;
   try{

@@ -114,6 +114,53 @@ try {
   sonuc(tekA(`select miktar::text from public.stok where urun_kodu='LIMON' and depo_kodu='${BAR}';`) === '100.000'
      && tekA(`select durum from public.sayim_oturumlari where id='99999999-0000-0000-0000-00000000aa02';`) === 'onay_bekliyor',
     'G1d YENI stok-takip + ESKI veritabani: sayim onayi GUVENLI basarisiz olur (RPC yok) — stok ve oturum degismez');
+
+  // --- G12: DURAKLATILMIS ESKI SEKME (kullanici senaryosu 2026-09-19) ---
+  // Eski ekran detaylari MIGRATION ONCESI okur -> stok yazmadan hemen once bekletilir ->
+  // A1 migration uygulanir -> eski ekranin yazmasi devam ettirilir. Stok DEGISMEMELI.
+  // Okuma engeli (15b) bu senaryoda ise yaramaz: okuma migration'dan once olmustur.
+  A.ana.sql(`update public.stok set miktar = 100 where urun_kodu='VISKI' and depo_kodu='${BAR}';
+    insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum, toplam_urun_sayisi)
+      values ('99999999-0000-0000-0000-00000000aa12','${BAR}','810','Test','onay_bekliyor',1);
+    insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
+      values ('99999999-0000-0000-0000-00000000aa12','VISKI','Viski',100,90,-10);`);
+  A.ana.kimlikle(K.DEPO810, `select public.stok_ekle('VISKI','${BAR}','810',-20);`);   // sayimdan sonra cikis: 100 -> 80
+  const eskiSt = ekranKur({ restUrl: REST(A), jwt: J.depo810, depo: BAR, rol: 'cost_control', kaynakKok: ESKI });
+  await bekle(1500);
+  await eskiSt.calistir('sayimOnayBekleyenleriYukle()');
+  let birak; const kapi = new Promise((r) => { birak = r; });
+  let durduruldu = false;
+  const yazmaIstekleri = [];
+  eskiSt.fetchAraciAyarla(async (url, sec, devam) => {
+    if (/rpc\/stok_ekle|rpc\/stok_transfer|\/stok_hareketleri|sayim_oturumlari\?id=eq/.test(url) && sec && sec.method && sec.method !== 'GET') {
+      yazmaIstekleri.push(url);
+      if (!durduruldu) { durduruldu = true; await kapi; }   // ILK yazma istegi migration bitene kadar bekler
+    }
+    return devam();
+  });
+  const onay = eskiSt.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa12')`);
+  for (let i = 0; i < 200 && !durduruldu; i++) await bekle(50);
+  const okumaOncesi = tekA(`select miktar::text from public.stok where urun_kodu='VISKI' and depo_kodu='${BAR}';`);
+  const mig = A.ana.uygulaTekIslem('docs/kurulum/2026-09-18-bar-a1-guvenlik.sql');
+  A.ana.sql(`notify pgrst, 'reload schema';`);
+  await bekle(2500);
+  birak();
+  await onay;
+  await bekle(800);
+  const vSon = tekA(`select miktar::text from public.stok where urun_kodu='VISKI' and depo_kodu='${BAR}';`);
+  const sayimHareketi = tekA(`select count(*) from public.stok_hareketleri where urun_kodu='VISKI' and aciklama ilike 'sayim%';`);
+  const otr = tekA(`select durum||'|'||kismi_uygulandi from public.sayim_oturumlari where id='99999999-0000-0000-0000-00000000aa12';`);
+  sonuc(durduruldu && mig.ok && okumaOncesi === '80.000' && vSon === '80.000' && sayimHareketi === '0' && otr === 'onay_bekliyor|false',
+    'G12 DURAKLATILMIS ESKI SEKME: detaylar migration oncesi okundu, yazma migration sonrasina bekletildi -> stok DEGISMEDI, sayim hareketi yazilmadi, oturum onay bekliyor',
+    `duraklatildi=${durduruldu} migration=${mig.ok ? 'ok' : mig.err.slice(-160)} stok ${okumaOncesi} -> ${vSon}; sayim hareketi ${sayimHareketi}; oturum ${otr}; yazma istekleri ${yazmaIstekleri.length}`);
+  const yeniSt = ekranKur({ restUrl: REST(A), jwt: J.depo810, depo: BAR, rol: 'cost_control' });
+  await bekle(1500);
+  await yeniSt.calistir('sayimOnayBekleyenleriYukle()');
+  await yeniSt.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa12')`);
+  await bekle(500);
+  sonuc(tekA(`select miktar::text from public.stok where urun_kodu='VISKI' and depo_kodu='${BAR}';`) === '70.000',
+    'G13 ayni sayim YENI ekranla onaylaninca 100 -> 90 -> cikis 20 -> 70',
+    'stok ' + tekA(`select miktar::text from public.stok where urun_kodu='VISKI' and depo_kodu='${BAR}';`));
 } catch (e) { sonuc(false, 'beklenmeyen hata (adim 1)', e.stack || e.message); console.log(A.edgeGunlugu().slice(-1500)); }
 finally { A.temizle(); }
 
@@ -215,7 +262,7 @@ try {
       values ('99999999-0000-0000-0000-00000000aa01','${BAR}','810','Test','onay_bekliyor',1);
     insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
       values ('99999999-0000-0000-0000-00000000aa01','LIMON','Limon',100,90,-10);`);
-  B.ana.kimlikle(K.DEPO810, `select public.stok_ekle('LIMON','${BAR}','810',-20);`);   // 100 -> 80
+  B.ana.kimlikle(K.DEPO810, `select public.stok_ekle('LIMON','${BAR}','810',-20,1);`);   // 100 -> 80
   const st = ekranKur({ restUrl: REST(B), jwt: J.depo810, depo: BAR, rol: 'cost_control', kaynakKok: ESKI });
   await bekle(1500);
   await st.calistir('sayimOnayBekleyenleriYukle()');

@@ -106,8 +106,10 @@ $$;
 
 -- Tarih duzeltmesi su an canli mi? Eski govdeler yazilmadan ONCE olculur.
 create temp table _a1_geri_tarih on commit drop as
-select coalesce(bool_and(prosrc ~* 'guncelleme_tarihi'), false) as vardi
-  from pg_proc where pronamespace = 'public'::regnamespace and proname in ('stok_ekle', 'stok_transfer');
+-- A1'de 4 parametreli stok_ekle yazmaz (ESKI_ISTEMCI); yazan govde 5 parametreli olandir.
+select coalesce(bool_and(p.prosrc ~* 'guncelleme_tarihi'), false) as vardi
+  from pg_proc p where p.oid::regprocedure::text in ('stok_ekle(text,text,text,numeric,integer)',
+                                                     'stok_transfer(text,text,text,text,numeric)');
 
 -- 1) A1'IN YENI FONKSIYONLARI
 drop function if exists public.bar_siparis_teslim_et(uuid, boolean);
@@ -126,6 +128,10 @@ drop function if exists public._bar_folyo_gecerli(uuid, uuid);
 drop trigger if exists stok_sayim_oturum_koruma on public.sayim_oturumlari;
 drop function if exists public._stok_sayim_oturum_koruma();
 drop function if exists public.stok_sayim_detaylari(uuid);
+drop trigger if exists stok_sayim_hareket_koruma on public.stok_hareketleri;
+drop function if exists public._stok_sayim_hareket_koruma();
+-- Istemci nesli: 5 parametreli stok_ekle kalkar; 4 parametreli eski yazan govdeye doner (asagida).
+drop function if exists public.stok_ekle(text, text, text, numeric, integer);
 grant select on table public.sayim_detaylari to authenticated;
 
 -- 2) ESKI FONKSIYONLAR CALISSIN DIYE GEVSETILEN KISITLAR (veri korunur)
