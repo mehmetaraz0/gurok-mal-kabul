@@ -5,7 +5,7 @@
 
 | # | Madde | Durum |
 |---|---|---|
-| 1 | Eski sayım sekmesinin migration sonrası yanlış yazması sunucuda engellenir | **KANITLANDI** |
+| 1 | Eski sayım sekmesinin migration sonrası yanlış yazması sunucuda engellenir | ~~KANITLANDI~~ → **erken kapatıldı**; bkz. düzeltme |
 | 2 | Yedek, ilk üretim değişikliğinden önce | **KANITLANDI** (plan düzenlendi) |
 | 3 | İstisna ekranı K1–K5 | **KANITLANDI** (gerçek tıklamayla dahil) |
 | 4 | Önceki tur tarayıcı testleri | **KOŞULLU GEÇTİ** |
@@ -16,6 +16,10 @@
 ---
 
 ## 1. Eski sayım sekmesi — KANITLANDI
+
+> **DÜZELTME (2026-09-19, üçüncü tur):** Bu madde erken kapatıldı. Detayları migration'dan ÖNCE okumuş
+> ve yazması migration sonrasına kalmış bir sekme okuma engeline takılmıyordu. Yazma yolunda ayrım
+> eklendi ve senaryo sınandı: .
 
 **Mekanizma (migration §15b):** Eski ekran farkı istemcide hesaplayıp `stok_ekle` ile yazıyor;
 `stok_ekle` normal giriş/çıkışın da yolu olduğu için o çağrı ayırt edilemez. Eski ekran yazmadan
