@@ -16,7 +16,9 @@
 import { readFileSync } from 'node:fs';
 import { barOrtami, hataKodu, kok } from './bar-test-ortam.mjs';
 
-const A1 = readFileSync(kok + 'docs/kurulum/2026-09-18-bar-a1-guvenlik.sql', 'utf8');
+// Git calisma kopyasini CRLF cikarabilir (core.autocrlf); arama metinleri LF'tir.
+// psql satir sonunu normalize ettigi icin uygulanan SQL'in anlami degismez.
+const A1 = readFileSync(kok + 'docs/kurulum/2026-09-18-bar-a1-guvenlik.sql', 'utf8').replace(/\r\n/g, '\n');
 const BAR = '810_CSM302';
 const BAR810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-000000000810' };
 const DEPO810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000cc' };
