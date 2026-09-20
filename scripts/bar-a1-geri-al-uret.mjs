@@ -100,11 +100,19 @@ export function uret() {
 --     VERILMEYEN haklar: DELETE, TRUNCATE, REFERENCES, TRIGGER.
 --     GERI VERILEN: SELECT (15b geri alinir), INSERT, UPDATE.
 --  3) public.bar_siparisleri, public.bar_siparis_kalemleri,
---     public.stok_rezervasyonlari — A1 bolum 17 bu uc tablodan authenticated'in
---     TUM tablo haklarini aliyor (dogrudan yazma kapanisi). Geri alma bunlari da
---     geri VERMEZ; yazma yalnizca SECURITY DEFINER fonksiyonlardan gecer ve
---     hicbir ekran bu tablolara dogrudan yazmaz. TRUNCATE hakki da bu yolla
---     kalkmis olur (toplamda A1, 5 tabloda TRUNCATE hakkini kaldirir).
+--     public.stok_rezervasyonlari — A1 bolum 4 bu uc tablodan authenticated'in
+--     YAZMA haklarini alir: INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES,
+--     TRIGGER. **SELECT ALINMAZ** ve okuma politikalari (siparis_select,
+--     kalem_select, rez_select) DOKUNULMAZ. Ayrica public ve anon rollerinden
+--     TUM haklar alinir. Geri alma bu yazma kisitini geri VERMEZ; yazma
+--     yalnizca SECURITY DEFINER fonksiyonlardan gecer.
+--     OLCULDU (scripts/bar-a1-geri-alma-eski-ekran.test.mjs, 11/11): geri alma
+--     sonrasi ESKI bar kuyruk ekrani GERCEK personel JWT'siyle siparisleri ve
+--     gomulu kalemleri LISTELIYOR, eski garson ekrani siparis olusturuyor,
+--     hazirlaniyor/hazir/teslim ve iptal akislari calisiyor. Yani bu kisit eski
+--     akisi BOZMUYOR; ek bir hak geri vermeye gerek yoktur.
+--     (Toplamda A1, 5 tabloda TRUNCATE hakkini kaldirir: bu uc tablo + iki sayim
+--     tablosu.)
 --
 --  NEDEN: TRUNCATE satir duzeyi guvenligi (RLS) DINLEMEZ; bu tablolar RLS ile
 --  korunuyor sanilirken tek komutla bosaltilabiliyordu. Bu, A1'in getirdigi bir

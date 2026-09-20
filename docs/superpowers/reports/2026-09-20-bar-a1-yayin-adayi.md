@@ -31,6 +31,7 @@ projesinin public anon anahtarıyla, yazmayan yollar). Sır repoya konmadı.
 | `sayim-rls-duzeltme` (15c, yeni) | **22/22** |
 | `kesinti-uzlastirma` (yeni) | **20/20** (dört alanlı eşleşme dahil) |
 | `truncate-yetki` (yeni) | **13/13** (sayı tutarlılığı + tablo listesi dahil) |
+| `bar-a1-geri-alma-eski-ekran` (yeni) | **11/11** (geri alma sonrası eski akış, gerçek personel kimliği) |
 | migration denetleyicisi | 0 hata |
 
 ---
@@ -224,13 +225,41 @@ eklendi; geri alma sonrası yetki denetimi yapan biri farkı orada görür. Tabl
 |---|---|---|
 | `sayim_oturumlari` | DELETE, TRUNCATE, REFERENCES, TRIGGER | SELECT, INSERT, UPDATE |
 | `sayim_detaylari` | DELETE, TRUNCATE, REFERENCES, TRIGGER | SELECT (15b geri alınır), INSERT, UPDATE |
-| `bar_siparisleri` | tüm tablo hakları (doğrudan yazma kapalı kalır) | — |
-| `bar_siparis_kalemleri` | aynı | — |
-| `stok_rezervasyonlari` | aynı | — |
+| `bar_siparisleri` | INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER | **SELECT** (hiç alınmadı) + okuma politikaları |
+| `bar_siparis_kalemleri` | aynı | aynı |
+| `stok_rezervasyonlari` | aynı | aynı |
+
+**Düzeltme:** bir önceki turda bu üç tablo için "tüm tablo hakları geri verilmiyor" yazmıştım —
+yanlıştı. A1 bu tablolardan yalnız **yazma** haklarını alıyor; `SELECT` ve okuma politikaları
+(`siparis_select`, `kalem_select`, `rez_select`) hiç dokunulmadan duruyor. `public` ve `anon`
+rollerinden ise tüm haklar alınıyor.
 
 Gerekçe dosyada yazılı; geri vermek için gereken açık komut da orada. Bunun dışındaki her şey
 (fonksiyon gövdeleri, `search_path`, etkin fonksiyon yetkileri, tetikleyiciler) A1 öncesiyle
 **birebir aynı** olmalı — `stok-guncelleme-tarihi-bar-sira` 4b/4b2/4b3 bunu ölçüyor.
+
+### 6.2a-1 Geri alma sonrası ESKİ akış — gerçek personel kimliğiyle ölçüldü (kararınız)
+
+`scripts/bar-a1-geri-alma-eski-ekran.test.mjs` → **11 OK / 0 FAIL**. Yöntem: üretim dökümü → A1 →
+**geri alma** → ardından `origin/main`'deki **eski ekran kaynağı**, gerçek personel JWT'siyle,
+gerçek PostgREST üzerinden çalıştırıldı.
+
+| Kontrol | Sonuç |
+|---|---|
+| Geri alma sonrası etkin haklar | üç tabloda da `select=true`; `insert/update/delete/truncate=false` |
+| **H2** eski kuyruk ekranı listeleme (doğrudan tablo okuması) | **çalışıyor** |
+| **H3** gömülü kalem okuması (`bar_siparis_kalemleri`) | **çalışıyor** |
+| **H3b** ekran kartları çiziliyor | **çiziyor** (boş liste mesajı değil) |
+| **H4** eski garson ekranı sipariş oluşturma (RPC) | **çalışıyor** |
+| **H5** hazırlanıyor → hazır → **teslim** | **çalışıyor** |
+| **H6** **iptal** | **çalışıyor** |
+| **H7** TRUNCATE açılmadı | üç tabloda da kapalı |
+| **H8/H9** doğrudan yazma açılmadı | personel tabloya yazamıyor (`permission denied`) |
+
+**Sonuç: geri dönüş için ek hak açmaya gerek yok** — gereken hiçbir hak kapalı değil. Eski yazma
+yolları zaten `SECURITY DEFINER` RPC'ler; okuma hiç kısıtlanmamış. Dolayısıyla "gerekli hakları
+RLS sınırları içinde geri getiren yol" tasarlanacak bir boşluk çıkmadı; TRUNCATE gibi gereksiz
+haklar da açılmadı. Bu madde artık **ölçüme dayalı olarak** "geri dönüş tamam" sayılabilir.
 
 ### 6.2b Yan iş: `authenticated → TRUNCATE` bulgusu (A1 dışı, yüksek öncelikli)
 
