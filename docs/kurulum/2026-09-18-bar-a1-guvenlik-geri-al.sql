@@ -17,6 +17,43 @@
 --    silinemez; onkosul hic kullanilmadigini dogrular).
 --  * 2026-09-17 stok TARIH DUZELTMESI: A1'e ait degildir; stok govdeleri
 --    tarih duzeltmeli A1-oncesi haline doner (tasarim 3.5.1(3)).
+--
+-- ############################################################################
+-- # DIKKAT — BU GERI ALMA YETKILERI BIREBIR ESKI HALINE GETIRMEZ.            #
+-- # Asagidaki GUVENLIK DARALTMALARI BILEREK KORUNUR (2026-09-20 karari).     #
+-- # Geri alma sonrasi yetki denetimi yapan biri, farki burada gormelidir.    #
+-- ############################################################################
+--
+-- KORUNAN DARALTMALAR — tablo bazinda tam liste:
+--
+--  1) public.sayim_oturumlari  — authenticated rolunden ALINAN ve GERI
+--     VERILMEYEN haklar: DELETE, TRUNCATE, REFERENCES, TRIGGER.
+--     GERI VERILEN: SELECT, INSERT, UPDATE (A1 oncesiyle ayni).
+--  2) public.sayim_detaylari   — authenticated rolunden ALINAN ve GERI
+--     VERILMEYEN haklar: DELETE, TRUNCATE, REFERENCES, TRIGGER.
+--     GERI VERILEN: SELECT (15b geri alinir), INSERT, UPDATE.
+--  3) public.bar_siparisleri, public.bar_siparis_kalemleri,
+--     public.stok_rezervasyonlari — A1 bolum 17 bu uc tablodan authenticated'in
+--     TUM tablo haklarini aliyor (dogrudan yazma kapanisi). Geri alma bunlari da
+--     geri VERMEZ; yazma yalnizca SECURITY DEFINER fonksiyonlardan gecer ve
+--     hicbir ekran bu tablolara dogrudan yazmaz. TRUNCATE hakki da bu yolla
+--     kalkmis olur (toplamda A1, 5 tabloda TRUNCATE hakkini kaldirir).
+--
+--  NEDEN: TRUNCATE satir duzeyi guvenligi (RLS) DINLEMEZ; bu tablolar RLS ile
+--  korunuyor sanilirken tek komutla bosaltilabiliyordu. Bu, A1'in getirdigi bir
+--  kisit degil, A1 sirasinda FARK EDILEN ayri bir guvenlik kusurunun bu iki
+--  tabloya dusen parcasidir (ayrintili rapor:
+--  docs/superpowers/reports/2026-09-20-truncate-bulgusu.md; ayri is task_7fcfaa3c).
+--  Geri alma bunlari geri verseydi, A1'i geri almak sistemi A1 oncesinden DAHA
+--  ZAYIF degil ama bilinen bir acigi yeniden acmis olurdu.
+--
+--  GERI VERILMESI GEREKIYORSA: ayri ve bilincli bir karar olmalidir. Komut:
+--    grant delete, truncate, references, trigger
+--      on table public.sayim_oturumlari, public.sayim_detaylari to authenticated;
+--
+--  DIGER HER SEY (fonksiyon govdeleri, search_path ayarlari, etkin fonksiyon
+--  yetkileri, tetikleyiciler) A1 oncesiyle BIREBIR ayni olmalidir; bu,
+--  scripts/stok-guncelleme-tarihi-bar-sira.test.mjs 4b/4b2/4b3 ile olculur.
 -- ============================================================================
 
 -- 0) ONKOSULLAR — geri alma veri kaybettirmemeli

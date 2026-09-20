@@ -29,6 +29,11 @@ try {
   // ---------------- (A) VERITABANI YETKISI ----------------
   const truncTablo = tek(`select count(*) from information_schema.role_table_grants
                            where table_schema='public' and privilege_type='TRUNCATE' and grantee='authenticated';`);
+  // A1 oncesi tam liste — sonunda "hangi tablolar kapandi" farkini adiyla vermek icin.
+  const TRUNC_ONCE = tek(`select string_agg(table_name, ',' order by table_name)
+                            from information_schema.role_table_grants
+                           where table_schema='public' and privilege_type='TRUNCATE' and grantee='authenticated';`)
+    .split(',').filter(Boolean);
   sonuc(Number(truncTablo) > 0,
     'A1 authenticated rolunde TRUNCATE hakki olan tablolar VAR', truncTablo + ' tablo');
 
@@ -94,8 +99,19 @@ try {
       'C2 A1 (15c) sayim tablolarinda TRUNCATE hakkini kaldiriyor', 'kalan hak: ' + sonra);
     const kalan = tek(`select count(*) from information_schema.role_table_grants
                         where table_schema='public' and privilege_type='TRUNCATE' and grantee='authenticated';`);
+    // AYNI KAPSAMLI LISTE: A1'in hakki kaldirdigi tablolarin TAMAMI adiyla.
+    // (Sayim disindaki tablolar 15c'nin degil, A1'in siparis/rezervasyon
+    // dogrudan-yazma kapatmasinin yan etkisidir: 'revoke all ... from authenticated'.)
+    const dusenler = tek(`select string_agg(t, ', ' order by t) from unnest(array[${'\''}${TRUNC_ONCE.join("','")}${'\''}]) t
+                           where not exists (select 1 from information_schema.role_table_grants g
+                                              where g.table_schema='public' and g.privilege_type='TRUNCATE'
+                                                and g.grantee='authenticated' and g.table_name = t);`);
+    const dusenSayi = dusenler ? dusenler.split(',').length : 0;
+    sonuc(Number(truncTablo) - dusenSayi === Number(kalan),
+      `C3 SAYILAR TUTARLI: ${truncTablo} (once) - ${dusenSayi} (A1'in kaldirdigi) = ${kalan} (kalan)`);
+    sonuc(dusenSayi > 0, 'C4 A1 hakki SU tablolardan kaldiriyor', dusenler || '(yok)');
     sonuc(Number(kalan) > 0,
-      'C3 GERIYE KALAN tablolarda hak DURUYOR — A1 kapsami disi, ayri is', kalan + ' tablo');
+      'C5 GERIYE KALAN tablolarda hak DURUYOR — A1 kapsami disi, ayri is', kalan + ' tablo');
   }
 } catch (e) {
   sonuc(false, 'beklenmeyen hata', String(e && e.message || e));

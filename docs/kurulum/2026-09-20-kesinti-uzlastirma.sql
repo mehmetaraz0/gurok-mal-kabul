@@ -80,22 +80,46 @@ u1 as (
 --     stok_transfer iki stok satirini TEK fonksiyonda yazar (bolunmez), ama
 --     hareket kayitlarini ekran AYRI istekle yazar: kesinti tam araya girebilir.
 -- ---------------------------------------------------------------------------
---     BELGEYLE ILISKILENDIRILEMEYEN hareket TEMIZ SAYILMAZ (kullanici karari
---     2026-09-20): belge_no'su bos bir hareket, hangi ise ait oldugu
---     bilinemedigi icin BELIRSIZ kalir.
+--     KESIN olmak icin DORT ALANIN birden eslesmesi gerekir (kullanici karari
+--     2026-09-20): belge/kalem + urun + depo + MIKTAR. belge_no'nun dolu olmasi
+--     TEK BASINA yetmez; belge bulunamiyorsa ya da kalem miktari hareketin
+--     miktarina esit degilse satir BELIRSIZ kalir.
+--     Eslestirilen kaynaklar: mal kabul kalemi, bar stok tuketimi, sayim
+--     bekleyen duzeltmesi. Baska bir kaynaktan gelen hareket (elle giris, harici
+--     duzeltme) KESIN sayilmaz — insan incelemesine birakilir.
 u2 as (
   select 'U2 stok/hareket' as kaynak,
          s.depo_kodu || ' / ' || s.urun_kodu as anahtar,
          'stok son degisim ' || s.guncelleme_tarihi::text
            || ' | pencerede hareket ' || h.adet::text
-           || ' (belgeli ' || h.belgeli::text || ')' as ayrinti,
-         case when h.belgeli > 0 then 'KESIN: belgeli hareket var'
-              when h.adet > 0 then 'BELIRSIZ: hareket var ama belge/kalemle iliskilendirilemiyor'
+           || ' (belgeli ' || h.belgeli::text || ', tam eslesen ' || h.tam::text || ')' as ayrinti,
+         case when h.tam > 0
+                then 'KESIN: belge/kalem + urun + depo + miktar eslesen hareket var'
+              when h.belgeli > 0
+                then 'BELIRSIZ: belge numarasi var ama kalem/miktar eslesmiyor'
+              when h.adet > 0
+                then 'BELIRSIZ: hareket var ama belge/kalemle iliskilendirilemiyor'
               else 'BELIRSIZ: stok pencerede degismis, eslesen hareket yok' end as karar
     from public.stok s, p
     left join lateral (
       select count(*) as adet,
-             count(*) filter (where coalesce(h2.belge_no, '') <> '') as belgeli
+             count(*) filter (where coalesce(h2.belge_no, '') <> '') as belgeli,
+             count(*) filter (where coalesce(h2.belge_no, '') <> '' and (
+               -- (a) mal kabul: belge no + urun + otel + miktar
+               exists (select 1 from public.mal_kabuller m
+                         join public.mal_kabul_urunleri mu on mu.mk_id = m.id
+                        where m.mk_no = h2.belge_no and mu.urun_kodu = h2.urun_kodu
+                          and m.otel_id = s.otel_id and round(mu.miktar, 3) = round(h2.miktar, 3))
+               -- (b) bar tuketimi: siparis + urun + depo + miktar
+               or exists (select 1 from public.bar_stok_tuketimleri t
+                           where t.stok_kodu = h2.urun_kodu and t.bar_depo_id = h2.depo_kodu
+                             and round(t.miktar, 3) = round(h2.miktar, 3)
+                             and h2.belge_no like '%' || left(t.siparis_id::text, 8) || '%')
+               -- (c) sayim bekleyen duzeltmesi: urun + depo + fark miktari
+               or exists (select 1 from public.stok_sayim_bekleyenleri b
+                           where b.urun_kodu = h2.urun_kodu and b.depo_kodu = h2.depo_kodu
+                             and round(abs(b.fark), 3) = round(h2.miktar, 3))
+             )) as tam
         from public.stok_hareketleri h2, p p2
        where h2.depo_kodu = s.depo_kodu and h2.urun_kodu = s.urun_kodu and h2.tarih >= p2.t0) h on true
    where s.guncelleme_tarihi >= p.t0

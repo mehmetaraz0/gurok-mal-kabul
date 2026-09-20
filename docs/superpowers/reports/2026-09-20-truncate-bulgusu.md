@@ -1,8 +1,12 @@
 # Güvenlik bulgusu — `authenticated` rolünde TRUNCATE hakkı (A1 dışı, yüksek öncelikli)
 
-**Tarih:** 2026-09-20 · **Durum:** AÇIK, ayrı iş (`task_7fcfaa3c`) · **Üretimde hiçbir deneme
-yapılmadı.** Aşağıdaki "gerçekten çalışıyor" ölçümü **izole kopyada** yapıldı; üretimde yalnız
-salt okuma öngörülüyor.
+**Tarih:** 2026-09-20 · **Durum:** AÇIK, ayrı iş (`task_7fcfaa3c`) · **Üretimde hiçbir deneme yapılmadı.**
+
+> **ÖLÇÜMÜN KAYNAĞI — önemli:** aşağıdaki bütün sayılar ve "gerçekten çalışıyor" sonucu,
+> **2026-09-13 tarihli üretim şema dökümünden kurulan izole kopyada** ölçüldü. Bunlar
+> **canlı bulgu değildir**: üretimde doğrulanmadılar. Döküm o tarihten sonra değişmiş olabilir.
+> Canlı doğrulama, salt okuma dosyası çalıştırıldığında yapılacak (aşağıda) ve sonuçları bu
+> rapora ayrı bir bölüm olarak eklenecek. Üretimde TRUNCATE **denenmeyecek**.
 
 ## Özet
 
@@ -36,7 +40,9 @@ olmalıdır.
 | B3 genel SQL çalıştırma RPC ucu | **yok (404)** |
 | (bilgi) dışa açık ve gövdesinde `EXECUTE` geçen fonksiyon | **0** |
 | C2 A1 (15c) sonrası sayım tablolarında hak | **kaldırıldı** |
-| C3 geriye kalan tablolarda hak | **75 tabloda duruyor** — A1 kapsamı dışı |
+| C3 sayı tutarlılığı | **80 − 5 = 75** |
+| C4 A1'in hakkı kaldırdığı tablolar (tam liste) | `bar_siparisleri`, `bar_siparis_kalemleri`, `stok_rezervasyonlari`, `sayim_oturumlari`, `sayim_detaylari` |
+| C5 geriye kalan | **75 tablo** — A1 kapsamı dışı |
 
 Şema dökümünden bağımsız sayım: `GRANT ALL ON TABLE public.* TO authenticated` satırı **77**
 tabloda geçiyor (`2026-09-13-post-faz2-sema-dokumu.sql`).
@@ -62,10 +68,24 @@ cd C:\Users\USER\Projects\gurok-bar-a1; .\docs\kurulum\sql-uygula.ps1 -Dosya doc
 
 ## A1 ile ilişkisi
 
-A1 paketi bu hakkı **yalnızca iki sayım tablosunda** geri alıyor (bölüm 15c), çünkü o iki tabloya
-zaten dokunuyor ve politika eklemek tek başına yetmezdi. **Kalan 75 tablo A1'in kapsamı dışında**
-ve bu raporun konusu. A1'in geri alma dosyası da TRUNCATE hakkını **geri vermez**: bu, A1'in
-getirdiği bir kısıt değil, ayrı bir güvenlik düzeltmesidir.
+A1 toplam **5 tabloda** bu hakkı kaldırıyor — ikisi bilinçli güvenlik kararı, üçü A1'in kendi
+işinin yan etkisi:
+
+| Tablo | Neden | A1 bölümü |
+|---|---|---|
+| `sayim_oturumlari` | 15c: politika eklemek tek başına yetmez, TRUNCATE RLS'i dinlemez | 15c (`revoke delete, truncate, references, trigger`) |
+| `sayim_detaylari` | aynı | 15c |
+| `bar_siparisleri` | sipariş tablolarına **doğrudan yazma** kapatılıyor (`revoke all`), TRUNCATE de bu süpürmeye giriyor | 17 |
+| `bar_siparis_kalemleri` | aynı | 17 |
+| `stok_rezervasyonlari` | aynı | 17 |
+
+**Aritmetik (aynı kapsamlı ölçüm, tek sorgu):** `80 (A1 öncesi) − 5 (A1'in kaldırdığı) = 75 (kalan)`.
+Ölçüm `scripts/truncate-yetki.test.mjs` C3/C4/C5 ile sayıyor **ve tabloları adıyla listeliyor**;
+sayı ile liste aynı sorgudan üretildiği için ayrışamaz. Önceki sürümde "2 tablo kapatılıyor,
+75 kalıyor" denmişti — bu ikisi arasındaki 3 tablo eksik anlatılmıştı, düzeltildi.
+
+**Kalan 75 tablo A1'in kapsamı dışında** ve bu raporun konusu. A1'in geri alma dosyası da bu
+hakları **geri vermez**; korunan daraltmalar geri alma dosyasının başında tablo tablo listeli.
 
 ## Önerilen iş (ayrı oturum — `task_7fcfaa3c`)
 

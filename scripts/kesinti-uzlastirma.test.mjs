@@ -64,11 +64,32 @@ try {
   sonuc(k.karar === 'HAYIR' && icerir(c, 'U2 stok/hareket'),
     'K1 P1 yakalandi: stok pencerede degismis, eslesen hareket yok', JSON.stringify(k));
 
-  // Hareket de yazilirsa satir KESIN olmali (yanlis alarm kontrolu)
+  // K2a: belge numarasi VAR ama karsiligi yok -> hala BELIRSIZ olmali.
+  // (kullanici karari 2026-09-20: belge_no dolu olmasi TEK BASINA yetmez)
   tohum(`insert into public.stok_hareketleri (urun_kodu, depo_kodu, otel_id, tip, miktar, tarih, aciklama, belge_no)
          values ('BIRA', '${DEPO}', '810', 'giris', 5, now(), 'prova', 'PROVA-1');`);
   c = uzlastir(); k = belirsizSayisi(c);
-  sonuc(k.karar === 'EVET' && k.n === 0, 'K2 P1 cozumlendi: hareket yazilinca satir KESIN oluyor', JSON.stringify(k));
+  sonuc(k.karar === 'HAYIR' && icerir(c, 'belge numarasi var ama kalem/miktar eslesmiyor'),
+    'K2a belge numarasi dolu ama BELGE YOK -> hala BELIRSIZ (belge_no tek basina yetmiyor)', JSON.stringify(k));
+
+  // K2b: belge/kalem + urun + depo + MIKTAR eslesince KESIN olur.
+  const mkId = sql(`select gen_random_uuid();`);
+  tohum(`insert into public.mal_kabuller (id, mk_no, form_tarihi, firma_ad, otel_id, depo_kodu, durum, stok_islendi)
+           values ('${mkId}', 'PROVA-1', current_date, 'Prova Tedarik', '810', '${DEPO}', 'onaylandi', true);
+         insert into public.mal_kabul_urunleri (mk_id, urun_kodu, urun_adi, birim, miktar)
+           values ('${mkId}', 'BIRA', 'Bira', 'KTU', 5);`);
+  c = uzlastir(); k = belirsizSayisi(c);
+  sonuc(k.karar === 'EVET' && k.n === 0 && icerir(c, 'tam eslesen 1'),
+    'K2b belge + kalem + urun + depo + MIKTAR eslesince KESIN oluyor', JSON.stringify(k));
+
+  // K2c: miktar TUTMAZSA yine BELIRSIZ (dort alanli eslesmenin miktar bacagi)
+  tohum(`update public.mal_kabul_urunleri set miktar = 7 where mk_id = '${mkId}';`);
+  c = uzlastir(); k = belirsizSayisi(c);
+  sonuc(k.karar === 'HAYIR' && icerir(c, 'kalem/miktar eslesmiyor'),
+    'K2c ayni belgede MIKTAR tutmayinca satir yine BELIRSIZ', JSON.stringify(k));
+  tohum(`update public.mal_kabul_urunleri set miktar = 5 where mk_id = '${mkId}';`);
+  c = uzlastir(); k = belirsizSayisi(c);
+  sonuc(k.karar === 'EVET' && k.n === 0, 'K2d miktar duzeltilince yine KESIN', JSON.stringify(k));
 
   // ---------------- P3: kapanmis siparisin rezervasyonu aktif ----------------
   const sip = sql(`select gen_random_uuid();`);
@@ -177,9 +198,16 @@ try {
   c = uzlastir(); k = belirsizSayisi(c);
   sonuc(k.karar === 'HAYIR' && icerir(c, 'iliskilendirilemiyor'),
     'K13 BELGESIZ hareket otomatik TEMIZ sayilmiyor (belge/kalemle iliskilendirilemiyor)', JSON.stringify(k));
-  tohum(`update public.stok_hareketleri set belge_no = 'PROVA-3' where belge_no is null and urun_kodu = 'VISKI';`);
+  // Belgesiz hareket ancak GERCEK bir belge/kalemle eslesince KESIN olur.
+  const mkId2 = sql(`select gen_random_uuid();`);
+  tohum(`update public.stok_hareketleri set belge_no = 'PROVA-3' where belge_no is null and urun_kodu = 'VISKI';
+         insert into public.mal_kabuller (id, mk_no, form_tarihi, firma_ad, otel_id, depo_kodu, durum, stok_islendi)
+           values ('${mkId2}', 'PROVA-3', current_date, 'Prova Tedarik', '810', '${DEPO}', 'onaylandi', true);
+         insert into public.mal_kabul_urunleri (mk_id, urun_kodu, urun_adi, birim, miktar)
+           values ('${mkId2}', 'VISKI', 'Viski', 'CL', 2);`);
   c = uzlastir(); k = belirsizSayisi(c);
-  sonuc(k.karar === 'EVET' && k.n === 0, 'K14 belge numarasi yazilinca satir KESIN oluyor', JSON.stringify(k));
+  sonuc(k.karar === 'EVET' && k.n === 0,
+    'K14 belgesiz hareket ancak GERCEK belge/kalem + miktar eslesince KESIN oluyor', JSON.stringify(k));
 
   // ---------------- K15: "EVET" kapsam sinirini yaziyor mu? ----------------
   sonuc(icerir(c, 'YALNIZ OLCULEN KURALLAR') && icerir(c, 'kapsam disi'),
