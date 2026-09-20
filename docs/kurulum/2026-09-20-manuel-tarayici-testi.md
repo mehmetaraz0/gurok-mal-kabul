@@ -61,3 +61,17 @@ adım numarasıyla yazın — o akışı düzeltmeden yayın sırası önerisi g
 (`bar-a1-ekran` 37/37, `bar-a1-guvenlik` 72/72). Bu turda sınanan tek şey, **yerel pencerelerin
 kendisi**: doğru metni gösteriyor mu, "İptal" gerçekten hiçbir şey yazmıyor mu, "Tamam" akışı
 tamamlıyor mu.
+
+---
+
+## Uygulama kaydı — 2026-09-20 (yapıldı)
+
+Tur gerçek Chrome'da, izole ortamda yapıldı; her adımın sonucu veritabanından okundu. Sonuçlar
+`docs/superpowers/reports/2026-09-20-bar-a1-yayin-kapisi-raporu.md` 4. bölümdeki tabloda.
+Özet: doğrulama, ret (nedenli), kapalı folyo istisnası (yetkisiz red + yetkili açma), sayım onayı
+(kısmi uygulama) ve bekleyen düzeltmenin uygulanması **manuel doğrulandı**. Her pencerede "Tamam"
+seçildiği için "İptal"/boş bırakma dalları gerçek tıklamayla ayrıca kapatılmadı.
+
+Not: tur sırasında bazı siparişler iptal yerine teslim edildiği için ortam iki kez tazelendi
+(bira stoğu 80'e alındı, 75'lik aktif rezervasyon yeniden kuruldu). Bu, ölçülen sonuçları
+etkilemez; yalnız senaryonun başlangıç durumunu geri getirir.

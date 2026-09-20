@@ -9,7 +9,7 @@ deploy, canlı migration ve Aşama 2 **yok**; yayın talimatı yok.
 | 2 | "Başlamış işlemlerin tamamlandığı" doğrulaması | **MÜMKÜN DEĞİL — kalan risk açıkça yazıldı** |
 | 3 | "Ekranlar sorguyla kapalı doğrulandı" ifadesi | **KALDIRILDI** (hareketsizlik = yardımcı kanıt) |
 | 4 | Yayın sonrası eşleştirme: sayım yerine satır bazlı stok etkisi | **DÜZELTİLDİ ve ÖLÇÜLDÜ** |
-| 5 | Koşullu tarayıcı testleri | **YOL AÇILDI:** manuel test betiği hazır; sizden bir tur bekliyor |
+| 5 | Koşullu tarayıcı testleri | **MANUEL DOĞRULANDI** (2026-09-20, gerçek Chrome + siz) — bir alt madde açık |
 | 6a | Sayım oluşturma/listeleme — canlı doğrulama | **ÖLÇÜLDÜ 2026-09-20:** üretimde çalışmıyor (RLS), tablolar boş |
 | 6b | Canlı Edge kodu / müşteri şeması | **AÇIK** (Dashboard girişi gerekiyor) |
 | 7 | Yayın sırası | **KARAR GEREKİYOR** |
@@ -81,12 +81,30 @@ Ekran değiştirmedim. İki otomasyon yolu denendi:
 | Uygulama içi tarayıcı bölmesi | yerel `confirm/prompt` pencerelerini **kendiliğinden kapatıyor**; kabul edilemiyor |
 | Chrome eklentisi (gerçek Chrome) | pencere **gerçekten çıkıyor ve sayfayı bloke ediyor**; otomasyon o pencereye tıklayamıyor (pencere tarayıcının parçası, sayfanın değil — tıklama ve JS çağrıları zaman aşımına uğradı) |
 
-Kalan yol: **sizinle manuel bir tur.** Adım adım betik hazır:
-`docs/kurulum/2026-09-20-manuel-tarayici-testi.md` — ortamı tek komutla siz başlatıyorsunuz
-(`node scripts/bar-edge-e2e/tarayici-ortami.mjs`), 11 adım ve beklenen sonuçlar yazılı. Sonuçları
-iletirseniz raporda "koşullu geçti" yerine "manuel doğrulandı" yazarım. Bu adımların **sunucu
-tarafı sonuçları zaten otomatik testlerde doğrulandı**; manuel turda sınanan şey yalnız yerel
-pencerelerin kendisi (metin, "İptal" hiçbir şey yazmıyor mu, "Tamam" akışı tamamlıyor mu).
+Kalan yol **sizinle manuel bir tur** oldu ve **2026-09-20'de yapıldı**: izole ortam
+(`node scripts/bar-edge-e2e/tarayici-ortami.mjs`, `http://127.0.0.1:3300`), gerçek Chrome, gerçek
+yerel pencereler, gerçek fare tıklaması. Ekranlarda test için **hiçbir değişiklik yapılmadı**.
+Her adımın sonucu ayrıca veritabanından okundu:
+
+| Akış | Pencere | Tıklama | Sunucuda okunan sonuç |
+|---|---|---|---|
+| Ücretli siparişte **Doğrula** | `confirm` (kimlik/oda kartı beyanı) | Tamam | `dogrulandi` + **dogrulayan** ve beyan metni kayıtlı |
+| **Reddet** | `prompt` (ret nedeni) | neden yazıp Tamam | sipariş `iptal` / `reddedildi`, `iptal_nedeni = "oda yanlış"` |
+| Kapalı folyoda **Teslim Et** — yetkisiz (bar personeli) | `confirm` ("folyo KAPALI… yalnız yetkili personel") | Tamam | **hiçbir şey yazılmadı**: sipariş `hazir`, istisna 0 satır, stok değişmedi |
+| Kapalı folyoda **Teslim Et** — yetkili (şef) | aynı `confirm` | Tamam | `istisna_bekliyor`, istisna kaydı açık (beyan veren = şef), viski 10 → 9, **folyoya borç yazılmadı** |
+| Sayım **Onayla** | `confirm` | Tamam | oturum `onaylandi`, **kismi_uygulandi = true**; Limon `uygulandi`, stok 80 → **70** |
+| Bekleyen düzeltme **Uygula** | `confirm` | Tamam | Bira 80 → **70**, detay `sonradan_uygulandi`, hareket "sayim — bekleyen düzeltme sonradan uygulandı" |
+
+Kritik senaryo bu turda **gerçek ekranda** da doğrulandı: sistem 100 → sayılan 90 → sayımdan sonra
+20 çıkış → onay anındaki stok 80 → sonuç **70** (onay anındaki stoğa göre değil, sayım anındaki
+farka göre). Rezervasyonla çelişen kalem (Bira) onayda **yazılmadı**, "SAYIM KISMEN UYGULANDI"
+uyarısıyla bekleyen listeye düştü; rezervasyon serbest kalınca uygulandı.
+
+**Açık kalan alt madde:** "İptal"/boş bırakma dalları gerçek tıklamayla **ayrıca kapatılmadı** —
+manuel turda her pencerede "Tamam" seçildi. Bu dalların sunucu tarafı zaten yazma yapmayan
+dallardır ve istemci tarafı otomatik ekran testlerinde (`bar-a1-ekran` 37/37) doğrulanmıştır;
+eksik olan yalnız gerçek tıklama kanıtıdır. Pencerelerin **çıktığı ve sayfayı blokladığı** bu
+turda görüldüğü için kalan risk düşüktür.
 
 ## 5. Bu turda koşan testler
 
@@ -125,6 +143,9 @@ eklemelidir.
 
 ## 7. Sizden gerekenler
 
-1. Manuel tarayıcı turu (yukarıdaki betik) — sonuçları iletin.
+1. ~~Manuel tarayıcı turu~~ — **yapıldı** (4. madde).
 2. Canlı Edge kodu / müşteri şeması için Supabase Dashboard girişi.
 3. Yayın sırası kararı.
+
+İsteğe bağlı: 4. maddedeki "İptal" dallarını da gerçek tıklamayla kapatmak isterseniz izole ortamda
+5 dakikalık ikinci bir tur yeterli (yeni sipariş → Doğrula → İptal).
