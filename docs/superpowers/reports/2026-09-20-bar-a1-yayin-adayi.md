@@ -9,7 +9,7 @@ projesinin public anon anahtarıyla, yazmayan yollar). Sır repoya konmadı.
 | 1 | Canlı `rapid-handler` kaynağını salt okumayla al | **ALINAMADI — sizde** (araç/belirteç yok); davranış sözleşmesi yerine ölçüldü |
 | 2 | `bolge1` davranışını koruyarak birleştir | **YAPILDI** — tek gerçek fark bulundu ve canlı davranış korundu |
 | 3 | Birleşik sürümü izole ortamda test et | **YAPILDI — Edge E2E 22/22** |
-| 4 | Engel 1: sayım düzeltmesi **A1 paketinde**, yetkiler ikiye ayrıldı | **YAPILDI — 22/22; yetki onayı bekliyor** |
+| 4 | Engel 1: sayım düzeltmesi **A1 paketinde**, yetkiler ikiye ayrıldı | **YAPILDI — 22/22; 15c yetkileri 2026-09-20 ONAYLANDI** (yayın adayına dahil; canlı uygulama onayı değil) |
 | 5 | Engel 2: kesinti uzlaştırma prosedürü + prova | **YAPILDI — 20/20** (dört alanlı eşleşme, EVET sınırı, A1 öncesi veri) |
 | 6 | `authenticated → TRUNCATE` ayrı yüksek öncelikli iş | **KAYDEDİLDİ** — `task_7fcfaa3c`, ölçüm 13/13, ayrı rapor (döküm tabanlı, canlı değil) |
 | 7 | Güncel yayın adayı | **AŞAĞIDA — onay bekliyor** |
@@ -252,8 +252,8 @@ okuma dosyası hazır: `docs/kurulum/2026-09-20-truncate-yetki-kontrol.sql`.
 
 1. **Canlı `rapid-handler` kaynağı** — Dashboard'dan indirilip repodaki sürümle karşılaştırılmadan
    6. adım yapılmaz. Bu olmadan geri dönüş kaynağı da yoktur.
-2. **Sayım yetki değişikliklerinin onayı** — 4. bölümdeki değişiklikler (1 fonksiyon + 4 politika + REVOKE)
-   onaylanmadan A1 yayınlanamaz, çünkü artık paketin içindeler.
+2. ~~Sayım yetki değişikliklerinin onayı~~ — **alındı** (2026-09-20). 15c yayın adayının parçası;
+   canlı uygulama için ayrı talimat gerekiyor.
 
 Bunlar çözülene kadar öneri değişmedi: **A yolu**, ekranlar → migration → Edge sırası. Push,
 deploy ve canlı migration için talimat beklenmektedir.
