@@ -15,9 +15,9 @@ o noktadan sonrasını kapsamaz.
 | Öğe | Değer |
 |---|---|
 | Dal | `bar-a1` |
-| **Uç commit** | **`5ef7e7d`** (yayın anında `git rev-parse bar-a1` ile teyit edilir) |
+| **Uç commit** | **`13b67bc`** — bu belgeyi de içeren commit; yayın anında `git rev-parse bar-a1` ile teyit edilir (belge commit'inden sonra tek bir "uç sabitleme" commit'i daha olabilir, kapsamı yalnız bu dosyadır) |
 | Taban | `origin/main` = **`9c06661`** — 2026-09-20'de `git fetch` ile doğrulandı: **hâlâ ata** |
-| Commit sayısı | 42 |
+| Commit sayısı | 44 |
 | Ekran/JS dosyaları (10) | `bar-siparis-kuyrugu.html`, `bar-garson.html`, `bar-menu.html`, `stok-takip.html`, `pms-folio.html`, `gunluk-tuketim.html`, `mal-kabul-liste.html`, `ortak.js`, `stok-veri.js`, `hata-kodlari.js` |
 | Migration | `docs/kurulum/2026-09-18-bar-a1-guvenlik.sql` (sayım erişimi **15c** dahil) |
 | Geri alma | `docs/kurulum/2026-09-18-bar-a1-guvenlik-geri-al.sql` |
@@ -49,7 +49,7 @@ o noktadan sonrasını kapsamaz.
 | 1 | **YEDEK** | Üretim şema + veri yedeği. **İlk üretim değişikliğinden önce** — ekran push'undan da önce | dosya yok / boyut 0 ise **DUR** |
 | 2 | Yazma duraklatma | `2026-09-20-yayin-yazma-duraklat.sql` | denetimde `A1-YAYIN-DURAKLATMA` yoksa **DUR** |
 | 3 | İşlem kapısı | `2026-09-20-yayin-oncesi-islem-kontrol.sql` | yarım kalan şüphesi varsa **DUR** |
-| 4 | Ekranlar | `main` → `5ef7e7d` (fast-forward) | sayfa açılış duman testi başarısızsa **DUR** |
+| 4 | Ekranlar | `main` → sabitlenen uç commit (fast-forward) | sayfa açılış duman testi başarısızsa **DUR** |
 | 5 | Migration | `sql-uygula.ps1 -Dosya docs\kurulum\2026-09-18-bar-a1-guvenlik.sql` | dosyanın kendi son koşulu hata verirse **DUR** (tek işlem, hiçbir şey kalmaz) |
 | 6 | Edge deploy | `rapid-handler` ← `docs/kurulum/musteri-projesi/masa-yonetim/index.ts` | `ping` `v:"a1-kapsam"` dönmezse **DUR** |
 | 7 | **YENİDEN AÇMA KAPISI** | `2026-09-20-kesinti-uzlastirma.sql` (`set uzl.kesinti = '<duraklatma anı>'`) | **"YENİDEN AÇMA: HAYIR" ise 8. adım YAPILMAZ** |
