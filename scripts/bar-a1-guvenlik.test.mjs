@@ -398,6 +398,28 @@ try {
     'E17 sunucu disindan "sayim" aciklamali hareket REDDEDILIR; diger dogrudan hareketler etkilenmez',
     [kod(e17a), kod(e17b), kod(e17c)].join(' | '));
 
+  // E18: 5. parametre UYUMLULUK ayrimidir, YETKI KAPISI DEGIL. Yeni imza mevcut
+  // kullanici / otel / stok kontrollerini bagimsiz uygular (SECURITY INVOKER + RLS
+  // + rezervasyon korumasi). Nesil 1 vermek hicbir kontrolu atlatmaz.
+  const e18Once = stok('BIRA');
+  const e18anon = q(K.ANON, `select public.stok_ekle('BIRA','${BAR}','810',5,1);`);
+  const e18yetkisiz = q(GORUNTU, `select public.stok_ekle('BIRA','${BAR}','810',5,1);`);   // stok yetkisi YOK
+  const e18pasif = q(K.PASIF, `select public.stok_ekle('BIRA','${BAR}','810',5,1);`);
+  const e18baskaOtel = q(K.DEPO810, `select public.stok_ekle('BIRA','811_CSM302','811',5,1);`);  // otel 811
+  const e18tanim = tek(`select string_agg(p.oid::regprocedure::text || '=' || p.prosecdef::text, ',' order by 1)
+                          from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'stok_ekle';`);
+  sonuc(!e18anon.ok && !e18yetkisiz.ok && !e18pasif.ok && !e18baskaOtel.ok
+     && stok('BIRA') === e18Once
+     && tek(`select coalesce(miktar::text,'yok') from public.stok where urun_kodu='BIRA' and depo_kodu='811_CSM302';`) !== '5.000'
+     && e18tanim === 'stok_ekle(text,text,text,numeric)=false,stok_ekle(text,text,text,numeric,integer)=false',
+    'E18 nesil 1 ile bile: anon, stok yetkisiz, pasif ve BASKA OTEL yazamaz; iki imza da SECURITY DEFINER degil (kontroller bagimsiz)',
+    [kod(e18anon), kod(e18yetkisiz), kod(e18pasif), kod(e18baskaOtel)].join(' | '));
+  // Rezervasyon korumasi da 5 parametreli yolda aynen isler (D1/D2 ile ayni kural).
+  sifirla();
+  siparis(K.BAR810, [{ menu_urun_id: M.BIRA, adet: 8 }]);
+  sonuc(kod(q(K.DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-5,1);`)) === 'REZERVE_STOK' && stok('BIRA') === '10.000',
+    'E18b yeni imza rezervasyon korumasini da uygular (nesil parametresi kontrolu atlatmaz)');
+
   // ---------------- F) Guvenlik yuzeyi ----------------
   const anonAcik = tek(`select count(*) from pg_proc p where p.pronamespace='public'::regnamespace
     and (p.proname like 'bar\\_%' or p.proname like 'stok\\_sayim\\_%' or p.proname in ('stok_ekle','stok_transfer','stok_cikis_korumasi'))

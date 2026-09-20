@@ -127,22 +127,35 @@ alter table public.bar_siparisleri
 -- Tetikleyici ATLANMAZ (replica rolu kullanilmaz): gecis guncellemesi islem-yerel
 -- service_role kimligiyle yapilir ve denetim kaydina service_role olarak DUSER.
 -- Iki ayar birden: Supabase auth.role() ikisinden birini okur.
+-- Kimlik ayari, guncelleme ve geri alma TEK blokta: kapsam bu isleme (ve hata
+-- halinde geri alinan isleme) sinirlidir. Ayrica ayni islemde denetim izine bir
+-- ISARET satiri yazilir; backfill satirlariyla ayni transaction_id'yi tasidigi
+-- icin denetim izinde "bu migration" olarak ayirt edilir.
 do $$
+declare
+  v_sayi bigint;
 begin
   perform set_config('request.jwt.claim.role', 'service_role', true);
   perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
-end;
-$$;
-update public.bar_siparisleri s
-   set kanal = 'gecis',
-       oda_dogrulama_durumu = case
-         when not exists (select 1 from public.bar_siparis_kalemleri k where k.siparis_id = s.id and k.ucretli)
-           then 'gerekmiyor'
-         when s.durum in ('yeni', 'hazirlaniyor', 'hazir') then 'bekliyor'
-         else 'gecis' end;
--- Kimlik geri alinir: migration'in kalanindaki hicbir sey service_role olarak calismaz.
-do $$
-begin
+
+  update public.bar_siparisleri s
+     set kanal = 'gecis',
+         oda_dogrulama_durumu = case
+           when not exists (select 1 from public.bar_siparis_kalemleri k where k.siparis_id = s.id and k.ucretli)
+             then 'gerekmiyor'
+           when s.durum in ('yeni', 'hazirlaniyor', 'hazir') then 'bekliyor'
+           else 'gecis' end;
+  get diagnostics v_sayi = row_count;
+
+  insert into public.erp_islem_audit (hotel_id, actor_user_id, actor_role, event_type,
+                                      entity_type, entity_id, transaction_id, islem_detayi)
+  values (null, null, 'service_role', 'UPDATE', 'bar_siparisleri', 'A1-GECIS-ISARETI',
+          pg_current_xact_id()::text,
+          jsonb_build_object('migration', '2026-09-18-bar-a1-guvenlik.sql',
+                             'kapsam', 'gecis_backfill',
+                             'guncellenen_satir', v_sayi));
+
+  -- Kimlik geri alinir: migration'in kalanindaki hicbir sey service_role olarak calismaz.
   perform set_config('request.jwt.claim.role', '', true);
   perform set_config('request.jwt.claims', '', true);
 end;
@@ -1443,10 +1456,13 @@ create trigger stok_sayim_oturum_koruma
   before insert or update on public.sayim_oturumlari
   for each row execute function public._stok_sayim_oturum_koruma();
 
--- Ucuncu katman: eski sayim istemcisi stok yazamasa bile (6: ESKI_ISTEMCI) hareketi
--- stok_hareketleri'ne DOGRUDAN ekler (aciklama 'sayim' / 'sayim — ...'). Sayim
--- hareketi artik yalniz sunucu sayim fonksiyonlarindan yazilir; disaridan gelen
--- 'sayim' aciklamali hareket reddedilir (stok degismedigi halde sayim kaydi olusmasin).
+-- Ucuncu katman — DAR KAPSAMLI: eski sayim istemcisi stok yazamasa bile (6: ESKI_ISTEMCI)
+-- hareketi stok_hareketleri'ne DOGRUDAN ekler (aciklama 'sayim' / 'sayim — ...'). Bu kontrol
+-- yalniz o sahte SAYIM kaydini engeller.
+-- SINIR (yanlis guvenlik hissi olmasin): stok_hareketleri'ne dogrudan yazma genel olarak ACIKTIR
+-- (mevcut tasarim; mal kabul, gunluk tuketim, stok-takip dogrudan yazar). Aciklamasini degistiren
+-- bir istemci bu kontrolu asar. Stok miktarini koruyan asil mekanizma bolum 6'daki yazma yolu
+-- ayrimidir (ESKI_ISTEMCI); burasi yalniz sayim izinin kirlenmesini onler.
 create or replace function public._stok_sayim_hareket_koruma()
 returns trigger
 language plpgsql
