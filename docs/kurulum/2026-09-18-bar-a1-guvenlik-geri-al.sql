@@ -63,6 +63,15 @@ drop function if exists public._stok_sayim_oturum_koruma();
 drop function if exists public.stok_sayim_detaylari(uuid);
 drop trigger if exists stok_sayim_hareket_koruma on public.stok_hareketleri;
 drop function if exists public._stok_sayim_hareket_koruma();
+-- 15c: sayim erisim politikalari ve onayci kapisi geri alinir. Sayim akisi yine
+-- CALISMAZ hale gelir (A1 oncesi durum budur: izin veren politika yok).
+drop policy if exists sayim_oturum_select on public.sayim_oturumlari;
+drop policy if exists sayim_oturum_insert on public.sayim_oturumlari;
+drop policy if exists sayim_oturum_reddet on public.sayim_oturumlari;
+drop policy if exists sayim_detay_insert  on public.sayim_detaylari;
+drop function if exists public.auth_sayim_onaycisi();
+-- DELETE/TRUNCATE haklari BILEREK geri verilmez: bunlar A1'in getirdigi bir kisit
+-- degil, ayri bir guvenlik duzeltmesidir (2026-09-20-truncate-bulgusu.md).
 -- Istemci nesli: 5 parametreli stok_ekle kalkar; 4 parametreli eski yazan govdeye doner (asagida).
 drop function if exists public.stok_ekle(text, text, text, numeric, integer);
 grant select on table public.sayim_detaylari to authenticated;

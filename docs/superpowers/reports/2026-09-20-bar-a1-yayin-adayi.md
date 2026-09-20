@@ -9,9 +9,29 @@ projesinin public anon anahtarıyla, yazmayan yollar). Sır repoya konmadı.
 | 1 | Canlı `rapid-handler` kaynağını salt okumayla al | **ALINAMADI — sizde** (araç/belirteç yok); davranış sözleşmesi yerine ölçüldü |
 | 2 | `bolge1` davranışını koruyarak birleştir | **YAPILDI** — tek gerçek fark bulundu ve canlı davranış korundu |
 | 3 | Birleşik sürümü izole ortamda test et | **YAPILDI — Edge E2E 22/22** |
-| 4 | Engel 1: sayım dar kapsamlı düzeltme + yetki onayı | **TASARLANDI, ADAY HAZIR, ÖLÇÜLDÜ 21/21 — onay bekliyor** |
-| 5 | Engel 2: kesinti uzlaştırma prosedürü + prova | **YAPILDI — 12/12** |
-| 6 | Güncel yayın adayı | **AŞAĞIDA — onay bekliyor** |
+| 4 | Engel 1: sayım düzeltmesi **A1 paketinde**, yetkiler ikiye ayrıldı | **YAPILDI — 22/22; yetki onayı bekliyor** |
+| 5 | Engel 2: kesinti uzlaştırma prosedürü + prova | **YAPILDI — 17/17** (EVET sınırı, A1 öncesi veri, belgesiz hareket dahil) |
+| 6 | `authenticated → TRUNCATE` ayrı yüksek öncelikli iş | **KAYDEDİLDİ** — `task_7fcfaa3c`, ölçüm 11/11, ayrı rapor |
+| 7 | Güncel yayın adayı | **AŞAĞIDA — onay bekliyor** |
+
+### Bu turda koşan testler (A1 migration değiştiği için hepsi yeniden)
+
+| Takım | Sonuç |
+|---|---|
+| `bar-a1-guvenlik` (veritabanı) | **72/72** |
+| `bar-a1-negatif` | **12/12** |
+| `bar-a1-ekran` | **38/38** (+1 yeni: S0b) |
+| `stok-guncelleme-tarihi-bar-sira` (sıra + geri alma) | **17/17** |
+| `bar-a1-gecis-migration` | **6/6** |
+| `stok-ekle-cagri` | **9/9** |
+| `bar-a1-yayin-kilidi` | **7/7** |
+| `bar-a1-yayin-kontrol-sorgu` | **4/4** |
+| `bar-edge-e2e/gecis-provasi` (geçiş provası) | **16/16** |
+| `bar-edge-e2e` (Edge uçtan uca) | **22/22** |
+| `sayim-rls-duzeltme` (15c, yeni) | **22/22** |
+| `kesinti-uzlastirma` (yeni) | **17/17** |
+| `truncate-yetki` (yeni) | **11/11** |
+| migration denetleyicisi | 0 hata |
 
 ---
 
@@ -48,6 +68,13 @@ ikisi de `const d = await r.json(); if(!d.ok) …`). Bu yüzden **canlı davran�
 sürüm geçersiz oturumda yine **200** dönüyor. Güvenlik kriteri HTTP kodu değil, veri dönmemesidir;
 test de artık bunu ölçüyor.
 
+**SINIR — açıkça (kullanıcı kuralı 2026-09-20):** yazmayan sondaların eşleşmesi **kaynak eşitliği
+sayılmaz.** Ölçülen şey yalnız kimlik doğrulaması gerektirmeyen yolların gözlenebilir davranışıdır;
+`liste` / `ekle` / `durum` dalları (asıl iş mantığı) bu yolla görülemez, çünkü üretim personel
+JWT'si üretmedim ve üretmem de doğru olmaz. **Bu nedenle deploy yok.** Dashboard'a girdiğinizde
+kaynağı salt okumayla alıp satır satır karşılaştıracağım; fark varsa A1 sürümüne taşıyıp testleri
+yeniden koşacağım.
+
 **Ek şema bulgusu:** canlı `masa_tokenlari` tablosunda `bolge` kolonu **var** (anon sondasıyla
 kolon kolon doğrulandı: `token, otel_id, depo_id, masa_adi, bolge, aktif`), ama repodaki kurulum
 dosyasında (`musteri-projesi/01-musteri-sema.sql`) yoktu. Dosya düzeltildi. Bu, "canlı sürüm
@@ -63,47 +90,51 @@ Edge Runtime). R1 kontrolü yeniden yazıldı: artık "hepsi 401" değil, **"JWT
 200 + `ok:false`, ve hiçbirinde `masalar` dönmüyor"** ölçülüyor — yani canlı sözleşme testle
 kilitlendi.
 
-## 4. Engel 1 — Sayım: dar kapsamlı düzeltme (onaya sunuluyor)
+## 4. Engel 1 — Sayım: A1 PAKETİNE DAHİL EDİLDİ, yetkiler ikiye ayrıldı
 
-Haklıydınız: A1 sayım akışını değiştiriyor, dolayısıyla akışın çalışmadığını bilip duman testinden
-çıkarmak yeterli değil. Dar kapsamlı düzeltme hazırlandı:
+Kararınız uygulandı: düzeltme artık ayrı dosya değil, **A1 migration'ının 15c bölümü**
+(`docs/kurulum/2026-09-18-bar-a1-guvenlik.sql`). Geri alma da A1'in kendi geri alma dosyasında.
+Ölçüm: `scripts/sayim-rls-duzeltme.test.mjs` → **22 OK / 0 FAIL**.
 
-- Aday: `docs/kurulum/2026-09-20-sayim-rls-dar-duzeltme.sql`
-- Geri alma: `docs/kurulum/2026-09-20-sayim-rls-dar-duzeltme-geri-al.sql`
-- Ölçüm: `scripts/sayim-rls-duzeltme.test.mjs` → **21 OK / 0 FAIL**
+**İki AYRI kapı:**
 
-**Onayınıza sunulan yetki değişiklikleri — tamamı bu, başkası yok:**
-
-| Değişiklik | İçerik | Neden dar |
+| İşlem | Kapı | Kim geçer |
 |---|---|---|
-| 4 permissive RLS politikası | oturum SELECT / INSERT / UPDATE(yalnız ret) + detay INSERT | Kapı, stokun bugün kullandığı kapının aynısı: `auth_yetki_var('stok_takip','kayit')` + `auth_otel_erisim()`. Yeni yetki seviyesi icat edilmedi |
-| REVOKE `delete, truncate, references, trigger` | yalnız iki sayım tablosu | Fazla hakların geri alınması; kimse yetki kazanmıyor |
-| **Yeni GRANT yok** | mevcut select/insert/update hakları zaten vardı | — |
+| **Oluşturma + listeleme** | `auth_yetki_var('stok_takip','kayit')` + `auth_otel_erisim()` | Stok yazabilen personel (depo, depo şefi, cost control, yönetici) — stokun bugün kullandığı kapının **aynısı** |
+| **Onay + ret** | `auth_sayim_onaycisi()` = aktif `rol='cost_control'` **ve** `stok_takip:kayit` | Yalnız cost control |
 
-**Korunan sınırlar:** `sayim_detaylari`ya SELECT politikası **eklenmedi** (detaylar A1'in
-`stok_sayim_detaylari()` RPC'siyle okunur — eski sekme korumasının katmanı); UPDATE yalnız
-`onay_bekliyor → reddedildi` geçişine izin verir, **doğrudan `onaylandi` yazılamaz** (onay yalnız
-`stok_sayim_onayla()` RPC'sinden geçer); kısmen uygulanmış oturum reddedilemez.
+`auth_sayim_onaycisi()`, bugünkü ekran kapısının (`stok-takip.html`: `currentUser.rol === 'cost_control'`)
+**birebir sunucu eşidir**; kapsam genişletilmedi. `cost_control_mdr` bilerek dışarıda — bugünkü
+ekran onu da kabul etmiyor, eklenmesi ayrı bir karar.
 
-Ölçülen davranış (önce/sonra):
+**Onay kapısı RPC'ye de eklendi.** Aksi hâlde `stok_takip:kayit` olan herkes API'den sayım
+onaylayabilirdi; bu, bugünkü cost-control sınırını genişletirdi. `stok_sayim_onayla()` artık
+`auth_sayim_onaycisi()` istiyor.
 
-| Kontrol | Düzeltmeden önce | Sonra |
-|---|---|---|
-| Sayım oluşturma | **RLS reddi** | çalışıyor |
-| Listeleme | 0 satır | kendi otelinin sayımları |
-| Reddetme | sessizce 0 satır | çalışıyor |
-| Doğrudan "onaylandı" yazma | — | **reddediliyor** |
-| Yetkisiz / pasif / başka otel | — | **reddediliyor** (N2–N6) |
-| `sayim_detaylari` doğrudan okuma | permission denied | **hâlâ** permission denied |
-| TRUNCATE | **mümkündü** | **reddediliyor** |
+**İstediğiniz test — `stok_takip:kayit` sahibi ama cost control olmayan kullanıcı (rol=depo):**
 
-**Yan bulgu (A1 dışı, ayrı iş):** üretim şema dökümünde **77 tablo** `authenticated` rolüne
-`GRANT ALL` almış; bu **TRUNCATE**'i de kapsıyor ve **TRUNCATE RLS'i dinlemez**. Yani herhangi bir
-ERP kullanıcısı bu tabloları boşaltabilir. Bu düzeltme yalnız iki sayım tablosunu kapatıyor;
-kalan tablolar ayrı bir iş olarak ele alınmalı.
+| İşlem | Sonuç |
+|---|---|
+| Sayım oluşturma (oturum + detay) | **YAPABİLİYOR** (Y1) |
+| Kendi otelinin sayımlarını listeleme | **YAPABİLİYOR** (Y2) |
+| Reddetme | **YAPAMIYOR** — politika 0 satır yazıyor (Y4) |
+| Onaylama (API yolundan) | **YAPAMIYOR** — `YETKI_YOK` (Y5) |
+| Cost control aynı işlemleri | onaylıyor (Y6) ve reddediyor (Y7) |
 
-**Yayın kapsamı sorusu:** bu düzeltme A1 yayınına **dahil edilsin mi, ayrı mı gitsin?** İkisi de
-mümkün; A1 ile birlikte giderse sayım özelliği ilk kez çalışır hâle gelir. Karar sizde (5.7).
+Korunan sınırlar: `sayim_detaylari`ya SELECT politikası **eklenmedi** (detaylar
+`stok_sayim_detaylari()` RPC'siyle okunur); doğrudan `onaylandi` yazma cost control için bile
+**reddediliyor** (N1); yetkisiz/pasif/başka otel reddediliyor (N2–N6); TRUNCATE ve DELETE
+reddediliyor (N9, N10); kısmen uygulanmış oturum reddedilemiyor (N11). Geri almada 15c kalkıyor ve
+akış yine kapanıyor (G2), ama **TRUNCATE hakkı geri verilmiyor** (G3 — ayrı güvenlik düzeltmesi).
+
+**Onayınıza sunulan yetki değişiklikleri — tamamı bu:**
+
+| Değişiklik | İçerik |
+|---|---|
+| 1 yeni fonksiyon | `auth_sayim_onaycisi()` (STABLE, SECURITY DEFINER; anon'a kapalı) |
+| 4 permissive RLS politikası | oturum SELECT / INSERT / UPDATE(yalnız ret) + detay INSERT |
+| REVOKE `delete, truncate, references, trigger` | yalnız iki sayım tablosu |
+| **Yeni tablo GRANT'i yok** | mevcut select/insert/update hakları zaten vardı |
 
 ## 5. Engel 2 — Kesilen işlemler: uzlaştırma prosedürü ve provası
 
@@ -128,6 +159,14 @@ satırı** basar: `YENIDEN ACMA: EVET` / `HAYIR (n belirsiz satır)`.
 Ayrıca ölçüldü: temiz durumda karar **EVET** (K0), tüm belirsizlikler çözülünce yine **EVET** (K9),
 ve prosedür **hiçbir şey yazmıyor** (K10).
 
+### 5b. "EVET"in anlamı daraltıldı ve yanlış alarm riski kapatıldı (2026-09-20 kararınız)
+
+| Uyarınız | Yapılan | Kanıt |
+|---|---|---|
+| "EVET yalnız ölçülen kuralların geçtiği anlamına gelsin" | Karar satırı artık şunu yazıyor: *"YENIDEN ACMA: EVET — 0 belirsiz satir (YALNIZ OLCULEN KURALLAR; kapsam disi: A1 oncesi bar tuketim kayitlari, hic kayit birakmamis islemler, veritabani disi sistemler)"*. Ayrıca karar, satırlarla **aynı sorgudan** üretiliyor — ayrı bir kopya yok, ikisi ayrışamaz | **K15** |
+| "A1 öncesi tamamlanmış siparişler yeni tüketim kaydına sahip olmayabilir; temiz eski veriyi bozuk sayma" | U3b/U3c artık yalnız **A1 uygulandıktan sonra** oluşmuş sipariş/rezervasyonlara bakıyor (sınır, denetim izindeki `A1-GECIS-ISARETI` zamanı). A1 işareti yoksa iki kontrol hiç satır üretmiyor ve kapsam dışı sayılıyor | **K11** (30 günlük eski sipariş alarm üretmiyor) + **K12** (aynı desen A1 sonrası oluşunca yakalanıyor — kontrol ölü değil) |
+| "Belge/kalemle ilişkilendirilemeyen stok değişikliklerini otomatik temiz kabul etme" | U2 artık üç sınıf üretiyor: belgeli hareket → KESİN; **belge_no'su boş hareket → BELİRSİZ ("ilişkilendirilemiyor")**; hareket yok → BELİRSİZ | **K13** (belgesiz hareket temiz sayılmıyor) + **K14** (belge yazılınca KESİN oluyor) |
+
 **Plana işlenen kural:** yazma hakları geri verilmeden önce bu prosedür çalıştırılır;
 **"YENİDEN AÇMA: HAYIR" ise sürdürme dosyası çalıştırılmaz.** Prosedür çalıştırılamıyorsa karar
 alınamaz, bu da "HAYIR" sayılır.
@@ -141,8 +180,7 @@ alınamaz, bu da "HAYIR" sayılır.
 | Dal / uç | `bar-a1` — uç commit yayın anında `git rev-parse bar-a1` ile sabitlenir |
 | Taban | `origin/main` = `9c06661` (bugün `git fetch` ile doğrulandı: hâlâ ata) |
 | Ekranlar | `bar-siparis-kuyrugu.html`, `bar-garson.html`, `bar-menu.html`, `stok-takip.html`, `pms-folio.html`, `gunluk-tuketim.html`, `mal-kabul-liste.html`, `ortak.js`, `stok-veri.js`, `hata-kodlari.js` |
-| Migration | `2026-09-18-bar-a1-guvenlik.sql` (+ geri alma dosyası) |
-| Sayım düzeltmesi | `2026-09-20-sayim-rls-dar-duzeltme.sql` — **dahil mi? kararınız** |
+| Migration | `2026-09-18-bar-a1-guvenlik.sql` (+ geri alma dosyası) — **sayım düzeltmesi artık bunun 15c bölümü** |
 | Edge | `rapid-handler` — **yalnız canlı kaynak görüldükten sonra** |
 
 ### 6.2 Adımlar
@@ -154,18 +192,32 @@ alınamaz, bu da "HAYIR" sayılır.
 | 2 | Yazma duraklatma | `2026-09-20-yayin-yazma-duraklat.sql` (denetim: `A1-YAYIN-DURAKLATMA`) |
 | 3 | İşlem kapısı | `2026-09-20-yayin-oncesi-islem-kontrol.sql` |
 | 4 | Ekranlar | `main` → sabitlenen uç commit |
-| 5 | Migration | A1 (+ onaylanırsa sayım düzeltmesi) |
+| 5 | Migration | A1 (sayım 15c dahil) |
 | 6 | Edge | `rapid-handler` — ön koşul sağlandıysa |
 | 7 | **YENİDEN AÇMA KAPISI** | `2026-09-20-kesinti-uzlastirma.sql` → **HAYIR ise durulur** |
 | 8 | Yazma sürdürme | `…-yayin-yazma-surdur.sql` (kapı EVET dediyse) |
-| 9 | Duman testleri + eşleştirme | Sayım kontrolü ancak sayım düzeltmesi yayına dahilse yapılır |
+| 9 | Duman testleri + eşleştirme | Sayım duman testi artık **yapılır**: depo kullanıcısı sayım açar/listeler, cost control onaylar |
+
+### 6.2b Yan iş: `authenticated → TRUNCATE` bulgusu (A1 dışı, yüksek öncelikli)
+
+Ayrı rapor: [`2026-09-20-truncate-bulgusu.md`](2026-09-20-truncate-bulgusu.md) · ayrı iş kaydı:
+`task_7fcfaa3c`. İki boyut **ayrı** raporlandı:
+
+| Boyut | Sonuç (izole ölçüm, `scripts/truncate-yetki.test.mjs` 11/11) |
+|---|---|
+| **(A) Veritabanı yetkisi** | **VAR ve etkili** — `authenticated` için **80 tabloda** TRUNCATE hakkı; bunların **68'inde RLS açık**. İzole kopyada RLS açık bir tabloda TRUNCATE komutu **kabul edildi** — RLS durdurmadı |
+| **(B) Bugünkü API yüzeyi** | **Ulaşılamıyor** — PostgREST TRUNCATE metodunu tanımıyor (**HTTP 405**), genel SQL çalıştırma ucu yok (**404**), `anon`/`authenticated` rolleri **LOGIN'e kapalı**, dışa açık ve dinamik SQL çalıştıran fonksiyon **0** |
+
+A1 (15c) bu hakkı **yalnız iki sayım tablosunda** kaldırıyor; **75 tabloda duruyor** ve bu ayrı işin
+konusu. Üretimde **hiçbir TRUNCATE denemesi yapılmadı ve yapılmayacak**; canlı doğrulama için salt
+okuma dosyası hazır: `docs/kurulum/2026-09-20-truncate-yetki-kontrol.sql`.
 
 ### 6.3 Açık kalan iki engel
 
 1. **Canlı `rapid-handler` kaynağı** — Dashboard'dan indirilip repodaki sürümle karşılaştırılmadan
    6. adım yapılmaz. Bu olmadan geri dönüş kaynağı da yoktur.
-2. **Sayım düzeltmesinin yayın kapsamı ve yetki onayı** — 4. bölümdeki iki değişiklik (4 politika
-   + REVOKE) onaylanmadan sayım akışı üretimde çalışmaz.
+2. **Sayım yetki değişikliklerinin onayı** — 4. bölümdeki değişiklikler (1 fonksiyon + 4 politika + REVOKE)
+   onaylanmadan A1 yayınlanamaz, çünkü artık paketin içindeler.
 
 Bunlar çözülene kadar öneri değişmedi: **A yolu**, ekranlar → migration → Edge sırası. Push,
 deploy ve canlı migration için talimat beklenmektedir.

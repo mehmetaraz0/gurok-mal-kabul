@@ -44,6 +44,8 @@ const KISI = {
   bar810: { id: K.BAR810.sub, email: '33333333-0000-0000-0000-000000000810@test.local' },
   pasif: { id: K.PASIF.sub, email: '33333333-0000-0000-0000-0000000000aa@test.local' },
   depo810: { id: K.DEPO810.sub, email: '33333333-0000-0000-0000-0000000000cc@test.local' },
+  // 15c: sayim onayi yalniz cost_control'un (EK_TOHUM ile gelen kullanici).
+  cost810: { id: K.COST810.sub, email: '33333333-0000-0000-0000-0000000000c1@test.local' },
 };
 async function girisler(E) {
   const t = {};
@@ -107,7 +109,7 @@ try {
       values ('99999999-0000-0000-0000-00000000aa02','${BAR}','810','Test','onay_bekliyor',1);
     insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
       values ('99999999-0000-0000-0000-00000000aa02','LIMON','Limon',100,90,-10);`);
-  const stA = ekranKur({ restUrl: REST(A), jwt: J.depo810, depo: BAR, rol: 'cost_control' });
+  const stA = ekranKur({ restUrl: REST(A), jwt: J.cost810, depo: BAR, rol: 'cost_control' });
   await bekle(1500);
   await stA.calistir('sayimOnayBekleyenleriYukle()');
   await stA.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa02')`);
@@ -125,7 +127,7 @@ try {
     insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
       values ('99999999-0000-0000-0000-00000000aa12','VISKI','Viski',100,90,-10);`);
   A.ana.kimlikle(K.DEPO810, `select public.stok_ekle('VISKI','${BAR}','810',-20);`);   // sayimdan sonra cikis: 100 -> 80
-  const eskiSt = ekranKur({ restUrl: REST(A), jwt: J.depo810, depo: BAR, rol: 'cost_control', kaynakKok: ESKI });
+  const eskiSt = ekranKur({ restUrl: REST(A), jwt: J.cost810, depo: BAR, rol: 'cost_control', kaynakKok: ESKI });
   await bekle(1500);
   await eskiSt.calistir('sayimOnayBekleyenleriYukle()');
   let birak; const kapi = new Promise((r) => { birak = r; });
@@ -141,6 +143,12 @@ try {
   const onay = eskiSt.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa12')`);
   for (let i = 0; i < 200 && !durduruldu; i++) await bekle(50);
   const okumaOncesi = tekA(`select miktar::text from public.stok where urun_kodu='VISKI' and depo_kodu='${BAR}';`);
+  // A1 ONCESI yardimci politikalar (yukarida eklenmisti) burada KALDIRILIR: A1'in 15c
+  // bolumu kendi politikalarini getiriyor ve son kosulu, sayim_detaylari uzerinde izin
+  // veren bir SELECT politikasi gorurse DOGRU sekilde duruyor. Gercek uretimde boyle
+  // bir politika yok; bu yalnizca provanin kendi kurdugu duzenek.
+  A.ana.sql(`drop policy if exists test_yalniz_okuma on public.sayim_oturumlari;
+             drop policy if exists test_yalniz_okuma on public.sayim_detaylari;`);
   const mig = A.ana.uygulaTekIslem('docs/kurulum/2026-09-18-bar-a1-guvenlik.sql');
   A.ana.sql(`notify pgrst, 'reload schema';`);
   await bekle(2500);
@@ -153,7 +161,7 @@ try {
   sonuc(durduruldu && mig.ok && okumaOncesi === '80.000' && vSon === '80.000' && sayimHareketi === '0' && otr === 'onay_bekliyor|false',
     'G12 DURAKLATILMIS ESKI SEKME: detaylar migration oncesi okundu, yazma migration sonrasina bekletildi -> stok DEGISMEDI, sayim hareketi yazilmadi, oturum onay bekliyor',
     `duraklatildi=${durduruldu} migration=${mig.ok ? 'ok' : mig.err.slice(-160)} stok ${okumaOncesi} -> ${vSon}; sayim hareketi ${sayimHareketi}; oturum ${otr}; yazma istekleri ${yazmaIstekleri.length}`);
-  const yeniSt = ekranKur({ restUrl: REST(A), jwt: J.depo810, depo: BAR, rol: 'cost_control' });
+  const yeniSt = ekranKur({ restUrl: REST(A), jwt: J.cost810, depo: BAR, rol: 'cost_control' });
   await bekle(1500);
   await yeniSt.calistir('sayimOnayBekleyenleriYukle()');
   await yeniSt.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa12')`);
@@ -263,7 +271,7 @@ try {
     insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
       values ('99999999-0000-0000-0000-00000000aa01','LIMON','Limon',100,90,-10);`);
   B.ana.kimlikle(K.DEPO810, `select public.stok_ekle('LIMON','${BAR}','810',-20,1);`);   // 100 -> 80
-  const st = ekranKur({ restUrl: REST(B), jwt: J.depo810, depo: BAR, rol: 'cost_control', kaynakKok: ESKI });
+  const st = ekranKur({ restUrl: REST(B), jwt: J.cost810, depo: BAR, rol: 'cost_control', kaynakKok: ESKI });
   await bekle(1500);
   await st.calistir('sayimOnayBekleyenleriYukle()');
   await st.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa01')`);
@@ -279,7 +287,7 @@ try {
     'G10 ESKI stok-takip + A1: eski istemci detay okuyamiyor ve TEK YAZMA YAPMADAN duruyor (stok 80, oturum onay bekliyor)',
     `stok ${eskiSonuc}; yazma istegi ${eskiIstekler.length}`);
   // Ayni oturum YENI ekranla onaylanir.
-  const yst = ekranKur({ restUrl: REST(B), jwt: J.depo810, depo: BAR, rol: 'cost_control' });
+  const yst = ekranKur({ restUrl: REST(B), jwt: J.cost810, depo: BAR, rol: 'cost_control' });
   await bekle(1500);
   await yst.calistir('sayimOnayBekleyenleriYukle()');
   await yst.calistir(`sayimOnayla('99999999-0000-0000-0000-00000000aa01')`);

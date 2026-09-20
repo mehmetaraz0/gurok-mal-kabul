@@ -265,7 +265,7 @@ try {
            ('99999999-0000-0000-0000-0000000000b1','99999999-0000-0000-0000-000000000001','BIRA','Bira',10,5,-5),
            ('99999999-0000-0000-0000-0000000000b2','99999999-0000-0000-0000-000000000001','VISKI','Viski',2,3,1),
            ('99999999-0000-0000-0000-0000000000b3','99999999-0000-0000-0000-000000000001','LIMON','Limon',50,50,0);`);
-  const e1 = q(K.DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000001');`);
+  const e1 = q(K.COST810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000001');`);
   const e1d = tek(`select string_agg(urun_kodu||':'||uygulama_durumu, ',' order by urun_kodu) from public.sayim_detaylari;`);
   const e1o = tek(`select durum||'|'||kismi_uygulandi from public.sayim_oturumlari;`);
   const e1b = tek(`select fark::text||'|'||onay_anindaki_stok::text||'|'||onay_anindaki_rezerve::text from public.stok_sayim_bekleyenleri;`);
@@ -295,13 +295,13 @@ try {
            values ('99999999-0000-0000-0000-000000000002','${BAR}','810','Test','onay_bekliyor',3);
          insert into public.sayim_detaylari (id, oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark) values
            ('99999999-0000-0000-0000-0000000000c1','99999999-0000-0000-0000-000000000002','VISKI','Viski',3,9,6);`);
-  const e6 = q(K.DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000002');`);
+  const e6 = q(K.COST810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000002');`);
   sonuc(kod(e6) === 'SAYIM_EKSIK' && stok('VISKI') === '3.000'
      && tek(`select durum from public.sayim_oturumlari where id='99999999-0000-0000-0000-000000000002';`) === 'onay_bekliyor',
     'E6 eksik kaydedilmis sayim onaylanmaz (SAYIM_EKSIK); stok ve oturum degismedi', e6.out);
   O.sql(`insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum)
            values ('99999999-0000-0000-0000-000000000003','${BAR}','810','Test','onay_bekliyor');`);
-  sonuc(kod(q(K.DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000003');`)) === 'SAYIM_EKSIK',
+  sonuc(kod(q(K.COST810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000003');`)) === 'SAYIM_EKSIK',
     'E6b detay satiri olmayan oturum onaylanmaz (SAYIM_EKSIK)');
 
   // ---- Kullanici senaryosu (karar 3): sayim aninda 100, fiziksel 90, arada cikis 20 -> 70 ----
@@ -311,7 +311,7 @@ try {
     insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
       values ('${id}','BIRA','Bira',${sistem},${sayilan},${sayilan - sistem});`);
   const sayimHareketi = () => tek(`select count(*) from public.stok_hareketleri where aciklama like 'sayim%';`);
-  const onayla = (id, kim = K.DEPO810) => q(kim, `select public.stok_sayim_onayla('${id}');`);
+  const onayla = (id, kim = K.COST810) => q(kim, `select public.stok_sayim_onayla('${id}');`);
   const OT = (n) => '99999999-0000-0000-0000-' + String(n).padStart(12, '0');
 
   sifirla();
@@ -327,8 +327,8 @@ try {
     'E8 ayni sayim ikinci kez onaylanamaz: zaten_onaylandi, stok 70, tek sayim hareketi');
   oturumKur(OT('e9'), 70, 65);
   const [e9a, e9b] = await Promise.all([
-    O.paralel(K.DEPO810, `select public.stok_sayim_onayla('${OT('e9')}'); select pg_sleep(2);`),
-    new Promise((r) => setTimeout(r, 700)).then(() => O.paralel(K.DEPO810, `select public.stok_sayim_onayla('${OT('e9')}');`)),
+    O.paralel(K.COST810, `select public.stok_sayim_onayla('${OT('e9')}'); select pg_sleep(2);`),
+    new Promise((r) => setTimeout(r, 700)).then(() => O.paralel(K.COST810, `select public.stok_sayim_onayla('${OT('e9')}');`)),
   ]);
   sonuc(e9a.ok && e9b.ok && /zaten_onaylandi/.test(e9b.out) && stok('BIRA') === '65.000' && sayimHareketi() === '2',
     'E9 ayni sayimin ESZAMANLI iki onayi: fark bir kez uygulandi (70 -> 65)', 'stok ' + stok('BIRA'));

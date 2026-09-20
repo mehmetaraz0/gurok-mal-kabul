@@ -36,7 +36,7 @@ function uzlastir() {
   return r.out;
 }
 const belirsizSayisi = (cikti) => {
-  const m = /YENIDEN ACMA: (EVET|HAYIR)[^\n|]*\|\s*(\d+)/.exec(cikti.replace(/\s*\|\s*/g, ' | '));
+  const m = /YENIDEN ACMA: (EVET|HAYIR) — (\d+) belirsiz satir/.exec(cikti);
   return m ? { karar: m[1], n: Number(m[2]) } : { karar: '?', n: -1 };
 };
 const icerir = (cikti, parca) => cikti.includes(parca);
@@ -135,6 +135,55 @@ try {
   c = uzlastir(); k = belirsizSayisi(c);
   sonuc(k.karar === 'EVET' && k.n === 0,
     'K9 Tum belirsizlikler cozumlenince "YENIDEN ACMA: EVET"', JSON.stringify(k));
+
+  // ---------------- K11: A1 ONCESI eski veri yanlis alarm URETMEMELI ----------
+  // A1'den once tamamlanmis siparislerin bar_stok_tuketimleri kaydi HIC olmaz
+  // (tablo A1 ile geldi). Bunlar "bozuk" sayilmamali.
+  const a1Zaman = sql(`select max(server_timestamp) from public.erp_islem_audit where entity_id = 'A1-GECIS-ISARETI';`);
+  const eskiSip = sql(`select gen_random_uuid();`);
+  const eskiKalem = sql(`select gen_random_uuid();`);
+  tohum(`insert into public.bar_siparisleri (id, otel_id, depo_id, masa_token, kanal, durum, oda_dogrulama_durumu, olusturma_zamani)
+           values ('${eskiSip}', '810', '${DEPO}', 'ESKI', 'personel', 'teslim_edildi', 'gerekmiyor', now() - interval '30 days');
+         insert into public.bar_siparis_kalemleri (id, siparis_id, menu_urun_id, adet, rezerve_edildi, birim_fiyat, ucretli)
+           values ('${eskiKalem}', '${eskiSip}', '22222222-0000-0000-0000-000000000001', 1, true, 0, false);
+         insert into public.stok_rezervasyonlari (stok_kodu, otel_id, depo_id, miktar, siparis_kalem_id, durum, olusturma_zamani)
+           values ('BIRA', '810', '${DEPO}', 1, '${eskiKalem}', 'kullanildi', now() - interval '30 days');`);
+  c = uzlastir(); k = belirsizSayisi(c);
+  sonuc(k.karar === 'EVET' && k.n === 0 && !icerir(c, eskiSip),
+    'K11 A1 ONCESI tamamlanmis siparis (tuketim kaydi yok) YANLIS ALARM uretmiyor',
+    'a1 isareti: ' + (a1Zaman || '(yok)') + ' | ' + JSON.stringify(k));
+
+  // Ayni desen A1'den SONRA olusmus olsaydi yakalanmali (kontrolun olu olmadigi kaniti)
+  const yeniSip = sql(`select gen_random_uuid();`);
+  const yeniKalem = sql(`select gen_random_uuid();`);
+  tohum(`insert into public.bar_siparisleri (id, otel_id, depo_id, masa_token, kanal, durum, oda_dogrulama_durumu, olusturma_zamani)
+           values ('${yeniSip}', '810', '${DEPO}', 'YENI', 'personel', 'teslim_edildi', 'gerekmiyor', now());
+         insert into public.bar_siparis_kalemleri (id, siparis_id, menu_urun_id, adet, rezerve_edildi, birim_fiyat, ucretli)
+           values ('${yeniKalem}', '${yeniSip}', '22222222-0000-0000-0000-000000000001', 1, true, 0, false);
+         insert into public.stok_rezervasyonlari (stok_kodu, otel_id, depo_id, miktar, siparis_kalem_id, durum, olusturma_zamani)
+           values ('BIRA', '810', '${DEPO}', 1, '${yeniKalem}', 'kullanildi', now());`);
+  c = uzlastir(); k = belirsizSayisi(c);
+  sonuc(k.karar === 'HAYIR' && icerir(c, 'U3b rezervasyon') && icerir(c, 'U3c siparis'),
+    'K12 AYNI desen A1 SONRASI olusunca yakalaniyor (kontrol olu degil)', JSON.stringify(k));
+  tohum(`delete from public.stok_rezervasyonlari where siparis_kalem_id in ('${yeniKalem}','${eskiKalem}');
+         delete from public.bar_siparis_kalemleri where id in ('${yeniKalem}','${eskiKalem}');
+         delete from public.bar_siparisleri where id in ('${yeniSip}','${eskiSip}');`);
+
+  // ---------------- K13: belgesiz hareket TEMIZ SAYILMAZ ----------------
+  tohum(`update public.stok set miktar = miktar + 2, guncelleme_tarihi = now()
+          where depo_kodu = '${DEPO}' and urun_kodu = 'VISKI';
+         insert into public.stok_hareketleri (urun_kodu, depo_kodu, otel_id, tip, miktar, tarih, aciklama, belge_no)
+           values ('VISKI', '${DEPO}', '810', 'giris', 2, now(), 'belgesiz', null);`);
+  c = uzlastir(); k = belirsizSayisi(c);
+  sonuc(k.karar === 'HAYIR' && icerir(c, 'iliskilendirilemiyor'),
+    'K13 BELGESIZ hareket otomatik TEMIZ sayilmiyor (belge/kalemle iliskilendirilemiyor)', JSON.stringify(k));
+  tohum(`update public.stok_hareketleri set belge_no = 'PROVA-3' where belge_no is null and urun_kodu = 'VISKI';`);
+  c = uzlastir(); k = belirsizSayisi(c);
+  sonuc(k.karar === 'EVET' && k.n === 0, 'K14 belge numarasi yazilinca satir KESIN oluyor', JSON.stringify(k));
+
+  // ---------------- K15: "EVET" kapsam sinirini yaziyor mu? ----------------
+  sonuc(icerir(c, 'YALNIZ OLCULEN KURALLAR') && icerir(c, 'kapsam disi'),
+    'K15 EVET karari "yalniz olculen kurallar" sinirini acikca yaziyor');
 
   // ---------------- Prosedur salt okuma mi? ----------------
   const once = sql(`select count(*) from public.stok_hareketleri;`);

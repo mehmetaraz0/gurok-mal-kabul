@@ -123,9 +123,15 @@ async function main() {
       '4b geri alma sonrasi stok govdeleri A1-ONCESI uretim haliyle BIREBIR ayni (md5) ve tarih duzeltmesini tasiyor', md5);
     const izSonra = O.sql(IZ_SORGUSU).out;
     const tabloSonra = O.sql(TABLO_IZ_SORGUSU).out;
-    sonuc(tabloSonra === tabloOnce && /sayim_detaylari .*authenticated:SELECT/.test(tabloOnce),
-      '4b3 geri alma sonrasi sayim tablolarinin etkin yetkileri ve tetikleyicileri A1 oncesiyle BIREBIR ayni (15b geri alindi)',
-      tabloSonra === tabloOnce ? '' : 'ONCE:\n' + tabloOnce + '\nSONRA:\n' + tabloSonra);
+    // 2026-09-20: A1 artik 15c ile sayim tablolarindan DELETE/TRUNCATE haklarini da
+    // aliyor ve geri alma bunlari BILEREK geri vermiyor (TRUNCATE RLS'i dinlemez;
+    // ayri guvenlik duzeltmesi — 2026-09-20-truncate-bulgusu.md). Karsilastirma bu
+    // iki hak DISINDA birebir olmali; o ikisi ise geri alma sonrasi DURMAMALI.
+    const hakSuz = (s) => s.replace(/authenticated:(DELETE|TRUNCATE|REFERENCES|TRIGGER),?/g, '');
+    sonuc(hakSuz(tabloSonra) === hakSuz(tabloOnce) && /sayim_detaylari .*authenticated:SELECT/.test(tabloSonra)
+       && !/authenticated:TRUNCATE/.test(tabloSonra) && !/authenticated:DELETE/.test(tabloSonra),
+      '4b3 geri alma sonrasi sayim tablolari A1 oncesiyle ayni (15b geri alindi) — YALNIZ fazla haklar (DELETE/TRUNCATE/REFERENCES/TRIGGER) bilerek geri verilmiyor',
+      hakSuz(tabloSonra) === hakSuz(tabloOnce) ? '' : 'ONCE:\n' + tabloOnce + '\nSONRA:\n' + tabloSonra);
     sonuc(izSonra === izOnce && (izOnce.match(/\n/g) || []).length === 7,
       '4b2 geri alma sonrasi 8 fonksiyonun govdesi, search_path ayari ve ETKIN yetkileri A1 oncesiyle BIREBIR ayni',
       izSonra === izOnce ? '' : 'ONCE:\n' + izOnce + '\nSONRA:\n' + izSonra);

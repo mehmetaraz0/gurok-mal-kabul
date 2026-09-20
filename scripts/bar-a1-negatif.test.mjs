@@ -22,6 +22,7 @@ const A1 = readFileSync(kok + 'docs/kurulum/2026-09-18-bar-a1-guvenlik.sql', 'ut
 const BAR = '810_CSM302';
 const BAR810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-000000000810' };
 const DEPO810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000cc' };
+const COST810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000c1' };   // 15c sayim onaycisi
 const BIRA = '22222222-0000-0000-0000-000000000001';
 
 let ok = 0, fail = 0;
@@ -134,7 +135,19 @@ await varyant('K5', K5, async (O) => {
     insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark)
       values ('99999999-0000-0000-0000-0000000000f5','BIRA','Bira',100,90,-10);`);
   O.kimlikle(DEPO810, `select public.stok_ekle('BIRA','${BAR}','810',-20,1);`);
-  O.kimlikle(DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-0000000000f5');`);
+  // 15c: onay yalniz cost_control'un. Taban tohumda boyle bir kullanici yok;
+  // bu varyant icin en kucuk haliyle kurulur (rol + yetki + kullanici).
+  O.sql(`set session_replication_role = replica;
+    insert into public.roller (id, ad, seviye, kod, sira) values
+      ('00000000-0000-0000-0000-00000000b015', 'Cost Control Elemani', 'otel', 'cost_control', 10);
+    insert into public.yetki_matrisi (rol_id, modul_id, yetki) values
+      ('00000000-0000-0000-0000-00000000b015', '00000000-0000-0000-0000-00000000a002', 'kayit');
+    insert into auth.users (id, email) values ('${COST810.sub}', 'cost810@test.local');
+    insert into public.kullanicilar (id, auth_user_id, ad, rol, otel_id, aktif, rol_id) values
+      ('33333333-0000-0000-0000-0000000000c1', '${COST810.sub}', 'Cost 810', 'cost_control', '810', true,
+       '00000000-0000-0000-0000-00000000b015');
+    set session_replication_role = origin;`);
+  O.kimlikle(COST810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-0000000000f5');`);
   sonuc(stok(O) === '90.000',
     'K5 fark onay anindaki stoga gore hesaplaninca 100 -> say 90 -> cikis 20 senaryosu 90 veriyor, 70 degil (E7 testi bunu yakalar)',
     'stok ' + stok(O));

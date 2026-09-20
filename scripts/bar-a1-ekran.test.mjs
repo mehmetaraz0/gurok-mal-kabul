@@ -214,22 +214,21 @@ try {
          insert into public.sayim_detaylari (id, oturum_id, urun_kodu, urun_adi, sistem_miktar, sayilan_miktar, fark) values
            ('99999999-0000-0000-0000-0000000000b1','99999999-0000-0000-0000-000000000001','BIRA','Bira',10,5,-5),
            ('99999999-0000-0000-0000-0000000000b2','99999999-0000-0000-0000-000000000001','VISKI','Viski',2,3,1);`);
-  // S0 — URETIM BULGUSU (A1'den bagimsiz): 2026-09-13 dokumunde sayim_oturumlari
-  // yalniz RESTRICTIVE politika, sayim_detaylari HIC politika tasir (ikisinde de
-  // RLS acik). Oturum acmis kullanici bu satirlari GOREMEZ. Olculur, duzeltilmez.
-  // CANLI DOGRULAMA 2026-09-20 (salt okuma, kullanici calistirdi): uretimde de ayni —
-  // RLS acik, permissive politika yok, tablo haklari authenticated'a TAM (engel yetki
-  // degil RLS), her iki tablo BOS (0 satir) ve aktif cost_control kullanicisi 0 satir
-  // goruyor. Yani sayim akisi uretimde bugune kadar hic calismamis; A1 bunu degistirmez.
-  const okunan = (tablo) => q(K.DEPO810, `select count(*) from public.${tablo};`).out.split('\n').pop();
+  // S0 — 2026-09-13 dokumunde sayim_oturumlari yalniz RESTRICTIVE politika,
+  // sayim_detaylari HIC politika tasiyordu; sayim akisi uretimde hic calismamisti.
+  // 2026-09-20 kullanici karari: bu eksik A1 PAKETINE dahil edildi (bolum 15c) ve
+  // yetkiler IKIYE AYRILDI. Artik test ortamina ozel okuma politikasi GEREKMIYOR;
+  // olcum gercek yetki duzeniyle yapilir:
+  //   olusturma/listeleme -> stok_takip:kayit (DEPO810 gecer)
+  //   onay/ret            -> auth_sayim_onaycisi() (yalniz COST810)
+  const okunan = (tablo, kim = K.DEPO810) => q(kim, `select count(*) from public.${tablo};`).out.split('\n').pop();
   const detayOkuma = q(K.DEPO810, `select count(*) from public.sayim_detaylari;`);
-  sonuc(okunan('sayim_oturumlari') === '0' && !detayOkuma.ok && /permission denied/.test(detayOkuma.err)
-     && tek(`select count(*) from public.sayim_oturumlari;`) === '1',
-    'S0 OLCUM: oturumlar RLS nedeniyle gorunmuyor (uretim semasi, A1 disi bulgu); detaylar A1 15b ile dogrudan okunamiyor');
-  // Ekran mantigini sinamak icin YALNIZ bu test ortaminda okuma politikasi. Uretimde YOK.
-  O.sql(`create policy test_yalniz_okuma on public.sayim_oturumlari for select to authenticated using (true);
-         create policy test_yalniz_okuma on public.sayim_detaylari for select to authenticated using (true);`);
-  const st = ekranKur({ restUrl: REST, jwt: yerelJwt('authenticated', K.DEPO810.sub), depo: BAR, rol: 'cost_control' });
+  sonuc(okunan('sayim_oturumlari') === '1' && !detayOkuma.ok && /permission denied/.test(detayOkuma.err),
+    'S0 15c: stok_takip:kayit kullanicisi oturumu LISTELIYOR; detaylar hala dogrudan okunamiyor (15b katmani)');
+  const onaySiz = q(K.DEPO810, `select public.stok_sayim_onayla('99999999-0000-0000-0000-000000000001');`);
+  sonuc(!onaySiz.ok && /YETKI_YOK/.test(onaySiz.err),
+    'S0b 15c: ayni kullanici ONAYLAYAMIYOR — onay/ret kapisi ayri (cost control)');
+  const st = ekranKur({ restUrl: REST, jwt: yerelJwt('authenticated', K.COST810.sub), depo: BAR, rol: 'cost_control' });
   await bekle(1500);
   await st.calistir(`sayimOnayBekleyenleriYukle()`);
   await st.calistir(`sayimOnayla('99999999-0000-0000-0000-000000000001')`);

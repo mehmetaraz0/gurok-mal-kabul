@@ -80,16 +80,23 @@ u1 as (
 --     stok_transfer iki stok satirini TEK fonksiyonda yazar (bolunmez), ama
 --     hareket kayitlarini ekran AYRI istekle yazar: kesinti tam araya girebilir.
 -- ---------------------------------------------------------------------------
+--     BELGEYLE ILISKILENDIRILEMEYEN hareket TEMIZ SAYILMAZ (kullanici karari
+--     2026-09-20): belge_no'su bos bir hareket, hangi ise ait oldugu
+--     bilinemedigi icin BELIRSIZ kalir.
 u2 as (
   select 'U2 stok/hareket' as kaynak,
          s.depo_kodu || ' / ' || s.urun_kodu as anahtar,
          'stok son degisim ' || s.guncelleme_tarihi::text
-           || ' | pencerede hareket ' || h.adet::text as ayrinti,
-         case when h.adet > 0 then 'KESIN: hareket var'
+           || ' | pencerede hareket ' || h.adet::text
+           || ' (belgeli ' || h.belgeli::text || ')' as ayrinti,
+         case when h.belgeli > 0 then 'KESIN: belgeli hareket var'
+              when h.adet > 0 then 'BELIRSIZ: hareket var ama belge/kalemle iliskilendirilemiyor'
               else 'BELIRSIZ: stok pencerede degismis, eslesen hareket yok' end as karar
     from public.stok s, p
     left join lateral (
-      select count(*) as adet from public.stok_hareketleri h2, p p2
+      select count(*) as adet,
+             count(*) filter (where coalesce(h2.belge_no, '') <> '') as belgeli
+        from public.stok_hareketleri h2, p p2
        where h2.depo_kodu = s.depo_kodu and h2.urun_kodu = s.urun_kodu and h2.tarih >= p2.t0) h on true
    where s.guncelleme_tarihi >= p.t0
 ),
@@ -100,6 +107,17 @@ u2 as (
 --     yine de kesinti sirasinda fonksiyonun kendisi reddedilmis olabilir ve
 --     ekran yarim gorunum birakabilir. Uc tutarsizlik aranir.
 -- ---------------------------------------------------------------------------
+-- A1 SINIRI: bar_stok_tuketimleri A1 ile gelen YENI bir tablodur. A1'den ONCE
+-- tamamlanmis siparislerin tuketim kaydi hic olmaz; bunlari "bozuk" saymak
+-- yanlis alarmdir (kullanici uyarisi 2026-09-20). Bu yuzden (b) ve (c)
+-- kontrolleri yalnizca A1 uygulandiktan SONRA olusmus siparis/rezervasyon
+-- satirlarina bakar. A1 isareti yoksa (migration uygulanmamis) bu iki kontrol
+-- hic satir uretmez ve KAPSAM DISI olarak raporlanir.
+a1 as (
+  select max(a.server_timestamp) as t
+    from public.erp_islem_audit a
+   where a.entity_id = 'A1-GECIS-ISARETI'
+),
 u3 as (
   -- (a) kapanmis siparisin rezervasyonu hala aktif
   select 'U3a rezervasyon' as kaynak,
@@ -116,8 +134,9 @@ u3 as (
   select 'U3b rezervasyon', r.id::text,
          'rezervasyon kullanildi | tuketim kaydi yok | ' || r.stok_kodu || ' ' || r.miktar::text,
          'BELIRSIZ: rezervasyon kullanildi ama bar_stok_tuketimleri satiri yok'
-    from public.stok_rezervasyonlari r
+    from public.stok_rezervasyonlari r, a1
    where r.durum = 'kullanildi'
+     and a1.t is not null and r.olusturma_zamani >= a1.t     -- A1 oncesi veri haric
      and not exists (select 1 from public.bar_stok_tuketimleri t where t.rezervasyon_id = r.id)
   union all
   -- (c) teslim edilmis siparis kaleminin tuketimi yok
@@ -125,8 +144,9 @@ u3 as (
          'siparis teslim_edildi | kalem ' || k.id::text || ' | tuketim yok',
          'BELIRSIZ: teslim edilmis kalemin stok tuketimi yazilmamis'
     from public.bar_siparisleri s
-    join public.bar_siparis_kalemleri k on k.siparis_id = s.id
+    join public.bar_siparis_kalemleri k on k.siparis_id = s.id, a1
    where s.durum::text = 'teslim_edildi' and k.rezerve_edildi is true
+     and a1.t is not null and s.olusturma_zamani >= a1.t     -- A1 oncesi veri haric
      and not exists (select 1 from public.bar_stok_tuketimleri t where t.siparis_kalem_id = k.id)
 ),
 
@@ -191,70 +211,23 @@ u6 as (
 hepsi as (
   select * from u1 union all select * from u2 union all select * from u3
   union all select * from u4 union all select * from u5 union all select * from u6
-)
-select kaynak, anahtar, ayrinti, karar
-  from hepsi
- order by (karar like 'BELIRSIZ%') desc, kaynak, anahtar;
-
--- ---------------------------------------------------------------------------
--- KARAR SATIRI
--- ---------------------------------------------------------------------------
-\echo '== KARAR =='
-with p as (
-  select coalesce(nullif(current_setting('uzl.kesinti', true), '')::timestamptz,
-                  now() - interval '2 hours') as t0
 ),
-belirsiz as (
-  select count(*) as n from (
-    select 1 from public.mal_kabuller m
-      join public.mal_kabul_urunleri k on k.mk_id = m.id
-      left join lateral (select count(*) as adet from public.stok_hareketleri h
-                          where h.belge_no = m.mk_no and h.urun_kodu = k.urun_kodu and h.tip = 'giris') h on true
-      left join lateral (select max(s2.guncelleme_tarihi) as gt from public.stok s2
-                          where s2.urun_kodu = k.urun_kodu and s2.otel_id = m.otel_id) s on true
-     where m.durum = 'onaylandi' and coalesce(m.stok_islendi, false) = false
-       and h.adet = 0 and s.gt is not null
-       and s.gt >= (select max(a.server_timestamp) from public.erp_islem_audit a
-                     where a.entity_type = 'mal_kabuller' and a.entity_id = m.id::text and a.event_type = 'UPDATE')
+sayac as (select count(*) filter (where karar like 'BELIRSIZ%') as belirsiz, count(*) as toplam from hepsi)
+-- Detay satirlari + EN SONDA tek karar satiri. Karar, satirlarla AYNI sorgudan
+-- uretilir: ayri bir sorgu kopyalanmaz, dolayisiyla ikisi asla birbirinden
+-- ayrisamaz.
+select kaynak, anahtar, ayrinti, karar
+  from (
+    select 0 as sira, kaynak, anahtar, ayrinti, karar from hepsi
     union all
-    select 1 from public.stok s, p
-     where s.guncelleme_tarihi >= p.t0
-       and not exists (select 1 from public.stok_hareketleri h, p p2
-                        where h.depo_kodu = s.depo_kodu and h.urun_kodu = s.urun_kodu and h.tarih >= p2.t0)
-    union all
-    select 1 from public.stok_rezervasyonlari r
-      join public.bar_siparis_kalemleri k on k.id = r.siparis_kalem_id
-      join public.bar_siparisleri s on s.id = k.siparis_id
-     where r.durum = 'aktif' and s.durum::text in ('teslim_edildi', 'iptal')
-    union all
-    select 1 from public.stok_rezervasyonlari r
-     where r.durum = 'kullanildi'
-       and not exists (select 1 from public.bar_stok_tuketimleri t where t.rezervasyon_id = r.id)
-    union all
-    select 1 from public.bar_siparisleri s
-      join public.bar_siparis_kalemleri k on k.siparis_id = s.id
-     where s.durum::text = 'teslim_edildi' and k.rezerve_edildi is true
-       and not exists (select 1 from public.bar_stok_tuketimleri t where t.siparis_kalem_id = k.id)
-    union all
-    select 1 from (select depo_id, stok_kodu, sum(miktar) as rezerve
-                     from public.stok_rezervasyonlari where durum = 'aktif'
-                    group by depo_id, stok_kodu) r
-      left join public.stok s on s.depo_kodu = r.depo_id and s.urun_kodu = r.stok_kodu
-     where r.rezerve > coalesce(s.miktar, 0)
-    union all
-    select 1 from public.sayim_oturumlari o
-     where not exists (select 1 from public.sayim_detaylari d where d.oturum_id = o.id)
-    union all
-    select 1 from public.sayim_oturumlari o
-      join public.sayim_detaylari d on d.oturum_id = o.id
-     where o.durum = 'onaylandi' and coalesce(d.uygulama_durumu, '') = ''
-    union all
-    select 1 from public.stok s where s.miktar < 0
-  ) x
-)
-select case when n = 0 then 'YENIDEN ACMA: EVET — belirsiz satir yok'
-            else 'YENIDEN ACMA: HAYIR — ' || n::text || ' belirsiz satir var, once cozumleyin' end as karar,
-       n as belirsiz_satir
-  from belirsiz;
-
+    select 1, 'KARAR', 'olculen satir ' || sayac.toplam::text, '',
+           case when sayac.belirsiz = 0
+                then 'YENIDEN ACMA: EVET — 0 belirsiz satir (YALNIZ OLCULEN KURALLAR; kapsam disi: '
+                     || 'A1 oncesi bar tuketim kayitlari, hic kayit birakmamis islemler, '
+                     || 'veritabani disi sistemler)'
+                else 'YENIDEN ACMA: HAYIR — ' || sayac.belirsiz::text
+                     || ' belirsiz satir var, once cozumleyin' end
+      from sayac
+  ) z
+ order by z.sira, (z.karar like 'BELIRSIZ%') desc, z.kaynak, z.anahtar;
 rollback;

@@ -1220,6 +1220,12 @@ begin
   if not (public.auth_yetki_var('stok_takip', 'kayit') is true) then
     raise exception 'YETKI_YOK: stok_takip kayit gerekli';
   end if;
+  -- 15c: ONAY kapisi RET ile ayni ve BUGUNKU ekran kapisiyla ayni (cost_control).
+  -- Bu olmadan stok_takip:kayit olan her kullanici API'den sayim onaylayabilirdi;
+  -- bu, bugunku cost-control sinirini GENISLETIRDI.
+  if not (public.auth_sayim_onaycisi() is true) then
+    raise exception 'YETKI_YOK: sayim onayini yalniz cost control yapar';
+  end if;
   select * into v_o from public.sayim_oturumlari where id = p_oturum_id for update;
   if not found then
     raise exception 'SAYIM_YOK: %', p_oturum_id;
@@ -1482,6 +1488,96 @@ create trigger stok_sayim_hareket_koruma
 
 
 -- ============================================================================
+-- 15c) SAYIM ERISIMI — OLUSTURMA/LISTELEME ile ONAY/RET AYRI KAPILAR
+--      (kullanici karari 2026-09-20: duzeltme A1 paketine dahil)
+-- ============================================================================
+-- SORUN (olculdu 2026-09-20; hem uretimde hem izole ortamda): sayim tablolarinda
+-- RLS acik ama IZIN VEREN politika yok. Ekran sayimi DOGRUDAN tabloya yazdigi
+-- icin olusturma (INSERT), listeleme (SELECT) ve reddetme (UPDATE) calismiyor;
+-- ozellik uretimde hic kullanilamamis (iki tablo da 0 satir). A1 sayim akisini
+-- degistirdigi icin bu eksik A1 paketinde kapatilir.
+--
+-- IKI AYRI KAPI (kullanici karari 2026-09-20 — "onceki cost-control sinirini
+-- genisletme"):
+--   (1) OLUSTURMA + LISTELEME -> stok_takip:kayit + otel erisimi.
+--       Bugun stok-takip ekranini acabilen (yonetici/depo/cost_control) personel
+--       sayim yapar; stok yazan diger tablolarin (stok, stok_hareketleri,
+--       stok_minimumlar) kullandigi kapinin AYNISI. Kimse stok uzerinde bugun
+--       sahip olmadigi bir hak kazanmaz.
+--   (2) ONAY + RET -> auth_sayim_onaycisi(): kullanicilar.rol = 'cost_control'
+--       VE stok_takip:kayit. Bu, BUGUNKU ekran kapisinin (stok-takip.html:
+--       currentUser.rol === 'cost_control') birebir sunucu esidir; kapsam
+--       GENISLETILMEZ. 'cost_control_mdr' BILEREK disarida: bugunku ekran onu da
+--       kabul etmiyor, eklenmesi ayri bir karardir.
+--
+-- KORUNAN A1 KATMANLARI:
+--   * sayim_detaylari'na SELECT politikasi EKLENMEZ; detaylar
+--     stok_sayim_detaylari() RPC'siyle okunur (duraklatilmis eski sekme
+--     korumasinin katmani). A1'in kaldirdigi SELECT grant'i geri verilmez.
+--   * UPDATE yalniz 'onay_bekliyor' -> 'reddedildi' gecisidir; dogrudan
+--     'onaylandi' YAZILAMAZ (onay stok_sayim_onayla() RPC'sinden gecer ve o da
+--     ayni onayci kapisini ister).
+--   * DELETE/TRUNCATE hakki geri alinir. TRUNCATE kritik: RLS'i DINLEMEZ, yani
+--     politika eklemek tek basina yetmez. (Ayni kusur baska tablolarda da var —
+--     ayri ve yuksek oncelikli is: docs/superpowers/reports/2026-09-20-truncate-bulgusu.md)
+-- ============================================================================
+create or replace function public.auth_sayim_onaycisi()
+returns boolean
+language sql stable security definer
+set search_path = pg_catalog, public, pg_temp
+as $$
+  select exists (
+    select 1 from public.kullanicilar k
+     where k.auth_user_id = auth.uid() and k.aktif is true
+       and k.rol = 'cost_control')
+     and (public.auth_yetki_var('stok_takip', 'kayit') is true);
+$$;
+comment on function public.auth_sayim_onaycisi() is
+  'Sayim onay/ret kapisi: aktif cost_control kullanicisi + stok_takip kayit. '
+  'Bugunku stok-takip ekran kapisinin sunucu esidir; kapsam genisletilmez.';
+
+-- (1) Listeleme — sayimi yapan da kendi otelinin oturumlarini gorur
+drop policy if exists sayim_oturum_select on public.sayim_oturumlari;
+create policy sayim_oturum_select on public.sayim_oturumlari
+  for select to authenticated
+  using (public.auth_yetki_var('stok_takip', 'kayit') is true
+         and public.auth_otel_erisim(otel_id::text) is true);
+
+-- (1) Olusturma — yalnizca 'onay_bekliyor' olarak
+drop policy if exists sayim_oturum_insert on public.sayim_oturumlari;
+create policy sayim_oturum_insert on public.sayim_oturumlari
+  for insert to authenticated
+  with check (public.auth_yetki_var('stok_takip', 'kayit') is true
+              and public.auth_otel_erisim(otel_id::text) is true
+              and durum = 'onay_bekliyor');
+
+-- (2) RET — yalnizca onayci; onay bu yoldan YAPILAMAZ
+drop policy if exists sayim_oturum_reddet on public.sayim_oturumlari;
+create policy sayim_oturum_reddet on public.sayim_oturumlari
+  for update to authenticated
+  using (public.auth_sayim_onaycisi() is true
+         and public.auth_otel_erisim(otel_id::text) is true
+         and durum = 'onay_bekliyor'
+         and kismi_uygulandi is not true)
+  with check (public.auth_sayim_onaycisi() is true
+              and public.auth_otel_erisim(otel_id::text) is true
+              and durum = 'reddedildi');
+
+-- (1) Detay olusturma — OKUMA YOK (RPC ile okunur)
+drop policy if exists sayim_detay_insert on public.sayim_detaylari;
+create policy sayim_detay_insert on public.sayim_detaylari
+  for insert to authenticated
+  with check (public.auth_yetki_var('stok_takip', 'kayit') is true
+              and exists (select 1 from public.sayim_oturumlari o
+                           where o.id = oturum_id
+                             and o.durum = 'onay_bekliyor'
+                             and public.auth_otel_erisim(o.otel_id::text) is true));
+
+revoke delete, truncate, references, trigger on table public.sayim_oturumlari from authenticated;
+revoke delete, truncate, references, trigger on table public.sayim_detaylari  from authenticated;
+
+
+-- ============================================================================
 -- 16) MASA YONETIMI YETKI KAPSAMI (rapid-handler; tasarim 3.7)
 -- ============================================================================
 -- CAGIRANIN JWT'siyle calisir (SECURITY INVOKER): yetki ve otel kapsami
@@ -1531,6 +1627,10 @@ revoke all on function public.bar_masa_yetki_kapsami() from public, anon;
 grant execute on function public.bar_masa_yetki_kapsami() to authenticated, service_role;
 revoke all on function public.stok_sayim_detaylari(uuid) from public, anon;
 grant execute on function public.stok_sayim_detaylari(uuid) to authenticated, service_role;
+-- 15c onayci kapisi: RLS politikalari ve onay RPC'si icinde calisir. Cagiran
+-- kendi durumunu sorgulayabilsin diye authenticated'a acik; anon'a KAPALI.
+revoke all on function public.auth_sayim_onaycisi() from public, anon;
+grant execute on function public.auth_sayim_onaycisi() to authenticated, service_role;
 -- Tetikleyici fonksiyonu: dogrudan cagrilmaz.
 revoke all on function public._stok_sayim_oturum_koruma() from public, anon, authenticated, service_role;
 revoke all on function public._stok_sayim_hareket_koruma() from public, anon, authenticated, service_role;
@@ -1619,6 +1719,33 @@ begin
   end if;
   if not exists (select 1 from pg_trigger where tgname = 'stok_sayim_oturum_koruma' and tgrelid = 'public.sayim_oturumlari'::regclass) then
     raise exception 'SON KOSUL: sayim onay koruma tetikleyicisi yok.';
+  end if;
+  -- 15c: sayim erisimi — dort politika var, kapilar AYRI, fazla haklar alinmis.
+  if (select count(*) from pg_policies where schemaname = 'public'
+       and policyname in ('sayim_oturum_select','sayim_oturum_insert','sayim_oturum_reddet','sayim_detay_insert')) <> 4 then
+    raise exception 'SON KOSUL: 15c sayim politikalarindan biri eksik.';
+  end if;
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'sayim_detaylari'
+              and permissive = 'PERMISSIVE' and cmd in ('SELECT','ALL')) then
+    raise exception 'SON KOSUL: sayim_detaylari uzerinde izin veren SELECT politikasi olusmus.';
+  end if;
+  if (select qual from pg_policies where schemaname = 'public' and policyname = 'sayim_oturum_reddet')
+     not like '%auth_sayim_onaycisi%' then
+    raise exception 'SON KOSUL: ret politikasi onayci kapisini kullanmiyor.';
+  end if;
+  if (select prosrc from pg_proc where oid = 'public.stok_sayim_onayla(uuid)'::regprocedure)
+     not like '%auth_sayim_onaycisi%' then
+    raise exception 'SON KOSUL: onay RPC onayci kapisini kullanmiyor.';
+  end if;
+  if has_table_privilege('authenticated', 'public.sayim_oturumlari', 'TRUNCATE')
+     or has_table_privilege('authenticated', 'public.sayim_detaylari', 'TRUNCATE')
+     or has_table_privilege('authenticated', 'public.sayim_oturumlari', 'DELETE')
+     or has_table_privilege('authenticated', 'public.sayim_detaylari', 'DELETE') then
+    raise exception 'SON KOSUL: sayim tablolarinda DELETE/TRUNCATE hakki duruyor.';
+  end if;
+  if not has_table_privilege('authenticated', 'public.sayim_oturumlari', 'INSERT')
+     or not has_table_privilege('authenticated', 'public.sayim_detaylari', 'INSERT') then
+    raise exception 'SON KOSUL: sayim INSERT hakki eksik — ekran sayim olusturamaz.';
   end if;
 end;
 $$;
