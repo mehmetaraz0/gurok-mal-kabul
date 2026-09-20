@@ -10,7 +10,8 @@ deploy, canlı migration ve Aşama 2 **yok**; yayın talimatı yok.
 | 3 | "Ekranlar sorguyla kapalı doğrulandı" ifadesi | **KALDIRILDI** (hareketsizlik = yardımcı kanıt) |
 | 4 | Yayın sonrası eşleştirme: sayım yerine satır bazlı stok etkisi | **DÜZELTİLDİ ve ÖLÇÜLDÜ** |
 | 5 | Koşullu tarayıcı testleri | **YOL AÇILDI:** manuel test betiği hazır; sizden bir tur bekliyor |
-| 6 | Sayım oluşturma/listeleme, canlı Edge/şema | **AÇIK** (sizin girişiniz/parolanız gerekiyor) |
+| 6a | Sayım oluşturma/listeleme — canlı doğrulama | **ÖLÇÜLDÜ 2026-09-20:** üretimde çalışmıyor (RLS), tablolar boş |
+| 6b | Canlı Edge kodu / müşteri şeması | **AÇIK** (Dashboard girişi gerekiyor) |
 | 7 | Yayın sırası | **KARAR GEREKİYOR** |
 
 ---
@@ -100,9 +101,30 @@ Tamamlanmış takımlar gereksiz tekrarlanmadı; yalnız bu turda eklenen/etkile
 Önceki turun sonuçları değişmedi: veritabanı 72/72, geçiş provası 16/16, geçiş migration 6/6,
 çağrı sınırı 9/9, ekranlar 37/37, sıra/geri alma 17/17, Edge 22/22.
 
-## 6. Sizden gerekenler
+## 6. Sayım tabloları — canlı ölçüm (kapandı)
+
+Salt okuma sorgusunu çalıştırdınız (2026-09-20). Üretim, izole ölçümle birebir aynı:
+
+| Ölçüm | Üretim |
+|---|---|
+| RLS | iki tabloda da açık |
+| Politikalar | `sayim_oturumlari`: yalnız RESTRICTIVE; `sayim_detaylari`: **hiç politika yok** |
+| `authenticated` tablo hakları | TAM (SELECT/INSERT/UPDATE/DELETE) — yani engel **yetki değil, RLS** |
+| Satır sayısı | `sayim_oturumlari` **0**, `sayim_detaylari` **0**; son 30 günde kayıt yok |
+| Aktif cost_control kullanıcısının gördüğü | **0 satır** |
+
+Sonuç: izin veren (permissive) politika olmadığı için sayım **oluşturulamıyor ve listelenemiyor**;
+özellik üretimde bugüne kadar kullanılamamış ve **kaybolmuş veri yok**. Bu A1 dışı, önceden
+kaydedilmiş bir kusurdur; A1 bunu ne düzeltir ne kötüleştirir. A1'in sayım değişiklikleri
+(onay RPC'si, bekleyen düzeltme, eski sekme durdurma) canlıda **boş tabloya** uygulanır.
+
+**Ayrı iş için not:** bu kusur düzeltilirken `sayim_detaylari`'na doğrudan `SELECT` grant'i geri
+verilmemelidir. A1 o grant'i bilerek kaldırdı; yeni ekran detayları `stok_sayim_detaylari()`
+RPC'siyle okuyor (eski sekme durdurmasının bir katmanı). Düzeltme yalnız **permissive politika**
+eklemelidir.
+
+## 7. Sizden gerekenler
 
 1. Manuel tarayıcı turu (yukarıdaki betik) — sonuçları iletin.
-2. Salt okuma: `.\docs\kurulum\sql-uygula.ps1 -Dosya docs\kurulum\2026-09-19-sayim-rls-salt-okuma.sql -SaltOkuma`
-3. Canlı Edge kodu / müşteri şeması için Supabase Dashboard girişi.
-4. Yayın sırası kararı.
+2. Canlı Edge kodu / müşteri şeması için Supabase Dashboard girişi.
+3. Yayın sırası kararı.

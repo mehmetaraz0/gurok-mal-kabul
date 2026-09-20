@@ -217,6 +217,10 @@ try {
   // S0 — URETIM BULGUSU (A1'den bagimsiz): 2026-09-13 dokumunde sayim_oturumlari
   // yalniz RESTRICTIVE politika, sayim_detaylari HIC politika tasir (ikisinde de
   // RLS acik). Oturum acmis kullanici bu satirlari GOREMEZ. Olculur, duzeltilmez.
+  // CANLI DOGRULAMA 2026-09-20 (salt okuma, kullanici calistirdi): uretimde de ayni —
+  // RLS acik, permissive politika yok, tablo haklari authenticated'a TAM (engel yetki
+  // degil RLS), her iki tablo BOS (0 satir) ve aktif cost_control kullanicisi 0 satir
+  // goruyor. Yani sayim akisi uretimde bugune kadar hic calismamis; A1 bunu degistirmez.
   const okunan = (tablo) => q(K.DEPO810, `select count(*) from public.${tablo};`).out.split('\n').pop();
   const detayOkuma = q(K.DEPO810, `select count(*) from public.sayim_detaylari;`);
   sonuc(okunan('sayim_oturumlari') === '0' && !detayOkuma.ok && /permission denied/.test(detayOkuma.err)
