@@ -513,6 +513,15 @@ Aşama 2–4: `SERVIS_KAYDI_YOK`, `SERVIS_KAYDI_ACIK`, `TALEP_KILITLI`, `PILOT_K
 - **Stok tarih düzeltmesi (3.5.1):** sıra testi ve geri alma testi gerçek A1 migration ve geri alma
   dosyalarını çalıştırır; test tabanı 2026-09-18 sonrası üretim gövdeleriyle (tarih düzeltmeli)
   kurulur ve gövdeler md5 ile doğrulanır.
+- **Yayın geçişi KABUL KANITIDIR (kullanıcı kararı 2026-09-20).** `scripts/bar-edge-e2e/gecis-provasi.test.mjs`
+  eski (`origin/main`) ekranları ve eski `rapid-handler`'ı yeni veritabanıyla, yeni ekranları eski
+  veritabanıyla gerçek Edge/GoTrue/PostgREST üzerinde koşturur. **Asgari senaryo:** eski ekran sayım
+  detaylarını migration'dan ÖNCE okur → yazması bekletilir → migration uygulanır → yazma devam eder →
+  **stok değişmez, sayım hareketi yazılmaz, oturum onay bekler** (G12); aynı sayım yeni ekranla doğru
+  sonucu verir (G13). Bu senaryo geçmeden "eski sekme sunucuda engellendi" maddesi kapatılamaz.
+- **Dolu tablo geçişi:** `scripts/bar-a1-gecis-migration.test.mjs` — her durumdan sipariş varken
+  migration uygulanır; geçiş kimliğinin işlem kapsamında kaldığı, denetim izinde ayırt edildiği ve
+  hata halinde hiçbir iz kalmadığı ölçülür.
 
 | Aşama | Asgari senaryolar |
 |---|---|
