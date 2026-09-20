@@ -122,9 +122,9 @@ gösteriyor.
 
 | Öğe | Değer |
 |---|---|
-| Kaynak dal | `bar-a1` — bugünkü uç: **`ccdf5ab`** (yayın anında yeniden doğrulanır) |
+| Kaynak dal | `bar-a1` — uç commit yayın anında `git rev-parse bar-a1` ile sabitlenir (bu rapor yazılırken `e03d3c0`) |
 | Taban | `origin/main` = **`9c06661`** (bugün `git fetch` ile doğrulandı: hâlâ ata) |
-| Commit sayısı | 34 (`9c06661..ccdf5ab`) |
+| Commit sayısı | 35 (`9c06661..e03d3c0`) |
 | Değişen ekran dosyaları | `bar-siparis-kuyrugu.html`, `bar-garson.html`, `bar-menu.html`, `stok-takip.html`, `pms-folio.html`, `gunluk-tuketim.html`, `mal-kabul-liste.html`, `ortak.js`, `stok-veri.js`, `hata-kodlari.js` |
 | Migration | `docs/kurulum/2026-09-18-bar-a1-guvenlik.sql` |
 | Geri alma | `docs/kurulum/2026-09-18-bar-a1-guvenlik-geri-al.sql` |
@@ -151,7 +151,7 @@ sonrası `origin/main` hâlâ ata değilse **durulur**, rebase edilir ve birleş
 | 1 | **YEDEK** — ilk üretim değişikliğinden önce | Ekran push'u da üretim değişikliğidir: yedek **push'tan da önce**. Dosya var + boyut > 0 + geri yükleme komutu yazılı olmadan 2. adıma geçilmez |
 | 2 | **Yazma duraklatma** | `2026-09-20-yayin-yazma-duraklat.sql`; denetim satırı `A1-YAYIN-DURAKLATMA` görülür |
 | 3 | **İşlem kapısı** | `2026-09-20-yayin-oncesi-islem-kontrol.sql`; açık belge/hareketlilik listelenir. Yarım kalan şüphesi varsa **durulur** |
-| 4 | **Ekranlar** | `main` → `ccdf5ab` (fast-forward); ardından sayfa açılış duman testi |
+| 4 | **Ekranlar** | `main` → sabitlenen uç commit (fast-forward); ardından sayfa açılış duman testi |
 | 5 | **Migration** | `sql-uygula.ps1 -Dosya docs\kurulum\2026-09-18-bar-a1-guvenlik.sql`; dosya son koşullarını kendi içinde doğrular |
 | 6 | **Edge** | `rapid-handler` deploy — **yalnız 4. bölümdeki fark çözülmüşse** |
 | 7 | **Yazma sürdürme** | `2026-09-20-yayin-yazma-surdur.sql` — **migration başarısız olsa bile çalıştırılır**, yoksa stok yazmaları kapalı kalır |
