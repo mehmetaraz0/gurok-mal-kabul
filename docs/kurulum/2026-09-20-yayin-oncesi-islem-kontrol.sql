@@ -34,18 +34,48 @@ select id, mk_no, firma_ad, otel_id, durum, stok_islendi, tarih
  where durum = 'onaylandi' and coalesce(stok_islendi, false) = false
  order by tarih desc limit 50;
 
-\echo '== 4) YARIM KALAN MAL KABULDE HANGI KALEM STOGA ISLENDI? (satir satir)'
--- Kalem sayisi ile o belge numarasina yazilmis hareket sayisi karsilastirilir.
--- Esit degilse EKSIK kalemler elle tamamlanir; tum belge yeniden onaylanmaz.
-select m.mk_no,
-       count(distinct k.id) filter (where coalesce(k.urun_kodu,'') <> '' and k.miktar > 0) as kalem_sayisi,
-       count(distinct h.id)                                   as yazilan_hareket,
-       count(distinct k.id) filter (where coalesce(k.urun_kodu,'') <> '' and k.miktar > 0) - count(distinct h.id) as eksik
-  from public.mal_kabuller m
-  left join public.mal_kabul_urunleri k on k.mk_id = m.id
-  left join public.stok_hareketleri h on h.belge_no = m.mk_no and h.tip = 'giris'
- where m.durum = 'onaylandi' and coalesce(m.stok_islendi, false) = false
- group by m.mk_no order by m.mk_no;
+\echo '== 4) YARIM KALAN MAL KABUL — SATIR SATIR STOK ETKISI (sayim degil, ESLESTIRME)'
+-- UYARI: kalem sayisi ile hareket sayisini karsilastirmak KANIT DEGILDIR.
+-- Miktar (stok) ve hareket AYRI isteklerde yazilir: hareket kaydi olmadigi halde
+-- stok DEGISMIS olabilir. Asagida her kalem icin (a) eslesen hareket, (b) stok
+-- satirinin onay zamanindan SONRA degisip degismedigi birlikte gosterilir.
+-- 'SUPHELI' satirlar yeniden YAZILMAZ; once fiziksel/izsel dogrulama yapilir.
+with mk as (
+  select m.id, m.mk_no, m.otel_id, m.depo_kodu,
+         (select max(a.server_timestamp) from public.erp_islem_audit a
+           where a.entity_type = 'mal_kabuller' and a.entity_id = m.id::text and a.event_type = 'UPDATE') as onay_zamani
+    from public.mal_kabuller m
+   where m.durum = 'onaylandi' and coalesce(m.stok_islendi, false) = false)
+select mk.mk_no, k.urun_kodu, k.miktar as kalem_miktar,
+       (select count(*) from public.stok_hareketleri h
+         where h.belge_no = mk.mk_no and h.urun_kodu = k.urun_kodu and h.tip = 'giris') as eslesen_hareket,
+       s.miktar as otelde_toplam_stok, s.guncelleme_tarihi as stok_son_degisim, s.depo_sayisi, mk.onay_zamani,
+       case
+         when (select count(*) from public.stok_hareketleri h
+                where h.belge_no = mk.mk_no and h.urun_kodu = k.urun_kodu and h.tip = 'giris') > 0
+           then 'hareket VAR — kalem islenmis say'
+         when mk.onay_zamani is not null and s.guncelleme_tarihi >= mk.onay_zamani
+           then 'SUPHELI — hareket yok ama stok satiri onaydan SONRA degismis: yeniden yazma!'
+         when coalesce(s.depo_sayisi, 0) = 0
+           then 'stok satiri YOK — kalem islenmemis gorunuyor'
+         else 'hareket yok ve stok satiri onaydan beri degismemis — islenmemis gorunuyor'
+       end as degerlendirme
+  from mk
+  join public.mal_kabul_urunleri k on k.mk_id = mk.id
+  -- Mal kabulun yazdigi depo kodu bilesik olabilir; TAHMIN etmiyoruz: urunun o
+  -- OTELDEKI tum stok satirlari birlikte degerlendirilir (son degisim zamani esas).
+  left join lateral (
+    select max(s2.guncelleme_tarihi) as guncelleme_tarihi, sum(s2.miktar) as miktar, count(*) as depo_sayisi
+      from public.stok s2 where s2.urun_kodu = k.urun_kodu and s2.otel_id = mk.otel_id) s on true
+ where coalesce(k.urun_kodu, '') <> '' and k.miktar > 0
+ order by mk.mk_no, k.urun_kodu;
+
+\echo '== 4b) AYNI BELGEYE YAZILMIS TUM HAREKETLER (fazla/mukerrer var mi?)'
+select h.belge_no, h.urun_kodu, h.tip, h.miktar, h.tarih, h.aciklama
+  from public.stok_hareketleri h
+ where h.belge_no in (select mk_no from public.mal_kabuller
+                       where durum = 'onaylandi' and coalesce(stok_islendi, false) = false)
+ order by h.belge_no, h.urun_kodu, h.tarih;
 
 \echo '== 5) ACIK SAYIM OTURUMLARI (yayin sirasinda onaylanmamali)'
 select id, depo_kodu, durum, toplam_urun_sayisi, olusturma_tarihi,
