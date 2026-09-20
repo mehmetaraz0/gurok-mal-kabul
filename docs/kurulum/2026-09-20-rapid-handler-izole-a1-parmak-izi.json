@@ -1,0 +1,51 @@
+{
+  "uc": "http://127.0.0.1:3300/__musteri/functions/v1/rapid-handler",
+  "zaman": "2026-09-20T08:44:52.007Z",
+  "sondalar": {
+    "ping": {
+      "http": 200,
+      "cors": "*",
+      "govde": "{\"ok\":true,\"v\":\"a1-kapsam\"}"
+    },
+    "ping_anonlu": {
+      "http": 200,
+      "cors": "*",
+      "govde": "{\"ok\":true,\"v\":\"a1-kapsam\"}"
+    },
+    "jwt_yok": {
+      "http": 401,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Oturum yok\"}"
+    },
+    "jwt_gecersiz": {
+      "http": 401,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Oturum geçersiz — tekrar giriş yapın\"}"
+    },
+    "eylem_yok": {
+      "http": 401,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Oturum yok\"}"
+    },
+    "bilinmeyen_eylem": {
+      "http": 401,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Oturum geçersiz — tekrar giriş yapın\"}"
+    },
+    "bozuk_json": {
+      "http": 400,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Geçersiz JSON\"}"
+    },
+    "get_metodu": {
+      "http": 405,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"POST bekleniyor\"}"
+    },
+    "options": {
+      "http": 200,
+      "cors": "*",
+      "govde": "ok"
+    }
+  }
+}

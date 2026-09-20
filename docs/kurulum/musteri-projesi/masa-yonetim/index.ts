@@ -43,7 +43,13 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const { data: u, error: uErr } = await main.auth.getUser(jwt);
-    if (uErr || !u?.user) return json({ ok:false, mesaj:"Oturum geçersiz — tekrar giriş yapın" }, 401, cors);
+    // CANLI SOZLESME KORUNUR (2026-09-20 sonda olcumu): canli surum (ping v=bolge1)
+    // gecersiz oturumda HTTP **200** + { ok:false, mesaj } donuyor; yalniz JWT HIC
+    // yoksa 401. A1 taslaginda bu 401'e cevrilmisti; guvenlikle ilgisi yok (govde
+    // ayni, veri donmuyor) ve istemciler govdedeki `ok` alanina bakiyor
+    // (bar-garson.html, bar-masa-yonetimi.html), HTTP koduna degil. Bu yuzden canli
+    // davranis korunur. Parmak izleri: docs/kurulum/2026-09-20-rapid-handler-*.json
+    if (uErr || !u?.user) return json({ ok:false, mesaj:"Oturum geçersiz — tekrar giriş yapın" }, 200, cors);
 
     // 2) Yetki + otel kapsamı: çağıranın JWT'siyle, veritabanı kararı
     const { data: kapsam, error: kErr } = await main.rpc("bar_masa_yetki_kapsami");

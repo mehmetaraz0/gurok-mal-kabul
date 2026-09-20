@@ -18,6 +18,12 @@ create table public.masa_tokenlari (
   otel_id text not null,        -- '810' | '811'
   depo_id text not null,        -- bar/restoran depo kodu
   masa_adi text not null,
+  -- 2026-09-20 DUZELTME (sema kaymasi): bu kolon CANLI musteri projesinde VAR ve
+  -- hem rapid-handler hem ekranlar kullaniyor; bu kurulum dosyasinda eksikti.
+  -- Yeni kurulumda bastan olusur; mevcut projede zaten mevcuttur (anon sonda ile
+  -- dogrulandi). Mevcut projeye uygulamak gerekirse:
+  --   alter table public.masa_tokenlari add column if not exists bolge text;
+  bolge text,                   -- masanin bolgesi/alani (liste siralamasi)
   aktif boolean not null default true
 );
 

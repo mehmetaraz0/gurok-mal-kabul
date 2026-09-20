@@ -99,8 +99,14 @@ try {
   const r2 = await rh({ action: 'liste', jwt: 'bozuk' });
   const r3 = await rh({ action: 'liste', jwt: E.anon });
   const r4 = await rh({ action: 'liste', jwt: yabanciJwt });
-  sonuc(r1.durum === 401 && r2.durum === 401 && r3.durum === 401 && r4.durum === 401,
-    'R1 oturumsuz / bozuk / anon anahtari / baska sirla imzali JWT: 401', [r1, r2, r3, r4].map((x) => x.durum).join(','));
+  // CANLI SOZLESME (2026-09-20 sonda olcumu): JWT hic yoksa 401; JWT VAR ama gecersizse
+  // canli surum HTTP 200 + { ok:false } donuyor ve birlesik surum bunu koruyor. Guvenlik
+  // kriteri HTTP kodu degil: hicbirinde veri (masalar) donmemeli.
+  const veriYok = (x) => x.json && x.json.ok === false && x.json.masalar === undefined;
+  sonuc(r1.durum === 401 && veriYok(r1)
+     && [r2, r3, r4].every((x) => x.durum === 200 && veriYok(x)),
+    'R1 oturumsuz 401; bozuk / anon anahtari / baska sirla imzali JWT 200 + ok:false, hicbirinde veri yok',
+    [r1, r2, r3, r4].map((x) => x.durum).join(','));
   r = await rh({ action: 'liste', jwt: J.pasif });
   const rDepo = await rh({ action: 'liste', jwt: J.depo810 });
   sonuc(r.durum === 403 && rDepo.durum === 403, 'R2 PASIF kullanici ve bar yetkisiz kullanici: 403 (GoTrue oturumu gecerli olsa da)',

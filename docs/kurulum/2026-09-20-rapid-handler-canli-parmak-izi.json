@@ -1,0 +1,51 @@
+{
+  "uc": "https://udjpcsjifgdzvfflezaa.supabase.co/functions/v1/rapid-handler",
+  "zaman": "2026-09-20T08:42:37.807Z",
+  "sondalar": {
+    "ping": {
+      "http": 200,
+      "cors": "*",
+      "govde": "{\"ok\":true,\"v\":\"bolge1\"}"
+    },
+    "ping_anonlu": {
+      "http": 200,
+      "cors": "*",
+      "govde": "{\"ok\":true,\"v\":\"bolge1\"}"
+    },
+    "jwt_yok": {
+      "http": 401,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Oturum yok\"}"
+    },
+    "jwt_gecersiz": {
+      "http": 200,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Oturum geçersiz — tekrar giriş yapın\"}"
+    },
+    "eylem_yok": {
+      "http": 401,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Oturum yok\"}"
+    },
+    "bilinmeyen_eylem": {
+      "http": 200,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Oturum geçersiz — tekrar giriş yapın\"}"
+    },
+    "bozuk_json": {
+      "http": 400,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"Geçersiz JSON\"}"
+    },
+    "get_metodu": {
+      "http": 405,
+      "cors": "*",
+      "govde": "{\"ok\":false,\"mesaj\":\"POST bekleniyor\"}"
+    },
+    "options": {
+      "http": 200,
+      "cors": "*",
+      "govde": "ok"
+    }
+  }
+}
