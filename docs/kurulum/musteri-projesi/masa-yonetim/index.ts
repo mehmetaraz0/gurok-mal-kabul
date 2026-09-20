@@ -12,7 +12,15 @@
 //     ile DEĞİL). Pasif kullanıcı, yetki fonksiyonlarında zaten reddedilir.
 //   * liste: yalnız erişilebilen otellerin masaları; ekle/durum: başka otel REDDEDİLİR;
 //     ekle: depo_id öneki otel_id olmalı ('810_CSM302' → '810').
-//   * HTTP kodları: 400 girdi, 401 oturum, 403 yetki/kapsam, 404 masa yok, 500 sunucu.
+//   * HTTP SÖZLEŞMESİ CANLI SÜRÜMDEN (bolge1) AYNEN KORUNUR — 2026-09-20 kararı.
+//     Canlı kaynak Dashboard'dan salt okumayla alındı (index.canli-bolge1.ts) ve
+//     satır satır karşılaştırıldı: iş mantığı repo tabanıyla birebir aynı, tek fark
+//     ping yükü ve silinmiş yorumlar. Canlı sözleşme şudur ve korunur:
+//       405 yanlış metot · 400 girdi hatası (JSON/zorunlu alan/bilinmeyen aksiyon)
+//       401 SADECE "Oturum yok" · diğer tüm ret ve hata yolları 200 + { ok:false, mesaj }
+//     A1 taslağı bunları 403/404/500 yapmıştı; güvenlikle ilgisi yok (veri dönmüyor)
+//     ve istemciler HTTP koduna değil gövdedeki `ok` alanına bakıyor. Bu yüzden
+//     A1'in GETİRDİĞİ ŞEY yetki/kimlik/kapsam DENETİMİDİR, kod değişikliği değil.
 //     İstemci sözleşmesi aynı: gövde { jwt, anon, action, ... } → { ok, mesaj?, ... }.
 //
 // Secret: MAIN_SB_URL, CUSTOMER_SB_URL, CUSTOMER_SERVICE_KEY; MAIN_ANON_KEY önerilir.
@@ -35,7 +43,7 @@ Deno.serve(async (req) => {
 
     const MAIN_URL = Deno.env.get("MAIN_SB_URL")!;
     const ANON = Deno.env.get("MAIN_ANON_KEY") || (body && body.anon ? String(body.anon) : "");
-    if (!ANON) return json({ ok:false, mesaj:"Sunucu yapılandırması eksik" }, 500, cors);
+    if (!ANON) return json({ ok:false, mesaj:"Sunucu yapılandırması eksik" }, 200, cors);
 
     // 1) Kimlik: ANA projede gerçek oturum mu?
     const main = createClient(MAIN_URL, ANON, {
@@ -53,9 +61,9 @@ Deno.serve(async (req) => {
 
     // 2) Yetki + otel kapsamı: çağıranın JWT'siyle, veritabanı kararı
     const { data: kapsam, error: kErr } = await main.rpc("bar_masa_yetki_kapsami");
-    if (kErr) return json({ ok:false, mesaj:"Yetki kontrolü başarısız" }, 403, cors);
+    if (kErr) return json({ ok:false, mesaj:"Yetki kontrolü başarısız" }, 200, cors);
     const oteller: string[] = Array.isArray(kapsam?.oteller) ? kapsam.oteller.map(String) : [];
-    if (kapsam?.yetkili !== true || oteller.length === 0) return json({ ok:false, mesaj:"Yetki yok" }, 403, cors);
+    if (kapsam?.yetkili !== true || oteller.length === 0) return json({ ok:false, mesaj:"Yetki yok" }, 200, cors);
 
     const cust = createClient(Deno.env.get("CUSTOMER_SB_URL")!, Deno.env.get("CUSTOMER_SERVICE_KEY")!);
 
@@ -63,20 +71,20 @@ Deno.serve(async (req) => {
       const { data, error } = await cust.from("masa_tokenlari")
         .select("token,otel_id,depo_id,masa_adi,bolge,aktif")
         .in("otel_id", oteller).order("bolge").order("masa_adi");
-      if (error) return json({ ok:false, mesaj:error.message }, 500, cors);
+      if (error) return json({ ok:false, mesaj:error.message }, 200, cors);
       return json({ ok:true, masalar:data }, 200, cors);
     }
     if (action === "ekle") {
       const { otel_id, depo_id, masa_adi, bolge } = body;
       if (!otel_id || !depo_id || !masa_adi) return json({ ok:false, mesaj:"otel/depo/masa adı zorunlu" }, 400, cors);
-      if (!oteller.includes(String(otel_id))) return json({ ok:false, mesaj:"Bu otel için yetkiniz yok" }, 403, cors);
+      if (!oteller.includes(String(otel_id))) return json({ ok:false, mesaj:"Bu otel için yetkiniz yok" }, 200, cors);
       if (!String(depo_id).startsWith(String(otel_id) + "_"))
         return json({ ok:false, mesaj:"Depo bu otele ait değil" }, 400, cors);
       const token = crypto.randomUUID();
       const { data, error } = await cust.from("masa_tokenlari")
         .insert({ token, otel_id: String(otel_id), depo_id: String(depo_id), masa_adi, bolge: bolge || null, aktif:true })
         .select().single();
-      if (error) return json({ ok:false, mesaj:error.message }, 500, cors);
+      if (error) return json({ ok:false, mesaj:error.message }, 200, cors);
       return json({ ok:true, masa:data }, 200, cors);
     }
     if (action === "durum") {
@@ -84,15 +92,15 @@ Deno.serve(async (req) => {
       if (!token || typeof aktif !== "boolean") return json({ ok:false, mesaj:"token/aktif zorunlu" }, 400, cors);
       // Masanın oteli ÖNCE okunur; kapsam dışıysa yazılmaz (varlığı da sızdırılmaz).
       const { data: masa, error: mErr } = await cust.from("masa_tokenlari").select("otel_id").eq("token", token).maybeSingle();
-      if (mErr) return json({ ok:false, mesaj:mErr.message }, 500, cors);
-      if (!masa || !oteller.includes(String(masa.otel_id))) return json({ ok:false, mesaj:"Masa bulunamadı" }, 404, cors);
+      if (mErr) return json({ ok:false, mesaj:mErr.message }, 200, cors);
+      if (!masa || !oteller.includes(String(masa.otel_id))) return json({ ok:false, mesaj:"Masa bulunamadı" }, 200, cors);
       const { error } = await cust.from("masa_tokenlari").update({ aktif }).eq("token", token).in("otel_id", oteller);
-      if (error) return json({ ok:false, mesaj:error.message }, 500, cors);
+      if (error) return json({ ok:false, mesaj:error.message }, 200, cors);
       return json({ ok:true }, 200, cors);
     }
     return json({ ok:false, mesaj:"Bilinmeyen aksiyon" }, 400, cors);
   } catch (_e) {
-    return json({ ok:false, mesaj:"Sunucu hatası" }, 500, cors);
+    return json({ ok:false, mesaj:"Sunucu hatası" }, 200, cors);
   }
 });
 

@@ -28,18 +28,11 @@ process.on('SIGINT', kapat); process.on('SIGTERM', kapat);
 await E.kur();
 const sql = (q) => { const r = E.ana.sql(q); if (!r.ok) throw new Error(r.err.slice(-300)); return r.out; };
 
-// Sayim ekrani icin cost_control kullanicisi (stok tam rolu). Test verisi replica rolde.
-sql(`set session_replication_role = replica;
-  insert into auth.users (id, email) values ('11111111-0000-0000-0000-0000000000c1', 'cc810@test.local');
-  insert into public.kullanicilar (id, auth_user_id, ad, rol, otel_id, aktif, rol_id) values
-    ('33333333-0000-0000-0000-0000000000c1', '11111111-0000-0000-0000-0000000000c1', 'Cost 810', 'cost_control', '810', true,
-     '00000000-0000-0000-0000-00000000b013');
-  set session_replication_role = origin;`);
-// YALNIZ BU ORTAMDA: sayim tablolarina okuma politikasi. Uretim dokumunde bu
-// tablolar authenticated'a kapali (ayri bulgu); politika olmadan sayim ekrani
-// hic calismaz ve A1 akisi tarayicida gorulemez.
-sql(`create policy test_yalniz_okuma on public.sayim_oturumlari for select to authenticated using (true);
-     create policy test_yalniz_okuma on public.sayim_detaylari for select to authenticated using (true);`);
+// 2026-09-20: cost_control kullanicisi (K.COST810) artik ORTAK TOHUMDA (EK_TOHUM)
+// tanimli; burada tekrar eklenmez (mukerrer anahtar hatasi verirdi).
+// Sayim tablolarinin okuma/yazma politikalari da artik A1'in 15c bolumunden
+// geliyor: bu ortama ozel "test_yalniz_okuma" politikasina GEREK KALMADI (ve
+// eklenirse A1'in son kosulu hakli olarak durdururdu).
 
 const KISILER = {
   bar810: [K.BAR810.sub, 'bar810@test.local'],

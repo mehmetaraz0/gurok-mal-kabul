@@ -109,7 +109,11 @@ try {
     [r1, r2, r3, r4].map((x) => x.durum).join(','));
   r = await rh({ action: 'liste', jwt: J.pasif });
   const rDepo = await rh({ action: 'liste', jwt: J.depo810 });
-  sonuc(r.durum === 403 && rDepo.durum === 403, 'R2 PASIF kullanici ve bar yetkisiz kullanici: 403 (GoTrue oturumu gecerli olsa da)',
+  // CANLI SOZLESME: ret yollari 200 + { ok:false } (bkz. index.ts basligi). Guvenlik
+  // kriteri HTTP kodu degil, VERI DONMEMESI.
+  const retmi = (x) => x.durum === 200 && x.json && x.json.ok === false && x.json.masalar === undefined;
+  sonuc(retmi(r) && retmi(rDepo),
+    'R2 PASIF kullanici ve bar yetkisiz kullanici REDDEDILIR (200 + ok:false, masa verisi yok)',
     kisa(r) + ' | ' + kisa(rDepo));
   const l810 = await rh({ action: 'liste', jwt: J.bar810 });
   const l811 = await rh({ action: 'liste', jwt: J.bar811 });
@@ -122,15 +126,16 @@ try {
 
   const e811 = await rh({ action: 'ekle', jwt: J.bar810, otel_id: '811', depo_id: '811_CSM302', masa_adi: 'Sizma' });
   const eOnek = await rh({ action: 'ekle', jwt: J.bar810, otel_id: '810', depo_id: '811_CSM302', masa_adi: 'Onek' });
-  sonuc(e811.durum === 403 && eOnek.durum === 400
+  sonuc(e811.durum === 200 && e811.json?.ok === false && eOnek.durum === 400
      && musTek(`select count(*) from public.masa_tokenlari where masa_adi in ('Sizma','Onek');`) === '0',
-    'R4 baska otele masa eklenemez (403); depo oneki otelle uyusmazsa eklenmez (400)', kisa(e811) + ' | ' + kisa(eOnek));
+    'R4 baska otele masa EKLENEMEZ (canli sozlesme: 200 + ok:false); depo oneki uyusmazsa eklenmez (400 girdi hatasi)',
+    kisa(e811) + ' | ' + kisa(eOnek));
   const eOk = await rh({ action: 'ekle', jwt: J.bar810, otel_id: '810', depo_id: '810_CSM302', masa_adi: 'Havuz 2', bolge: 'Havuz' });
   sonuc(eOk.durum === 200 && musTek(`select otel_id||'|'||depo_id||'|'||aktif from public.masa_tokenlari where masa_adi='Havuz 2';`) === '810|810_CSM302|true',
     'R5 kendi oteline masa eklenir; musteri projesine yazildi', kisa(eOk));
   const d811 = await rh({ action: 'durum', jwt: J.bar810, token: 'tok-811-a', aktif: false });
-  sonuc(d811.durum === 404 && musTek(`select aktif from public.masa_tokenlari where token='tok-811-a';`) === 't',
-    'R6 baska otelin masasi kapatilamaz (404, varligi sizdirilmaz); masa degismedi', kisa(d811));
+  sonuc(d811.durum === 200 && d811.json?.ok === false && /bulunamad/i.test(d811.json?.mesaj || '') && musTek(`select aktif from public.masa_tokenlari where token='tok-811-a';`) === 't',
+    'R6 baska otelin masasi KAPATILAMAZ (canli sozlesme: 200 + ok:false, varligi sizdirilmaz); masa degismedi', kisa(d811));
   const dOk = await rh({ action: 'durum', jwt: J.bar810, token: 'tok-810-a', aktif: false });
   sonuc(dOk.durum === 200 && musTek(`select aktif from public.masa_tokenlari where token='tok-810-a';`) === 'f',
     'R7 kendi masasi kapatilir', kisa(dOk));
@@ -169,8 +174,8 @@ try {
     kalemler: [{ menu_urun_id: M.VISKI, adet: 1, gosterilen_fiyat: 250 }] });
   sonuc(r.json?.ok === true, 'Y1 YENI menu istemcisi (gosterilen_fiyat) BUGUNKU veritabaniyla calisir: fazladan alan yok sayilir', kisa(r));
   const rh = await B.fonksiyon('rapid-handler', { anon: B.anon, action: 'liste', jwt });
-  sonuc(rh.durum === 403,
-    'Y2 YENI rapid-handler BUGUNKU veritabaniyla calismaz (bar_masa_yetki_kapsami yok -> 403): once migration, sonra deploy', kisa(rh));
+  sonuc(rh.durum === 200 && rh.json?.ok === false && rh.json?.masalar === undefined,
+    'Y2 YENI rapid-handler BUGUNKU veritabaniyla CALISMAZ (bar_masa_yetki_kapsami yok -> ok:false, veri yok): once migration, sonra deploy', kisa(rh));
 } catch (e) {
   sonuc(false, 'beklenmeyen hata (evre B)', e.stack || e.message);
   console.log(B.edgeGunlugu().slice(-2000));

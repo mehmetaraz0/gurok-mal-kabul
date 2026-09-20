@@ -6,8 +6,8 @@ projesinin public anon anahtarıyla, yazmayan yollar). Sır repoya konmadı.
 
 | # | İş | Durum |
 |---|---|---|
-| 1 | Canlı `rapid-handler` kaynağını salt okumayla al | **ALINAMADI — sizde** (araç/belirteç yok); davranış sözleşmesi yerine ölçüldü |
-| 2 | `bolge1` davranışını koruyarak birleştir | **YAPILDI** — tek gerçek fark bulundu ve canlı davranış korundu |
+| 1 | Canlı `rapid-handler` kaynağını salt okumayla al | **ALINDI** (Dashboard, Chrome oturumu) ve repoya referans/geri-dönüş kopyası olarak kaydedildi |
+| 2 | `bolge1` davranışını koruyarak birleştir | **YAPILDI** — diff: iş mantığında fark YOK; canlı HTTP sözleşmesinin tamamı korundu |
 | 3 | Birleşik sürümü izole ortamda test et | **YAPILDI — Edge E2E 22/22** |
 | 4 | Engel 1: sayım düzeltmesi **A1 paketinde**, yetkiler ikiye ayrıldı | **YAPILDI — 22/22; 15c yetkileri 2026-09-20 ONAYLANDI** (yayın adayına dahil; canlı uygulama onayı değil) |
 | 5 | Engel 2: kesinti uzlaştırma prosedürü + prova | **YAPILDI — 20/20** (dört alanlı eşleşme, EVET sınırı, A1 öncesi veri) |
@@ -36,19 +36,29 @@ projesinin public anon anahtarıyla, yazmayan yollar). Sır repoya konmadı.
 
 ---
 
-## 1. Canlı `rapid-handler` kaynağı — alınamadı, nedeni ve yerine ne yapıldı
+## 1. Canlı `rapid-handler` kaynağı — **ALINDI ve KARŞILAŞTIRILDI** (2026-09-20)
 
-Makinede Supabase CLI yok ve kayıtlı bir erişim belirteci de yok (`~/.supabase`,
-`%APPDATA%\supabase`, ortam değişkenleri — üçü de boş). Kaynak kodu okumak Dashboard girişi ya da
-kişisel erişim belirteci gerektiriyor; ikisini de ben yapamam. **Bu madde açık kalıyor ve sizde.**
+Sizin Chrome oturumunuzla Dashboard'dan **salt okumayla** alındı (Functions → `rapid-handler` →
+Code; Monaco modelinden 63 satırın tamamı). Hiçbir şey yazılmadı, deploy edilmedi.
 
-Kaynak olmadan da ölçülebilecek her şeyi ölçtüm: **davranış sözleşmesi**. Yeni sonda betiği
-`scripts/rapid-handler-sonda.mjs` yalnız **yazmayan** yolları dener (sürüm `ping`, JWT yok, JWT
-geçersiz, bozuk JSON, yanlış metot, OPTIONS); `ekle`/`durum` gibi yazan eylemler bilerek
-denenmez. Çıktı parmak izi olarak kaydedildi:
+Kaynak repoya **referans kopya** olarak kaydedildi:
+`docs/kurulum/musteri-projesi/masa-yonetim/index.canli-bolge1.ts`. Bu, aynı zamanda deploy
+sonrası **geri dönüş kaynağıdır** — önceki turlarda "geri dönüş kaynağı yok" diye açık tuttuğumuz
+risk böylece kapandı.
 
-- canlı: `docs/kurulum/2026-09-20-rapid-handler-canli-parmak-izi.json`
-- izole (birleşik A1 sürümü): `docs/kurulum/2026-09-20-rapid-handler-izole-a1-parmak-izi.json`
+**Diff sonucu (canlı `bolge1` ⟷ repo `origin/main` = `anon3`):** 15 satır fark, **hepsi
+kozmetik**:
+
+| Fark | Açıklama |
+|---|---|
+| 11 satır | repo'daki **yorum satırları** canlıda yok (deploy sırasında silinmiş) |
+| 2 satır | `ping` yükü: `v:"bolge1"` ⟷ `v:"anon3", anonLen:…` |
+| 2 satır | boş satır yerleşimi |
+
+**İş mantığında tek bir fark yok:** kimlik (e-posta öneki), yetki sorgusu, `bolge` desteği,
+`liste`/`ekle`/`durum` dalları, hata mesajları ve HTTP kodları birebir aynı. Yani repo tabanı
+canlının sadık bir kopyasıymış; A1 deploy edildiğinde **repoda bulunmayan hiçbir canlı değişiklik
+kaybolmayacak.**
 
 ## 2. `bolge1` ile birleştirme — bulunan tek gerçek fark
 
@@ -69,12 +79,31 @@ ikisi de `const d = await r.json(); if(!d.ok) …`). Bu yüzden **canlı davran�
 sürüm geçersiz oturumda yine **200** dönüyor. Güvenlik kriteri HTTP kodu değil, veri dönmemesidir;
 test de artık bunu ölçüyor.
 
-**SINIR — açıkça (kullanıcı kuralı 2026-09-20):** yazmayan sondaların eşleşmesi **kaynak eşitliği
-sayılmaz.** Ölçülen şey yalnız kimlik doğrulaması gerektirmeyen yolların gözlenebilir davranışıdır;
-`liste` / `ekle` / `durum` dalları (asıl iş mantığı) bu yolla görülemez, çünkü üretim personel
-JWT'si üretmedim ve üretmem de doğru olmaz. **Bu nedenle deploy yok.** Dashboard'a girdiğinizde
-kaynağı salt okumayla alıp satır satır karşılaştıracağım; fark varsa A1 sürümüne taşıyıp testleri
-yeniden koşacağım.
+**Bu sınır artık kalktı:** "yazmayan sondaların eşleşmesi kaynak eşitliği sayılmaz" kuralı
+geçerliydi ve doğruydu; **kaynak alındığı için** artık sonda değil, **satır satır diff** kanıt
+sayılıyor (1. bölüm). `liste`/`ekle`/`durum` dalları da doğrudan okundu.
+
+**Canlı sözleşmenin TAMAMI korundu (2026-09-20, ikinci düzeltme).** Kaynağı gördükten sonra
+A1'in eklediği diğer HTTP kodları da canlının biçimine hizalandı:
+
+| Yol | Canlı (`bolge1`) | A1 taslağı | Birleşik sürüm |
+|---|---|---|---|
+| Yanlış metot | 405 | 405 | **405** |
+| Bozuk JSON / zorunlu alan / bilinmeyen aksiyon | 400 | 400 | **400** |
+| "Oturum yok" (JWT hiç yok) | 401 | 401 | **401** |
+| Oturum geçersiz | **200** + `ok:false` | 401 | **200** |
+| Yetki yok / kapsam dışı | **200** + `ok:false` | 403 | **200** |
+| Masa bulunamadı | (yok) | 404 | **200** + `ok:false` |
+| Sunucu hatası / sorgu hatası | **200** + `ok:false` | 500 | **200** |
+
+Gerekçe: bu kodlar A1'in **güvenlik** katkısı değil; katkı kimlik + yetki + otel kapsamı
+denetimidir. İstemciler zaten gövdedeki `ok` alanına bakıyor. Testler de artık "HTTP kodu" yerine
+**"veri dönmüyor"** ölçütünü sınıyor (R1, R2, R4, R6, Y2).
+
+**Sonda karşılaştırması (yeniden koşuldu):** canlı parmak izi ⟷ birleşik sürüm →
+**9 sondadan 7'si birebir aynı, tek fark kasıtlı `ping` etiketi** (`a1-kapsam`, deploy'un tuttuğunu
+buradan doğrularız). Dosyalar: `2026-09-20-rapid-handler-canli-parmak-izi.json` ve
+`…-izole-a1-parmak-izi.json`.
 
 **Ek şema bulgusu:** canlı `masa_tokenlari` tablosunda `bolge` kolonu **var** (anon sondasıyla
 kolon kolon doğrulandı: `token, otel_id, depo_id, masa_adi, bolge, aktif`), ama repodaki kurulum
@@ -199,7 +228,7 @@ alınamaz, bu da "HAYIR" sayılır.
 | Taban | `origin/main` = `9c06661` (bugün `git fetch` ile doğrulandı: hâlâ ata) |
 | Ekranlar | `bar-siparis-kuyrugu.html`, `bar-garson.html`, `bar-menu.html`, `stok-takip.html`, `pms-folio.html`, `gunluk-tuketim.html`, `mal-kabul-liste.html`, `ortak.js`, `stok-veri.js`, `hata-kodlari.js` |
 | Migration | `2026-09-18-bar-a1-guvenlik.sql` (+ geri alma dosyası) — **sayım düzeltmesi artık bunun 15c bölümü; 15c yetkileri 2026-09-20'de yayın adayına dahil edilmek üzere onaylandı (canlı uygulama onayı değil)** |
-| Edge | `rapid-handler` — **yalnız canlı kaynak görüldükten sonra** |
+| Edge | `rapid-handler` — **ön koşul karşılandı** (canlı kaynak görüldü, diff temiz, geri dönüş kopyası repoda) |
 
 ### 6.2 Adımlar
 

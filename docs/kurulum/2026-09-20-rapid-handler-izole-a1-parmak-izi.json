@@ -1,6 +1,6 @@
 {
   "uc": "http://127.0.0.1:3300/__musteri/functions/v1/rapid-handler",
-  "zaman": "2026-09-20T08:44:52.007Z",
+  "zaman": "2026-09-20T17:13:09.642Z",
   "sondalar": {
     "ping": {
       "http": 200,
@@ -18,7 +18,7 @@
       "govde": "{\"ok\":false,\"mesaj\":\"Oturum yok\"}"
     },
     "jwt_gecersiz": {
-      "http": 401,
+      "http": 200,
       "cors": "*",
       "govde": "{\"ok\":false,\"mesaj\":\"Oturum geçersiz — tekrar giriş yapın\"}"
     },
@@ -28,7 +28,7 @@
       "govde": "{\"ok\":false,\"mesaj\":\"Oturum yok\"}"
     },
     "bilinmeyen_eylem": {
-      "http": 401,
+      "http": 200,
       "cors": "*",
       "govde": "{\"ok\":false,\"mesaj\":\"Oturum geçersiz — tekrar giriş yapın\"}"
     },
