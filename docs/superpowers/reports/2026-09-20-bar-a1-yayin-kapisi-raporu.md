@@ -10,9 +10,9 @@ deploy, canlı migration ve Aşama 2 **yok**; yayın talimatı yok.
 | 3 | "Ekranlar sorguyla kapalı doğrulandı" ifadesi | **KALDIRILDI** (hareketsizlik = yardımcı kanıt) |
 | 4 | Yayın sonrası eşleştirme: sayım yerine satır bazlı stok etkisi | **DÜZELTİLDİ ve ÖLÇÜLDÜ** |
 | 5 | Koşullu tarayıcı testleri | **MANUEL DOĞRULANDI** (2026-09-20, gerçek Chrome + siz) — bir alt madde açık |
-| 6a | Sayım oluşturma/listeleme — canlı doğrulama | **ÖLÇÜLDÜ 2026-09-20:** üretimde çalışmıyor (RLS), tablolar boş |
-| 6b | Canlı Edge kodu / müşteri şeması | **AÇIK** (Dashboard girişi gerekiyor) |
-| 7 | Yayın sırası | **KARAR GEREKİYOR** |
+| 6a | Sayım oluşturma/listeleme — gerçek yetkiyle | **AÇIK:** ölçüldü, bugünkü şemada hiçbir ortamda çalışmıyor → `2026-09-20-bar-a1-yayin-onerisi.md` §2 |
+| 6b | Canlı Edge kodu / müşteri şeması | **YAPILDI:** `rapid-handler`da fark bulundu → aynı rapor §4 |
+| 7 | Yayın sırası | **ÖNERİ HAZIR, KARAR GEREKİYOR** → aynı rapor §5 |
 
 ---
 
@@ -130,6 +130,11 @@ Salt okuma sorgusunu çalıştırdınız (2026-09-20). Üretim, izole ölçümle
 | `authenticated` tablo hakları | TAM (SELECT/INSERT/UPDATE/DELETE) — yani engel **yetki değil, RLS** |
 | Satır sayısı | `sayim_oturumlari` **0**, `sayim_detaylari` **0**; son 30 günde kayıt yok |
 | Aktif cost_control kullanıcısının gördüğü | **0 satır** |
+
+**2026-09-20 eki:** bu ölçüm yalnız üretimin durumunu gösteriyordu. Aynı gün izole ortamda gerçek
+`authenticated` kimliğiyle de ölçüldü: oluşturma **RLS reddi**, reddetme **0 satır**, listeleme
+yalnız test ortamına konmuş bir politika sayesinde çalışıyor. Yani "Onayla/Uygula testleri geçti"
+bu maddeyi **karşılamıyor** — ayrıntı ve tablo: `2026-09-20-bar-a1-yayin-onerisi.md` §2.
 
 Sonuç: izin veren (permissive) politika olmadığı için sayım **oluşturulamıyor ve listelenemiyor**;
 özellik üretimde bugüne kadar kullanılamamış ve **kaybolmuş veri yok**. Bu A1 dışı, önceden
