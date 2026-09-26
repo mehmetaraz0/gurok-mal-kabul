@@ -2703,14 +2703,18 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
 
   YETKI_HARITASI = await kullaniciYetkileriGetir();
   const stokYaziYetkisi = ['kayit','tam'].includes(YETKI_HARITASI['stok_takip']);
-  const stokTamYetki = YETKI_HARITASI['stok_takip'] === 'tam';
+  // Sayim onay/ret kapisi SUNUCUDAKI auth_sayim_onaycisi() ile BIREBIR AYNI
+  // olmali: rol cost_control VE stok_takip kayit|tam (A1 bolum 15c). Daha dar
+  // yazmak (or. yalniz 'tam') uretimde tek uygun onaycinin dugmesini kapatir
+  // ve sayim oturumu ne onaylanabilir ne reddedilebilir hale gelir.
+  const sayimOnaycisi = currentUser?.rol === 'cost_control' && stokYaziYetkisi;
   document.getElementById('iade-olustur-btn').disabled = !stokYaziYetkisi;
   document.getElementById('sayim-tamamla-btn').disabled = !stokYaziYetkisi;
   document.getElementById('cikis-kaydet-btn').disabled = !stokYaziYetkisi;
   document.getElementById('transfer-kaydet-btn').disabled = !stokYaziYetkisi;
   document.getElementById('ln-uygula-btn').disabled = !stokYaziYetkisi;
-  document.getElementById('sayim-onayla-btn').disabled = !stokTamYetki;
-  document.getElementById('sayim-reddet-btn').disabled = !stokTamYetki;
+  document.getElementById('sayim-onayla-btn').disabled = !sayimOnaycisi;
+  document.getElementById('sayim-reddet-btn').disabled = !sayimOnaycisi;
   document.getElementById('stok-min-yukle-btn').disabled = !stokYaziYetkisi;
 
   // Mal kabul onay kontrolü — Supabase'deki mal_kabuller tablosunu izler

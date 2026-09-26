@@ -32,7 +32,7 @@ function sahteEleman(id) {
 
 // kaynakKok: ekran dosyalarinin okunacagi kok (varsayilan: bu calisma kopyasi). Yayin gecis
 // provasi eski surumu (origin/main) ayri bir dizinden calistirir.
-export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_control', kaynakKok = kok }) {
+export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_control', yetkiler = {}, kaynakKok = kok }) {
   const elemanlar = new Map();
   const el = (id) => {
     if (!elemanlar.has(id)) elemanlar.set(id, sahteEleman(id));
@@ -117,7 +117,7 @@ export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_
      // auth-guard.js yerine: oturum kontrolu testin konusu degil.
      var requireLogin=function(){return __testKullanici;};
      var requireRole=function(){return true;};
-     var kullaniciYetkileriGetir=async function(){return {};};
+     var kullaniciYetkileriGetir=async function(){return ${JSON.stringify(yetkiler)};};
      var oturumAccessTokenGetir=function(){return 'test';};`, baglam, { filename: 'test-config.js' });
 
   for (const dosya of ['otel-config.js', 'ortak.js', 'filtre.js', 'stok-veri.js', 'hata-kodlari.js']) {
