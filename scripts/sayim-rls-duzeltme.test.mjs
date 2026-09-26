@@ -24,6 +24,10 @@ const GERI_AL = 'docs/kurulum/2026-09-18-bar-a1-guvenlik-geri-al.sql';
 
 const GORUNTU810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000bb' };
 const CC810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000c1' };
+// PASIF cost_control: rol dogru, yetki dogru, ama kullanicilar.aktif = false.
+// auth_sayim_onaycisi() 'aktif is true' arar; ise alinmamis/ayrilmis personelin
+// onay yetkisini surdurmemesi bu satira bagli.
+const CCPASIF810 = { rol: 'authenticated', sub: '11111111-0000-0000-0000-0000000000c2' };
 const OTURUM = '99999999-0000-0000-0000-0000000000a1';
 const DEPO = '810_CSM302';
 
@@ -57,6 +61,10 @@ try {
   tohum(`insert into auth.users (id, email) values ('${CC810.sub}', 'cc810@test.local');
          insert into public.kullanicilar (id, auth_user_id, ad, rol, otel_id, aktif, rol_id) values
            ('33333333-0000-0000-0000-0000000000c1', '${CC810.sub}', 'Cost 810', 'cost_control', '810', true,
+            '00000000-0000-0000-0000-00000000b003');
+         insert into auth.users (id, email) values ('${CCPASIF810.sub}', 'ccpasif810@test.local');
+         insert into public.kullanicilar (id, auth_user_id, ad, rol, otel_id, aktif, rol_id) values
+           ('33333333-0000-0000-0000-0000000000c2', '${CCPASIF810.sub}', 'Cost Pasif 810', 'cost_control', '810', false,
             '00000000-0000-0000-0000-00000000b003');`);
 
   const a = O.uygulaTekIslem(A1);
@@ -110,6 +118,22 @@ try {
   sonuc(!bas.ok && /row-level security/i.test(bas.err), 'N5 baska otel adina sayim olusturulamaz');
   const pasif = oturumEkle(K.PASIF, yeniId());
   sonuc(!pasif.ok && /row-level security/i.test(pasif.err), 'N6 pasif kullanici sayim olusturamaz');
+
+  // PASIF COST CONTROL: rol ve yetki dogru, yalniz aktif=false. Uc kapinin
+  // ucu de kapali olmali; yoksa ayrilan personel onay yetkisini surdururdu.
+  const pasifOturum = yeniId();
+  tohum(`insert into public.sayim_oturumlari (id, depo_kodu, otel_id, olusturan_ad, durum, toplam_urun_sayisi, farkli_urun_sayisi)
+           values ('${pasifOturum}', '${DEPO}', '810', 'Tohum', 'onay_bekliyor', 1, 1);
+         insert into public.sayim_detaylari (oturum_id, urun_kodu, urun_adi, birim, sistem_miktar, sayilan_miktar, fark, fark_yuzde)
+           values ('${pasifOturum}', 'BIRA', 'Bira', 'KTU', 10, 9, -1, 10);`);
+  const pOnay = onayla(CCPASIF810, pasifOturum);
+  sonuc(!pOnay.ok && hataKodu(pOnay) === 'YETKI_YOK' && durum(pasifOturum) === 'onay_bekliyor',
+    'N6b PASIF cost_control ONAYLAYAMIYOR (aktif=false); oturum degismedi', hataKodu(pOnay));
+  const pRed = reddet(CCPASIF810, pasifOturum);
+  sonuc(durum(pasifOturum) === 'onay_bekliyor',
+    'N6c PASIF cost_control REDDEDEMIYOR; oturum hala onay_bekliyor',
+    pRed.ok ? 'yazma politika ile engellendi' : hataKodu(pRed));
+  sonuc(oturumSayisi(CCPASIF810) === '0', 'N6d PASIF cost_control sayim LISTELEYEMIYOR');
 
   const detaySel = q(K.DEPO810, `select count(*) from public.sayim_detaylari;`);
   sonuc(!detaySel.ok && /permission denied/i.test(detaySel.err),
