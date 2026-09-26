@@ -2,8 +2,8 @@
 // BAR A1 — YAYIN GECIS PROVASI (izole; uretime BAGLANMAZ)
 // ===========================================================================
 // Soru: onerilen yayin sirasinin her araliginda ESKI ve YENI parcalar birlikte
-// nasil davraniyor? Eski parcalar origin/main'den alinir (ekranlar + eski
-// rapid-handler kodu); yeni parcalar bu daldan. Ekranlar gercek betikleriyle
+// nasil davraniyor? Eski parcalar A1 ONCESI sabit commit'ten alinir (ekranlar +
+// eski rapid-handler kodu); yeni parcalar bu daldan. Ekranlar gercek betikleriyle
 // (harness), gercek Edge Runtime / GoTrue / PostgREST uzerinden kosar.
 //
 //   Adim 1  menu push (yeni bar-menu)           — veritabani ESKI
@@ -29,14 +29,21 @@ const sonuc = (g, ad, ek) => { console.log((g ? 'OK   ' : 'FAIL ') + ad + (ek ? 
 const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
 process.on('unhandledRejection', () => {});   // eski ekranlarin init hatalari olcumu dusurmesin
 
-// --- Eski surum: origin/main ---------------------------------------------
+// --- Eski surum: A1 ONCESI SABIT COMMIT -----------------------------------
+// A1 2026-09-20'de uretime uygulandi ve origin/main artik caa576a, yani A1'in
+// KENDISI. "origin/main = eski surum" varsayimi o gun gecersizlesti: prova
+// A1'i A1 ile karsilastirmaya baslamisti. Referans bu yuzden A1 ONCESI son
+// commit olan 9c06661'e SABITLENDI (A1 migration dosyasi o agacta yok).
+// Yeni bir yayin oncesi prova gerekirse bu sabit o yayinin A1 oncesi atasina
+// tasinir; origin/main'e geri baglanmaz.
+const ESKI_REV = '9c06661';
 const ESKI = mkdtempSync(path.join(tmpdir(), 'bar-gecis-eski-')).replace(/\\/g, '/') + '/';
-execSync(`git -C "${kok}" archive origin/main -- "*.html" "*.js" | tar -x -C "${ESKI}"`, { shell: 'bash' });
+execSync(`git -C "${kok}" archive ${ESKI_REV} -- "*.html" "*.js" | tar -x -C "${ESKI}"`, { shell: 'bash' });
 const EK = mkdtempSync(path.join(tmpdir(), 'bar-gecis-ek-')).replace(/\\/g, '/');
 mkdirSync(path.join(EK, 'masa-yonetim-eski'));
 writeFileSync(path.join(EK, 'masa-yonetim-eski', 'index.ts'),
-  execSync(`git -C "${kok}" show origin/main:docs/kurulum/musteri-projesi/masa-yonetim/index.ts`, { encoding: 'utf8' }));
-const eskiRev = execSync(`git -C "${kok}" rev-parse --short origin/main`, { encoding: 'utf8' }).trim();
+  execSync(`git -C "${kok}" show ${ESKI_REV}:docs/kurulum/musteri-projesi/masa-yonetim/index.ts`, { encoding: 'utf8' }));
+const eskiRev = execSync(`git -C "${kok}" rev-parse --short ${ESKI_REV}`, { encoding: 'utf8' }).trim();
 
 // Eski rapid-handler kullaniciyi e-posta onekinden (kullanicilar.id) bulur;
 // uretimdeki e-posta bicimi bu. GoTrue kimligi tohumdaki auth_user_id ile ayni.
