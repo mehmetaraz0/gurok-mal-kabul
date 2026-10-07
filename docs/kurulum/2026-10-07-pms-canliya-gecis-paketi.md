@@ -98,6 +98,19 @@ git show HEAD:docs/kurulum/<dosya> | sha256sum
 tr -d '\r' < docs/kurulum/<dosya> | sha256sum
 ```
 
+> **Dikkat — `sql-uygula.ps1` BAŞKA bir özet yazar.** Betik `Get-FileHash` ile
+> **çalışma kopyasını** (CRLF) özetler, yayın baytını (LF) değil. İkisi
+> farklıdır ve bu, projenin daha önce tökezlediği tuzaktır. Preflight için
+> ekranda görmeniz gereken değer:
+>
+> | Ne | Değer |
+> |---|---|
+> | Yayın baytı (commit'lenmiş, LF) | `4f6964aa5216bb72f44233bdc796e9b7f78e1bfcb473be161b23092c277de304` |
+> | `sql-uygula.ps1`'in yazacağı (çalışma kopyası, CRLF) | `8FBE6BC5375417C09CEA8BFDDE41B6C93497698043DF9AECFA004A53DEF8C58D` |
+>
+> İkisi de ölçüldü; aynı dosyanın iki gösterimidir. Betik CRLF değerini
+> yazarsa bu **doğru** dosyadır.
+
 ### 2.1 Veritabanına uygulanacak (sırayla)
 
 | # | Dosya | SHA-256 (LF) |
