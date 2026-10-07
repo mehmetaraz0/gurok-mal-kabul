@@ -139,7 +139,12 @@ export function barOrtami({ ad = 'bar-test', ag = null } = {}) {
       }
     }
     // Uretim-sonrasi migration'lar zaten uygulandiysa tekrar uygulanmaz.
-    for (const m of onceki) {
+    // PMS_EK_MIGRASYON: cagiran suiti DEGISTIRMEDEN tabana ek migration
+    // uygulatmak icin opt-in kanca (virgulle ayrilmis yollar). Degisken
+    // verilmezse davranis AYNEN korunur.
+    const ekOrtam = (process.env.PMS_EK_MIGRASYON || '')
+      .split(',').map((x) => x.trim()).filter(Boolean);
+    for (const m of [...onceki, ...ekOrtam]) {
       if (uretimSonrasi && URETIM_SONRASI.includes(m)) continue;
       zorunlu(uygula(m), m);
     }

@@ -19,14 +19,29 @@ export const kok = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]
 const ORTAM_DOSYALARI = new Set(['auth-guard.js', 'supabase-config.js', 'nav-drawer.js', 'bar-config.js']);
 
 function sahteEleman(id) {
-  return {
-    id, value: '', innerHTML: '', textContent: '', checked: false, disabled: false,
+  // GERCEK DOM SADAKATI: bir <input>/<select> elemaninin .value degeri HER ZAMAN
+  // metindir; sayi atansa bile tarayici onu metne cevirir. Sahte eleman bunu
+  // yapmayinca, ekranin `.value.trim()` gibi tamamen normal bir cagrisi testte
+  // "trim is not a function" diye patliyor ve URUNDE OLMAYAN bir hata gibi
+  // gorunuyordu. Erisimci artik tarayiciyla ayni sekilde metne cevirir.
+  let _deger = '';
+  const el = {
+    id, innerHTML: '', textContent: '', checked: false, disabled: false,
     style: {}, dataset: {}, options: [],
     classList: { add() {}, remove() {}, contains() { return false; }, toggle() {} },
-    addEventListener() {}, removeEventListener() {}, appendChild() {}, remove() {},
+    addEventListener() {}, removeEventListener() {},
+    cocuklar: [],
+    appendChild(c) { this.cocuklar.push(c); return c; },
+    remove() {},
     setAttribute() {}, getAttribute() { return null; }, focus() {}, click() {},
     querySelector() { return null; }, querySelectorAll() { return []; },
   };
+  Object.defineProperty(el, 'value', {
+    get() { return _deger; },
+    set(v) { _deger = (v === null || v === undefined) ? '' : String(v); },
+    enumerable: true, configurable: true,
+  });
+  return el;
 }
 
 export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, musteriFetch = null, arama = '', kaynakKok = kok, musteriAnon = 'test-musteri-anon' }) {
@@ -54,6 +69,8 @@ export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, must
     parseFloat, parseInt, isNaN, isFinite, Headers, Request, Response, crypto: globalThis.crypto,
     document: {
       getElementById: el, querySelector: () => null, querySelectorAll: () => [],
+      createElement: (etiket) => { const y = sahteEleman(''); y.etiket = etiket; return y; },
+      get body() { return el('__body'); },
       createElement: () => sahteEleman('yeni'), addEventListener() {}, body: sahteEleman('body'),
     },
     navigator: { userAgent: 'node-test' },
@@ -101,6 +118,8 @@ export function barEkranKur({ html, restUrl, jwt, kullanici, yetkiler = {}, must
     confirmVer: (...c) => confirmKuyrugu.push(...c),
     promptVer: (...p) => promptKuyrugu.push(...p),
     calistir: (kod) => vm.runInContext(kod, baglam, { filename: 'test.js' }),
+    // ortak.js'in yazma hatasi seridine dusen satirlar (kullanicinin GORDUGU hata).
+    yazmaHatalari: () => (el('yazma-hata-icerik').cocuklar || []).map((c) => String(c.textContent || '')),
     sonToast: () => kayit.toastlar[kayit.toastlar.length - 1] || '',
   };
 }

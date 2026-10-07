@@ -143,6 +143,9 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <button class="btn btn-s btn-sm" onclick="folyoKapat()" id="btnKapat">Folyoyu kapat</button>
     </div>
 
+    <div id="maliRozet" style="display:none;font-size:12px;margin-bottom:10px;
+         padding:8px 10px;border-radius:6px;border:1px solid var(--gray-200)"></div>
+
     <div class="card-title">Hareketler (borç)</div>
     <div id="fHareket"></div>
 
@@ -150,17 +153,14 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
       <div class="row">
         <div class="field" style="flex:0 0 34%">
           <label>Tip</label>
-          <select id="hTip">
-            <option value="ekstra">Ekstra</option>
-            <option value="duzeltme">Düzeltme</option>
-          </select>
+          <!-- Secenekler maliArayuzuUyarla() tarafindan yetkiye gore kurulur. -->
+          <select id="hTip"><option value="ekstra">Ekstra</option></select>
         </div>
         <div class="field"><label>Açıklama *</label><input id="hAciklama" maxlength="200" placeholder="Minibar, çamaşır, indirim…"></div>
         <div class="field" style="flex:0 0 26%"><label>Tutar *</label><input id="hTutar" type="number" step="0.01" placeholder="0,00"></div>
       </div>
       <button class="btn btn-p btn-sm" onclick="hareketEkle()">Hareket ekle</button>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:6px">
-        İndirim veya iptal için <b>Düzeltme</b> tipiyle negatif tutar girin.
+      <div style="font-size:11px;color:var(--gray-500);margin-top:6px" id="hYardim">
         Oda ücretleri elle eklenmez — yukarıdaki düğme geceleri işler.
       </div>
     </div>
@@ -183,8 +183,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
         <div class="field"><label>Açıklama</label><input id="oAciklama" maxlength="200"></div>
       </div>
       <button class="btn btn-p btn-sm" onclick="odemeEkle()">Tahsilat ekle</button>
-      <div style="font-size:11px;color:var(--gray-500);margin-top:6px">
-        İade negatif tutarla girilir. Sıfır tutar veritabanı tarafından reddedilir.
+      <div style="font-size:11px;color:var(--gray-500);margin-top:6px" id="oYardim">
+        Sıfır tutar veritabanı tarafından reddedilir.
       </div>
     </div>
 
@@ -264,6 +264,7 @@ async function yukle(){
       const harita = await kullaniciYetkileriGetir();
       FOLIO_YETKI = harita['pms_folio'] || 'yok';
     }catch(e){ FOLIO_YETKI = 'yok'; }   // fail-closed
+    maliArayuzuUyarla();     // mali ayrimi arayuze yansit (yetki belli olur olmaz)
   }
   try{
     const [r1,r2,r3,r4] = await Promise.all([
@@ -543,6 +544,7 @@ function detayCiz(){
   document.getElementById('fHareketForm').style.display = kapali ? 'none' : '';
   document.getElementById('fOdemeForm').style.display   = kapali ? 'none' : '';
   document.getElementById('fIslemler').style.display    = kapali ? 'none' : '';
+  maliArayuzuUyarla();     // folyo degistiginde de ayrim gorunur kalsin
 
   const btnOda = document.getElementById('btnOda');
   const isleneb = r && (r.durum === 'giris_yapildi' || r.durum === 'cikis_yapildi')
@@ -606,6 +608,87 @@ async function odaUcretiIsle(){
   hLD();
 }
 
+// ---------------------------------------------------------------------------
+// MALI YETKI AYRIMI — arayuz (2026-10-06 onayli tasarim)
+// Sunucu kurali: normal (pozitif, duzeltme olmayan) islem 'kayit' ile; iade,
+// indirim ve duzeltme 'tam' + GEREKCE ister. Burada AYNI ayrim gosterilir.
+// Dugme gizleme TEK BASINA kanit degildir: sunucu her halde reddeder ve
+// reddin mesaji asagida kullaniciya anlasilir bicimde yazilir.
+// ---------------------------------------------------------------------------
+const MALI_TAM = () => FOLIO_YETKI === 'tam';
+
+function maliArayuzuUyarla(){
+  const roz = document.getElementById('maliRozet');
+  const tipSec = document.getElementById('hTip');
+  const hYardim = document.getElementById('hYardim');
+  const oYardim = document.getElementById('oYardim');
+  if(!roz) return;
+
+  // 'duzeltme' secenegi yalniz TAM yetkide sunulur. Liste her cagrida
+  // SIFIRDAN kurulur: appendChild/remove ile ekleyip cikarmak mukerrer
+  // secenek uretebiliyordu ve gozlemlenebilir degildi.
+  if(tipSec){
+    const secili = tipSec.value;
+    const liste = [['ekstra','Ekstra']];
+    if(MALI_TAM()) liste.push(['duzeltme','Düzeltme (iade/indirim)']);
+    tipSec.innerHTML = liste
+      .map(([v,a]) => '<option value="'+v+'">'+a+'</option>').join('');
+    // Yetki daraldiysa gecersiz secim 'ekstra'ya duser.
+    tipSec.value = liste.some(([v]) => v === secili) ? secili : 'ekstra';
+  }
+
+  if(FOLIO_YETKI === 'yok' || FOLIO_YETKI === 'goruntule'){
+    roz.style.display = 'block';
+    roz.style.background = 'var(--gray-50)';
+    roz.innerHTML = '<b>Yalnız görüntüleme.</b> Tahsilat ve hareket kaydı için '
+      + '"Ön Büro — Misafir Hesabı" <b>kayıt</b> yetkisi gerekiyor.';
+  }else if(MALI_TAM()){
+    roz.style.display = 'block';
+    roz.style.background = '#fff7ed';
+    roz.innerHTML = '<b>Tam mali yetki.</b> Normal tahsilatın yanında '
+      + '<b>iade, indirim ve düzeltme</b> de yapabilirsiniz. Bu işlemler için '
+      + 'açıklama alanına <b>gerekçe yazmak zorunludur</b> ve mevcut satır '
+      + 'değiştirilmez: gerekçeli <b>yeni</b> bir kayıt eklenir.';
+  }else{
+    roz.style.display = 'block';
+    roz.style.background = 'var(--gray-50)';
+    roz.innerHTML = '<b>Normal tahsilat yetkisi.</b> Pozitif tahsilat, oda ve '
+      + 'ekstra ücreti ile bakiyesi sıfır folyoyu kapatabilirsiniz. '
+      + '<b>İade, indirim ve düzeltme</b> için tam mali yetki (ön büro şefi) '
+      + 'gerekir — bu işlemler sunucuda reddedilir.';
+  }
+  if(hYardim){
+    hYardim.innerHTML = 'Oda ücretleri elle eklenmez — yukarıdaki düğme geceleri işler.'
+      + (MALI_TAM()
+        ? ' İndirim/iptal için <b>Düzeltme</b> tipini veya negatif tutarı gerekçeyle kullanın.'
+        : ' Negatif tutar ve düzeltme <b>tam mali yetki</b> ister.');
+  }
+  if(oYardim){
+    oYardim.innerHTML = 'Sıfır tutar veritabanı tarafından reddedilir.'
+      + (MALI_TAM()
+        ? ' İade negatif tutarla ve <b>gerekçeyle</b> girilir.'
+        : ' <b>İade (negatif tutar) için tam mali yetki gerekir.</b>');
+  }
+}
+
+// Sunucu reddini kullaniciya ANLASILIR bicimde cevirir.
+function maliHataMesaji(metin){
+  const t = String(metin || '');
+  if(/MALI_TAM_YETKI_GEREKLI/.test(t))
+    return 'İade, indirim ve düzeltme için tam mali yetki gerekiyor (ön büro şefi). '
+         + 'Normal pozitif tahsilat yetkiniz etkilenmedi.';
+  if(/MALI_GEREKCE_ZORUNLU/.test(t))
+    return 'Bu işlem için açıklama alanına gerekçe yazmanız zorunlu.';
+  if(/row-level security|permission denied/i.test(t))
+    return 'Sunucu bu işlemi yetkiniz nedeniyle reddetti.';
+  return null;
+}
+
+// Istemci tarafi erken uyari: hassas mi?
+function maliHassasMi(tip, tutar, ters){
+  return tutar < 0 || tip === 'duzeltme' || ters === true;
+}
+
 async function hareketEkle(){
   if(!ACIK) return;
   const aciklama = document.getElementById('hAciklama').value.trim();
@@ -613,14 +696,28 @@ async function hareketEkle(){
   if(!aciklama){ toast('Açıklama zorunlu'); return; }
   const tutar = Number(tutarStr);
   if(!tutarStr || !Number.isFinite(tutar)){ toast('Geçerli bir tutar girin'); return; }
+  const tip = document.getElementById('hTip').value;
+  // Sunucu kuralinin AYNISI: erken ve anlasilir uyari. Sunucu kapisi yine son soz.
+  if(maliHassasMi(tip, tutar, false) && !MALI_TAM()){
+    toast('İade, indirim ve düzeltme için tam mali yetki gerekiyor (ön büro şefi).');
+    return;
+  }
+  if(maliHassasMi(tip, tutar, false) && !aciklama){
+    toast('Hassas mali işlem için gerekçe zorunlu.'); return;
+  }
   sLD();
   try{
     const r = await sbYaz(SB_URL+'/rest/v1/pms_folio_hareketleri',
       {method:'POST',headers:{...SB_HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},
        body:JSON.stringify({otel_id: ACIK.otel_id, folio_id: ACIK.folio_id,
-                            tip: document.getElementById('hTip').value,
+                            tip: tip,
                             aciklama: aciklama, tutar: tutar})},
       'Folyo hareketi');
+    if(!r.ok){
+      const g = await r.clone().text().catch(()=>'');
+      const m = maliHataMesaji(g);
+      if(m) toast(m);                  // ortak.js seridi KALIR; bu ek, anlasilir ozet
+    }
     if(r.ok){
       document.getElementById('hAciklama').value=''; document.getElementById('hTutar').value='';
       toast('Hareket eklendi');
@@ -637,6 +734,12 @@ async function odemeEkle(){
   if(!tutarStr || !Number.isFinite(tutar)){ toast('Geçerli bir tutar girin'); return; }
   // Ayni kural veritabaninda CHECK olarak da var; burada erken uyari icin.
   if(tutar === 0){ toast('Tutar sıfır olamaz'); return; }
+  const oAcik = document.getElementById('oAciklama').value.trim();
+  if(tutar < 0 && !MALI_TAM()){
+    toast('İade (negatif tahsilat) için tam mali yetki gerekiyor (ön büro şefi).');
+    return;
+  }
+  if(tutar < 0 && !oAcik){ toast('İade için gerekçe (açıklama) zorunlu.'); return; }
   sLD();
   try{
     const r = await sbYaz(SB_URL+'/rest/v1/pms_folio_odemeler',
@@ -645,8 +748,13 @@ async function odemeEkle(){
                             yontem: document.getElementById('oYontem').value,
                             tutar: tutar,
                             islem_anahtari: ODEME_ANAHTARI,
-                            aciklama: document.getElementById('oAciklama').value.trim() || null})},
+                            aciklama: oAcik || null})},
       'Tahsilat');
+    if(!r.ok){
+      const g = await r.clone().text().catch(()=>'');
+      const m = maliHataMesaji(g);
+      if(m) toast(m);
+    }
     if(r.ok){
       document.getElementById('oTutar').value=''; document.getElementById('oAciklama').value='';
       yeniOdemeAnahtari();   // yalniz BASARIDAN sonra: basarisiz istek tekrar denenebilsin

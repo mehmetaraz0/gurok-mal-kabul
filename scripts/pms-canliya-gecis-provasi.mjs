@@ -1,0 +1,739 @@
+// ===========================================================================
+// PMS CANLIYA GECIS PROVASI — migration + tohumlama SIRASI iki tabanda
+// ===========================================================================
+// Paket belgesi: docs/kurulum/2026-10-07-pms-canliya-gecis-paketi.md
+//
+// NE OLCER: uc dosyanin canliya uygulanacak SIRASINI, her birinin kendi
+// dogrulama blogunu, onayli kapsamin davranisini (personel normal tahsilat
+// yapar; iade/indirim/duzeltme `tam` + gerekce ister), idempotensligi ve
+// TERS SIRA geri almayi. Iki tabanda ayri ayri kosar:
+//
+//   temiz  : 2026-09-07-post-pms-faz1-sema-dokumu.sql + 02-referans-veri.sql
+//            (Faz 2 nesneleri YOK, PMS modul satiri YOK — KURULUM-REHBERI'nin
+//             yeni kurulum tabani)
+//   mevcut : 2026-09-13-post-faz2-sema-dokumu.sql + uretim sonrasi stok
+//            migration'lari + 2026-09-18-bar-a1-guvenlik.sql + 09-13 yayininin
+//            urettigi kat hizmetleri izinin TEMSILI
+//
+// SINIR: taban semayi ve referans veriyi temsil eder, URETIM VERISINI DEGIL.
+// Uretime baglanmaz, uretim verisi kopyalanmaz. Yerel kanit canli kabul
+// YERINE GECMEZ.
+//
+// Kullanim: node scripts/pms-canliya-gecis-provasi.mjs
+// ===========================================================================
+import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
+
+const KOK = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+
+const TABANLAR = {
+  temiz: {
+    dokum: KOK + 'docs/kurulum/2026-09-07-post-pms-faz1-sema-dokumu.sql',
+    uretimSonrasi: false,
+    onceki: [],
+    faz2: false,
+  },
+  mevcut: {
+    dokum: 'C:/Users/USER/ERP-Yedek/2026-09-13-post-faz2-sema-dokumu.sql',
+    uretimSonrasi: true,
+    onceki: ['docs/kurulum/2026-09-18-bar-a1-guvenlik.sql'],
+    faz2: true,
+  },
+};
+
+// YP-2 negatif kontrolu icin TEK kanca: taban dokumunun yolu ortam
+// degiskeniyle degistirilebilir. Yalniz `scripts/pms-canliya-gecis-provasi.test.mjs`
+// kullanir ve GERCEK dokum dosyalarina dokunmaz. Degisken verilmezse davranis
+// aynen korunur.
+for (const ad of Object.keys(TABANLAR)) {
+  const ek = process.env['PROVA_DOKUM_' + ad.toUpperCase()];
+  if (ek) TABANLAR[ad].dokum = ek;
+}
+
+const MALI       = 'docs/kurulum/2026-10-06-pms-folio-mali-yetki-ayrimi.sql';
+const MALI_GERI  = 'docs/kurulum/2026-10-06-pms-folio-mali-yetki-ayrimi-geri-al.sql';
+const KILIT      = 'docs/kurulum/2026-10-06-pms-rol-entegrasyon-kilit.sql';
+const KILIT_GERI = 'docs/kurulum/2026-10-06-pms-rol-entegrasyon-kilit-geri-al.sql';
+const TOHUM      = 'docs/kurulum/2026-10-05-pms-onburo-modul-tohumlama.sql';
+const TOHUM_GERI = 'docs/kurulum/2026-10-05-pms-onburo-modul-tohumlama-geri-al.sql';
+const PREFLIGHT  = 'docs/kurulum/2026-10-07-pms-onburo-yayin-oncesi-preflight.sql';
+
+// --- Yayin kopyasi: K1 = A (kayit) satiri ELLE acilmis hali ----------------
+// Dosya sessiz varsayilan tanimaz; yayin penceresinde de bu satir acilacak.
+// Prova, pencerede uygulanacak METNIN AYNISINI kullanir.
+export function yayinKopyasi(ham) {
+  const hedef = "--   set local app.pms_k1 = 'kayit';";
+  if (!ham.includes(hedef)) throw new Error('K1 satiri bulunamadi: dosya degismis');
+  const acik = ham.replace(hedef, "  set local app.pms_k1 = 'kayit';");
+  if (acik === ham) throw new Error('K1 satiri acilamadi');
+  // Satirin sonunda aciklama yorumu vardir ve dosya CRLF'tir; yalniz satirin
+  // ETKIN kismi dogrulanir. Ikinci kapi: 'yok' satiri hala KAPALI olmali.
+  if (!/^\s{2}set local app\.pms_k1 = 'kayit';/m.test(acik)) throw new Error('K1 satiri beklenen bicimde degil');
+  if (/^\s*set local app\.pms_k1 = 'yok';/m.test(acik)) throw new Error('K1 B secenegi de acik kalmis');
+  return acik;
+}
+
+// --- Geri alma kopyasi: uygulama kimligi ELLE acilmis hali -----------------
+// Geri alma da sessiz varsayilan tanimaz; kaldirilacak kurulumun kimligi
+// acikca verilir. Kimlik, ileri kosumun yazdigi damgadan okunur.
+export function geriAlKopyasi(ham, uygulamaId) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uygulamaId)) {
+    throw new Error('uygulama kimligi UUID degil: ' + uygulamaId);
+  }
+  const hedef = "--   set local app.pms_uygulama_id = '00000000-0000-0000-0000-000000000000';";
+  if (!ham.includes(hedef)) throw new Error('uygulama kimligi satiri bulunamadi: dosya degismis');
+  const acik = ham.replace(hedef, "  set local app.pms_uygulama_id = '" + uygulamaId + "';");
+  if (!acik.includes("  set local app.pms_uygulama_id = '" + uygulamaId + "';")) {
+    throw new Error('uygulama kimligi satiri acilamadi');
+  }
+  return acik;
+}
+
+// ===========================================================================
+// Alt kosum: tek taban
+// ===========================================================================
+async function tabanProvasi(tabanAdi) {
+  const T = TABANLAR[tabanAdi];
+  // YP-2: eksik taban BASARI SAYILMAZ. Her iki taban ZORUNLUDUR; dokum yoksa
+  // bu kosum "atlandi" degil BASARISIZ olur ve alt surec ozel bir cikis kodu
+  // (ATLAMA_CIKIS) dondurur. Aksi halde, ozellikle makineye ozel yoldaki
+  // `mevcut` taban baska bir makinede hic sinanmadigi halde "GECTI" gorunurdu.
+  if (!existsSync(T.dokum)) {
+    console.log('  BASARISIZ ' + tabanAdi + ': ZORUNLU sema dokumu yok — ' + T.dokum);
+    console.log('  Bu taban sinanmadi; prova sonucu GECTI OLAMAZ.');
+    return { ok: 0, fail: 1, atlandi: true };
+  }
+  process.env.BAR_TEST_SEMA = T.dokum;
+  const { barOrtami } = await import('./bar-test-ortam.mjs');
+  const O = barOrtami({ ad: 'pms-gecis-' + tabanAdi, ag: 'pms-gecis-' + tabanAdi + '-net' });
+
+  let ok = 0, fail = 0;
+  const sonuc = (g, ad, ek) => {
+    console.log('  ' + (g ? 'OK   ' : 'FAIL ') + ad + (ek ? ' — ' + ek : ''));
+    if (g) ok++; else fail++;
+  };
+  const es = (ad, bek, olc) => sonuc(String(bek) === String(olc), ad,
+    String(bek) === String(olc) ? String(olc) : 'beklenen=' + bek + ' olculen=' + olc);
+  const tek = (q) => O.sql(q).out.trim();
+  const say = (q) => Number(tek(q) || '0');
+  const metinUygula = (yol) => O.sql(readFileSync(KOK + yol, 'utf8'));
+
+  const U = {
+    sef:      '11111111-0000-0000-0000-0000000000c1',
+    vardiya:  '11111111-0000-0000-0000-0000000000c2',
+    personel: '11111111-0000-0000-0000-0000000000c3',
+  };
+  const olarak = (kim, q) => O.kimlikle({ rol: 'authenticated', sub: U[kim] }, q);
+
+  const TIP   = '44444444-0000-0000-0000-0000000009a1';
+  const ODA   = '66666666-0000-0000-0000-0000000009a1';
+  const MIS   = '77777777-0000-0000-0000-0000000009a1';
+  const REZ   = '88888888-0000-0000-0000-0000000009a1';
+  const FOLYO = '55555555-0000-0000-0000-0000000009a1';
+
+  try {
+    console.log('\n' + '='.repeat(74));
+    console.log('TABAN: ' + tabanAdi + '  (' + T.dokum.split('/').pop() + ')');
+    console.log('='.repeat(74));
+
+    await O.kur({ uretimSonrasi: T.uretimSonrasi, onceki: T.onceki });
+
+    // --- F0 FIKSTUR: test tohumunun modul/rol satirlari yerine GERCEK
+    // referans veri. Silinen satirlar iki adim once bar-test-tohum.sql
+    // tarafindan yazildi; kurulumun icerigi DEGIL. Cakisma olcuduk:
+    // moduller_kod_key (stok_takip) ve roller_kod_key (depo).
+    O.sql(`set session_replication_role = replica;
+      update public.kullanicilar set rol_id = null;
+      delete from public.yetki_matrisi;
+      delete from public.moduller;
+      delete from public.roller;
+      set session_replication_role = origin;`);
+    const refOk = O.uygulaTekIslem('docs/kurulum/02-referans-veri.sql');
+    sonuc(refOk.ok, 'F0 gercek referans veri kuruldu (42 modul / 37 rol)',
+      refOk.ok ? '' : refOk.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('F0b taban kurulurken PMS On Buro modul satiri YOK', 0,
+      say(`select count(*) from public.moduller where kod like 'pms%';`));
+    es('F0c uc On Buro rolu referans veriden geldi', 3,
+      say(`select count(*) from public.roller where kod like 'onburo\\_%';`));
+    const refYetki = say('select count(*) from public.yetki_matrisi;');
+    sonuc(refYetki > 500, 'F0d referans yetki satiri sayisi kaydedildi', String(refYetki));
+
+    // Faz 2 nesnesinin varligi tabani ayirt eder (bilgi + kapi).
+    const hkVar = say(`select count(*) from information_schema.tables
+      where table_schema='public' and table_name='pms_housekeeping_gorevleri';`);
+    es('F0e Faz 2 kat hizmetleri tablosu (tabana gore)', T.faz2 ? 1 : 0, hkVar);
+
+    // --- F1 Mevcut tabanda 09-13 yayininin urettigi iz TEMSIL edilir.
+    // Bayt-bayt uretim verisi DEGIL; amaci, tohumlamanin ONCEDEN VAR OLAN
+    // satirlari bozmadigini olcmek.
+    let hkYetki = 0;
+    if (T.faz2) {
+      O.sql(`set session_replication_role = replica;
+        insert into public.moduller (kod, ad, kategori, sira, aktif)
+        values ('pms_housekeeping','On Buro — Kat Hizmetleri','onburo',46,true)
+        on conflict (kod) do nothing;
+        insert into public.yetki_matrisi (rol_id, modul_id, yetki)
+        select r.id, m.id, v.y::public.yetki_seviye
+          from (values ('kat_sef','tam'),('kat_vardiya','kayit'),('kat_personel','goruntule')) v(rk,y)
+          join public.roller r on r.kod = v.rk
+          join public.moduller m on m.kod = 'pms_housekeeping'
+        on conflict do nothing;
+        set session_replication_role = origin;`);
+      hkYetki = say(`select count(*) from public.yetki_matrisi y
+        join public.moduller m on m.id = y.modul_id where m.kod = 'pms_housekeeping';`);
+      sonuc(hkYetki === 3, 'F1 09-13 kat hizmetleri izi temsil edildi (3 satir)', String(hkYetki));
+    }
+
+    // --- F2 Uc On Buro kullanicisi GERCEK rol kimliklerine baglanir.
+    O.sql(`set session_replication_role = replica;
+      insert into auth.users (id, email) values
+        ('${U.sef}','gecis-sef@test.local'),
+        ('${U.vardiya}','gecis-vardiya@test.local'),
+        ('${U.personel}','gecis-personel@test.local')
+      on conflict (id) do nothing;
+      insert into public.kullanicilar (id, auth_user_id, ad, rol, otel_id, aktif, rol_id)
+      select gen_random_uuid(), v.au, v.ad, 'muhasebe_calisani', '810', true, r.id
+        from (values ('${U.sef}'::uuid,'Gecis Sef','onburo_sef'),
+                     ('${U.vardiya}'::uuid,'Gecis Vardiya','onburo_vardiya'),
+                     ('${U.personel}'::uuid,'Gecis Personel','onburo_personel')) v(au,ad,rk)
+        join public.roller r on r.kod = v.rk;
+      set session_replication_role = origin;`);
+    es('F2 uc kullanici gercek On Buro rollerine baglandi', 3,
+      say(`select count(*) from public.kullanicilar k join public.roller r on r.id = k.rol_id
+           where r.kod like 'onburo\\_%' and k.auth_user_id in
+             ('${U.sef}','${U.vardiya}','${U.personel}');`));
+
+    // --- F3 PMS veri fiksturu: oda tipi / oda / misafir / rezervasyon / folyo
+    const f3 = O.sql(`set session_replication_role = replica;
+      insert into public.pms_oda_tipleri (id, otel_id, kod, ad, azami_kisi, azami_yetiskin, azami_cocuk, aktif)
+        values ('${TIP}','810','GECIS','Gecis Provasi',2,2,0,true) on conflict (id) do nothing;
+      insert into public.pms_odalar (id, otel_id, oda_tipi_id, oda_no, kullanim_durumu, temizlik_durumu)
+        values ('${ODA}','810','${TIP}','G01','bos','temiz') on conflict (id) do nothing;
+      insert into public.pms_misafirler (id, otel_id, ad, soyad)
+        values ('${MIS}','810','Gecis','Provasi') on conflict (id) do nothing;
+      insert into public.pms_rezervasyonlar
+        (id, otel_id, rezervasyon_no, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi, durum)
+        values ('${REZ}','810','G-9A1','${MIS}','${TIP}', current_date, current_date + 2, 'onaylandi')
+        on conflict (id) do nothing;
+      insert into public.pms_folyolar (id, otel_id, rezervasyon_id, folio_no, durum)
+        values ('${FOLYO}','810','${REZ}','FG-9A1','acik') on conflict (id) do nothing;
+      insert into public.pms_folio_hareketleri
+        (otel_id, folio_id, tip, aciklama, tutar, konaklama_gecesi)
+        values ('810','${FOLYO}','oda_ucreti','Gecis provasi oda ucreti',1000.00, current_date);
+      set session_replication_role = origin;`);
+    sonuc(f3.ok && say(`select count(*) from public.pms_folyolar where id='${FOLYO}';`) === 1,
+      'F3 PMS veri fiksturu kuruldu (acik folyo + 1000,00 borc)',
+      f3.ok ? '' : f3.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+
+    // =====================================================================
+    // P1–P4 — YAYIN ONCESI SALT-OKUMA PREFLIGHT
+    // =====================================================================
+    const pfHam = readFileSync(KOK + PREFLIGHT, 'utf8');
+    // Yorumlar ve \echo cikarilir; kalan metinde yazma anahtar sozcugu olmamali.
+    const pfEtkin = pfHam.split('\n').filter((l) => !/^\s*--/.test(l)).join('\n');
+    const yazmaIzi = (pfEtkin.match(/\b(insert|update|delete|truncate|alter|drop|create|grant|revoke|set\s+local|set\s+session)\b/gi) || []);
+    sonuc(yazmaIzi.length === 0, 'P1 preflight YALNIZ okuma (yazma anahtar sozcugu yok)',
+      yazmaIzi.length ? 'BULUNDU: ' + yazmaIzi.join(',') : 'temiz');
+    // Kanal tasinabilirligi: psql'e ozgu meta komut (\echo, \set, \d ...) olmamali,
+    // yoksa Supabase SQL Editor'a yapistirilamaz ve ayri bir surum gerekir.
+    const metaKomut = pfHam.split('\n')
+      .filter((l) => /^\s*\\/.test(l)).map((l) => l.trim().split(/\s/)[0]);
+    sonuc(metaKomut.length === 0,
+      'P1b preflight psql meta komutu ICERMIYOR (SQL Editor ile de calisir)',
+      metaKomut.length ? 'BULUNDU: ' + [...new Set(metaKomut)].join(',') : 'temiz');
+
+    // Govde ozetleri: kilit UYGULANMADAN once olculur. Yayin penceresinde
+    // uretimdeki degerler bunlarla karsilastirilir; farkliysa kilit, baskasinin
+    // degisikligini SESSIZCE geri alirdi (preflight 6. bolum).
+    const md5Once = tek(`select string_agg(proname || '=' || md5(prosrc), ' ' order by proname)
+      from pg_proc where pronamespace='public'::regnamespace
+        and proname in ('pms_rezervasyon_kontrol','pms_check_in','pms_check_out');`);
+    sonuc(/pms_check_in=[0-9a-f]{32}/.test(md5Once),
+      'P2 Faz 1 govde ozetleri olculdu (yayin oncesi BEKLENEN degerler)');
+    console.log('       ' + md5Once.replace(/ /g, '\n       '));
+
+    // ACL ozeti: anon / authenticated / service_role icin EFEKTIF execute.
+    // Faz 1 sozlesmesi: anon KAPALI, authenticated ve service_role ACIK.
+    // YP-3: kilit geri almasi yalniz "invoker oldu" demekle yetinmez; ACL'nin
+    // de Faz 1 beklentisine dondugu olculur.
+    const aclOzeti = () => tek(`select string_agg(ad || '=' || izin, ' ' order by ad) from (
+      select 'check_in' as ad,
+        (case when has_function_privilege('anon','public.pms_check_in(uuid,uuid)','execute') then 'a' else '-' end) ||
+        (case when has_function_privilege('authenticated','public.pms_check_in(uuid,uuid)','execute') then 'A' else '-' end) ||
+        (case when has_function_privilege('service_role','public.pms_check_in(uuid,uuid)','execute') then 'S' else '-' end) as izin
+      union all
+      select 'check_out',
+        (case when has_function_privilege('anon','public.pms_check_out(uuid)','execute') then 'a' else '-' end) ||
+        (case when has_function_privilege('authenticated','public.pms_check_out(uuid)','execute') then 'A' else '-' end) ||
+        (case when has_function_privilege('service_role','public.pms_check_out(uuid)','execute') then 'S' else '-' end)
+    ) s;`);
+    const aclOnce = aclOzeti();
+    es('P2b Faz 1 ACL beklentisi (anon kapali, authenticated+service_role acik)',
+      'check_in=-AS check_out=-AS', aclOnce);
+
+    const pf1 = O.sql(pfHam);
+    sonuc(pf1.ok, 'P3 preflight kilit ONCESI tabanda hatasiz kostu',
+      pf1.ok ? '' : pf1.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    sonuc(/kilit UYGULANMAMIS/.test(pf1.out), 'P3b preflight "kilit UYGULANMAMIS" dedi');
+    // §3 ozet satiri: uyumlu_mevcut|eksik|celisen|karar
+    sonuc(/(^|\n)0\|15\|0\|UYGUN(\r?\n|$)/.test(pf1.out),
+      'P3c preflight siniflandirmasi: uyumlu 0 / eksik 15 / celisen 0',
+      (pf1.out.match(/(^|\n)(\d+\|\d+\|\d+\|[A-Z].*)/) || ['', '', 'bulunamadi'])[2]);
+    // §6: preflight'taki SABIT beklenen ozetler gercek govdelerle TUTUYOR mu.
+    es('P3d preflight govde kapisi uc fonksiyonda da UYGUN dedi', 3,
+      (pf1.out.match(/UYGUN \(Faz 1 govdesi\)/g) || []).length);
+    // --- P3e/P3f: ACL kapisi GERCEK bir bosluk buldu ----------------------
+    // OLCULDU: 2026-09-07 post-Faz1 dokumunde `pms_bar_folio_koprusu` icin
+    // `REVOKE ALL ... FROM PUBLIC` YOKTUR; anon EXECUTE'u PUBLIC uzerinden
+    // devralir. 2026-09-13 dokumunde revoke VARDIR. Yani 2026-09-08 ACL
+    // temizligi, temiz kurulumun taban dokumune GIRMEMISTIR.
+    // Sonuc: KURULUM-REHBERI'nin tarif ettigi temiz kurulum (post-Faz1 dokumu
+    // + referans veri), `2026-09-08-pms-fonksiyon-acl-temizligi.sql`
+    // uygulanmadikca anon EXECUTE'u ACIK birakir. Bu, bu paketin urettigi bir
+    // gerileme DEGIL, kurulum sirasinda ONCEDEN var olan bir bosluktur ve
+    // yeni ACL olcumu sayesinde goruldu.
+    const anonAcik = /SAPMA: anon EXECUTE acik/.test(pf1.out);
+    es('P3e ACL kapisi tabanin gercek durumunu raporladi (temiz tabanda anon ACIK)',
+      T.faz2 ? false : true, anonAcik);
+    // Care kaniti: 09-08 ACL temizligi uygulanirsa bosluk kapaniyor mu?
+    const aclTemizlik = metinUygula('docs/kurulum/2026-09-08-pms-fonksiyon-acl-temizligi.sql');
+    const pf1b = O.sql(pfHam);
+    sonuc(aclTemizlik.ok && pf1b.ok && !/SAPMA: anon EXECUTE acik/.test(pf1b.out),
+      'P3f 2026-09-08 ACL temizligi uygulaninca anon EXECUTE boslugu KAPANDI',
+      aclTemizlik.ok ? (pf1b.out.match(/pms_bar_folio_koprusu[^\n]*/) || [''])[0].slice(-40)
+                     : 'ACL temizligi uygulanamadi');
+    sonuc(!/SAPMA/.test(pf1b.out), 'P3g ACL temizligi sonrasi preflight hic SAPMA raporlamiyor',
+      /SAPMA/.test(pf1b.out) ? pf1b.out.split('\n').filter((l) => /SAPMA/.test(l))[0].slice(0, 80) : 'sapma yok');
+
+    // =====================================================================
+    // S1 — SIRA KAPISI: tohumlama ONCE calistirilirsa DURMALI
+    // =====================================================================
+    const tohumMetni = yayinKopyasi(readFileSync(KOK + TOHUM, 'utf8'));
+    const yetkiOnce = say('select count(*) from public.yetki_matrisi;');
+    const ilkTohum = O.sql(tohumMetni);
+    sonuc(!ilkTohum.ok && /MALI_AYRIM_KURALI_YOK/.test(ilkTohum.err),
+      'S1 mali kural YOKKEN tohumlama DURDU (beklenen ret sinifi)',
+      ilkTohum.ok ? 'KABUL (kusur)' :
+        (ilkTohum.err.match(/MALI_AYRIM_KURALI_YOK/) ||
+          ['BEKLENMEYEN: ' + ilkTohum.err.replace(/\s+/g, ' ').slice(-90)])[0]);
+    es('S1b ret aninda HICBIR yetki satiri yazilmadi', yetkiOnce,
+      say('select count(*) from public.yetki_matrisi;'));
+    es('S1c PMS modul satiri da yazilmadi', 0,
+      say(`select count(*) from public.moduller where kod like 'pms\\_oda%' or kod='pms_misafir'
+           or kod='pms_rezervasyon' or kod='pms_folio';`));
+
+    // =====================================================================
+    // S2 — ADIM 1: mali islem yetki ayrimi
+    // =====================================================================
+    const r2 = metinUygula(MALI);
+    sonuc(r2.ok, 'S2 Adim 1 mali yetki ayrimi uygulandi (kendi dogrulama blogu gecti)',
+      r2.ok ? '' : r2.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S2b hassas kapi tetikleyicisi iki mali tabloda da var', 2,
+      say(`select count(*) from pg_trigger t join pg_class c on c.oid = t.tgrelid
+           where t.tgname='pms_folio_hassas_kapi' and not t.tgisinternal
+             and c.relname in ('pms_folio_hareketleri','pms_folio_odemeler');`));
+    es('S2c gerekce kurali tek kaynakta tanimli', 1,
+      say(`select count(*) from pg_proc where pronamespace='public'::regnamespace
+             and proname='pms_folio_hassas_mi';`));
+
+    // =====================================================================
+    // S3 — ADIM 2: rol entegrasyon kilidi (MY-4)
+    // =====================================================================
+    const r3 = metinUygula(KILIT);
+    sonuc(r3.ok, 'S3 Adim 2 rol entegrasyon kilidi uygulandi (kendi dogrulama blogu gecti)',
+      r3.ok ? '' : r3.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S3b dort fonksiyon SECURITY DEFINER', 4,
+      say(`select count(*) from pg_proc where pronamespace='public'::regnamespace and prosecdef
+             and proname in ('pms_rezervasyon_kontrol','pms_check_in','pms_check_out','pms_oda_tipi_kilitle');`));
+    es('S3c oda durumunu tek basina yazan dis yardimci YOK (MY4-T3)', 0,
+      say(`select count(*) from pg_proc where pronamespace='public'::regnamespace
+             and proname='pms_oda_konaklama_isaretle';`));
+    // Kilit govdeleri GERCEKTEN degistiriyor; bu yuzden preflight'in 6. bolumu
+    // (uretim govdeleri 09-06 govdeleri mi) anlamli bir kapidir.
+    const md5Sonra = tek(`select string_agg(proname || '=' || md5(prosrc), ' ' order by proname)
+      from pg_proc where pronamespace='public'::regnamespace
+        and proname in ('pms_rezervasyon_kontrol','pms_check_in','pms_check_out');`);
+    sonuc(md5Sonra !== md5Once && /pms_check_in=[0-9a-f]{32}/.test(md5Sonra),
+      'S3d kilit govdeleri gercekten degistirdi (preflight 6. bolum anlamli)');
+    const pf2 = O.sql(readFileSync(KOK + PREFLIGHT, 'utf8'));
+    sonuc(pf2.ok && /kilit UYGULANMIS/.test(pf2.out),
+      'S3e preflight kilit SONRASI "kilit UYGULANMIS" dedi',
+      pf2.ok ? '' : 'preflight hata');
+
+    // =====================================================================
+    // S4 — ADIM 3: On Buro modul ve yetki tohumlamasi (K1 = A)
+    // =====================================================================
+    // --- Onayli 15 HEDEF cift. YP-1: sozlesme "15 YENI satir" DEGIL,
+    // "son durumda 15 hedef cift dogru seviyede" + "eklenen damgali satir
+    // sayisi = onceden EKSIK olan sayi"dir. Onceden uyumlu satir varsa daha az
+    // eklenmesi DOGRU davranistir.
+    const HEDEF = [
+      ['onburo_sef', 'pms_oda_tipi', 'tam'], ['onburo_sef', 'pms_oda', 'tam'],
+      ['onburo_sef', 'pms_misafir', 'tam'], ['onburo_sef', 'pms_rezervasyon', 'tam'],
+      ['onburo_sef', 'pms_folio', 'tam'],
+      ['onburo_vardiya', 'pms_oda_tipi', 'goruntule'], ['onburo_vardiya', 'pms_oda', 'kayit'],
+      ['onburo_vardiya', 'pms_misafir', 'kayit'], ['onburo_vardiya', 'pms_rezervasyon', 'kayit'],
+      ['onburo_vardiya', 'pms_folio', 'kayit'],
+      ['onburo_personel', 'pms_oda_tipi', 'goruntule'], ['onburo_personel', 'pms_oda', 'goruntule'],
+      ['onburo_personel', 'pms_misafir', 'kayit'], ['onburo_personel', 'pms_rezervasyon', 'kayit'],
+      ['onburo_personel', 'pms_folio', 'kayit'],   // K1 = A
+    ];
+    const hedefSql = HEDEF.map(([r, m, y]) => `('${r}','${m}','${y}')`).join(',');
+    // Son durumda dogru seviyede bulunan hedef cift sayisi.
+    const hedefTutan = () => say(`select count(*) from (values ${hedefSql}) v(rk,mk,y)
+      join public.roller r on r.kod = v.rk
+      join public.moduller m on m.kod = v.mk
+      join public.yetki_matrisi ym on ym.rol_id = r.id and ym.modul_id = m.id
+      where ym.yetki::text = v.y;`);
+    const damgali = () => say(`select count(*) from public.yetki_matrisi
+      where guncelleyen like 'tohum:pms-onburo:%';`);
+    // Dosyanin kendi raporladigi eklenen satir sayisi (NOTICE).
+    const eklenenBildirim = (r) => {
+      const m = String(r.err || '').match(/eklenen_yetki_satiri=(\d+)\/15/);
+      return m ? Number(m[1]) : null;
+    };
+
+    const eksikOnce = 15 - hedefTutan();
+    es('S4-hazirlik bu tabanda onceden EKSIK olan hedef cift sayisi', 15, eksikOnce);
+    // Menu ve kapsam disi yetkiler ONCE/SONRA delta olarak olculur (YP-1).
+    const kvkkOnce = say(`select count(*) from public.yetki_matrisi y
+      join public.moduller m on m.id = y.modul_id where m.kod='pms_misafir_kimlik';`);
+    // Menuyu goren rol kumesi: en az bir AKTIF On Buro modulunde yetkisi olan
+    // her rol. "Yalniz uc rol" bir koruma sozlesmesi DEGILDIR; olcut, mevcut
+    // yetkili rollerin KAPATILMAMASI ve yeni gorenlerin yalniz hedef roller
+    // olmasidir.
+    const menuRolleri = () => tek(`select coalesce(string_agg(distinct r.kod, ',' order by r.kod),'')
+      from public.yetki_matrisi y
+      join public.roller r on r.id = y.rol_id
+      join public.moduller m on m.id = y.modul_id
+      where m.aktif is true and m.kod in
+        ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');`);
+    const menuOnce = menuRolleri();
+
+    const r4 = O.sql(tohumMetni);
+    sonuc(r4.ok, 'S4 Adim 3 tohumlama uygulandi (K1 = A / kayit)',
+      r4.ok ? '' : r4.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S4b SON DURUM: 15 hedef cift dogru seviyede', 15, hedefTutan());
+    es('S4b2 eklenen damgali satir = onceden EKSIK olan sayi', eksikOnce, damgali());
+    es('S4b3 dosyanin kendi bildirdigi eklenen sayi da ayni', eksikOnce, eklenenBildirim(r4));
+    es('S4c bes On Buro modulu var ve AKTIF', 5,
+      say(`select count(*) from public.moduller where aktif is true and kod in
+             ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');`));
+    es('S4d damga bicimi dogru (tohum:pms-onburo:<uuid>@<iso>#<yetki>)', eksikOnce,
+      say(`select count(*) from public.yetki_matrisi where guncelleyen ~
+           '^tohum:pms-onburo:[0-9a-f-]{36}@[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+[+-][0-9]{2}';`));
+    es('S4e personel folyo seviyesi K1=A geregi kayit', 'kayit',
+      tek(`select y.yetki::text from public.yetki_matrisi y
+           join public.roller r on r.id=y.rol_id join public.moduller m on m.id=y.modul_id
+           where r.kod='onburo_personel' and m.kod='pms_folio';`));
+    // YP-1: KVKK icin IKI AYRI olcut. (a) bu paket YENI kimlik yetkisi eklemez,
+    // (b) ONCEDEN var olan kimlik yetkileri silinmez/degistirilmez. Tabanda
+    // mevcut satir yoksa (a) ve (b) ayni sayiyi verir; sozlesme yine ayridir.
+    es('S4f1 bu paket YENI pms_misafir_kimlik yetkisi EKLEMEDI', 0,
+      say(`select count(*) from public.yetki_matrisi y join public.moduller m on m.id=y.modul_id
+           where m.kod='pms_misafir_kimlik' and y.guncelleyen like 'tohum:pms-onburo:%';`));
+    es('S4f2 ONCEDEN var olan pms_misafir_kimlik yetkileri DEGISMEDI', kvkkOnce,
+      say(`select count(*) from public.yetki_matrisi y join public.moduller m on m.id=y.modul_id
+           where m.kod='pms_misafir_kimlik';`));
+    // Damgasiz (yani ONCEDEN VAR OLAN) satirlarin sayisi degismemeli.
+    // Mevcut tabanda bunlar referans veri + 09-13 kat hizmetleri izidir.
+    es('S4g onceden var olan yetki satirlari DEGISMEDI', refYetki + (T.faz2 ? hkYetki : 0),
+      say(`select count(*) from public.yetki_matrisi where guncelleyen is null
+             or guncelleyen not like 'tohum:pms-onburo:%';`));
+    if (T.faz2) {
+      es('S4h 09-13 kat hizmetleri izi DOKUNULMADI', hkYetki,
+        say(`select count(*) from public.yetki_matrisi y join public.moduller m on m.id=y.modul_id
+             where m.kod='pms_housekeeping';`));
+    }
+    // Menu delta: ONCE goren roller korunmus olmali, YENI gorenler yalniz
+    // uc hedef rol olmali.
+    const menuSonra = menuRolleri();
+    const oncekiKume = menuOnce ? menuOnce.split(',') : [];
+    const sonrakiKume = menuSonra ? menuSonra.split(',') : [];
+    const kaybeden = oncekiKume.filter((x) => !sonrakiKume.includes(x));
+    const yeniGoren = sonrakiKume.filter((x) => !oncekiKume.includes(x));
+    sonuc(kaybeden.length === 0, 'S4i ONCE menuyu goren hicbir rol KAPATILMADI',
+      kaybeden.length ? 'KAYBEDEN: ' + kaybeden.join(',') : 'once=[' + menuOnce + ']');
+    sonuc(yeniGoren.length === 3 && yeniGoren.every((x) => x.startsWith('onburo_')),
+      'S4j YENI menu goren roller YALNIZ uc On Buro rolu', yeniGoren.join(','));
+
+    // =====================================================================
+    // S5–S8 — ONAYLI KAPSAM DAVRANISI (gercek rol baglaminda)
+    // =====================================================================
+    const tahsilat = (kim, tutar, aciklama) => olarak(kim,
+      `insert into public.pms_folio_odemeler (otel_id, folio_id, yontem, tutar, aciklama)
+       values ('810','${FOLYO}','nakit',${tutar},${aciklama === null ? 'null' : `'${aciklama}'`});`);
+
+    const s5 = tahsilat('personel', '250.00', null);
+    sonuc(s5.ok, 'S5 OLUMLU: personel NORMAL tahsilati gerekcesiz yapabildi (kayit yeter)',
+      s5.ok ? '+250,00' : 'RET: ' + s5.err.replace(/\s+/g, ' ').slice(-90));
+
+    const s6 = tahsilat('personel', '-100.00', 'iade denemesi');
+    sonuc(!s6.ok && /MALI_TAM_YETKI_GEREKLI/.test(s6.err),
+      'S6 OLUMSUZ: personelin IADESI reddedildi (tam yetki gerekir)',
+      s6.ok ? 'KABUL (kusur)' : (s6.err.match(/MALI_TAM_YETKI_GEREKLI/) ||
+        ['BEKLENMEYEN: ' + s6.err.replace(/\s+/g, ' ').slice(-90)])[0]);
+
+    const s6b = olarak('personel', `insert into public.pms_folio_hareketleri
+      (otel_id, folio_id, tip, aciklama, tutar)
+      values ('810','${FOLYO}','duzeltme','duzeltme denemesi',50.00);`);
+    sonuc(!s6b.ok && /MALI_TAM_YETKI_GEREKLI/.test(s6b.err),
+      'S6b OLUMSUZ: personelin DUZELTME satiri reddedildi',
+      s6b.ok ? 'KABUL (kusur)' : (s6b.err.match(/MALI_TAM_YETKI_GEREKLI/) ||
+        ['BEKLENMEYEN: ' + s6b.err.replace(/\s+/g, ' ').slice(-90)])[0]);
+
+    const s7 = tahsilat('sef', '-100.00', null);
+    sonuc(!s7.ok && /gerekce|aciklama/i.test(s7.err),
+      'S7 OLUMSUZ: tam yetkili sef bile GEREKCESIZ iade yapamadi',
+      s7.ok ? 'KABUL (kusur)' : (s7.err.replace(/\s+/g, ' ').match(/aciklama[^.]{0,48}/) ||
+        ['BEKLENMEYEN: ' + s7.err.replace(/\s+/g, ' ').slice(-90)])[0]);
+
+    const s7b = tahsilat('sef', '-100.00', 'Misafir sikayeti uzerine iade');
+    sonuc(s7b.ok, 'S7b OLUMLU: tam yetkili sef GEREKCELI iadeyi yapabildi',
+      s7b.ok ? '-100,00 + gerekce' : 'RET: ' + s7b.err.replace(/\s+/g, ' ').slice(-90));
+
+    const hId = tek(`select id::text from public.pms_folio_hareketleri
+      where folio_id='${FOLYO}' order by olusturma_tarihi limit 1;`);
+    const s8u = olarak('sef', `update public.pms_folio_hareketleri set tutar=1 where id='${hId}';`);
+    const s8d = olarak('sef', `delete from public.pms_folio_hareketleri where id='${hId}';`);
+    sonuc(!s8u.ok || !s8d.ok, 'S8 sef dahil kimse MEVCUT mali satiri degistiremedi/silemedi',
+      'update ' + (s8u.ok ? 'KABUL(kusur)' : 'RET') + ' / delete ' + (s8d.ok ? 'KABUL(kusur)' : 'RET'));
+    es('S8b satir hala yerinde ve degeri 1000,00', '1000.00',
+      tek(`select tutar::text from public.pms_folio_hareketleri where id='${hId}';`));
+    // Geri alma fazinda veri kaybi olmadigini olcmek icin taban sayim.
+    const folyoSatirOnce =
+      say(`select count(*) from public.pms_folio_hareketleri where folio_id='${FOLYO}';`)
+      + say(`select count(*) from public.pms_folio_odemeler where folio_id='${FOLYO}';`);
+
+    // =====================================================================
+    // S9 — IDEMPOTENSLIK: ayni dosyalar ikinci kez
+    // =====================================================================
+    const i1 = metinUygula(MALI);
+    const i2 = metinUygula(KILIT);
+    const damgaOnce = tek(`select distinct split_part(guncelleyen,'@',1) from public.yetki_matrisi
+      where guncelleyen like 'tohum:pms-onburo:%';`);
+    const i3 = O.sql(tohumMetni);
+    sonuc(i1.ok && i2.ok && i3.ok, 'S9 uc dosya da ikinci kez uygulanabildi',
+      'mali=' + (i1.ok ? 'ok' : 'HATA') + ' kilit=' + (i2.ok ? 'ok' : 'HATA') + ' tohum=' + (i3.ok ? 'ok' : 'HATA'));
+    es('S9b ikinci tohumlama YENI satir uretmedi', eksikOnce, damgali());
+    es('S9b2 ikinci kosum 0 satir ekledigini kendisi bildirdi', 0, eklenenBildirim(i3));
+    es('S9c ilk kosumun damgasi korundu (ikinci kosum ustune yazmadi)', damgaOnce,
+      tek(`select distinct split_part(guncelleyen,'@',1) from public.yetki_matrisi
+           where guncelleyen like 'tohum:pms-onburo:%';`));
+
+    // =====================================================================
+    // S14 — YP-1: ONCEDEN VAR OLAN HEDEF YETKILER
+    // Sozlesme: son durumda 15 hedef cift dogru seviyede olmali ve EKLENEN
+    // damgali satir sayisi, onceden EKSIK olan sayiya esit olmali. "Her zaman
+    // 15 yeni satir" YANLIS bir beklentidir.
+    // =====================================================================
+    // Fikstur yardimcisi: damgali satirlari kaldirir (gercek geri alma S11'de
+    // ayrica olculuyor; burada amac senaryo kurmak).
+    const damgalariSil = () => O.sql(`set session_replication_role = replica;
+      delete from public.yetki_matrisi where guncelleyen like 'tohum:pms-onburo:%';
+      set session_replication_role = origin;`);
+    // Hedef cifti ONCEDEN, damgasiz olarak yazar (baska birinin daha once
+    // vermis olmasini taklit eder).
+    const onceVar = (rol, modul, yetki) => O.sql(`set session_replication_role = replica;
+      insert into public.yetki_matrisi (rol_id, modul_id, yetki)
+      select r.id, m.id, '${yetki}'::public.yetki_seviye
+        from public.roller r, public.moduller m
+       where r.kod='${rol}' and m.kod='${modul}'
+      on conflict (rol_id, modul_id) do nothing;
+      set session_replication_role = origin;`);
+
+    // --- S14a: BIR hedef cift onceden UYUMLU -> 14 yeni satir
+    damgalariSil();
+    onceVar('onburo_sef', 'pms_misafir', 'tam');
+    es('S14a-hazirlik onceden uyumlu 1 hedef cift var', 14, 15 - hedefTutan());
+    const a1r = O.sql(tohumMetni);
+    sonuc(a1r.ok, 'S14a onceden 1 uyumlu satir varken tohumlama BASARILI',
+      a1r.ok ? '' : a1r.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S14a2 eklenen damgali satir 14 (15 DEGIL)', 14, damgali());
+    es('S14a3 dosya da 14/15 bildirdi', 14, eklenenBildirim(a1r));
+    es('S14a4 SON DURUM yine 15 hedef cift dogru seviyede', 15, hedefTutan());
+    es('S14a5 onceden var olan satir DAMGALANMADI (ustverisi korundu)', 1,
+      say(`select count(*) from public.yetki_matrisi y
+             join public.roller r on r.id=y.rol_id
+             join public.moduller m on m.id=y.modul_id
+            where r.kod='onburo_sef' and m.kod='pms_misafir' and y.guncelleyen is null;`));
+
+    // --- S14b: TUM hedef ciftler onceden UYUMLU -> 0 yeni satir, yine basarili
+    damgalariSil();
+    for (const [r, m, y] of HEDEF) onceVar(r, m, y);
+    es('S14b-hazirlik onceden eksik hedef cift YOK', 0, 15 - hedefTutan());
+    const b1r = O.sql(tohumMetni);
+    sonuc(b1r.ok, 'S14b tum hedefler onceden varken tohumlama BASARILI (hata degil)',
+      b1r.ok ? '' : b1r.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S14b2 eklenen damgali satir 0 — ve bu MESRU', 0, damgali());
+    es('S14b3 dosya da 0/15 bildirdi', 0, eklenenBildirim(b1r));
+    es('S14b4 SON DURUM 15 hedef cift dogru seviyede', 15, hedefTutan());
+
+    // --- S14c: BIR hedef cift onceden CELISIK -> DURMALI, 0 satir yazmali
+    damgalariSil();
+    O.sql(`set session_replication_role = replica;
+      delete from public.yetki_matrisi y using public.roller r, public.moduller m
+       where y.rol_id=r.id and y.modul_id=m.id
+         and r.kod='onburo_personel' and m.kod='pms_folio';
+      set session_replication_role = origin;`);
+    onceVar('onburo_personel', 'pms_folio', 'goruntule');   // hedef: kayit
+    const c1r = O.sql(tohumMetni);
+    sonuc(!c1r.ok && /CELISEN MEVCUT YETKI/.test(c1r.err),
+      'S14c CELISIK mevcut yetkide tohumlama DURDU (mevcut hak degistirilmiyor)',
+      c1r.ok ? 'KABUL (kusur)' : (c1r.err.match(/CELISEN MEVCUT YETKI/) ||
+        ['BEKLENMEYEN: ' + c1r.err.replace(/\s+/g, ' ').slice(-90)])[0]);
+    es('S14c2 ret aninda HICBIR damgali satir yazilmadi', 0, damgali());
+    es('S14c3 celisik mevcut satir DEGISTIRILMEDI', 'goruntule',
+      tek(`select y.yetki::text from public.yetki_matrisi y
+             join public.roller r on r.id=y.rol_id
+             join public.moduller m on m.id=y.modul_id
+            where r.kod='onburo_personel' and m.kod='pms_folio';`));
+    // Preflight AYNI celiskiyi yayin oncesi gorebiliyor mu — kapinin degeri bu.
+    const pf3 = O.sql(readFileSync(KOK + PREFLIGHT, 'utf8'));
+    sonuc(pf3.ok && /CELISEN/.test(pf3.out) && /SAPMA: Adim 4 KOSULMAZ/.test(pf3.out),
+      'S14c4 preflight celiskiyi YAYIN ONCESI yakaladi (Adim 4 KOSULMAZ)',
+      pf3.ok ? (pf3.out.match(/onburo_personel\|pms_folio\|[^\n]*/) || ['bulunamadi'])[0].slice(0, 70)
+             : 'preflight hata');
+
+    // --- Geri alma fazi icin bilinen duruma don: celisik satir kaldirilir,
+    // tohumlama yeniden kosar ve 15 damgali satir uretir.
+    damgalariSil();
+    O.sql(`set session_replication_role = replica;
+      delete from public.yetki_matrisi y using public.roller r, public.moduller m
+       where y.rol_id=r.id and y.modul_id=m.id and r.kod like 'onburo\\_%'
+         and m.kod in ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');
+      set session_replication_role = origin;`);
+    const sifirla = O.sql(tohumMetni);
+    es('S14d geri alma fazi icin taban sifirlandi (15 damgali satir)', 15,
+      sifirla.ok ? damgali() : -1);
+
+    // =====================================================================
+    // S10–S13 — GERI ALMA, BELGEDEKI SIRAYLA
+    // Paket §5.2: Adim 4 -> 3 -> 2 -> 1 (tohumlama -> arayuz -> MY-4 -> mali).
+    // Arayuz geri almasi bu SQL provasinin KAPSAMINDA DEGILDIR (ayri kanal:
+    // onceki commit'in yeniden yayinlanmasi); bu sinir acik birakilir.
+    // Veritabani sirasi: TOHUMLAMA -> MY-4 KILIDI -> MALI KURAL.
+    // =====================================================================
+    const g1 = metinUygula(MALI_GERI);
+    sonuc(!g1.ok, 'S10 tohumlama ayaktayken mali kuralin geri alinmasi ENGELLENDI',
+      g1.ok ? 'KABUL (kusur)' : (g1.err.replace(/\s+/g, ' ').match(/GUVENLI GERI DONUS ENGELI[^:]*:[^.]{0,52}/) ||
+        ['RET: ' + g1.err.replace(/\s+/g, ' ').slice(0, 70)])[0]);
+    es('S10b engel aninda 15 satir yerinde kaldi', 15,
+      say(`select count(*) from public.yetki_matrisi where guncelleyen like 'tohum:pms-onburo:%';`));
+
+    // Geri alma, kaldirilacak kurulumun kimligini acikca ister (sessiz
+    // varsayilan yok). Kimlik ileri kosumun yazdigi damgadan okunur.
+    const uygulamaId = tek(`select distinct split_part(split_part(guncelleyen,'@',1), ':', 3)
+      from public.yetki_matrisi where guncelleyen like 'tohum:pms-onburo:%';`);
+    sonuc(/^[0-9a-f-]{36}$/.test(uygulamaId),
+      'S10c kaldirilacak kurulumun kimligi damgadan okundu', uygulamaId);
+    const g2kimliksiz = metinUygula(TOHUM_GERI);
+    sonuc(!g2kimliksiz.ok && /UYGULAMA KIMLIGI VERILMEDI/.test(g2kimliksiz.err),
+      'S10d kimlik verilmeden geri alma DURDU (sessiz varsayilan yok)',
+      g2kimliksiz.ok ? 'KABUL (kusur)' : 'RET');
+    const g2 = O.sql(geriAlKopyasi(readFileSync(KOK + TOHUM_GERI, 'utf8'), uygulamaId));
+    sonuc(g2.ok, 'S11 tohumlama geri alindi (kimlik verilerek)',
+      g2.ok ? '' : g2.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S11b damgali 15 satirin hepsi kalkti', 0,
+      say(`select count(*) from public.yetki_matrisi where guncelleyen like 'tohum:pms-onburo:%';`));
+    es('S11c referans verinin satirlari DOKUNULMADI', refYetki,
+      say(`select count(*) from public.yetki_matrisi;`) - (T.faz2 ? hkYetki : 0));
+    if (T.faz2) {
+      es('S11d 09-13 kat hizmetleri izi DOKUNULMADI', hkYetki,
+        say(`select count(*) from public.yetki_matrisi y join public.moduller m on m.id=y.modul_id
+             where m.kod='pms_housekeeping';`));
+    }
+
+    // --- 2. GERI ALMA ADIMI: MY-4 KILIDI (belgedeki Adim 2) ---------------
+    const g3 = metinUygula(KILIT_GERI);
+    sonuc(g3.ok, 'S12 MY-4 kilidi geri alindi (G1-G4 gecti) — sirada IKINCI',
+      g3.ok ? '' : g3.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S12b uc fonksiyon yeniden INVOKER (definer kalmadi)', 0,
+      say(`select count(*) from pg_proc where pronamespace='public'::regnamespace and prosecdef
+             and proname in ('pms_rezervasyon_kontrol','pms_check_in','pms_check_out');`));
+    es('S12c dar kilit yardimcisi dusuruldu', 0,
+      say(`select count(*) from pg_proc where pronamespace='public'::regnamespace
+             and proname='pms_oda_tipi_kilitle';`));
+    // YP-3: yalniz "invoker oldu" yetmez — govdeler ve ACL de Faz 1'e donmeli.
+    es('S12d uc GOVDE Faz 1 ozetlerine BIREBIR dondu', md5Once,
+      tek(`select string_agg(proname || '=' || md5(prosrc), ' ' order by proname)
+           from pg_proc where pronamespace='public'::regnamespace
+             and proname in ('pms_rezervasyon_kontrol','pms_check_in','pms_check_out');`));
+    es('S12e ACL Faz 1 beklentisine dondu (anon kapali)', aclOnce, aclOzeti());
+    es('S12f search_path pinsiz kalan fonksiyon yok', 0,
+      say(`select count(*) from pg_proc p where p.pronamespace='public'::regnamespace
+             and p.proname in ('pms_rezervasyon_kontrol','pms_check_in','pms_check_out')
+             and not exists (select 1 from unnest(coalesce(p.proconfig,'{}'::text[])) c
+                              where c like 'search\\_path=%');`));
+
+    // --- 3. GERI ALMA ADIMI: MALI KURAL (belgedeki Adim 1) ----------------
+    const g4 = metinUygula(MALI_GERI);
+    sonuc(g4.ok, 'S13 mali kural geri alindi — sirada UCUNCU (en son)',
+      g4.ok ? '' : g4.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S13b hassas kapi tetikleyicisi kalmadi', 0,
+      say(`select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid
+           where t.tgname='pms_folio_hassas_kapi' and not t.tgisinternal;`));
+    es('S13c mali satirlar SILINMEDI (geri alma veri kaybetmedi)', 1,
+      say(`select count(*) from public.pms_folio_hareketleri where id='${hId}';`));
+    es('S13d folyo satir sayisi korundu', folyoSatirOnce,
+      say(`select count(*) from public.pms_folio_hareketleri where folio_id='${FOLYO}';`)
+      + say(`select count(*) from public.pms_folio_odemeler where folio_id='${FOLYO}';`));
+
+    console.log('  ' + '-'.repeat(70));
+    console.log('  ' + tabanAdi + ': ' + ok + ' gecti, ' + fail + ' kaldi');
+    return { ok, fail, atlandi: false };
+  } finally {
+    O.temizle();
+  }
+}
+
+// ===========================================================================
+// Ust kosum: iki tabani AYRI SURECLERDE kosar (sema dokumu modul duzeyinde
+// sabitlendigi icin tek surecte iki taban kurulamaz).
+// ===========================================================================
+// YP-2: alt sonuc ve ust sonuc AYRI dogrulanir. Alt surecte hem basarisizlik
+// hem "hic olcum yapilmadi" hali basarisizliktir; atlanmis taban kendi cikis
+// koduyla ayirt edilir ki ust surec onu GECTI yazamasin.
+const ATLAMA_CIKIS = 70;
+
+if (process.env.PROVA_TABAN) {
+  const r = await tabanProvasi(process.env.PROVA_TABAN);
+  if (r.atlandi) process.exit(ATLAMA_CIKIS);
+  // Sifir olcum de basarisizliktir: kurulum sessizce yarida kalmis olabilir.
+  if (r.ok === 0) {
+    console.log('  BASARISIZ: hic olcum yapilmadi (ok=0) — kosum gecerli sayilmaz');
+    process.exit(1);
+  }
+  process.exit(r.fail > 0 ? 1 : 0);
+} else {
+  console.log('='.repeat(74));
+  console.log('PMS CANLIYA GECIS PROVASI — iki taban');
+  console.log('Yerel izole kanit. CANLI KABUL ve canli yetki degisikligi YERINE GECMEZ.');
+  console.log('='.repeat(74));
+  let toplamOk = 0, toplamFail = 0;
+  const ozet = [];
+  for (const ad of Object.keys(TABANLAR)) {
+    const r = spawnSync(process.execPath, [new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')],
+      { env: { ...process.env, PROVA_TABAN: ad }, encoding: 'utf8', stdio: 'inherit', timeout: 1800000 });
+    ozet.push({ ad, kod: r.status });
+    if (r.status !== 0) toplamFail++;
+    else toplamOk++;
+  }
+  console.log('\n' + '='.repeat(74));
+  for (const o of ozet) {
+    console.log('  ' + o.ad.padEnd(8) + (o.kod === 0 ? 'GECTI'
+      : o.kod === ATLAMA_CIKIS ? 'SINANMADI — ZORUNLU TABAN EKSIK (cikis ' + o.kod + ')'
+      : 'KALDI (cikis ' + o.kod + ')'));
+  }
+  const zorunlu = Object.keys(TABANLAR).length;
+  const sinanmayan = ozet.filter((o) => o.kod === ATLAMA_CIKIS).map((o) => o.ad);
+  // Ust sonuc, ZORUNLU taban sayisina gore verilir: atlanmis taban varsa
+  // "gecti" yazilmaz.
+  const gecti = toplamFail === 0 && toplamOk === zorunlu;
+  console.log('SONUC: ' + toplamOk + '/' + zorunlu + ' taban gecti, ' + toplamFail + ' taban kaldi'
+    + (sinanmayan.length ? ' — SINANMAYAN: ' + sinanmayan.join(', ') : ''));
+  console.log(gecti ? 'PROVA GECTI (iki taban da olculdu).'
+    : 'PROVA GECMEDI — her iki taban olculmeden yayin kaniti sayilmaz.');
+  console.log('='.repeat(74));
+  process.exit(gecti ? 0 : 1);
+}

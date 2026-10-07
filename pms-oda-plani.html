@@ -121,8 +121,10 @@ select:focus,input:focus{outline:none;border-color:var(--accent)}
     <div class="card-title" id="girisBaslik">Check-in</div>
     <div id="girisListe"></div>
     <div style="font-size:11px;color:var(--gray-500);margin-top:8px">
-      Liste: aynı otelde bugün giriş yapılabilir, onaylı, odası atanmamış ve
-      bu odanın tipiyle uyumlu rezervasyonlar. Kirl/temizleniyor oda
+      Liste: aynı otelde bugün giriş yapılabilir, onaylı rezervasyonlar —
+      <b>bu odaya atanmış</b> olanlar ve <b>hiç oda atanmamış</b> olanlardan bu
+      odanın tipiyle uyumlu olanlar. Başka odaya atanmış rezervasyon burada
+      görünmez; odasını atama belirler. Kirli/temizleniyor oda
       veritabanınca reddedilir; temizlik kart üzerinde işaretlenir.
     </div>
     <div class="row" style="margin-top:12px">
@@ -262,17 +264,44 @@ async function hkOzetYukle(){
     }
   }
 }
-// Check-in'e uygun rezervasyonlar: aynı otel, onaylandı, bugün girilebilir,
-// aktif ataması YOK, oda tipiyle uyumlu.
+// Rezervasyonun AKTIF oda atamaları. Sunucunun `pms_check_in` içinde aradığı
+// kümenin aynısı (aynı otel + aktif); tarih süzmesi bilerek burada yapılmaz,
+// çünkü sunucu "güncel atama" için ayrıca `bitis >= bugün` arar ve iki uçta
+// farklı küme kullanmak ekranı sunucudan ayırır.
+function aktifAtamalar(r){
+  return ATAMALAR.filter(a=>a.rezervasyon_id===r.id
+    && String(a.otel_id)===String(r.otel_id) && a.aktif);
+}
+
+// Check-in'e uygun rezervasyonlar: aynı otel, onaylandı, bugün girilebilir ve
+// ODA EŞLEŞMESİ aşağıdaki iki yoldan biriyle kurulmuş olmalı.
+//
+// DÜZELTME (09-25 bulgusu): burada eskiden `aktif ataması YOK` koşulu vardı.
+// Rezervasyon ekranı oda atamaya izin verdiği için "önce ata, sonra giriş yap"
+// yolu ÇIKMAZDI: atanmış rezervasyon hiçbir odanın check-in listesine girmiyor,
+// check-in başka ekranda da bulunmuyordu. Sunucu ise bu durumu zaten kabul
+// ediyor — `pms_check_in` güncel atama varsa odayı ondan alır, aynı oda
+// verilirse itiraz etmez, farklı oda verilirse reddeder. Ekran artık aynı
+// kuralı uyguluyor; sunucuda hiçbir değişiklik YOK.
 function uygunRezervasyonlar(o){
   const otel = String(o.otel_id);
-  return REZ.filter(r=>
-    String(r.otel_id)===otel
-    && r.durum==='onaylandi'
-    && r.giris_tarihi <= BUGUN && BUGUN < r.cikis_tarihi
-    && !ATAMALAR.some(a=>a.rezervasyon_id===r.id && a.aktif)
-    && r.oda_tipi_id===o.oda_tipi_id
-  );
+  return REZ.filter(r=>{
+    if(String(r.otel_id)!==otel) return false;
+    if(r.durum!=='onaylandi') return false;
+    if(!(r.giris_tarihi <= BUGUN && BUGUN < r.cikis_tarihi)) return false;
+    const atamalar = aktifAtamalar(r);
+    // Birden fazla aktif atama tutarsız bir durumdur (sunucu check-out'ta
+    // tam olarak 1 arar). Böyle bir rezervasyona ekrandan giriş yolu AÇILMAZ.
+    if(atamalar.length > 1) return false;
+    if(atamalar.length === 1){
+      // Atama odayı zaten seçmiştir: yalnız O odada, ve yalnız atama bugünü
+      // kapsıyorsa. Kapsamıyorsa sunucu "güncel atama yok" sayar ve ikinci bir
+      // atama açardı; bu tutarsızlığı ekran üretmez.
+      return atamalar[0].oda_id===o.id && atamalar[0].bitis >= BUGUN;
+    }
+    // Atama yoksa oda tipi tutmalı (eski davranış, korunuyor).
+    return r.oda_tipi_id===o.oda_tipi_id;
+  });
 }
 
 function ciz(){
