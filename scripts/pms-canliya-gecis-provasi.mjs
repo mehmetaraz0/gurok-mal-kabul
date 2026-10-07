@@ -225,6 +225,25 @@ async function tabanProvasi(tabanAdi) {
       'F3 PMS veri fiksturu kuruldu (acik folyo + 1000,00 borc)',
       f3.ok ? '' : f3.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
 
+    // --- MALI VERI DEGISMEZLIK TABANI -------------------------------------
+    // Canli olcumde 3 odeme + 6 hareket var ve KORUNMASI sart. Burada, uc
+    // migration ve UC GERI ALMA boyunca hicbir mali satirin SILINMEDIGI
+    // olculur: baslangictaki kimliklerin tamami sonda da bulunmali.
+    O.sql(`create table if not exists pms_mali_taban (tablo text, id uuid);
+      delete from pms_mali_taban;
+      insert into pms_mali_taban
+        select 'hareket', id from public.pms_folio_hareketleri
+        union all
+        select 'odeme', id from public.pms_folio_odemeler;`);
+    const maliTabanOnce = say('select count(*) from pms_mali_taban;');
+    const maliKayip = () => say(`select count(*) from pms_mali_taban t
+      where (t.tablo='hareket' and not exists
+               (select 1 from public.pms_folio_hareketleri h where h.id=t.id))
+         or (t.tablo='odeme' and not exists
+               (select 1 from public.pms_folio_odemeler o where o.id=t.id));`);
+    sonuc(maliTabanOnce >= 1, 'F4 mali veri degismezlik tabani alindi (kimlik listesi)',
+      maliTabanOnce + ' satir');
+
     // =====================================================================
     // P1–P4 — YAYIN ONCESI SALT-OKUMA PREFLIGHT
     // =====================================================================
@@ -595,17 +614,71 @@ async function tabanProvasi(tabanAdi) {
       pf3.ok ? (pf3.out.match(/onburo_personel\|pms_folio\|[^\n]*/) || ['bulunamadi'])[0].slice(0, 70)
              : 'preflight hata');
 
-    // --- Geri alma fazi icin bilinen duruma don: celisik satir kaldirilir,
-    // tohumlama yeniden kosar ve 15 damgali satir uretir.
+    // =====================================================================
+    // S15 — CANLI OLCUMUN AYNASI (2026-10-07 salt-okuma preflight ciktisi)
+    // Uretimde olculen durum: bes hedef modul VAR ve AKTIF; uc On Buro rolu
+    // VAR; 15 hedef ciftin tamami EKSIK; buna karsin `it_admin` ve
+    // `sistem_admin` bes modulu `tam` ile ZATEN kullaniyor = 10 mevcut yetki.
+    // Beklenen son durum: 10 korunmus + 15 yeni = 25 satir.
+    // Bu blok kabul listesinin DAYANAGINI olcer; geri alma fazi da bu
+    // uretim-bicimli durum uzerinde kosar.
+    // =====================================================================
     damgalariSil();
     O.sql(`set session_replication_role = replica;
       delete from public.yetki_matrisi y using public.roller r, public.moduller m
        where y.rol_id=r.id and y.modul_id=m.id and r.kod like 'onburo\\_%'
          and m.kod in ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');
       set session_replication_role = origin;`);
-    const sifirla = O.sql(tohumMetni);
-    es('S14d geri alma fazi icin taban sifirlandi (15 damgali satir)', 15,
-      sifirla.ok ? damgali() : -1);
+    // Yonetici yetkileri DAMGASIZ yazilir: canlida da bu paket tarafindan
+    // yazilmadilar, baska bir kurulumdan geliyorlar.
+    O.sql(`set session_replication_role = replica;
+      insert into public.yetki_matrisi (rol_id, modul_id, yetki)
+      select r.id, m.id, 'tam'::public.yetki_seviye
+        from public.roller r
+        cross join public.moduller m
+       where r.kod in ('it_admin','sistem_admin')
+         and m.kod in ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio')
+      on conflict (rol_id, modul_id) do nothing;
+      set session_replication_role = origin;`);
+    const yoneticiSay = () => say(`select count(*) from public.yetki_matrisi y
+      join public.roller r on r.id = y.rol_id
+      join public.moduller m on m.id = y.modul_id
+      where r.kod in ('it_admin','sistem_admin') and y.yetki::text = 'tam'
+        and m.kod in ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');`);
+    const besModulSatir = () => say(`select count(*) from public.yetki_matrisi y
+      join public.moduller m on m.id = y.modul_id
+      where m.kod in ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');`);
+    const yoneticiDamgasiz = () => say(`select count(*) from public.yetki_matrisi y
+      join public.roller r on r.id = y.rol_id
+      join public.moduller m on m.id = y.modul_id
+      where r.kod in ('it_admin','sistem_admin') and y.guncelleyen is null
+        and m.kod in ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');`);
+    es('S15-hazirlik 10 yonetici yetkisi kuruldu (it_admin + sistem_admin x5 tam)', 10, yoneticiSay());
+    es('S15-hazirlik2 15 hedef cift EKSIK (canli olcumle ayni)', 15, 15 - hedefTutan());
+    const menuOnce15 = menuRolleri();
+
+    const s15 = O.sql(tohumMetni);
+    sonuc(s15.ok, 'S15 canli aynasinda tohumlama BASARILI',
+      s15.ok ? '' : s15.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
+    es('S15b 15 YENI damgali satir yazildi', 15, damgali());
+    es('S15c dosya da 15/15 bildirdi', 15, eklenenBildirim(s15));
+    es('S15d 10 YONETICI yetkisi KORUNDU (seviye tam)', 10, yoneticiSay());
+    es('S15e yonetici satirlari DAMGALANMADI (ustverileri bozulmadi)', 10, yoneticiDamgasiz());
+    es('S15f bes modul icin SON DURUM 25 satir (10 korunmus + 15 yeni)', 25, besModulSatir());
+    es('S15g bes modul hala AKTIF (tohumlama modul satirini EKLEMEDI/DEGISTIRMEDI)', 5,
+      say(`select count(*) from public.moduller where aktif is true and kod in
+             ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');`));
+    const menuSonra15 = menuRolleri();
+    const kayip15 = (menuOnce15 ? menuOnce15.split(',') : [])
+      .filter((x) => !(menuSonra15 ? menuSonra15.split(',') : []).includes(x));
+    sonuc(kayip15.length === 0 && /it_admin/.test(menuSonra15) && /sistem_admin/.test(menuSonra15),
+      'S15h menuyu ONCE goren yoneticiler hala goruyor',
+      'once=[' + menuOnce15 + ']' + (kayip15.length ? ' KAYIP: ' + kayip15.join(',') : ''));
+    // Geri alma fazi bu durumdan baslar; damgasiz satir sayisi sabit kalmali.
+    const damgasizOnce = say(`select count(*) from public.yetki_matrisi
+      where guncelleyen is null or guncelleyen not like 'tohum:pms-onburo:%';`);
+    sonuc(damgasizOnce >= refYetki + 10, 'S15i damgasiz satir tabani kaydedildi',
+      String(damgasizOnce));
 
     // =====================================================================
     // S10–S13 — GERI ALMA, BELGEDEKI SIRAYLA
@@ -636,8 +709,17 @@ async function tabanProvasi(tabanAdi) {
       g2.ok ? '' : g2.err.split('\n').filter((l) => /ERROR/.test(l))[0]);
     es('S11b damgali 15 satirin hepsi kalkti', 0,
       say(`select count(*) from public.yetki_matrisi where guncelleyen like 'tohum:pms-onburo:%';`));
-    es('S11c referans verinin satirlari DOKUNULMADI', refYetki,
-      say(`select count(*) from public.yetki_matrisi;`) - (T.faz2 ? hkYetki : 0));
+    // Geri alma, DAMGASIZ hicbir satira dokunmamali: referans veri, 09-13 kat
+    // hizmetleri izi ve 10 YONETICI yetkisi aynen kalmali.
+    es('S11c damgasiz satirlarin tamami DOKUNULMADI', damgasizOnce,
+      say(`select count(*) from public.yetki_matrisi
+             where guncelleyen is null or guncelleyen not like 'tohum:pms-onburo:%';`));
+    es('S11c2 10 YONETICI yetkisi geri almadan SAG CIKTI', 10, yoneticiSay());
+    es('S11c3 yonetici satirlari hala damgasiz (ustverileri bozulmadi)', 10, yoneticiDamgasiz());
+    es('S11c4 bes modul satiri hala AKTIF (geri alma modulu dusurmedi)', 5,
+      say(`select count(*) from public.moduller where aktif is true and kod in
+             ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio');`));
+    es('S11c5 bes modul icin son durum 10 satir (yalniz yonetici yetkileri)', 10, besModulSatir());
     if (T.faz2) {
       es('S11d 09-13 kat hizmetleri izi DOKUNULMADI', hkYetki,
         say(`select count(*) from public.yetki_matrisi y join public.moduller m on m.id=y.modul_id
@@ -678,6 +760,14 @@ async function tabanProvasi(tabanAdi) {
     es('S13d folyo satir sayisi korundu', folyoSatirOnce,
       say(`select count(*) from public.pms_folio_hareketleri where folio_id='${FOLYO}';`)
       + say(`select count(*) from public.pms_folio_odemeler where folio_id='${FOLYO}';`));
+    // Uc migration + UC GERI ALMA boyunca hicbir mali satir SILINMEDI.
+    // Canlidaki 3 odeme + 6 hareket icin istenen koruma sartinin dayanagi.
+    es('S13e baslangictaki mali satirlarin HICBIRI silinmedi', 0, maliKayip());
+    sonuc(say(`select count(*) from public.pms_folio_hareketleri;`)
+        + say(`select count(*) from public.pms_folio_odemeler;`) >= maliTabanOnce,
+      'S13f mali satir sayisi hic azalmadi (yalniz artti)',
+      maliTabanOnce + ' -> ' + (say(`select count(*) from public.pms_folio_hareketleri;`)
+        + say(`select count(*) from public.pms_folio_odemeler;`)));
 
     console.log('  ' + '-'.repeat(70));
     console.log('  ' + tabanAdi + ': ' + ok + ' gecti, ' + fail + ' kaldi');

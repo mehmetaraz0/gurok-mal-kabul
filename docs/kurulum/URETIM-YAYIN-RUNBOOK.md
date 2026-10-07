@@ -778,3 +778,121 @@ silme sonraki mal kabullerin kaydını kilitler. **LN'e aktarılmaz.**
    1; eski davranış, görünür değil). Ayrı iş olarak açıldı.
 6. **Numara RLS'e göre sayılır.** Tek otel gören kullanıcı kullanılmış numara
    üretir; kaydetmeden önce formdaki numara güncel durumla karşılaştırıldı.
+
+---
+
+## 14. PMS Ön Büro yayını — YAYIN ÖNCESİ TABAN (2026-10-07, salt-okuma)
+
+> **Bu bir yayın kaydı DEĞİL, yayın öncesi ölçüm kaydıdır.** Üretime hiçbir
+> şey uygulanmadı; push, merge, deploy ve canlı SQL yazımı yapılmadı. Canlı
+> yayın onayı verilmemiştir.
+
+Aday paket: `docs/kurulum/2026-10-07-pms-canliya-gecis-paketi.md`
+Yayın adayı (B seçeneği): dal `pms/yayin-adayi-b`, worktree
+`C:/Users/USER/Projects/gurok-pms-yayin-b`, taban `origin/main` = `a77e6e1`.
+
+### Nasıl ölçüldü
+
+| Alan | Değer |
+|---|---|
+| Kanal | `docs/kurulum/sql-uygula.ps1 -SaltOkuma` (psql), kullanıcı çalıştırdı |
+| Dosya | `docs/kurulum/2026-10-07-pms-onburo-yayin-oncesi-preflight.sql` |
+| Çalışma kopyası SHA-256 (betiğin yazdığı) | `8FBE6BC5375417C09CEA8BFDDE41B6C93497698043DF9AECFA004A53DEF8C58D` — beklenen CRLF özetiyle aynı |
+| Yayın baytı SHA-256 (commit, LF) | `4f6964aa5216bb72f44233bdc796e9b7f78e1bfcb473be161b23092c277de304` |
+| Sonuç | SALT OKUMA, çıkış **0**, çıktıda **SAPMA yok** |
+| Ajanın üretim erişimi | **YOK.** Sorguları kullanıcı çalıştırdı, çıktıyı paylaştı; ajan canlıya bağlanmadı |
+| Değerlendirme | `2026-10-07-PMS-canli-preflight-degerlendirme.md` |
+
+### YENİ TABAN (POST-FAZ2+STOK+BAR-A1) — 2026-10-07
+
+Depodaki en güncel parmak izi 2026-09-07 (post-Faz 1: 75/234/40) idi ve
+üretim o günden sonra dört yayın aldı. **Eksik olan güncel taban budur:**
+
+| Ölçü | 2026-09-07 (post-Faz 1) | **2026-10-07 (güncel)** |
+|---|---|---|
+| `public` tablo | 75 | **79** |
+| `public` politika | 234 | **240** |
+| Kısıtlayıcı politika | 40 | **41** |
+| RLS kapalı tablo | 0 | **0** |
+| `search_path` pinsiz SECURITY DEFINER | 0 | **0** |
+| `anon` tablo hakkı | 0 | **0** |
+| `erp_islem_audit` satır | 36 (09-13) | **119** |
+
+Sonraki yayınlarda parmak izi karşılaştırması **bu** satırlarla yapılır.
+Sayısal parmak izi tek başına tam şema eşitliği kanıtı **değildir**.
+
+### Ön Büro modül ve yetki durumu
+
+| Ölçüm | Değer | Sonuç |
+|---|---|---|
+| Beş hedef modül | **var ve AKTİF** | Tohumlama **0 modül** ekler; `PASIF MODUL` durması tetiklenmez |
+| Üç Ön Büro rolü | var | `EKSIK REFERANS` durması tetiklenmez |
+| Onaylı 15 hedef çift | uyumlu **0** · eksik **15** · çelişen **0** | Tohumlama **15 yeni** satır yazar; `CELISEN MEVCUT YETKI` tetiklenmez |
+| `it_admin` + `sistem_admin` | beş modülde **`tam`** = **10 satır** | **KORUNACAK.** Ön Büro menüsü bu iki rolde **bugün de** görünüyor |
+| Beş modül için beklenen son durum | **10 korunmuş + 15 yeni = 25** | Kabul ölçütü K7 |
+| `pms_misafir_kimlik` | **0 satır** | Bu paket yetki vermez; silinecek satır da yok |
+
+### Üç migration henüz uygulanmamış (kısmi uygulama yok)
+
+| Ölçüm | Değer |
+|---|---|
+| `pms_folio_hassas_kapi` tetikleyici | **0** (beklenen: 0 veya 2) |
+| `pms_folio_hassas_mi` | **0** |
+| Üç fonksiyonda `prosecdef` | **false** — MY-4 uygulanmamış |
+| `pms_oda_tipi_kilitle` | **yok** |
+
+### Gövde özetleri — Adım 2 kapısı AÇIK
+
+Üretimdeki üç gövde, kilidin üretildiği 2026-09-06 gövdeleriyle **birebir**:
+
+| Fonksiyon | `md5(prosrc)` | Karar |
+|---|---|---|
+| `pms_rezervasyon_kontrol` | `83da45a3c84f8e64cd414b78817e5ed2` | UYGUN |
+| `pms_check_in` | `3798c9461390f18f97e537bd9be07612` | UYGUN |
+| `pms_check_out` | `6d6bb0ecbef41ff1a13fc437857f49fa` | UYGUN |
+
+Yani kilit, **başkasının değişikliğini sessizce geri almayacak** (D3 kapalı).
+
+### ACL — canlıda temiz
+
+Ölçülen fonksiyonlarda (`pms_bar_folio_koprusu`, `pms_check_in`,
+`pms_check_out`): `anon` EXECUTE **kapalı**, `authenticated` ve
+`service_role` **açık**, `search_path` **pinli**. Otomatik ACL düzeltmesi
+**yapılmadı ve gerekmedi.**
+
+> **E-10 ayrı kalıyor.** Canlıda görülmeyen `anon` farkı, 2026-09-07 taban
+> dökümünde vardır: temiz kurulum rehberi `2026-09-08-pms-fonksiyon-acl-temizligi.sql`
+> adımını içermedikçe yeni kurulumlarda `anon` EXECUTE açık kalır. Bu canlı
+> ölçüm o açığı **kapatmaz**; rehber düzeltmesi ayrı karardır.
+
+### Mali veri ve operasyonel etki
+
+| Ölçüm | Değer | Anlamı |
+|---|---|---|
+| `pms_folio_odemeler` | **3 satır** | **Ödeme tablosu BOŞ DEĞİL** → geri dönüş dalı §14.1 |
+| `pms_folio_hareketleri` | **6 satır** | Korunacak |
+| Açık folyo | **0** | Yayın anında yarım konaklama yok; geçmiş mali veriyi ortadan kaldırmaz |
+| Bugün folyoya yazabilen roller | `it_admin` (2 aktif kullanıcı), `sistem_admin` (1 aktif) — ikisi de `tam` | **`kayit` seviyesinde kimse yok** → Adım 1 kimsenin normal tahsilatını kesmez |
+| Adım 1'in bu üç kullanıcıya etkisi | iade / indirim / düzeltme için **gerekçe zorunlu** olur | Davranış değişikliği; pencerede duyurulmalı |
+
+### 14.1 ÖDEME > 0 DALI — geri dönüş kararı
+
+Faz 1 kuralı: `pms_folio_odemeler` boş değilse **şema geri alma yolu
+seçilmez**; veri koruyan özellik kapatma / onaylı olay planı esas alınır.
+Ölçüm 3 ödeme olduğu için bu dal **yürürlüktedir.**
+
+Ayrım, yayın kaydına açıkça yazılır: **bu paketin üç geri alma dosyası da
+mali satır SİLMEZ.** Yasak olan, Faz 1 Adım 4'ün şema geri almasıdır (folyo
+tablolarını düşürür) ve **bu paketin kapsamında değildir.**
+
+| Olay | İlk hamle | Veri etkisi |
+|---|---|---|
+| Ön Büro rolleri yanlış erişim aldı | **Tohumlama geri alma** (damgalı 15 satır) | Yalnız damgalı `yetki_matrisi` satırları silinir. `moduller`'e DOKUNMAZ; 10 yönetici yetkisi ve mali veri **aynen kalır** (izole provada ölçüldü) |
+| Check-in / check-out bozuldu | **MY-4 kilidi geri alma** | Veri yok; üç gövde Faz 1 özetlerine döner, ACL Faz 1 beklentisine döner. **Bedeli:** Ön Büro akışı kapanır |
+| Gerekçe zorunluluğu operasyonu kilitledi | **Mali kural geri alma** — yalnız tohumlama geri alındıktan SONRA (hard gate) | Tetikleyici ve fonksiyon düşer; **ödeme/hareket silinmez** |
+| Hepsi yetmedi | **Modül `aktif = false`** | Veri kalır, ama **it_admin ve sistem_admin de PMS'yi kaybeder** (bugün kullanıyorlar). Ayrıca `pms_folio` kapatmak **bar köprüsünü durdurmaz**: görünmez borç birikir, önce `pms_bar_folio_koprusu` tetikleyicisi düşürülmelidir |
+| Son çare | **Yedekten dönüş** | Yalnız yukarıdakiler yetmezse ve kullanıcı kararıyla |
+
+**Hata olduğu için kendiliğinden YAPILMAYACAKLAR:** tetikleyici düşürme,
+yetki silme, yedek yükleme, ödeme veya hareket silme, otomatik ACL
+düzeltmesi. Her biri ayrı kullanıcı kararıdır.
