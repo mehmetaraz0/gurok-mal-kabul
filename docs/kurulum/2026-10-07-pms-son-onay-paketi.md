@@ -111,31 +111,89 @@ tek tek doğrulanır.**
 
 ---
 
-## 5. YEDEK — alma ve doğrulama
+## 5. YEDEK — bileşenler, alma ve doğrulama
 
 > **Proje Free planda ve Supabase proje yedeği ALMIYOR** (runbook §7,
-> 2026-09-12'de panelden ölçüldü). Tek yedek elle alınandır. **"Dosya oluştu"
-> yedek kanıtı değildir.**
+> 2026-09-12 panel ölçümü). Tek yedek elle alınandır. **"Dosya oluştu" yedek
+> kanıtı değildir.**
 
-### 5.1 Alma
+### 5.1 Yedek SETİ — beş bileşen birlikte tanımlanır
 
-```bash
-cd C:/Users/USER/Projects/gurok-pms-yayin-b && powershell -File docs/kurulum/yedek-ve-sayac-al.ps1 -Etiket 2026-10-07-pre-pms-onburo
+Bir yedek, bu beşinin **aynı sürümü** temsil eden takımıdır. Eksik veya
+uyuşmayan bileşen doğrulamayı **başarısız** yapar.
+
+| # | Bileşen | Üreten | Dosya |
+|---|---|---|---|
+| 1 | **Uygulama şeması** (tablolar, RLS, politikalar, fonksiyonlar) | `dokum-al.ps1` | `<Etiket>-sema-dokumu.sql` |
+| 2 | **Veri** (`public` + `phase0_private`) — **şifreli** | `yedek-ve-sayac-al.ps1` | `<Etiket>-veri-yedegi.sql.enc` |
+| 3 | **Sayaçlar** (aynı durumu temsil eden satır sayıları) | `yedek-ve-sayac-al.ps1` | `<Etiket>-sayaclar.json` |
+| 4 | **Auth** — veri **şifreli** (sır taşır) + şema yapısı | `yedek-ve-sayac-al.ps1` | `<Etiket>-auth-yedegi.sql.enc` · `<Etiket>-auth-sema.sql` |
+| 5 | **Beklenen şema parmak izi** | elle, preflight §7 çıktısından | `<Etiket>-parmakizi.json` |
+
+> **Neden şema da gerekiyor:** `yedek-ve-sayac-al.ps1` yalnız **veri** çıkarır.
+> Veriyi eski bir şema dökümünün üstüne geri yüklemek, satır sayıları tutsa
+> bile *güncel* veritabanını geri kurduğunu **kanıtlamaz**. Bu paketin canlı
+> ölçümü **79/240/41**; depodaki 2026-09-07 dökümü **75/234/40**. Bu yüzden
+> yedek penceresinde **taze şema dökümü** alınır.
+
+5. bileşen, preflight §7 çıktısından yazılır:
+
+```json
+{"tablo":79,"politika":240,"kisitlayici":41,"rls_kapali":0,"pinsiz_definer":0,"anon_tablo_hakki":0}
 ```
 
-Snapshot dışarı verilemezse betik bunu söyler; o durumda `-Duraklatma` ile
-yeniden koşulur (sayaçlar yedekten önce ve sonra okunur, farklıysa yedek
-reddedilir). Üretilen dosyalar repo dışıdır
-(`C:\Users\USER\ERP-Yedek\2026-10-07-pre-pms-onburo-*`). **Auth yedeği sır
-taşır:** paylaşılmaz, repoya konmaz.
+### 5.2 Alma — komutlar ayrı ayrı
 
-### 5.2 Doğrulama — bu geçmeden Adım 1 başlamaz
+> Kullanıcının PowerShell sürümü `&&` kabul etmiyor. Komutlar **ayrı** verilir;
+> dizin değişimi başarısızsa sonrakine geçilmez.
 
 ```bash
-cd C:/Users/USER/Projects/gurok-pms-yayin-b && node scripts/pms-yedek-geri-yukleme-provasi.mjs C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-veri-yedegi.sql C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-sayaclar.json --sema docs/kurulum/2026-09-07-post-pms-faz1-sema-dokumu.sql --auth-veri C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-auth-yedegi.sql --auth-sema C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-auth-sema.sql
+cd C:/Users/USER/Projects/gurok-pms-yayin-b
 ```
 
-**Kabul ölçütleri (yedi aşama, süreleri ayrı raporlanır):**
+```bash
+powershell -File docs/kurulum/dokum-al.ps1 -Etiket 2026-10-07-pre-pms-onburo
+```
+
+```bash
+powershell -File docs/kurulum/yedek-ve-sayac-al.ps1 -Etiket 2026-10-07-pre-pms-onburo
+```
+
+Snapshot dışarı verilemezse betik bunu söyler; o durumda aynı komut
+`-Duraklatma` ile yeniden koşulur (sayaçlar yedekten önce ve sonra okunur,
+farklıysa yedek **reddedilir**). Çıktılar repo dışındadır
+(`C:\Users\USER\ERP-Yedek\`). **Şifreleme kaldırılmaz:** betik `.sql.enc`
+üretir ve düz kopyayı siler; alıcı sertifikası doğrulanmazsa ikisini de siler.
+
+**Auth yedeği sır taşır** (parola hash'leri, e-postalar, canlı oturum
+token'ları): paylaşılmaz, repoya konmaz, e-postayla gönderilmez, sohbete
+yazılmaz.
+
+### 5.3 Doğrulama — bu geçmeden Adım 1 başlamaz
+
+Şifreli yedeği açmak için gizli anahtar gerekir; anahtar **bu makinede
+durmaz**, parola yöneticisinden gelir. Bu yüzden her prova aynı zamanda bir
+**anahtar tatbikatıdır**.
+
+Parola **komut satırına ve geçmişe yazılmaz**; PowerShell'de ortam
+değişkenine `Read-Host` ile alınır:
+
+```bash
+powershell -Command "$s = Read-Host -AsSecureString 'Yedek anahtar parolasi'; $env:YEDEK_ANAHTAR_PAROLA = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))"
+```
+
+> Not: her tool çağrısı ayrı bir süreçtir; ortam değişkeni ile provayı **aynı**
+> PowerShell oturumunda çalıştırın (ya da `--gizli-anahtar` verip parolayı
+> provanın kendi istemine girin). Prova bittikten sonra anahtar dosyasını
+> **silin**.
+
+Ardından (tek satır, `&&` yok):
+
+```bash
+node scripts/pms-yedek-geri-yukleme-provasi.mjs C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-veri-yedegi.sql.enc C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-sayaclar.json --sema C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-sema-dokumu.sql --parmakizi C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-parmakizi.json --auth-veri C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-auth-yedegi.sql.enc --auth-sema C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-auth-sema.sql --gizli-anahtar <anahtar-dosyasi>
+```
+
+**Kabul ölçütleri (sekiz aşama, süreleri ayrı raporlanır):**
 
 | # | Ölçüt | Eşik |
 |---|---|---|
@@ -146,13 +204,25 @@ cd C:/Users/USER/Projects/gurok-pms-yayin-b && node scripts/pms-yedek-geri-yukle
 | Y5 | Üç veri tutarlılık kontrolü | hepsi **0** |
 | Y6 | Temel uygulama erişimi (gerçek kimlikle `authenticated` okuma; `anon` kapalı) | geçti |
 | Y7 | Auth kurtarma — `kullanicilar.auth_user_id` eşleşmesi | eksik **0** |
+| **Y8** | **Şema parmak izi** — geri yüklenen şema, yedeğin alındığı sürümle eşleşiyor | **sapma 0** (6 alan) |
+
+**Y8 yeni eklendi ve dişi ölçüldü** (SO-1 kapanışı):
+
+| Deneme | Sonuç |
+|---|---|
+| 09-07 dökümü + `75/234/40` beklentisi | `karsilastirilan 6 · sapma 0 · GECTI` — altı alan da UYGUN |
+| 09-07 dökümü + **güncel** `79/240/41` beklentisi | `sapma 3 · BASARISIZ` → tablo 75≠79, politika 234≠240, kısıtlayıcı 40≠41 |
+| `--parmakizi` **verilmezse** | `SINANMADI` yazılır ve **kabul kanıtı sayılmaz** |
 
 `--mekanik` kipi **kabul kanıtında kullanılmaz**.
 
-**STOP:** Y1–Y7'den biri geçmezse yayın başlamaz. Kapsam dışı (her durumda):
+**STOP:** Y1–Y8'den biri geçmezse yayın başlamaz. Kapsam dışı (her durumda):
 storage, realtime, veritabanı rolleri ve uzantıları, proje ayarları.
 
----
+> **Yedekten dönüşün kendi riski:** eski bir yedeğe dönmek, yedekten SONRA
+> yazılmış **yeni** veriyi kaybettirir. Bu, "bu paketin geri alma dosyaları
+> mali satır silmiyor" ölçümünden **ayrı** bir risktir ve §8'de son çare
+> olarak durur.
 
 ## 6. YAYIN PENCERESİ — öneri (Ö), karar sizde
 
@@ -178,49 +248,91 @@ preflight §1 (modül aktifliği) · §3 özet (uyumlu/eksik/çelişen) · §6 g
 
 ## 7. CANLI KABUL (DUMAN) TESTİ — kapsam önerisi
 
-### 7.1 Kalıcılık uyarısı — önce okunmalı
+### 7.1 Kalıcılık — ne iddia edilebilir, ne edilemez
 
-Mali satırlar **append-only**'dir: duman testinde yazılan borç ve tahsilat
-**silinemez**. Faz 1 yayınında da bu yüzden üretimde kalıcı, net sıfır iki
-konaklama kaldı. Aşağıdaki kapsam bunu bilerek **net sıfır** kurgular.
+Mali satırlar **append-only**: yazılan borç ve tahsilat **silinemez**; denetim
+kayıtları da kalır. Bu yüzden:
+
+- **İddia EDİLMEZ:** "muhasebe etkisi sıfır". Sıfır bakiye, tahsilat/iade/borç
+  satırlarını ve denetim izini ortadan **kaldırmaz**.
+- **İddia EDİLİR ve doğrulanabilir:** "testin folyosunun **son bakiyesi 0**,
+  folyo **kapalı**, ve aşağıdaki kalıcı satırlar **mevcut**".
+
+**Koruma ile delta ayrı ölçütlerdir.** Mevcut 3 ödeme ve 6 hareketin korunması,
+test sonrası toplamların hâlâ 3 ve 6 olması **değildir**. Eski satırlar
+**kimlik ve içerik** bazında korunur; testin yazdıkları **ayrı bir delta**
+olarak sayılır. Önerilen kurguda toplamlar **6→7** ve **3→6** olur.
 
 ### 7.2 Yetki ve akış kontrolleri — mali kayıt ÜRETMEZ
 
-| # | Kontrol | Beklenen |
-|---|---|---|
-| D1 | `onburo_personel` ile giriş | Ön Büro menüsü **görünür** |
-| D2 | `it_admin` ve `sistem_admin` ile giriş | Menü **hâlâ görünür** (P2) |
-| D3 | Ön Büro dışı bir rolle giriş | Menü **görünmez** |
-| D4 | `onburo_personel`: misafir + rezervasyon kaydı | kabul |
-| D5 | `onburo_personel`: **check-in** ve **check-out** | kabul (MY-4 kilidinin canlı kanıtı) |
-| D6 | `onburo_personel`: oda **tipi** düzenleme denemesi | **ret** (yetki genişlemedi) |
-| D7 | Yetki sayımı | 25 satır · 10'u damgasız · 15'i damgalı |
-
-### 7.3 Mali kontroller — KALICI KAYIT ÜRETİR (karar sizde)
-
-Sentetik misafir (**gerçek misafir verisi yok**) ve tek konaklama üzerinde:
-
-| # | Kontrol | Beklenen | Kalıcı iz |
+| # | Rol | Kontrol | Beklenen |
 |---|---|---|---|
-| M1 | `onburo_personel`: normal tahsilat, **gerekçesiz** | **kabul** | +1 ödeme |
-| M2 | `onburo_personel`: negatif tutar (iade) | **ret** `MALI_TAM_YETKI_GEREKLI` | yok |
-| M3 | `onburo_personel`: `duzeltme` satırı | **ret** | yok |
-| M4 | `it_admin`: gerekçesiz iade | **ret** (açıklama zorunlu) | yok |
-| M5 | `it_admin`: gerekçeli iade | **kabul** | +1 hareket |
-| M6 | Mevcut mali satırı güncelleme/silme (admin kimliğiyle) | **ret** | yok |
-| M7 | Denetim izi 119'dan arttı | evet | — |
+| D1 | `onburo_personel` | giriş | Ön Büro menüsü **görünür** |
+| D2 | `it_admin`, `sistem_admin` | giriş | Menü **hâlâ görünür** (P2) |
+| D3 | Ön Büro dışı bir rol | giriş | Menü **görünmez** |
+| D4 | `onburo_personel` | oda **tipi** düzenleme denemesi | **ret** (yetki genişlemedi) |
+| D5 | — | yetki sayımı | **25** satır · **10** damgasız · **15** damgalı |
 
-**Kapanış ve düzeltme yöntemi:** M1 ve M5 kalıcıdır. Önerilen kurgu, folyoyu
-**net sıfıra** getirip kapatmaktır: oda ücreti borcu → eşit tahsilat → bakiye 0
-→ folyo kapanır. M5'in iadesi de aynı folyo içinde eşit bir hareketle
-dengelenir. Böylece muhasebe etkisi **sıfır** olur ve hiçbir satır silinmez.
-**Tutar ve bu kurgunun kabulü sizin kararınızdır** — sembolik bir tutar
-(ör. 1,00) ya da Faz 1'deki gibi gerçekçi bir tutar seçilebilir.
+### 7.3 Mali sıra — KALICI KAYIT ÜRETİR (tutar kararı sizde)
 
-**Giriş sonrası canlı akışlar kullanıcıya aittir:** üretim PIN'i ajanda yoktur
-ve olmamalıdır.
+Sentetik misafir (**gerçek misafir verisi yok**), tek gecelik konaklama,
+sembolik tutar **X = 1,00**. Bakiye tanımı:
+**bakiye = borç (`pms_folio_hareketleri`) − ödeme (`pms_folio_odemeler`)**.
 
----
+> **Tablo yönlendirmesi ölçüldü:** ekranda **iade = negatif TAHSİLAT** ve
+> `pms_folio_odemeler`'e yazılır (`pms-folio.html` tahsilat yolu).
+> **Düzeltme** ise `pms_folio_hareketleri`'ne yazılır. İkisi ayrı kontroldür.
+
+**Bütün mali işlemler kapanıştan ÖNCE sıralanır** — kapalı folyonun yazma
+formları kapalıdır ve sunucu da reddeder.
+
+| # | Rol | Hedef tablo | İşaret / tutar | Beklenen satır artışı | Ara bakiye | Sonuç |
+|---|---|---|---|---|---|---|
+| M1 | `onburo_personel` | `pms_rezervasyonlar` | `gecelik_fiyat` = +1,00 | — (folyo **otomatik** açılır) | 0,00 | kabul |
+| M2 | `onburo_personel` | RPC `pms_check_in` | — | — | 0,00 | kabul (MY-4 kanıtı) |
+| M3 | `onburo_personel` | `pms_folio_hareketleri` (RPC oda ücreti) | **+1,00** | **hareket +1** | **+1,00** | kabul |
+| M4 | `onburo_personel` | `pms_folio_odemeler` | **−1,00** (iade) | **0** | +1,00 | **ret** `MALI_TAM_YETKI_GEREKLI` |
+| M5 | `onburo_personel` | `pms_folio_hareketleri` | `duzeltme` +1,00 | **0** | +1,00 | **ret** `MALI_TAM_YETKI_GEREKLI` |
+| M6 | `onburo_personel` | `pms_folio_odemeler` | **+1,00**, gerekçesiz | **ödeme +1** | **0,00** | kabul |
+| M7 | `it_admin` | `pms_folio_odemeler` | **−1,00**, gerekçe **yok** | **0** | 0,00 | **ret** (açıklama zorunlu) |
+| M8 | `it_admin` | `pms_folio_odemeler` | **−1,00**, gerekçe **var** | **ödeme +1** | **+1,00** | kabul |
+| M9 | `onburo_personel` | `pms_folio_odemeler` | **+1,00** (dengeleme) | **ödeme +1** | **0,00** | kabul |
+| M10 | `it_admin` | mevcut hareket satırı | UPDATE / DELETE | **0** | 0,00 | **ret** (ikisi de) |
+| M11 | `onburo_personel` | RPC `pms_folio_kapat` | — | — | 0,00 | kabul → folyo **kapalı** |
+| M12 | `onburo_personel` | `pms_folio_odemeler` (kapalı folyo) | +1,00 | **0** | — | **ret** |
+| M13 | `onburo_personel` | RPC `pms_check_out` | — | — | — | kabul |
+
+**Toplam kalıcı delta: `pms_folio_hareketleri` +1 · `pms_folio_odemeler` +3**
+(+1,00 / −1,00 / +1,00). Son bakiye **0,00**, folyo **kapalı**.
+Beklenen toplamlar: hareketler **6 → 7**, ödemeler **3 → 6**.
+Denetim izi **119'dan artar**.
+
+### 7.4 Bu sıra izole ortamda SINANDI
+
+`node scripts/pms-canliya-gecis-provasi.mjs` içindeki **S16** bloğu tam bu
+sırayı, ürünün kendi yollarıyla ve sentetik veriyle koşar:
+
+| Ölçüm | Sonuç |
+|---|---|
+| S16-1…S16-5 | rezervasyon → folyo otomatik → check-in → oda ücreti |
+| S16-7 / S16-12 / S16-15 / S16-17 | ara bakiyeler **+1,00 → 0,00 → +1,00 → 0,00** |
+| S16-8 / S16-9 / S16-10 | personelin iadesi ve düzeltmesi **ret**, **hiç satır üretmedi** |
+| S16-13 / S16-14 | `it_admin` gerekçesiz **ret**, gerekçeli **kabul** |
+| S16-18 | mevcut mali satır update/delete **ret** |
+| S16-19…S16-22 | folyo **kapandı**, kapalı folyoya yazma **ret**, check-out kabul |
+| **S16-23 / S16-24** | **hareket deltası tam 1 · ödeme deltası tam 3** |
+| S16-25 / S16-26 | son bakiye **0,00**; başlangıçtaki mali satırların hiçbiri silinmedi |
+
+Prova sonucu: **temiz 130/0 · mevcut 133/0 · 2/2 PROVA GEÇTİ.**
+
+### 7.5 Karar sizde
+
+- **Tutar:** X = 1,00 (sembolik) veya Faz 1'deki gibi gerçekçi bir tutar.
+- **Gerçek tahsilat/iade varsayılmaz:** M6/M8/M9 kasa hareketi değil, sistem
+  kaydıdır; nakit akışı gerekip gerekmediği sizin kararınız.
+- **Kalıcı kayıt üretimi ayrıca kabul edilmeden uygulanmaz.**
+- Giriş sonrası canlı akışlar **kullanıcıya aittir**: üretim PIN'i ajanda
+  yoktur ve olmamalıdır.
 
 ## 8. ÖDEME > 0 — geri dönüş planı (kesinleştirildi)
 
@@ -243,6 +355,19 @@ kayda geçti: **bu paketin üç geri alma dosyası da mali satır silmez**
 silme, yedek yükleme, ödeme/hareket silme, otomatik ACL düzeltmesi. Her biri
 ayrı kullanıcı kararıdır.
 
+### 8.1 İKİ AYRI RİSK — karıştırılmamalı
+
+Tablodaki son iki satır **otomatik devam adımı değildir**; her biri ayrı onay
+kapısıdır.
+
+| Risk | Nedir | Ölçüm |
+|---|---|---|
+| **A — bu paketin geri almaları** | Yetki satırı silme (damgalı), fonksiyon gövdesi değiştirme, tetikleyici düşürme | **Mali satır silmez** (S13e/S13f: başlangıçtaki satırların hiçbiri silinmedi, sayı hiç azalmadı) |
+| **B — eski yedeğe dönüş** | Yedeğin alındığı andan **sonra** yazılmış veriyi kaybettirir | Prova bu riski **ölçmez**; yedekten dönüş son çaredir ve veri kaybı penceresi yayın saatiyle yedek saati arasındaki farktır |
+
+A'nın güvenli olması B'yi güvenli yapmaz. Faz 1 Adım 4'ün folyo tablolarını
+düşüren şema geri alması ise bu paketin kapsamında **hiç yok**.
+
 ---
 
 ## 9. Açık kalanlar
@@ -257,3 +382,24 @@ ayrı kullanıcı kararıdır.
 
 **Sayısal parmak izi tek başına tam şema eşitliği kanıtı değildir;** bu paket
 canlı kabulün tamamlandığını iddia etmez.
+
+---
+
+## 10. Bağımsız inceleme kapanışı — 2026-10-08
+
+İnceleme: `2026-10-08-5e2a280-PMS-son-onay-inceleme.md`. İkisi de **yalnız
+operasyonel talimat ve doğrulama aracı** düzeltmesiyle kapandı; ürün kodu, SQL
+ve yetki matrisi **değişmedi**.
+
+| # | Bulgu | Kapanış |
+|---|---|---|
+| **SO-1** | Yedek doğrulama komutu üretilen yedeğe ve güncel şemaya uymuyordu: `&&` kullanıyordu, şifreli `.sql.enc` yerine düz `.sql` yolları veriyordu, `--gizli-anahtar` arayüzünü anlatmıyordu, ve `--sema` olarak **eski** 09-07 dökümünü (75/234/40) veriyordu — oysa canlı 79/240/41 | §5 yeniden yazıldı: **beş bileşenli yedek seti** tanımlandı (taze şema dökümü + şifreli veri + sayaçlar + auth + **beklenen parmak izi JSON'u**), komutlar **ayrı ayrı** verildi, `.sql.enc` yolları ve parolayı geçmişe yazmayan `--gizli-anahtar` kullanımı yazıldı, şifreleme **korundu**. Provaya **Y8 şema parmak izi aşaması** eklendi: bayrak verilmezse `SINANMADI` yazar ve kabul kanıtı sayılmaz. Dişi ölçüldü — eski şema + güncel beklenti `sapma 3 · BASARISIZ` |
+| **SO-2** | Mali duman testi sırası ve beklenen kayıtlar tutarsızdı: iade `+1 hareket` deniyordu (oysa **negatif tahsilat → `pms_folio_odemeler`**), dengeleme **kapanıştan sonra** anlatılıyordu (kapalı folyo yazma kabul etmez), "muhasebe etkisi sıfır" garantisi veriliyordu, ve mevcut 3/6 satırın korunması test sonrası toplamların 3/6 kalmasıyla karışıyordu | §7 yeniden yazıldı: her adım için **rol · hedef tablo · işaret/tutar · beklenen satır artışı · ara bakiye · sonuç** tablosu (M1–M13); bütün mali işlemler **kapanıştan önce**; "muhasebe etkisi sıfır" **kaldırıldı**, yerine doğrulanabilir iddia; **koruma ile delta ayrıldı** (toplamlar 6→7 ve 3→6). Tam bu sıra provaya **S16** olarak eklendi ve sentetik veriyle **geçti** |
+
+**Geri alma ayrımı** incelemenin düzeltmesiyle §8.1'e yazıldı: bu paketin
+geri almalarının mali satır silmemesi ile **eski yedeğe dönüşün yeni veriyi
+kaybettirmesi** ayrı risklerdir; modül kapatma ve yedekten dönüş **otomatik
+devam adımı değildir**.
+
+**Prova:** temiz **130/0** · mevcut **133/0** · 2/2 **PROVA GEÇTİ**
+(önceki 103/106).

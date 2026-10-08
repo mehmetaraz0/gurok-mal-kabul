@@ -29,6 +29,14 @@
 //   5) Veri tutarliligi        — uc kontrol, hepsi 0 olmali
 //   6) Temel uygulama erisimi  — gercek bir ERP kullanicisinin kimligiyle
 //                                authenticated rolunde okuma; anon'a kapali
+//   8) Sema parmak izi         — YALNIZ --parmakizi verildiginde. Geri yuklenen
+//                                semanin tablo/politika/kisitlayici sayilari
+//                                yedegin ALINDIGI surumun beklenen degerleriyle
+//                                karsilastirilir. Satir sayilari tutsa bile ESKI
+//                                bir sema dokumu "guncel veritabanini geri
+//                                kurdum" demeye yetmez (SO-1). Bayrak
+//                                verilmezse asama SINANMADI yazilir ve KABUL
+//                                KANITI SAYILMAZ.
 //   7) Auth kurtarma           — YALNIZ --auth-veri verildiginde. Iskele auth
 //                                semasi KENARA ALINIR (auth_iskele), gercek
 //                                auth yuklenir ve kullanicilar.auth_user_id
@@ -51,11 +59,18 @@ const bayrak = (ad) => argv.includes(ad);
 const deger = (ad) => { const i = argv.indexOf(ad); return i >= 0 ? argv[i + 1] : undefined; };
 const konum = argv.filter((a, i) => !a.startsWith('--')
   && argv[i - 1] !== '--sema' && argv[i - 1] !== '--auth-veri' && argv[i - 1] !== '--auth-sema'
-  && argv[i - 1] !== '--gizli-anahtar');
+  && argv[i - 1] !== '--gizli-anahtar' && argv[i - 1] !== '--parmakizi');
 
 const yedek = konum[0];
 const sayacDosyasi = konum[1];
 const semaDosyasi = deger('--sema') || process.env.PMS_SEMA;
+// SO-1: Yedegin ALINDIGI surumle eslesen uygulama semasi kanitlanmali. Satir
+// sayilari dogru olsa bile ESKI bir sema dokumuyle geri yukleme, "guncel
+// veritabanini geri kurdum" demeye yetmez. Bu bayrak, geri yuklenen semanin
+// sayisal parmak izini BEKLENEN degerlerle karsilastirir.
+// Beklenen JSON: { "tablo": 79, "politika": 240, "kisitlayici": 41 }
+// (istege bagli: "rls_kapali": 0, "pinsiz_definer": 0, "anon_tablo_hakki": 0)
+const parmakIziDosyasi = deger('--parmakizi') || process.env.PMS_PARMAKIZI;
 // Auth kurtarma asamasi (7). Iki dosya birlikte verilir: yapi olmadan veri
 // yuklenemez. Verilmezse asama atlanir ve cikti bugunku kapsam uyarisini yazar.
 const authVeri = deger('--auth-veri') || process.env.PMS_AUTH_VERI;
@@ -63,10 +78,13 @@ const authSema = deger('--auth-sema') || process.env.PMS_AUTH_SEMA;
 const mekanik = bayrak('--mekanik');
 
 if (!yedek || !existsSync(yedek)) {
-  console.error('Kullanim: node scripts/pms-yedek-geri-yukleme-provasi.mjs <veri-yedegi> [sayaclar.json] [--sema <sema.sql>] [--mekanik]');
+  console.error('Kullanim: node scripts/pms-yedek-geri-yukleme-provasi.mjs <veri-yedegi> [sayaclar.json] [--sema <sema.sql>] [--parmakizi <beklenen.json>] [--auth-veri <d> --auth-sema <d>] [--gizli-anahtar <d>] [--mekanik]');
   process.exit(2);
 }
 if (semaDosyasi && !existsSync(semaDosyasi)) { console.error('Sema dosyasi yok: ' + semaDosyasi); process.exit(2); }
+if (parmakIziDosyasi && !existsSync(parmakIziDosyasi)) {
+  console.error('Parmak izi dosyasi yok: ' + parmakIziDosyasi); process.exit(2);
+}
 
 const K = 'pms-yedek-prova';
 const d = (a, g) => {
@@ -435,9 +453,72 @@ if (authVeri) {
 }
 const auth2Sn = sn(tAuth2);
 
+// --- 8) SEMA PARMAK IZI (SO-1) ---------------------------------------------
+// Satir sayilari tutsa bile ESKI bir sema dokumuyle geri yukleme, guncel
+// veritabanini geri kurdugunu KANITLAMAZ. Bu asama, geri yuklenen semanin
+// sayisal parmak izini yedegin alindigi surumun BEKLENEN degerleriyle
+// karsilastirir. Bayrak verilmezse asama ATLANIR ve bu durum SONUC'ta
+// "SINANMADI" olarak yazilir — sessizce gecmis sayilmaz.
+const tPi = Date.now();
+let piDurum = 'atlandi';
+let piSatirlar = [];
+if (parmakIziDosyasi) {
+  let beklenen = null;
+  try { beklenen = JSON.parse(readFileSync(parmakIziDosyasi, 'utf8')); } catch (e) {
+    console.log('9) SEMA PARMAK IZI   : OKUNAMADI — ' + String(e.message).slice(0, 80));
+    piDurum = 'basarisiz';
+  }
+  if (beklenen) {
+    const olcumler = {
+      tablo: `select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+               where n.nspname='public' and c.relkind='r';`,
+      politika: `select count(*) from pg_policy p join pg_class c on c.oid=p.polrelid
+                  join pg_namespace n on n.oid=c.relnamespace where n.nspname='public';`,
+      kisitlayici: `select count(*) from pg_policy p join pg_class c on c.oid=p.polrelid
+                     join pg_namespace n on n.oid=c.relnamespace
+                     where n.nspname='public' and not p.polpermissive;`,
+      rls_kapali: `select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace
+                    where n.nspname='public' and c.relkind='r' and not c.relrowsecurity;`,
+      pinsiz_definer: `select count(*) from pg_proc p
+                        where p.pronamespace='public'::regnamespace and p.prosecdef
+                          and not exists (select 1 from unnest(coalesce(p.proconfig,'{}'::text[])) c
+                                           where c like 'search\\_path=%');`,
+      anon_tablo_hakki: `select count(*) from information_schema.role_table_grants
+                          where grantee='anon' and table_schema='public';`,
+    };
+    let sapma = 0, karsilastirilan = 0;
+    for (const [ad, sorgu] of Object.entries(olcumler)) {
+      if (beklenen[ad] === undefined || beklenen[ad] === null) continue;
+      const olculen = Number(tek(sorgu) || '-1');
+      const uygun = olculen === Number(beklenen[ad]);
+      karsilastirilan++;
+      if (!uygun) sapma++;
+      piSatirlar.push('     ' + (uygun ? 'UYGUN' : 'SAPMA') + '  ' + ad.padEnd(18)
+        + ' beklenen=' + beklenen[ad] + ' olculen=' + olculen);
+    }
+    if (karsilastirilan === 0) {
+      piSatirlar.push('     SAPMA  karsilastirilacak alan yok — beklenen JSON bos');
+      sapma = 1;
+    }
+    piDurum = sapma === 0 ? 'gecti' : 'basarisiz';
+    console.log('9) SEMA PARMAK IZI   : ' + sn(tPi) + ' sn · karsilastirilan ' + karsilastirilan
+      + ' · sapma ' + sapma + ' · ' + piDurum.toUpperCase());
+    for (const l of piSatirlar) console.log(l);
+    if (sapma > 0) {
+      console.log('     NEDEN ONEMLI: geri yuklenen sema, yedegin alindigi surumle eslesmiyor.');
+      console.log('     Satir sayilari tutsa bile bu yedek "guncel veritabanini geri kurar" demez.');
+    }
+  }
+} else {
+  console.log('9) SEMA PARMAK IZI   : SINANMADI — --parmakizi verilmedi');
+  console.log('     Kabul kanitinda bu asama ZORUNLUDUR (SO-1).');
+}
+const piSn = sn(tPi);
+
 // --- SONUC -----------------------------------------------------------------
 const gecti = yuklemeHatalari.length === 0 && semaHatalari.length === 0 && fark === 0
-  && tutarsiz === 0 && erisimSorun === 0 && fkIhlal === 0 && authDurum !== 'basarisiz';
+  && tutarsiz === 0 && erisimSorun === 0 && fkIhlal === 0 && authDurum !== 'basarisiz'
+  && piDurum !== 'basarisiz' && (mekanik || piDurum === 'gecti');
 console.log('\n' + '='.repeat(72));
 console.log('SURELER (ayri olculdu)');
 console.log('  hazirlik (iskele' + (semaDosyasi ? ' + sema' : '') + ') : ' + hazirlikSn + ' sn');
@@ -448,6 +529,8 @@ console.log('  satir sayilari                : ' + sayacSn + ' sn');
 console.log('  veri tutarliligi              : ' + tutarlilikSn + ' sn');
 console.log('  uygulama erisimi              : ' + erisimSn + ' sn' + (erisimAtlandi ? ' (atlandi)' : ''));
 if (authVeri) console.log('  auth kurtarma                 : ' + auth2Sn + ' sn');
+console.log('  sema parmak izi               : ' + piSn + ' sn'
+  + (piDurum === 'atlandi' ? ' (SINANMADI)' : ' (' + piDurum + ')'));
 if (gecici.length) console.log('  cozme (' + gecici.length + ' sifreli dosya)      : ' + cozmeSn.toFixed(1) + ' sn');
 console.log('-'.repeat(72));
 // Kanitin hangi kaynaktan geldigi ciktinin kendisinde dursun: yerel bir deneme

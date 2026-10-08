@@ -525,6 +525,150 @@ async function tabanProvasi(tabanAdi) {
       + say(`select count(*) from public.pms_folio_odemeler where folio_id='${FOLYO}';`);
 
     // =====================================================================
+    // S16 — CANLI DUMAN TESTININ TAM SIRASI (SO-2)
+    // Onay belgesi §7.3'teki sira, SENTETIK veriyle ve URUNUN KENDI
+    // yollariyla burada kosulur. Olculen sozlesme:
+    //   bakiye = borc (pms_folio_hareketleri) - odeme (pms_folio_odemeler)
+    //   IADE = NEGATIF TAHSILAT -> pms_folio_odemeler (hareketler DEGIL)
+    //   DUZELTME -> pms_folio_hareketleri
+    //   Butun mali islemler KAPANISTAN ONCE; kapali folyo yazma kabul etmez.
+    // Tutar X = 1,00 (sembolik). Son bakiye 0 ve folyo kapali olmali.
+    // =====================================================================
+    const X = '1.00';
+    const MIS2 = '77777777-0000-0000-0000-0000000009b1';
+    const REZ2 = '88888888-0000-0000-0000-0000000009b1';
+    const ODA2 = '66666666-0000-0000-0000-0000000009b1';
+    const U_IT = '11111111-0000-0000-0000-0000000000c4';
+    // it_admin kimligi: §7.3'te gerekceli iadeyi yapan rol.
+    O.sql(`set session_replication_role = replica;
+      insert into auth.users (id, email) values ('${U_IT}','gecis-itadmin@test.local')
+        on conflict (id) do nothing;
+      insert into public.kullanicilar (id, auth_user_id, ad, rol, otel_id, aktif, rol_id)
+      select gen_random_uuid(), '${U_IT}', 'Gecis IT', 'muhasebe_calisani', '810', true, r.id
+        from public.roller r where r.kod = 'it_admin'
+      on conflict do nothing;
+      insert into public.yetki_matrisi (rol_id, modul_id, yetki)
+      select r.id, m.id, 'tam'::public.yetki_seviye
+        from public.roller r cross join public.moduller m
+       where r.kod = 'it_admin'
+         and m.kod in ('pms_oda_tipi','pms_oda','pms_misafir','pms_rezervasyon','pms_folio')
+      on conflict (rol_id, modul_id) do nothing;
+      insert into public.pms_odalar (id, otel_id, oda_tipi_id, oda_no, kullanim_durumu, temizlik_durumu)
+        values ('${ODA2}','810','${TIP}','G02','bos','temiz') on conflict (id) do nothing;
+      insert into public.pms_misafirler (id, otel_id, ad, soyad)
+        values ('${MIS2}','810','Duman','Testi') on conflict (id) do nothing;
+      set session_replication_role = origin;`);
+    const U2 = { ...U, itadmin: U_IT };
+    const olarak2 = (kim, q) => O.kimlikle({ rol: 'authenticated', sub: U2[kim] }, q);
+
+    // Taban sayimlar: YENI satirlar ESKI satirlardan AYRI olculur (SO-2).
+    const harSay = () => say('select count(*) from public.pms_folio_hareketleri;');
+    const odeSay = () => say('select count(*) from public.pms_folio_odemeler;');
+    const harOnce = harSay(), odeOnce = odeSay();
+    const FOLYO2 = () => tek(`select id::text from public.pms_folyolar where rezervasyon_id='${REZ2}';`);
+    const bakiye = () => tek(`select (coalesce((select sum(tutar) from public.pms_folio_hareketleri
+        where folio_id=(select id from public.pms_folyolar where rezervasyon_id='${REZ2}')),0)
+      - coalesce((select sum(tutar) from public.pms_folio_odemeler
+        where folio_id=(select id from public.pms_folyolar where rezervasyon_id='${REZ2}')),0))::text;`);
+
+    // --- D-adimlari: rezervasyon -> folyo (otomatik) ---------------------
+    const d1 = olarak2('personel', `insert into public.pms_rezervasyonlar
+      (id, otel_id, rezervasyon_no, misafir_id, oda_tipi_id, giris_tarihi, cikis_tarihi,
+       durum, yetiskin_sayisi, cocuk_sayisi, gecelik_fiyat)
+      values ('${REZ2}','810','DUMAN-1','${MIS2}','${TIP}', current_date, current_date + 1,
+              'onaylandi', 1, 0, ${X});`);
+    sonuc(d1.ok, 'S16-1 personel: rezervasyon kaydi (onaylandi) KABUL',
+      d1.ok ? '' : d1.err.replace(/\s+/g, ' ').slice(-90));
+    es('S16-2 folyo OTOMATIK acildi', 1,
+      say(`select count(*) from public.pms_folyolar where rezervasyon_id='${REZ2}' and durum='acik';`));
+    es('S16-3 baslangic bakiyesi 0', '0.00', bakiye() === '0' ? '0.00' : bakiye());
+
+    const d2 = olarak2('personel', `select public.pms_check_in('${REZ2}','${ODA2}');`);
+    sonuc(d2.ok, 'S16-4 personel: CHECK-IN KABUL (MY-4 kilidinin kaniti)',
+      d2.ok ? '' : d2.err.replace(/\s+/g, ' ').slice(-90));
+
+    const d3 = olarak2('personel', `select public.pms_folio_oda_ucreti_isle('${REZ2}');`);
+    sonuc(d3.ok, 'S16-5 personel: ODA UCRETI islendi -> hareketler +1',
+      d3.ok ? '' : d3.err.replace(/\s+/g, ' ').slice(-90));
+    es('S16-6 hareket deltasi 1', 1, harSay() - harOnce);
+    es('S16-7 ara bakiye = +1,00 (borc)', '1.00', bakiye());
+
+    // --- Olumsuzlar: hicbir satir uretmemeli ----------------------------
+    const d4 = olarak2('personel', `insert into public.pms_folio_odemeler
+      (otel_id, folio_id, yontem, tutar, aciklama)
+      values ('810','${FOLYO2()}','nakit',-${X},'iade denemesi');`);
+    sonuc(!d4.ok && /MALI_TAM_YETKI_GEREKLI/.test(d4.err),
+      'S16-8 personel: IADE (negatif TAHSILAT) REDDEDILDI',
+      d4.ok ? 'KABUL (kusur)' : 'MALI_TAM_YETKI_GEREKLI');
+    const d5 = olarak2('personel', `insert into public.pms_folio_hareketleri
+      (otel_id, folio_id, tip, aciklama, tutar)
+      values ('810','${FOLYO2()}','duzeltme','duzeltme denemesi',${X});`);
+    sonuc(!d5.ok && /MALI_TAM_YETKI_GEREKLI/.test(d5.err),
+      'S16-9 personel: DUZELTME hareketi REDDEDILDI',
+      d5.ok ? 'KABUL (kusur)' : 'MALI_TAM_YETKI_GEREKLI');
+    es('S16-10 iki ret HIC satir uretmedi', 0,
+      (harSay() - harOnce - 1) + (odeSay() - odeOnce));
+
+    // --- Normal tahsilat: gerekcesiz, KABUL -----------------------------
+    const d6 = olarak2('personel', `insert into public.pms_folio_odemeler
+      (otel_id, folio_id, yontem, tutar) values ('810','${FOLYO2()}','nakit',${X});`);
+    sonuc(d6.ok, 'S16-11 personel: NORMAL tahsilat (+1,00, gerekcesiz) KABUL -> odemeler +1',
+      d6.ok ? '' : d6.err.replace(/\s+/g, ' ').slice(-90));
+    es('S16-12 ara bakiye 0,00', '0.00', bakiye());
+
+    // --- it_admin: gerekcesiz iade RET, gerekceli iade KABUL ------------
+    const d7 = olarak2('itadmin', `insert into public.pms_folio_odemeler
+      (otel_id, folio_id, yontem, tutar) values ('810','${FOLYO2()}','nakit',-${X});`);
+    sonuc(!d7.ok && /aciklama|gerekce/i.test(d7.err),
+      'S16-13 it_admin: GEREKCESIZ iade REDDEDILDI',
+      d7.ok ? 'KABUL (kusur)' : 'aciklama zorunlu');
+    const d8 = olarak2('itadmin', `insert into public.pms_folio_odemeler
+      (otel_id, folio_id, yontem, tutar, aciklama)
+      values ('810','${FOLYO2()}','nakit',-${X},'Duman testi: gerekceli iade');`);
+    sonuc(d8.ok, 'S16-14 it_admin: GEREKCELI iade KABUL -> odemeler +1 (NEGATIF)',
+      d8.ok ? '' : d8.err.replace(/\s+/g, ' ').slice(-90));
+    es('S16-15 ara bakiye yeniden +1,00 (iade borcu geri actti)', '1.00', bakiye());
+
+    // --- Kapanistan ONCE dengeleme --------------------------------------
+    const d9 = olarak2('personel', `insert into public.pms_folio_odemeler
+      (otel_id, folio_id, yontem, tutar) values ('810','${FOLYO2()}','nakit',${X});`);
+    sonuc(d9.ok, 'S16-16 personel: dengeleme tahsilati KABUL -> odemeler +1',
+      d9.ok ? '' : d9.err.replace(/\s+/g, ' ').slice(-90));
+    es('S16-17 bakiye 0,00 — kapanisa hazir', '0.00', bakiye());
+
+    // --- Degismezlik: mevcut satir update/delete edilemez ---------------
+    const hId2 = tek(`select id::text from public.pms_folio_hareketleri
+      where folio_id='${FOLYO2()}' limit 1;`);
+    const d10u = olarak2('itadmin', `update public.pms_folio_hareketleri set tutar=9 where id='${hId2}';`);
+    const d10d = olarak2('itadmin', `delete from public.pms_folio_hareketleri where id='${hId2}';`);
+    sonuc(!d10u.ok || !d10d.ok, 'S16-18 it_admin MEVCUT mali satiri degistiremedi/silemedi',
+      'update ' + (d10u.ok ? 'KABUL(kusur)' : 'RET') + ' / delete ' + (d10d.ok ? 'KABUL(kusur)' : 'RET'));
+
+    // --- Kapanis ve kapali folyoya yazma reddi --------------------------
+    const d11 = olarak2('personel', `select public.pms_folio_kapat('${FOLYO2()}');`);
+    sonuc(d11.ok, 'S16-19 personel: FOLYO KAPATILDI (bakiye 0)',
+      d11.ok ? '' : d11.err.replace(/\s+/g, ' ').slice(-90));
+    es('S16-20 folyo durumu kapali', 'kapali',
+      tek(`select durum::text from public.pms_folyolar where rezervasyon_id='${REZ2}';`));
+    const d12 = olarak2('personel', `insert into public.pms_folio_odemeler
+      (otel_id, folio_id, yontem, tutar) values ('810','${FOLYO2()}','nakit',${X});`);
+    sonuc(!d12.ok, 'S16-21 KAPALI folyoya yazma REDDEDILDI',
+      d12.ok ? 'KABUL (kusur)' : 'RET');
+
+    const d13 = olarak2('personel', `select public.pms_check_out('${REZ2}');`);
+    sonuc(d13.ok, 'S16-22 personel: CHECK-OUT KABUL',
+      d13.ok ? '' : d13.err.replace(/\s+/g, ' ').slice(-90));
+
+    // --- SON DELTA: eski satirlar korundu, yeniler AYRI sayildi --------
+    es('S16-23 YENI hareket deltasi tam 1', 1, harSay() - harOnce);
+    es('S16-24 YENI odeme deltasi tam 3 (+1,00 / -1,00 / +1,00)', 3, odeSay() - odeOnce);
+    es('S16-25 bu folyonun son bakiyesi 0,00', '0.00', bakiye());
+    es('S16-26 baslangictaki mali satirlarin hicbiri silinmedi', 0, maliKayip());
+    sonuc(true, 'S16-27 SIRA OZETI (canlida beklenen delta)',
+      'hareketler +' + (harSay() - harOnce) + ' · odemeler +' + (odeSay() - odeOnce)
+      + ' · son bakiye ' + bakiye() + ' · folyo kapali');
+
+    // =====================================================================
     // S9 — IDEMPOTENSLIK: ayni dosyalar ikinci kez
     // =====================================================================
     const i1 = metinUygula(MALI);
