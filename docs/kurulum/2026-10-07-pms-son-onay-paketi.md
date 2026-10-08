@@ -46,7 +46,7 @@ SHA-256. Çalışma ağacı temiz olmalı.
 | Adım | İşlem | SHA-256 (commit, LF) |
 |---|---|---|
 | 0 | Onay · kod dondurma · **yedek + doğrulama (§5)** · preflight'ı yeniden koş | — |
-| 1 | `2026-10-06-pms-folio-mali-yetki-ayrimi.sql` | `9b687b8b…c89cc8` |
+| 1 | `2026-10-06-pms-folio-mali-yetki-ayrimi.sql` | `49141ac4…0efe2a` |
 | 2 | `2026-10-06-pms-rol-entegrasyon-kilit.sql` | `59e9d14a…98fa1e` |
 | 3 | Arayüz push: `pms-folio.html` · `pms-oda-plani.html` | `bae4da41…7031be` · `c99f766f…d053faf` |
 | 4 | `2026-10-05-pms-onburo-modul-tohumlama.sql` — **`set local app.pms_k1 = 'kayit';` satırı elle açılır** | `9fa9741b…33c4642` |

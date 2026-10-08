@@ -115,7 +115,7 @@ tr -d '\r' < docs/kurulum/<dosya> | sha256sum
 
 | # | Dosya | SHA-256 (LF) |
 |---|---|---|
-| 1 | `2026-10-06-pms-folio-mali-yetki-ayrimi.sql` | `9b687b8b5a9f4b16d18faf056bbbc43838d58cecebc78e47cef0192ac8c89cc8` |
+| 1 | `2026-10-06-pms-folio-mali-yetki-ayrimi.sql` | `49141ac405dc4bc1f4123c8ba3556a382aeba2b571cbe2c2ecae6a139b0efe2a` |
 | 2 | `2026-10-06-pms-rol-entegrasyon-kilit.sql` | `59e9d14af996b5f027f261f66aeb97bf00533dfcf3a94e0ccdef4a34ec98fa1e` |
 | 3 | `2026-10-05-pms-onburo-modul-tohumlama.sql` | `9fa9741bbbbfbd4c2ac75b1435e8542f62de5854e16615a27e808d11033c4642` |
 
@@ -174,7 +174,7 @@ gövde özetinin beklenen değerlerle tutmaması.
 
 | | |
 |---|---|
-| Dosya | `2026-10-06-pms-folio-mali-yetki-ayrimi.sql` (`9b687b8b…c89cc8`) |
+| Dosya | `2026-10-06-pms-folio-mali-yetki-ayrimi.sql` (`49141ac4…0efe2a`) |
 | Niçin önce | Adım 3, folyoya **yazma** yetkisi açıyor; dosya bu kuralı ön koşul olarak **zorluyor** ve kural yoksa `MALI_AYRIM_KURALI_YOK` ile durup hiçbir satır yazmıyor (ölçüldü) |
 | Post-check | Kendi doğrulama bloğu hatasız bitti; `pms_folio_hassas_kapi` **iki** mali tabloda da var; `pms_folio_hassas_mi` tanımlı |
 | Duman testi | Normal (pozitif, gerekçesiz) tahsilat **kabul**; negatif tutar `tam` yetkisiz **ret**; `tam` ile gerekçesiz **ret**; `tam` + gerekçe **kabul** |
@@ -467,3 +467,68 @@ etkileyeceği rollerin listesi.
 - `docs/inceleme/PMS-MODUL-TOHUMLAMA-ONERISI.md` — Adım 4'ün karar tablosu
 - `docs/inceleme/PMS-AKIS-PAKETI.md` — arayüz düzeltmelerinin kaydı
 - `scripts/pms-canliya-gecis-provasi.mjs` — bu paketin provası
+
+---
+
+## 12. Mali kural — fonksiyon ACL kararı (2026-10-08, kullanıcı talimatı)
+
+`2026-10-06-pms-folio-mali-yetki-ayrimi.sql` dosyasına
+`pms_folio_hassas_mi(text,numeric,text,boolean)` için açık ACL kararı eklendi.
+**Üretime dokunulmadı.** Yayın baytı değişti; §2.1 ve son onay paketi §3
+güncellendi: yeni SHA-256 `49141ac405dc4bc1f4123c8ba3556a382aeba2b571cbe2c2ecae6a139b0efe2a`.
+
+### Niçin — kırmızı ölçüm
+
+İzole tabanda, migration uygulandıktan **sonra** ölçüldü:
+
+```
+proacl = =X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres
+anon=true  authenticated=true  service_role=true  PUBLIC=true
+```
+
+Baştaki `=X/postgres` **PUBLIC** hakkıdır; `anon` EXECUTE yetkisini PUBLIC
+üzerinden **devralıyordu**. Statik denetleyici bunu
+`R9-FONKSIYON-ACL-KARARI-YOK` uyarısıyla gösteriyordu.
+
+### Eklenen
+
+```sql
+REVOKE ALL ON FUNCTION public.pms_folio_hassas_mi(text,numeric,text,boolean)
+FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.pms_folio_hassas_mi(text,numeric,text,boolean)
+TO authenticated, service_role;
+```
+
+### Yeşil ölçüm
+
+```
+proacl = postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres
+anon=false  authenticated=true  service_role=true  PUBLIC=false
+```
+
+### Kalıcı regresyon — `pms-folio-mali-yetki.test.mjs`
+
+| # | Ölçüm | Sonuç |
+|---|---|---|
+| **M9** | `anon=false authenticated=true service_role=true` | OK |
+| M9b | `PUBLIC` EXECUTE hakkı kalmadı | OK (`false`) |
+| M9c | `proacl` içinde PUBLIC girdisi (`=X/`) yok | OK (0) |
+| M9d | `authenticated` fonksiyonu **çağırabiliyor** (işlev bozulmadı) | OK (`true`) |
+
+Blok bilerek **M1'den önce**, yani kural yürürlükteyken koşar: ilk denemede
+geri alma fazından sonraya konmuştu ve fonksiyon o noktada düşürülmüş olduğu
+için ölçüm boş dönüyordu.
+
+### Denetleyici
+
+`migration-guvenlik-kontrol`: mali dosya artık **TEMİZ**; toplam uyarı
+**3 → 2**. Kalan ikisi kilit dosyasının `pms_check_in` / `pms_check_out`
+uyarılarıdır (**E-6**) ve bu talimatın kapsamında **değildi** — dokunulmadı.
+
+### Koşumlar
+
+`pms-folio-mali-yetki` **113/0** (önceki 109/0) · `pms-bar-borc-istisnasi`
+17/0 · `pms-rol-entegrasyon` 53/0 · `pms-modul-tohum` 68/0 · dört PMS süiti
+59/0 · `pms-cikis-dialog` 31/0 · prova temiz **132/0** / mevcut **135/0** ·
+`migration-guvenlik-kontrol.test` 15/0 · `check.mjs` 18 JS + 59 HTML çıkış 0.

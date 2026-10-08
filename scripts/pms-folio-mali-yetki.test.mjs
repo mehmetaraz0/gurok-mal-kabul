@@ -147,6 +147,42 @@ try {
     olarak(kim, `insert into public.pms_folio_odemeler (otel_id, folio_id, yontem, tutar, aciklama)
       values ('810','${folio}','nakit',${tutar},${aciklama === null ? 'null' : `'${aciklama}'`});`);
 
+  // ===================================================================
+  // M9 — FONKSIYON ACL KARARI (2026-10-08, kullanici talimati)
+  // ===================================================================
+  // KIRMIZI olculdu: ACL satirlari eklenmeden once fonksiyonun proacl i
+  //   =X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres
+  // idi. Bastaki `=X/postgres` PUBLIC hakkidir; `anon` EXECUTE yetkisini
+  // PUBLIC uzerinden DEVRALIYORDU (anon=true). Statik denetleyici bunu
+  // R9-FONKSIYON-ACL-KARARI-YOK uyarisiyla gosteriyordu.
+  // Beklenen: anon=false, authenticated=true, service_role=true.
+  const aclOzeti = tek(`select
+    (case when has_function_privilege('anon','public.pms_folio_hassas_mi(text,numeric,text,boolean)','execute') then 'anon=true' else 'anon=false' end) || ' ' ||
+    (case when has_function_privilege('authenticated','public.pms_folio_hassas_mi(text,numeric,text,boolean)','execute') then 'authenticated=true' else 'authenticated=false' end) || ' ' ||
+    (case when has_function_privilege('service_role','public.pms_folio_hassas_mi(text,numeric,text,boolean)','execute') then 'service_role=true' else 'service_role=false' end);`);
+  es('M9 pms_folio_hassas_mi ACL karari',
+    'anon=false authenticated=true service_role=true', aclOzeti);
+
+  // PUBLIC hakki da dusmus olmali: anon yarin yeni bir rol olsa bile
+  // PUBLIC uzerinden yetki devralmasin.
+  // Not: boolean::text PostgreSQL'de 'true'/'false' verir, 't'/'f' DEGIL.
+  es('M9b PUBLIC EXECUTE hakki kalmadi', 'false',
+    tek(`select has_function_privilege('public','public.pms_folio_hassas_mi(text,numeric,text,boolean)','execute')::text;`));
+  es('M9c proacl icinde PUBLIC girdisi (=X/) YOK', '0',
+    tek(`select count(*)::text from pg_proc p,
+      unnest(coalesce(p.proacl, '{}'::aclitem[])) a
+     where p.pronamespace='public'::regnamespace
+       and p.proname='pms_folio_hassas_mi'
+       and a::text like '=%';`));
+
+  // Fonksiyon hala CAGRILABILIR olmali: ACL kararı islevi bozmadi.
+  const aclCagri = O.kimlikle({ rol: 'authenticated', sub: U.sef },
+    `select public.pms_folio_hassas_mi('pms_folio_odemeler', -1::numeric, null::text, false)::text;`);
+  sonuc(aclCagri.ok && aclCagri.out.trim() === 'true',
+    'M9d authenticated fonksiyonu CAGIRABILIYOR (islev bozulmadi)',
+    aclCagri.ok ? 'sonuc=' + aclCagri.out.trim()
+                : 'RET: ' + String(aclCagri.err).replace(/\s+/g, ' ').slice(-80));
+
   // ======================================================================
   // M1 — OLUMLU: personel ve vardiya normal islem yapabilir
   // ======================================================================

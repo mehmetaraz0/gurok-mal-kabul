@@ -70,6 +70,19 @@ $$;
 comment on function public.pms_folio_hassas_mi(text, numeric, text, boolean) is
   'Folyo satiri hassas mi (iade/indirim/duzeltme)? tam + gerekce ister.';
 
+-- --- 1b) Fonksiyon ACL kararI -------------------------------------------
+-- OLCULDU (izole taban + bu migration): fonksiyon olusturulduktan sonra
+--   proacl = =X/postgres,postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres
+-- yani `=X/postgres` PUBLIC hakkidir ve `anon` EXECUTE yetkisini PUBLIC
+-- uzerinden DEVRALIR (has_function_privilege(anon,...)=true). Statik
+-- denetleyici bunu R9-FONKSIYON-ACL-KARARI-YOK uyarisiyla gosteriyordu.
+-- Karar artik acikca yazilidir; kullanici talimati (2026-10-08).
+REVOKE ALL ON FUNCTION public.pms_folio_hassas_mi(text,numeric,text,boolean)
+FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.pms_folio_hassas_mi(text,numeric,text,boolean)
+TO authenticated, service_role;
+
 -- --- 2) Tetikleyici: her yol + anlasilir mesaj ----------------------------
 create or replace function public.pms_folio_hassas_kapi()
 returns trigger language plpgsql

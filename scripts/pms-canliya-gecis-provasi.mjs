@@ -328,7 +328,19 @@ async function tabanProvasi(tabanAdi) {
     // =====================================================================
     // S1 — SIRA KAPISI: tohumlama ONCE calistirilirsa DURMALI
     // =====================================================================
-    const tohumMetni = yayinKopyasi(readFileSync(KOK + TOHUM, 'utf8'));
+    // TEL TUZAK (2026-10-08): diskteki migration dosyasinda K1 secenek
+    // satirlarinin IKISI de YORUMDA olmali. Bir kez olculdu ki B
+    // worktree sindeki CALISMA KOPYASINDA `kayit` satiri ACIK kalmisti
+    // (commit baytlari saglamdi; yalniz calisma kopyasi kirliydi) ve bunu
+    // repodaki hicbir betik yapmiyor. Acik kalan bir K1 satiri "sessiz
+    // varsayilan YOK" kapisini sessizce etkisizlestirir; bu yuzden ADLI
+    // bir olcum yapilir, kazara bir kayit fark edilmeden gecmesin.
+    const tohumHam = readFileSync(KOK + TOHUM, 'utf8');
+    const k1Acik = (tohumHam.match(/^[ \t]*set local app\.pms_k1 = '(kayit|yok)';/gm) || []);
+    sonuc(k1Acik.length === 0,
+      'F5 diskteki migration: K1 secenekleri IKISI de yorumda (tel tuzak)',
+      k1Acik.length ? 'ACIK KALMIS: ' + k1Acik.join(' | ') : 'ikisi de yorumda');
+    const tohumMetni = yayinKopyasi(tohumHam);
     const yetkiOnce = say('select count(*) from public.yetki_matrisi;');
     const ilkTohum = O.sql(tohumMetni);
     sonuc(!ilkTohum.ok && /MALI_AYRIM_KURALI_YOK/.test(ilkTohum.err),
