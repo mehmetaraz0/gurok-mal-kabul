@@ -418,7 +418,12 @@ devam adımı değildir**.
 
 ---
 
-## 11. SO kapanış incelemesi — 2026-10-08
+## 11. SO kapanış incelemesi — 2026-10-08 · **KABUL EDİLDİ**
+
+> **Bağımsız kapanış kaydı:** `2026-10-08-cede709-SO-kapanis.md` (B adayı
+> `cede709`). **SO-1a / SO-1b / SO-2t KAPALIDIR ve yeniden açılmaz.** Kapanış,
+> gerçek yedek geri yükleme kabulü **değildir** ve canlı yayın onayı
+> **değildir**.
 
 İnceleme: `2026-10-08-0d074078-SO-kapanis-inceleme.md`. Üçü de **yalnız
 operasyonel talimat ve kabul kuralı** düzeltmesiyle kapandı; ürün kodu, SQL ve
@@ -454,3 +459,41 @@ mevcut **135/0** · 2/2 **PROVA GEÇTİ** · provanın kendi testi **4/0**.
 
 Gerçek güncel yedek seti + geri yükleme kabulü, yayın penceresi ve canlı kalıcı
 test kayıtları **hâlâ ayrı onay kapılarıdır**.
+
+### 11.1 Bağımsız kapanış ölçümleri (2026-10-08)
+
+İncelemecinin kendi koştukları:
+
+| Kontrol | Sonuç |
+|---|---|
+| `yayin-kabul-kurallari.test` | 15 geçti / 0 başarısız / 0 atlandı |
+| Prova — temiz | 132 geçti / 0 |
+| Prova — mevcut | 135 geçti / 0 |
+| Üst prova | 2/2 taban, çıkış 0 |
+| Gerçek `yedek-prova-kos.ps1` + sentetik Node, **başarı** yolu | parola ulaştı · çıkış 0 · env temiz · geçici kopya silindi · asıl dosya korundu |
+| Aynı sarmalayıcı, **hata** yolu | parola ulaştı · **çıkış 23 korundu** · aynı temizlik kontrolleri geçti |
+
+### 11.2 Kanıt sınırı — iki ayrı doğrulama, iki ayrı kapsam
+
+| Konu | İncelemecinin kapsamı | Bu paketin kapsamı |
+|---|---|---|
+| `yedek-prova-kos.ps1` akışı | **Gerçek** betik çağrıldı, altındaki Node **yapay bir süreçle** temsil edildi → bu sondadan **OpenSSL çözmesi geçti sonucu çıkarılmaz**. Ek olarak **hata yolunda çıkış kodunun korunduğu** ölçüldü (bizim turda ölçülmemişti) | **Gerçek** betik + **gerçek** `pms-yedek-geri-yukleme-provasi.mjs` + **gerçek OpenSSL**, **sentetik** anahtar/parola/şifreli dosyayla → çözme başarılı |
+| Y8 | Karşı örnekler testlerde; modülün gerçek geri yükleme betiğinden çağrıldığı ve BOM soyulduğu **kaynak farkından** doğrulandı | Gerçek hat üzerinden koşuldu: `6/6 · sapma 0 · GECTI` ve `1/6 · sapma 5 · BASARISIZ` |
+| **Y1–Y8 gerçek güncel yedekle** | **koşulmadı** | **koşulmadı** |
+
+İkisi birlikte okunur: sarmalayıcının süreç/temizlik/çıkış-kodu sözleşmesi
+bağımsız olarak, OpenSSL çözme yolu ise bu paketin sentetik anahtarlı
+koşumuyla ölçülmüştür. **Gerçek anahtar ve gerçek yedek hiçbir turda
+okunmadı.**
+
+### 11.3 SIRADAKİ KAPI — kullanıcıda
+
+Bu kayıt hiçbirini kendiliğinden yetkilendirmez:
+
+1. **Gerçek güncel yedek setini al** (§5.1–5.2, beş bileşen) ve izole ortamda
+   **Y1–Y8 kabulünü tamamla** (§5.3). Parola ve anahtar yalnız kullanıcıdadır.
+2. Ardından **yayın penceresi** (§6) kararı.
+3. Ardından **canlı duman testinin tutarı ve kalıcı kayıt üretiminin kabulü**
+   (§7.3, §7.5).
+
+Üçü tamamlanmadan `CANLIYA UYGULA` istenmez.
