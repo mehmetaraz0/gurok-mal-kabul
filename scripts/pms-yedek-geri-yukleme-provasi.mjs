@@ -52,6 +52,7 @@ import { readFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as bekle } from 'node:timers/promises';
+import { parmakIziDogrula, PARMAK_IZI_ALANLARI } from './yayin-kabul-kurallari.mjs';
 
 const kok = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const argv = process.argv.slice(2);
@@ -99,6 +100,13 @@ const yukHatalari = (s) => s.split('\n')
 const ilkHata = (s) => (String(s).split('\n').find((l) => l.includes('ERROR:')) || '')
   .replace(/^.*ERROR:\s*/, '').slice(0, 160);
 const sn = (t) => ((Date.now() - t) / 1000).toFixed(1);
+
+// Windows PowerShell 5.1 `Set-Content -Encoding utf8` dosyaya BOM yazar ve
+// JSON.parse bunu reddeder (olculdu: "Unexpected token BOM"). Yayin gunu
+// gecerli bir parmak izi dosyasi bu yuzden reddedilmesin: BOM soyulur.
+function jsonOku(yol) {
+  return JSON.parse(readFileSync(yol, "utf8").replace(/^\uFEFF/, ""));
+}
 
 // --- SIFRELI GIRDI ---------------------------------------------------------
 // Yedekler diskte sifreli durur (OpenSSL CMS). Prova onlari GECICI klasore
@@ -312,7 +320,7 @@ if (!olculen) {
 let fark = 0;
 let karsilastirilan = 0;
 if (sayacDosyasi && existsSync(sayacDosyasi)) {
-  const beklenen = JSON.parse(readFileSync(sayacDosyasi, 'utf8'));
+  const beklenen = jsonOku(sayacDosyasi);
   const b = beklenen.satir_sayilari || {};
   const o = olculen.satir_sayilari || {};
   const tablolar = [...new Set([...Object.keys(b), ...Object.keys(o)])].sort();
@@ -464,7 +472,7 @@ let piDurum = 'atlandi';
 let piSatirlar = [];
 if (parmakIziDosyasi) {
   let beklenen = null;
-  try { beklenen = JSON.parse(readFileSync(parmakIziDosyasi, 'utf8')); } catch (e) {
+  try { beklenen = jsonOku(parmakIziDosyasi); } catch (e) {
     console.log('9) SEMA PARMAK IZI   : OKUNAMADI — ' + String(e.message).slice(0, 80));
     piDurum = 'basarisiz';
   }
@@ -486,27 +494,25 @@ if (parmakIziDosyasi) {
       anon_tablo_hakki: `select count(*) from information_schema.role_table_grants
                           where grantee='anon' and table_schema='public';`,
     };
-    let sapma = 0, karsilastirilan = 0;
+    // SO-1b: karar mantigi scripts/yayin-kabul-kurallari.mjs'e tasindi ve
+    // karsi orneklerle sinaniyor. ALTI alanin TAMAMI zorunludur; eksik, null,
+    // yanlis tur, negatif deger ve taninmayan alan RET'tir.
+    const olculenler = {};
     for (const [ad, sorgu] of Object.entries(olcumler)) {
-      if (beklenen[ad] === undefined || beklenen[ad] === null) continue;
-      const olculen = Number(tek(sorgu) || '-1');
-      const uygun = olculen === Number(beklenen[ad]);
-      karsilastirilan++;
-      if (!uygun) sapma++;
-      piSatirlar.push('     ' + (uygun ? 'UYGUN' : 'SAPMA') + '  ' + ad.padEnd(18)
-        + ' beklenen=' + beklenen[ad] + ' olculen=' + olculen);
+      const ham = tek(sorgu);
+      olculenler[ad] = ham === '' ? null : Number(ham);
     }
-    if (karsilastirilan === 0) {
-      piSatirlar.push('     SAPMA  karsilastirilacak alan yok — beklenen JSON bos');
-      sapma = 1;
-    }
-    piDurum = sapma === 0 ? 'gecti' : 'basarisiz';
-    console.log('9) SEMA PARMAK IZI   : ' + sn(tPi) + ' sn · karsilastirilan ' + karsilastirilan
-      + ' · sapma ' + sapma + ' · ' + piDurum.toUpperCase());
+    const karar = parmakIziDogrula(beklenen, olculenler);
+    piDurum = karar.durum;
+    piSatirlar = karar.satirlar.map((l) => '     ' + l);
+    console.log('9) SEMA PARMAK IZI   : ' + sn(tPi) + ' sn · karsilastirilan '
+      + karar.karsilastirilan + '/' + PARMAK_IZI_ALANLARI.length
+      + ' · sapma ' + karar.sapma + ' · ' + piDurum.toUpperCase());
     for (const l of piSatirlar) console.log(l);
-    if (sapma > 0) {
-      console.log('     NEDEN ONEMLI: geri yuklenen sema, yedegin alindigi surumle eslesmiyor.');
-      console.log('     Satir sayilari tutsa bile bu yedek "guncel veritabanini geri kurar" demez.');
+    if (karar.sapma > 0) {
+      console.log('     NEDEN ONEMLI: geri yuklenen sema, yedegin alindigi surumle eslesmiyor');
+      console.log('     ya da beklenen parmak izi EKSIK. Satir sayilari tutsa bile bu yedek');
+      console.log('     "guncel veritabanini geri kurar" demez. Alti alanin tamami zorunludur.');
     }
   }
 } else {
@@ -537,7 +543,7 @@ console.log('-'.repeat(72));
 // ile uretim provasi sonradan birbirine karistirilmasin.
 if (sayacDosyasi && existsSync(sayacDosyasi)) {
   try {
-    const b = JSON.parse(readFileSync(sayacDosyasi, 'utf8'));
+    const b = jsonOku(sayacDosyasi);
     console.log('SAYAC KAYNAGI: ' + sayacDosyasi);
     console.log('  alinma zamani ' + (b.alinma_zamani || '?') + ' · sunucu ' + (b.sunucu_surumu || '?')
       + ' · rol ' + (b.rol || '?'));

@@ -22,6 +22,7 @@
 // Kullanim: node scripts/pms-canliya-gecis-provasi.mjs
 // ===========================================================================
 import { spawnSync } from 'node:child_process';
+import { degismezlikKarari } from './yayin-kabul-kurallari.mjs';
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
 
 const KOK = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
@@ -511,12 +512,27 @@ async function tabanProvasi(tabanAdi) {
     sonuc(s7b.ok, 'S7b OLUMLU: tam yetkili sef GEREKCELI iadeyi yapabildi',
       s7b.ok ? '-100,00 + gerekce' : 'RET: ' + s7b.err.replace(/\s+/g, ' ').slice(-90));
 
+    // SO-2t: `!update || !delete` kosulu TEK tarafin reddiyle de gecerdi.
+    // Artik IKI deneme de reddedilmeli VE satirin kimlik+icerigi korunmali;
+    // karar mantigi karsi orneklerle sinaniyor (yayin-kabul-kurallari.test).
     const hId = tek(`select id::text from public.pms_folio_hareketleri
       where folio_id='${FOLYO}' order by olusturma_tarihi limit 1;`);
+    const satirOzeti = (id) => tek(`select coalesce(id::text || '|' || tutar::text || '|'
+      || tip::text || '|' || aciklama, '') from public.pms_folio_hareketleri where id='${id}';`);
+    const s8Once = satirOzeti(hId);
     const s8u = olarak('sef', `update public.pms_folio_hareketleri set tutar=1 where id='${hId}';`);
     const s8d = olarak('sef', `delete from public.pms_folio_hareketleri where id='${hId}';`);
-    sonuc(!s8u.ok || !s8d.ok, 'S8 sef dahil kimse MEVCUT mali satiri degistiremedi/silemedi',
-      'update ' + (s8u.ok ? 'KABUL(kusur)' : 'RET') + ' / delete ' + (s8d.ok ? 'KABUL(kusur)' : 'RET'));
+    const s8karar = degismezlikKarari({
+      updateOk: s8u.ok, deleteOk: s8d.ok,
+      oncekiIcerik: s8Once, sonrakiIcerik: satirOzeti(hId),
+    });
+    sonuc(s8karar.gecti, 'S8 sef dahil kimse MEVCUT mali satiri degistiremedi/silemedi',
+      s8karar.ozet + (s8karar.neden ? ' — ' + s8karar.neden : ''));
+    sonuc(/MALI_DEGISMEZ|degistirilemez|permission denied|RLS|policy/i.test(
+      String(s8u.err) + String(s8d.err)),
+      'S8a ret nedeni mali degismezlik/yetki sinifinda',
+      (String(s8u.err || s8d.err).replace(/\s+/g, ' ').match(
+        /(MALI_DEGISMEZ[A-Z_]*|permission denied[^.]{0,30}|[A-Z][A-Z_]{6,})/) || ['?'])[0].slice(0, 46));
     es('S8b satir hala yerinde ve degeri 1000,00', '1000.00',
       tek(`select tutar::text from public.pms_folio_hareketleri where id='${hId}';`));
     // Geri alma fazinda veri kaybi olmadigini olcmek icin taban sayim.
@@ -639,10 +655,21 @@ async function tabanProvasi(tabanAdi) {
     // --- Degismezlik: mevcut satir update/delete edilemez ---------------
     const hId2 = tek(`select id::text from public.pms_folio_hareketleri
       where folio_id='${FOLYO2()}' limit 1;`);
+    const d10Once = satirOzeti(hId2);
     const d10u = olarak2('itadmin', `update public.pms_folio_hareketleri set tutar=9 where id='${hId2}';`);
     const d10d = olarak2('itadmin', `delete from public.pms_folio_hareketleri where id='${hId2}';`);
-    sonuc(!d10u.ok || !d10d.ok, 'S16-18 it_admin MEVCUT mali satiri degistiremedi/silemedi',
-      'update ' + (d10u.ok ? 'KABUL(kusur)' : 'RET') + ' / delete ' + (d10d.ok ? 'KABUL(kusur)' : 'RET'));
+    // SO-2t: IKI deneme de reddedilmeli VE satir kimlik+icerik olarak korunmali.
+    const d10karar = degismezlikKarari({
+      updateOk: d10u.ok, deleteOk: d10d.ok,
+      oncekiIcerik: d10Once, sonrakiIcerik: satirOzeti(hId2),
+    });
+    sonuc(d10karar.gecti, 'S16-18 it_admin MEVCUT mali satiri degistiremedi/silemedi',
+      d10karar.ozet + (d10karar.neden ? ' — ' + d10karar.neden : ''));
+    sonuc(/MALI_DEGISMEZ|degistirilemez|permission denied|RLS|policy/i.test(
+      String(d10u.err) + String(d10d.err)),
+      'S16-18a ret nedeni mali degismezlik/yetki sinifinda',
+      (String(d10u.err || d10d.err).replace(/\s+/g, ' ').match(
+        /(MALI_DEGISMEZ[A-Z_]*|permission denied[^.]{0,30}|[A-Z][A-Z_]{6,})/) || ['?'])[0].slice(0, 46));
 
     // --- Kapanis ve kapali folyoya yazma reddi --------------------------
     const d11 = olarak2('personel', `select public.pms_folio_kapat('${FOLYO2()}');`);

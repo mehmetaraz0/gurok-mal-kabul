@@ -175,23 +175,33 @@ yazılmaz.
 durmaz**, parola yöneticisinden gelir. Bu yüzden her prova aynı zamanda bir
 **anahtar tatbikatıdır**.
 
-Parola **komut satırına ve geçmişe yazılmaz**; PowerShell'de ortam
-değişkenine `Read-Host` ile alınır:
+> **Önceki sürümdeki iki adımlı talimat ÇALIŞMIYORDU (SO-1a, ölçüldü).** Alt
+> bir PowerShell'de kurulan ortam değişkeni **ebeveyne geri taşınmaz**, bu
+> yüzden ardından çalıştırılan `node` aynı parola ortamını hiç görmezdi.
+> Ayrıca çift tırnak içindeki `$` değişkenleri dış kabukta genişliyordu.
+> **"Provanın kendi istemi" diye bir alternatif de YOK:** prova OpenSSL'i
+> `spawnSync` ile çağırır, `-passin env:YEDEK_ANAHTAR_PAROLA` verir ve
+> etkileşimli istem göstermez.
+
+Bu yüzden parola alma, ortam kurma, Node'u başlatma ve temizlik **tek
+süreçte** yapılır — `docs/kurulum/yedek-prova-kos.ps1`:
 
 ```bash
-powershell -Command "$s = Read-Host -AsSecureString 'Yedek anahtar parolasi'; $env:YEDEK_ANAHTAR_PAROLA = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))"
+powershell -File docs/kurulum/yedek-prova-kos.ps1 -Yedek C:\Users\USER\ERP-Yedek\2026-10-07-pre-pms-onburo-veri-yedegi.sql.enc -Sayaclar C:\Users\USER\ERP-Yedek\2026-10-07-pre-pms-onburo-sayaclar.json -Sema C:\Users\USER\ERP-Yedek\2026-10-07-pre-pms-onburo-sema-dokumu.sql -ParmakIzi C:\Users\USER\ERP-Yedek\2026-10-07-pre-pms-onburo-parmakizi.json -AuthVeri C:\Users\USER\ERP-Yedek\2026-10-07-pre-pms-onburo-auth-yedegi.sql.enc -AuthSema C:\Users\USER\ERP-Yedek\2026-10-07-pre-pms-onburo-auth-sema.sql -GizliAnahtar C:\gecici\anahtar-kopyasi.pem -GeciciAnahtariSil
 ```
 
-> Not: her tool çağrısı ayrı bir süreçtir; ortam değişkeni ile provayı **aynı**
-> PowerShell oturumunda çalıştırın (ya da `--gizli-anahtar` verip parolayı
-> provanın kendi istemine girin). Prova bittikten sonra anahtar dosyasını
-> **silin**.
+Betik parolayı `Read-Host -AsSecureString` ile sorar; parola **komut satırına,
+PowerShell geçmişine ve hiçbir dosyaya yazılmaz**. `finally` bloğunda BSTR
+belleği `ZeroFreeBSTR` ile sıfırlanır, `YEDEK_ANAHTAR_PAROLA` silinir.
 
-Ardından (tek satır, `&&` yok):
+> **`-GizliAnahtar` bir GEÇİCİ KOPYA olmalıdır.** `-GeciciAnahtariSil` yalnız
+> o kopyayı siler; **asıl kurtarma anahtarına dokunmaz** (parola
+> yöneticisinde kalır). Her prova aynı zamanda bir **anahtar tatbikatıdır**.
 
-```bash
-node scripts/pms-yedek-geri-yukleme-provasi.mjs C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-veri-yedegi.sql.enc C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-sayaclar.json --sema C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-sema-dokumu.sql --parmakizi C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-parmakizi.json --auth-veri C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-auth-yedegi.sql.enc --auth-sema C:/Users/USER/ERP-Yedek/2026-10-07-pre-pms-onburo-auth-sema.sql --gizli-anahtar <anahtar-dosyasi>
-```
+> **Parmak izi JSON'u BOM'lu olabilir.** PowerShell 5.1'in
+> `Set-Content -Encoding utf8` komutu dosyaya BOM yazar; ölçüldü ki bu
+> `JSON.parse`'ı kırıyordu. Okuyucu artık BOM'u soyuyor, yani PS 5.1'in
+> varsayılan çıktısı **geçerli** sayılıyor.
 
 **Kabul ölçütleri (sekiz aşama, süreleri ayrı raporlanır):**
 
@@ -204,14 +214,16 @@ node scripts/pms-yedek-geri-yukleme-provasi.mjs C:/Users/USER/ERP-Yedek/2026-10-
 | Y5 | Üç veri tutarlılık kontrolü | hepsi **0** |
 | Y6 | Temel uygulama erişimi (gerçek kimlikle `authenticated` okuma; `anon` kapalı) | geçti |
 | Y7 | Auth kurtarma — `kullanicilar.auth_user_id` eşleşmesi | eksik **0** |
-| **Y8** | **Şema parmak izi** — geri yüklenen şema, yedeğin alındığı sürümle eşleşiyor | **sapma 0** (6 alan) |
+| **Y8** | **Şema parmak izi** — geri yüklenen şema, yedeğin alındığı sürümle eşleşiyor | **altı alanın TAMAMI** karşılaştırıldı (`karsilastirilan 6/6`) ve **sapma 0**. Eksik, `null`, yanlış tür, negatif değer ve tanınmayan alan **RET**'tir |
 
 **Y8 yeni eklendi ve dişi ölçüldü** (SO-1 kapanışı):
 
 | Deneme | Sonuç |
 |---|---|
-| 09-07 dökümü + `75/234/40` beklentisi | `karsilastirilan 6 · sapma 0 · GECTI` — altı alan da UYGUN |
+| 09-07 dökümü + altı alan tam | `karsilastirilan 6/6 · sapma 0 · GECTI` |
 | 09-07 dökümü + **güncel** `79/240/41` beklentisi | `sapma 3 · BASARISIZ` → tablo 75≠79, politika 234≠240, kısıtlayıcı 40≠41 |
+| **SO-1b karşı örneği:** yalnız `{"tablo":75}` | `karsilastirilan 1/6 · sapma 5 · BASARISIZ` — beş zorunlu alan "ZORUNLU alan eksik — kabul edilemez" |
+| Her alanın tek tek eksikliği, `null`, yanlış tür, negatif değer, tanınmayan alan | hepsi **BASARISIZ** (`yayin-kabul-kurallari.test.mjs`) |
 | `--parmakizi` **verilmezse** | `SINANMADI` yazılır ve **kabul kanıtı sayılmaz** |
 
 `--mekanik` kipi **kabul kanıtında kullanılmaz**.
@@ -403,3 +415,42 @@ devam adımı değildir**.
 
 **Prova:** temiz **130/0** · mevcut **133/0** · 2/2 **PROVA GEÇTİ**
 (önceki 103/106).
+
+---
+
+## 11. SO kapanış incelemesi — 2026-10-08
+
+İnceleme: `2026-10-08-0d074078-SO-kapanis-inceleme.md`. Üçü de **yalnız
+operasyonel talimat ve kabul kuralı** düzeltmesiyle kapandı; ürün kodu, SQL ve
+yetki matrisi **değişmedi**.
+
+| # | Bulgu | Kapanış |
+|---|---|---|
+| **SO-1a** | Parola hazırlığı sonraki komuta ulaşmıyordu: alt PowerShell'in ortam değişkeni ebeveyne taşınmaz, çift tırnak içindeki `$` dış kabukta genişler, ve "provanın kendi istemi" diye bir alternatif yok (prova OpenSSL'i `spawnSync` + `-passin env:` ile çağırır) | `docs/kurulum/yedek-prova-kos.ps1` yazıldı: parola alma → ortam kurma → Node → **`finally` temizlik** hepsi **tek süreçte**. `ZeroFreeBSTR` ile BSTR sıfırlanır, `YEDEK_ANAHTAR_PAROLA` silinir, `-GeciciAnahtariSil` yalnız **geçici kopyayı** siler (asıl kurtarma anahtarına dokunmaz). Parola komut satırına/geçmişe/dosyaya **yazılmaz** |
+| **SO-1b** | Altı alanlık Y8 kabulü tek alanla geçilebiliyordu (`continue` ile atlanıyordu) | Karar mantığı `scripts/yayin-kabul-kurallari.mjs`'e taşındı: **altı alanın tamamı zorunlu**, her biri sonlu + negatif olmayan **tamsayı**; eksik / `null` / yanlış tür / negatif / **tanınmayan alan** RET. 15 karşı örnek testi kalıcı |
+| **SO-2t** | S16-18 `\|\|` kullanıyordu; tek tarafın reddi yetiyordu | `degismezlikKarari()` ile **VE** mantığı: iki deneme de reddedilmeli **ve** satırın kimlik+içeriği korunmalı. Ret nedeni ayrıca ölçülüyor (`S16-18a`). Aynı kusuru taşıyan **S8** de düzeltildi (inceleme yalnız S16-18'i göstermişti) |
+
+### Talimat uçtan uca sınandı — gerçek parola/yedek okunmadan
+
+Sentetik anahtar çifti + sentetik parola + sentetik şifreli dosya üretildi
+(gerçek `yedek-anahtari.pem` ve gerçek yedekler **okunmadı**):
+
+| Ölçüm | Sonuç |
+|---|---|
+| Parola Node'a ulaştı mı | **evet** — çözme başarılı, `COZME BASARISIZ` yok |
+| Y8 (altı alan tam) | `karsilastirilan 6/6 · sapma 0 · GECTI` |
+| Y8 (yalnız `{"tablo":75}`) | `karsilastirilan 1/6 · sapma 5 · BASARISIZ` |
+| Koşum sonrası `YEDEK_ANAHTAR_PAROLA` | **boş** (ebeveynde de boş) |
+| Geçici anahtar kopyası | **silindi** |
+| Asıl (sentetik) anahtar | **korundu** |
+
+**Yan bulgu — kapatıldı:** PowerShell 5.1'in `Set-Content -Encoding utf8`
+komutu parmak izi JSON'una **BOM** yazıyor ve bu `JSON.parse`'ı kırıyordu
+(ölçüldü). Fail-closed yönde bir hataydı ama meşru bir yayını bloke ederdi;
+okuyucu artık BOM'u soyuyor.
+
+**Koşumlar:** `yayin-kabul-kurallari.test` **15/0** · prova temiz **132/0** ·
+mevcut **135/0** · 2/2 **PROVA GEÇTİ** · provanın kendi testi **4/0**.
+
+Gerçek güncel yedek seti + geri yükleme kabulü, yayın penceresi ve canlı kalıcı
+test kayıtları **hâlâ ayrı onay kapılarıdır**.
