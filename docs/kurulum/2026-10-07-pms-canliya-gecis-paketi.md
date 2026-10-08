@@ -124,7 +124,7 @@ tr -d '\r' < docs/kurulum/<dosya> | sha256sum
 | Dosya | SHA-256 (LF) | Ne değişti |
 |---|---|---|
 | `pms-folio.html` | `bae4da41a3c5394e7b52152193c919ad10dff1c50175e8520656fe90ea7031be` | Mali ayrımı ekrana yansıtma (`maliArayuzuUyarla`), yetkiye göre kurulan tip listesi, rozet ve yardım metinleri |
-| `pms-oda-plani.html` | `c99f766fde2097432689d26dec020dda38d6a67b7e0207981f9d09877d053faf` | Check-in listesi sunucunun kuralını aynalıyor (atanmış rezervasyon da listelenir); modal yardım metni düzeltildi |
+| `pms-oda-plani.html` | `89942b6cc525c90fb304297a78c523c7a6b9d106a209f70880f2cdfb551e000a` | Check-in listesi sunucunun kuralını aynalıyor (atanmış rezervasyon da listelenir); modal yardım metni düzeltildi |
 
 İkisi de **salt istemci** değişikliğidir; yeni bir sunucu sözleşmesine
 bağlı değildir. Ters sırada yayınlanmaları veri bozmaz, yalnız geçici
@@ -532,3 +532,77 @@ uyarılarıdır (**E-6**) ve bu talimatın kapsamında **değildi** — dokunulm
 17/0 · `pms-rol-entegrasyon` 53/0 · `pms-modul-tohum` 68/0 · dört PMS süiti
 59/0 · `pms-cikis-dialog` 31/0 · prova temiz **132/0** / mevcut **135/0** ·
 `migration-guvenlik-kontrol.test` 15/0 · `check.mjs` 18 JS + 59 HTML çıkış 0.
+
+---
+
+## 13. `doluRez` düzeltmesi — canlıda ölçülen check-out tıkanması (2026-10-08)
+
+Canlı sentetik QA testinde (BOZO / Ön Büro Personeli, oda 101) ölçüldü: oda
+sunucuda **dolu** görünürken oda planında **misafir satırı ve "Çıkış" düğmesi
+hiç çizilmedi**; resepsiyon check-out yapamadı.
+
+### Kök neden
+
+```js
+const atama = ATAMALAR.find(a=>a.oda_id===o.id && a.aktif);   // İLK aktif atama
+```
+
+Faz 1 kararı gereği check-out'tan sonra atama `aktif = true` **kalır** (geçmiş
+konaklama kaydı). Aynı odada eski bir `cikis_yapildi` ataması listede önce
+gelirse fonksiyon o rezervasyonun durumuna bakıp `null` döner. `cikisAc()` de
+aynı fonksiyonu kullandığı için check-out yolu tamamen kapanır.
+
+### Düzeltme
+
+Bütün aktif atamalar taranır; atama **ve bağlı rezervasyon durumu birlikte**
+değerlendirilir, ilk eşleşmede durulmaz. Aynı odada birden fazla *içeride*
+konaklama görünürse **rastgele ya da sıraya bağlı seçim yapılmaz**: durum
+`belirsiz` olarak işaretlenir, kart "TUTARSIZ: n içeride konaklama" yazar,
+Çıkış düğmesi **görünür ama pasif** olur ve `cikisAc()` açıklayıcı bir uyarıyla
+reddeder. Düğmeyi gizlemek, canlıda yaşanan tıkanmayı sessizce tekrar üretirdi.
+
+### Regresyon — `scripts/pms-oda-plani-doluluk.test.mjs` (**15 / 0**)
+
+| # | Ölçüm |
+|---|---|
+| **D1** | Eski (`cikis_yapildi`) atama **önce**: oda doğru rezervasyonla dolu çözümleniyor |
+| D1b | Kartta **doğru** misafir yazıyor (eski konuk değil) |
+| D1c / D1d | Çıkış düğmesi var ve doğru odayı çağırıyor |
+| **D2** | Yeni atama önce: **aynı sonuç** — sıralamadan bağımsız |
+| D3 / D3b | İçeride misafir yok: `null`, Çıkış düğmesi yok |
+| **D4** | **Gecikmiş konaklama** (planlanan çıkış geçmiş, `giris_yapildi`): dolu sayılıyor, Çıkış var |
+| **D5** | Birden fazla içeride konaklama: belirsizlik işaretleniyor, aday sayısı raporlanıyor |
+| D5c | Çıkış **görünür ama pasif** |
+| D5d | Sıralama değişse de **aynı aday kümesi** — rastgelelik yok |
+
+**Kırmızı→yeşil:** düzeltmesiz kodda **8 geçti / 7 kaldı**; düzeltmeyle 15/0.
+**Diş kanıtı:** eski `.find()` mantığı mutant olarak geri konulduğunda test
+yine **8/7**'ye düşüyor.
+
+Test kurgusunda bulunan iki kendi kusurum da düzeltildi: fikstür hataları
+sessizce yutuluyordu ve D5 kurgusu `pms_oda_atamalari` üzerindeki **EXCLUDE**
+kısıtına takılıyordu (`session_replication_role = replica` kısıtları devre dışı
+bırakmaz, yalnız tetikleyicileri). D5 artık çakışmayan tarihlerle kuruluyor.
+
+### Yayın baytı değişti
+
+| Dosya | Eski | Yeni |
+|---|---|---|
+| `pms-oda-plani.html` | `c99f766f…d053faf` | `89942b6c…1e000a` |
+
+**Canlı karşılaştırması (2026-10-08, ölçüldü):**
+
+| Dosya | Canlı | Aday | Yayın adımı |
+|---|---|---|---|
+| `pms-folio.html` | `bae4da41…7031be` | `bae4da41…7031be` | **aynı — yayınlanacak bir şey yok** |
+| `pms-oda-plani.html` | `c99f766f…d053faf` | `89942b6c…1e000a` | **farklı — Adım 3'te yayınlanmalı** |
+
+Yani paketin Adım 3'ü artık **tek dosyalık** gerçek bir adımdır.
+
+### Koşumlar
+
+`pms-oda-plani-doluluk` **15/0** · `pms-akis-ekran` 13/0 · `pms-uctan-uca` 21/0 ·
+`pms-hata-durumlari` 13/0 · `pms-rezervasyon-misafir` 12/0 ·
+`pms-cikis-dialog` **31/0** · prova 2/2 **PROVA GEÇTİ** · `check.mjs` çıkış 0.
+
+Canlıdaki `R-2026-000005` ve geçmiş atamalara **dokunulmadı**.

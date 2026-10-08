@@ -232,11 +232,27 @@ function tipDoldur(){
 // Sunucu tarafı zaten tarihe bakmaz — `pms_check_out` planlanan çıkış
 // tarihini şart koşmaz ve tutarlılık değişmezleri yalnız aktif atama +
 // `giris_yapildi` arar. İstemci görünümü artık aynı kuralı uyguluyor.
+// DÜZELTME 2 (2026-10-08, CANLIDA ÖLÇÜLDÜ — oda 101): burada eskiden İLK aktif
+// atama `.find()` ile alınıyor ve arama ORADA BİTİYORDU. Faz 1 kararı gereği
+// check-out'tan SONRA atama `aktif = true` KALIR (geçmiş konaklama kaydı).
+// Aynı odada eski bir `cikis_yapildi` ataması listede önce gelirse fonksiyon o
+// rezervasyonun durumuna bakıp `null` dönüyordu: oda sunucuda DOLU görünürken
+// ekran onu BOŞ sayıyor, "Çıkış" düğmesi hiç çizilmiyor ve resepsiyon
+// check-out yapamıyordu. Artık atama ve BAĞLI REZERVASYON DURUMU birlikte
+// değerlendirilir; bütün aktif atamalar taranır, ilkinde durulmaz.
 function doluRez(o){
-  const atama = ATAMALAR.find(a=>a.oda_id===o.id && a.aktif);
-  if(!atama) return null;
-  const r = REZ.find(x=>x.id===atama.rezervasyon_id);
-  return (r && r.durum === 'giris_yapildi') ? { rez:r, atama } : null;
+  const icerdekiler = ATAMALAR
+    .filter(a => a.oda_id === o.id && a.aktif)
+    .map(a => ({ atama: a, rez: REZ.find(x => x.id === a.rezervasyon_id) }))
+    .filter(x => x.rez && x.rez.durum === 'giris_yapildi');
+  if(!icerdekiler.length) return null;
+  if(icerdekiler.length > 1){
+    // TUTARSIZ VERİ: aynı odada birden fazla İÇERİDE konaklama görünüyor.
+    // Rastgele ya da sıraya bağlı SEÇİM YAPILMAZ — yanlış misafirin check-out'u
+    // sessizce yapılamaz. Oda dolu gösterilir, Çıkış PASİF olur.
+    return { belirsiz: true, adaylar: icerdekiler };
+  }
+  return { rez: icerdekiler[0].rez, atama: icerdekiler[0].atama, belirsiz: false };
 }
 
 // Kat hizmetleri özeti — TEK toplu istek (oda başına sorgu YOK).
@@ -351,7 +367,13 @@ function odaKart(o){
   const cls = 'k-' + o.kullanim_durumu;
   const tipUyumlu = dolu ? '' : (uygunRezervasyonlar(o).length ? '' : ' uygun-olmayan');
   let butonlar = '';
-  if(dolu){
+  if(dolu && dolu.belirsiz){
+    // Düğme GÖRÜNÜR ama PASİF. Gizlemek, canlıda yaşanan "check-out
+    // yapılamıyor" durumunu sessizce tekrar üretirdi.
+    butonlar = '<button class="btn btn-r btn-sm uygun-olmayan" disabled '
+      + 'title="Bu odada birden fazla içeride konaklama görünüyor; kayıtlar '
+      + 'düzeltilmeden check-out yapılamaz">Çıkış</button>';
+  }else if(dolu){
     butonlar = '<button class="btn btn-r btn-sm" onclick="cikisAc(\''+jsAttrStr(o.id)+'\')">Çıkış</button>';
   }else if(o.kullanim_durumu==='bos'){
     const n = uygunRezervasyonlar(o).length;
@@ -367,7 +389,9 @@ function odaKart(o){
     butonlar += ' <button class="btn btn-s btn-sm" onclick="katHizmetleriAc(\''+jsAttrStr(o.id)+'\')">'
       + 'Kat Hizmetlerinde Aç</button>';
   }
-  const misafirSatiri = dolu
+  const misafirSatiri = (dolu && dolu.belirsiz)
+    ? '<div class="misafir">TUTARSIZ: '+dolu.adaylar.length+' içeride konaklama</div>'
+    : dolu
     ? '<div class="misafir">'+escapeHtml(misafirAdi(dolu.rez.misafir_id))+'</div>'
       + '<div style="font-size:10px;color:var(--gray-500)">'+escapeHtml(dolu.rez.giris_tarihi)+' → '+escapeHtml(dolu.rez.cikis_tarihi)+'</div>'
     : '';
@@ -456,6 +480,11 @@ function cikisAc(odaId){
   if(!o) return;
   const dolu = doluRez(o);
   if(!dolu){ toast('Bu odada bugünü kapsayan aktif konaklama yok'); return; }
+  if(dolu.belirsiz){
+    toast('Bu odada birden fazla içeride konaklama görünüyor — kayıtlar '
+      + 'düzeltilmeden check-out yapılamaz', 5000);
+    return;
+  }
   if(confirm('Oda ' + o.oda_no + ' — ' + misafirAdi(dolu.rez.misafir_id)
     + ' için check-out yapılacak.\n\nOnaylıyor musunuz?')){
     checkOutYap(dolu.rez.id, o.oda_no);
