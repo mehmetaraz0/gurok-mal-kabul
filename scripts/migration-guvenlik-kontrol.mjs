@@ -22,7 +22,12 @@ import path from 'node:path';
 // Bu tarihten ONCEKI dosyalar TARIHSEL kabul edilir ve denetlenmez.
 // PMS Adim 1-4 dahil canliya uygulanmis her sey bu sinirin altindadir;
 // geriye donuk yeniden yazilmazlar (standart, "Gecmis migrationlar").
-const TABAN_TARIH = '2026-09-08';
+// 2026-10-10'da 2026-09-08'den ilerletildi: 2026-10-06 MY-4 dosyasi uretime
+// uygulandi (2026-10-08) ve R11 bulgusu ayri bir duzeltme migration'iyla
+// kapatildi (2026-10-10, uretimde). Bolum 5 geregi uygulanmis dosya yeniden
+// yazilmaz; bu yuzden kapi onun tasidigi tarihsel bulguyla kirilmaz.
+// EN KUCUK ilerletme secildi: kapi bos kalmasin, en az kapsam kaybolsun.
+const TABAN_TARIH = '2026-10-07';
 
 const KURULUM_DIZINI = 'docs/kurulum';
 

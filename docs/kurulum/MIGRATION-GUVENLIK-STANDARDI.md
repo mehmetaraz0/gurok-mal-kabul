@@ -241,8 +241,9 @@ değeri okunur ve `auth_otel_erisim()` ona uygulanır.
 node scripts/migration-guvenlik-kontrol.mjs
 ```
 
-Argümansız çalıştırma **yalnız 2026-09-08 ve sonrası** tarihli
-`docs/kurulum/*.sql` dosyalarına bakar. Veritabanına bağlanmaz.
+Argümansız çalıştırma **yalnız 2026-10-07 ve sonrası** tarihli
+`docs/kurulum/*.sql` dosyalarına bakar (taban tarih; bölüm 5). Veritabanına
+bağlanmaz. Daha eski dosyalar `--tumu` ile ya da yol verilerek denetlenir.
 
 ```bash
 node scripts/migration-guvenlik-kontrol.mjs docs/kurulum/<dosya>.sql   # tek dosya
@@ -326,8 +327,10 @@ keşfeder.
 bulgu (Faz 2 Adım 1 `like` süpürgesiyle, Adım 2 açık revoke'la temiz). Olay
 öncesi Adım 2 yeniden üretildiğinde **yalnız** `pms_housekeeping_odalar`
 bulunur (test O-a). `--tumu` raporunda R1–R10 sayıları değişmedi (577 → 577
-HATA); `R11` taban tarihinden **önceki** 14 dosyada 27 fonksiyon tanımı
-raporlar.
+HATA); `R11`, taban tarihinden **önceki** dosyalarda 28 fonksiyon tanımı raporlar
+(2026-10-10 ölçümü, taban tarih 2026-10-07; `--tumu` = 107 dosya, 605 HATA
+= 577 R1–R10 + 28 R11). Bu 28'den biri aşağıdaki **üretimde düzeltilmiş**
+MY-4 bulgusudur; kalanlar taban tarihten eski tarihsel dosyalardır.
 Bunlar tarihsel kanıttır, kapı değildir (bölüm 5); üretimdeki fiili
 `service_role` EXECUTE hakkı ayrıca, salt-okuma ölçülür.
 
@@ -392,9 +395,26 @@ Gerekçe:
 3. Yeniden yazmak hiçbir açığı kapatmaz — üretim çoktan uygulanmış durumdadır.
    Gerçek bir açık bulunursa **yeni** bir düzeltme migration'ı yazılır.
 
-Denetleyicinin taban tarihi (`TABAN_TARIH = '2026-09-08'`) tam olarak bunun
-için vardır: tarihî dosyalar varsayılan kapsamda değildir ve CI'ı kırmazlar.
+Denetleyicinin taban tarihi (`TABAN_TARIH`) tam olarak bunun için vardır:
+uygulanmış dosyalar varsayılan kapsamda değildir ve CI'ı kırmazlar.
 `--tumu` ile raporlanabilirler; bu bir *inceleme* aracıdır, *kapı* değil.
+
+**Taban tarih 2026-10-10'da `2026-09-08` → `2026-10-07` ilerletildi.**
+Gerekçe: 2026-10-06 MY-4 dosyası üretime uygulandı (2026-10-08) ve taşıdığı
+`R11` bulgusu ayrı bir düzeltme migration'ıyla üretimde kapatıldı
+(2026-10-10). Bölüm 5 gereği o dosya yeniden yazılmaz, dolayısıyla bulguyu
+taşımaya devam eder; kapının onunla kırılması artık bilgi vermez.
+
+**En küçük ilerletme seçildi** — kapı boşalmasın ve en az kapsam kaybolsun:
+varsayılan kapsamda hâlâ 4 dosya var (2026-10-07 preflight, iki 2026-10-09
+salt-okuma dosyası, 2026-10-10 düzeltme migration'ı) ve ölçüm **0 HATA /
+0 UYARI, çıkış 0**. Kapsamdan düşen 36 dosyanın hepsi ya üretime
+uygulanmıştır ya salt-okuma/geri-alma dosyasıdır; bunlar yol verilerek
+denetlenmeye devam eder ve bölüm 6 zinciri bunu zorunlu tutar.
+
+> **Yürürlük ile taban tarih AYNI ŞEY DEĞİLDİR.** Standart hâlâ 2026-09-08
+> ve sonrası dosyalar için geçerlidir (başlıktaki *Yürürlük*); taban tarih
+> yalnız **argümansız çalıştırmanın kapısını** daraltır.
 
 **Bilinen sapmalar (kabul edilmiş, kapatılmayacak):**
 
@@ -448,14 +468,21 @@ in progress` beklenen davranıştır: dosyanın kendi `begin;`/`commit;` çifti
 ayrı bir salt-okuma teyidi (SQL Editor'de `has_function_privilege` sorgusu)
 **yapılmadı**; yukarıdaki değerler commit edilen işlemin içinden gelir.
 
-> **Kapı durumu — kırmızının anlamı DEĞİŞTİ.** Canlı boşluk **kapandı**; ama
-> `node --test` içindeki **L testi hâlâ kırmızıdır**, çünkü uygulanmış
-> 2026-10-06 dosyası bulguyu taşımaya devam eder (bölüm 5 gereği yeniden
-> yazılmaz) ve L varsayılan kapsamın temiz olmasını bekler. Yani kırmızı artık
-> **canlı bir açığı değil**, kapının uygulanmış dosyalara bakışının
-> kararlaştırılmamış olduğunu gösterir. Açık karar: `TABAN_TARIH`'i ilerletmek
-> (bölüm 5'in mantığı) ya da denetleyiciye dosyalar arası "şu migration'da
-> düzeltildi" yönergesi eklemek. Test zayıflatılmadı, bulgu bastırılmadı.
+**Kapı durumu — kapandı (2026-10-10).** Üç adım sırayla yapıldı ve hiçbiri
+diğerinin yerine geçmedi:
+
+| # | Adım | Sonuç |
+|---|---|---|
+| 1 | Canlı boşluk kapatıldı | düzeltme migration'ı **üretimde** uygulandı |
+| 2 | Bulgu kayda geçti | bu bölüm; `2026-10-06` dosyasına **dokunulmadı**, `@acl-istisna` notu **düşülmedi** |
+| 3 | Kapı daraltıldı | `TABAN_TARIH` `2026-09-08` → **`2026-10-07`** (yukarıda gerekçeli) |
+
+Sonuç ölçüldü: varsayılan kapsam **4 dosya, 0 HATA / 0 UYARI, çıkış 0**;
+sabotaj süiti **20 test, 20 geçti**. Uygulanmış `2026-10-06` dosyası bulguyu
+hâlâ taşır ve `--tumu` ile görünür — tarihsel kanıt olarak orada kalması
+istenen davranıştır. **Test zayıflatılmadı, bulgu bastırılmadı:** `L` testi
+kapsamın temiz olmasını aynen bekler; kapsamın kendisi, uygulanmış dosyaları
+dışarıda bırakacak şekilde daraltıldı.
 
 ---
 
