@@ -528,7 +528,17 @@ beklenen mesaj **ve** SQLSTATE birlikte doğrulanır. Koşum hedef otelde geçic
 olarak 1 rezervasyon + 1 folyo + 1 hareket + 1 ödeme yazıp geri alır; kalıcı iz
 yalnız iki dizideki birer numara boşluğudur.
 
-**Canlı koşum yapılmadı**; madde bu yüzden açık kalır.
+~~**Canlı koşum yapılmadı**; madde bu yüzden açık kalır.~~
+
+> **AŞILDI (2026-10-10).** Sonda canlıda koşuldu ve geçti:
+> `UYGUN: alti denemenin altisi da BEKLENEN RET`. Altı denemenin hepsi
+> `authenticated` rolüyle, `super = f` / `bypassrls = f` koştu; K1 `42501`,
+> K2 `23514`, K3a/K3b/K4a/K4b `42501` (ayrıcalık katmanı). Koşum `ROLLBACK`
+> ile bitti. Tam kayıt, sınırları ve kalıcı izi (iki dizide birer numara)
+> ile `URETIM-YAYIN-RUNBOOK.md` **§15.12**'de. Ölçüm **kullanıcının komut
+> çıktısıdır**. Değişmezliğin iç katmanları hâlâ **ölçülmedi** — istek
+> ayrıcalık katmanında durduğu için `pms_folio_degismez` tetikleyicisine
+> ulaşmıyor.
 
 ### 11.4 KAPANIŞ — **yayın ve ölçülen canlı akış KAPANDI (2026-10-10)**
 
@@ -539,7 +549,7 @@ görevi de burada sona erer; güncel ve tek geçerli kapanış kaydı
 
 | Kapanan | Kapanmayan |
 |---|---|
-| Üç migration + iki arayüz dosyası üretimde (§15.2, §15.2b, §15.3) | **Mali sunucu ret doğrulaması** — ayrı açık iş olarak izlenmeye devam eder |
+| Üç migration + iki arayüz dosyası üretimde (§15.2, §15.2b, §15.3) | ~~Mali sunucu ret doğrulaması~~ → **2026-10-10'da ölçüldü ve kapandı (§15.12)** |
 | Rezervasyon → oda atama → check-in → check-out ölçüldü (§15.5, §15.6) | §15.10'daki release owner / `CANLIYA UYGULA` onay kaydı / post-check çıktıları — kullanıcıda |
 | Mali akışın mutlu yolu: folyo kapalı, bakiye 0,00, satırlar kalıcı (§15.6) | §15.7'deki onay penceresi belirsizliği — korunur |
 | `doluRez` kusuru düzeltildi ve canlıda doğrulandı (§15.8) | Yukarıdaki §11.3'ün üçüncü kapısı **KISMEN** olarak kalır |
@@ -548,5 +558,12 @@ görevi de burada sona erer; güncel ve tek geçerli kapanış kaydı
 > gerçekten reddettiği ölçülmemiştir ve iddia edilmemektedir. Personelin negatif
 > ödemesi, yöneticinin gerekçesiz iadesi ve mali satırların UPDATE/DELETE reddi
 > **ÖLÇÜLMEDİ**; plan ve sonda hazır ama **koşulmadı** (§15.11).
+>
+> **GÜNCELLEME (2026-10-10).** Yukarıdaki paragraf 2026-10-10 **kapanışının**
+> kapsamıdır ve öyle korunur. Aynı gün **ayrı bir koşumla** dört kontrol de
+> canlıda ölçüldü ve sunucu hepsini reddetti (§15.12). Buna rağmen "tam
+> güvenlik kabulü" **hâlâ denmez**: değişmezliğin iç katmanları (politika ve
+> `pms_folio_degismez` tetikleyicisi) ve PostgREST/HTTP davranışı
+> ölçülmemiştir.
 
 Bu kapanışla birlikte yeni sonda, yeni SQL, push veya deploy **yapılmadı**.

@@ -1,9 +1,15 @@
-# PMS — MALİ SUNUCU RETLERİ DOĞRULAMA PLANI (ÇALIŞTIRILMADI)
+# PMS — MALİ SUNUCU RETLERİ DOĞRULAMA PLANI
 
-**Tarih:** 2026-10-09
-**Dal:** `pms/akis-tamamlama`
-**Durum:** PLAN. Canlıda **uygulanmadı**. Bu belge, çalıştırma izni verildiğinde
-izlenecek adımları ve kabul ölçütlerini önceden sabitler.
+**Tarih:** 2026-10-09 · **koşuldu:** 2026-10-10
+**Durum:** **CANLIDA KOŞULDU ve GEÇTİ.** Kapı metni birebir çıktı:
+`UYGUN: alti denemenin altisi da BEKLENEN RET`. Sonuç, sınırları ve kalıcı izi
+ile birlikte `URETIM-YAYIN-RUNBOOK.md` **§15.12**'ye işlendi; ölçüm
+**kullanıcının komut çıktısıdır** (üretim parolası yalnız kullanıcıdadır).
+
+> Bu belgenin geri kalanı **koşumdan önce** yazıldı ve öyle korunur: kabul
+> ölçütünü sonucu gördükten sonra değiştirmediğimizin kaydıdır. Aşağıdaki
+> "yapılmayacaklar" ve "ölçmediği şeyler" bölümleri koşumdan sonra da
+> geçerlidir — özellikle §11: değişmezliğin iç katmanları hâlâ ölçülmemiştir.
 
 ---
 

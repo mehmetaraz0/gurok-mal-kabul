@@ -1149,7 +1149,11 @@ tasarlanan sırayı izledi.
 - Check-out, mali satırları olan bir konaklamada çalışıyor; oda **boş/kirli**
   oluyor ve çıkış temizliği görevi kendiliğinden doğuyor.
 
-#### AÇIK KALAN — sunucu katmanı sınanmadı
+#### AÇIK KALAN — sunucu katmanı sınanmadı → **KAPANDI 2026-10-10 (§15.12)**
+
+> **BU BÖLÜM 2026-10-10'DA AŞILDI.** Aşağıdaki "doğrulanmamıştır" tablosu
+> 2026-10-08 durumudur ve tarihsel kayıt olarak korunur. Sunucu retleri
+> 2026-10-10'da canlıda **ölçüldü**; sonuç ve sınırları **§15.12**'de.
 
 > **Personel iadesi ve gerekçesiz yönetici iadesi YALNIZ ARAYÜZDE
 > engellendi.** Ekran, isteği göndermeden önce kendi kontrolüyle durdurdu
@@ -1306,6 +1310,12 @@ kendi değerlendirmesi değildir.
 > **Tam güvenlik kabulü DEĞİLDİR.** Kapanan şey yayının kendisi ve ölçülen
 > kullanıcı akışıdır. Mali kuralların **sunucu tarafında** gerçekten reddettiği
 > bu kapanışın kapsamında **değildir** ve iddia **edilmemektedir**.
+>
+> **GÜNCELLEME (2026-10-10).** Yukarıdaki cümle 2026-10-10 kapanışının
+> kapsamını anlatır ve öyle korunur. O gün ayrı bir koşumla mali sunucu
+> retleri **ölçüldü** (§15.12) — ama bu da hâlâ **tam güvenlik kabulü
+> değildir**: değişmezliğin iç katmanları ve PostgREST/HTTP davranışı
+> ölçülmemiştir (§15.12'deki "NE ÖLÇÜLDÜ, NE ÖLÇÜLMEDİ").
 
 Ayrıca kapanmayanlar:
 
@@ -1314,14 +1324,14 @@ Ayrıca kapanmayanlar:
   sonrası parmak izi sayıları. Ajan bunları uydurmaz.
 - §15.7'deki onay penceresi belirsizliği **korunur**.
 
-#### AÇIK İŞ (ayrı ve izlenmeye devam eder) — mali sunucu ret doğrulaması
+#### AÇIK İŞ → **KAPANDI 2026-10-10 (§15.12)** — mali sunucu ret doğrulaması
 
 | Öğe | Durum |
 |---|---|
-| Personelin negatif ödemesinin sunucu reddi | **ÖLÇÜLMEDİ** |
-| Yöneticinin gerekçesiz iadesinin sunucu reddi | **ÖLÇÜLMEDİ** |
-| `pms_folio_hareketleri` UPDATE/DELETE reddi | **ÖLÇÜLMEDİ** |
-| `pms_folio_odemeler` UPDATE/DELETE reddi | **ÖLÇÜLMEDİ** |
+| Personelin negatif ödemesinin sunucu reddi | ~~ÖLÇÜLMEDİ~~ → **ÖLÇÜLDÜ 2026-10-10 (§15.12)** |
+| Yöneticinin gerekçesiz iadesinin sunucu reddi | ~~ÖLÇÜLMEDİ~~ → **ÖLÇÜLDÜ 2026-10-10 (§15.12)** |
+| `pms_folio_hareketleri` UPDATE/DELETE reddi | ~~ÖLÇÜLMEDİ~~ → **ÖLÇÜLDÜ 2026-10-10 (§15.12)** |
+| `pms_folio_odemeler` UPDATE/DELETE reddi | ~~ÖLÇÜLMEDİ~~ → **ÖLÇÜLDÜ 2026-10-10 (§15.12)** |
 
 Üçü canlıda **yalnız arayüzde** engellendi; istek sunucuya hiç ulaşmadı (§15.6).
 Arayüz engeli kanıt sayılmaz: arayüz atlanabilir.
@@ -1341,3 +1351,81 @@ yalnız en dıştakinin tuttuğu ölçülebilir (plan §11).
 §15.9'daki iki QA rezervasyonu, iki bekleyen temizlik görevi ve `F-2026-000005`
 mali satırları **silinmeyecek**. Mali satırlar append-only olduğu için geri
 alınamaz; folyo net sıfır ve kapalıdır.
+
+---
+
+### 15.12 Mali sunucu retleri — CANLIDA ÖLÇÜLDÜ (2026-10-10)
+
+**Kaynak: kullanıcının paylaştığı komut çıktısı.** Ajan canlıya bağlanmadı
+(üretim parolası yalnız kullanıcıdadır). Ajanın kendi ölçümü **değildir**.
+
+Koşulan dosya, repodaki sondanın hedef satırları doldurulmuş **kopyasıdır**
+(`C:\Users\USER\ERP-Yedek\sonda-kosum-20261010.sql`, SHA-256
+`64A4B5FC…82D9A067`). Repodaki
+`2026-10-09-pms-mali-sunucu-retleri-sondasi.sql` dosyası `DOLDUR`
+yer tutucularıyla **değişmeden** kalır: üretim kimlikleri repoya yazılmadı ve
+dosya kazara koşulamaz. Kopya yalnız dört hedef satırında farklıdır (ölçüldü:
+çalışma kopyasıyla diff = 8 satır, yani o dördünün eski + yeni hali).
+
+#### Hedef — açık seçimle sabitlendi
+
+| Alan | Değer |
+|---|---|
+| otel | `810` |
+| personel (`pms_folio = kayit`) | BOZO · `13d17929-5f30-45e0-bcea-4432c13abae8` |
+| yönetici (`pms_folio = tam`) | Sistem Test (`sistem_admin`) · `7d612881-6127-48c5-957b-8b309d35d646` |
+| sentetik misafir | `QA-MALI-20261009` · `2346d32a-955f-4fd3-afeb-d611a01e5629` |
+| oda tipi (deterministik) | `std` · `4cba9be8-91bb-4b0e-a730-22d5b988ca90` |
+
+Yönetici ve misafir için **iki aday** vardı; seçim kullanıcıya bırakıldı ve
+yukarıdakiler **kullanıcı tarafından seçildi**. Sonda belirsizlikte durur,
+rastgele seçmez.
+
+#### Altı denemenin sonucu
+
+Her deneme `authenticated` rolüyle, `super = f`, `bypassrls = f` koştu.
+
+| # | Kontrol | Sınıf | SQLSTATE | Reddeden |
+|---|---|---|---|---|
+| 1 | K1 personel negatif ödeme | **BEKLENEN RET** | `42501` | `MALI_TAM_YETKI_GEREKLI` (hassas kapı tetikleyicisi) |
+| 2 | K2 yönetici gerekçesiz iade | **BEKLENEN RET** | `23514` | `MALI_GEREKCE_ZORUNLU` (hassas kapı tetikleyicisi) |
+| 3 | K3a `pms_folio_hareketleri` UPDATE | **BEKLENEN RET (ayrıcalık)** | `42501` | `permission denied for table pms_folio_hareketleri` |
+| 4 | K3b `pms_folio_hareketleri` DELETE | **BEKLENEN RET (ayrıcalık)** | `42501` | aynı |
+| 5 | K4a `pms_folio_odemeler` UPDATE | **BEKLENEN RET (ayrıcalık)** | `42501` | `permission denied for table pms_folio_odemeler` |
+| 6 | K4b `pms_folio_odemeler` DELETE | **BEKLENEN RET (ayrıcalık)** | `42501` | aynı |
+
+Kimlik ve sonuç kapısı:
+
+```
+UYGUN: alti denemenin altisi da BEKLENEN RET
+```
+
+Koşum `ROLLBACK` ile bitti, çıkış kodu **0**.
+
+K1 ve K2'de **beklenen mesaj ve beklenen SQLSTATE birlikte** tuttu (42501 /
+23514). Mesaj doğru ama kod yanlış olsaydı sonuç `SQLSTATE YANLIS (GECERSIZ)`
+olur ve kapıdan geçmezdi.
+
+#### NE ÖLÇÜLDÜ, NE ÖLÇÜLMEDİ
+
+**Ölçüldü:** arayüz atlanarak doğrudan sunucuya gidildiğinde, gerçek uygulama
+rolüyle, dört kontrolün dördü de **sunucu tarafında** reddediliyor. Arayüz
+engeli artık tek koruma değil — asıl koruma sunucuda, ölçülmüş durumda.
+
+**Ölçülmedi — değişmezliğin iç katmanları.** K3/K4 reddi **ayrıcalık
+katmanından** geldi: uygulama rolünde tablo UPDATE/DELETE ayrıcalığı olmadığı
+için istek `pms_folio_degismez` tetikleyicisine **hiç ulaşmadı**. Append-only
+üç katmanlıdır (ayrıcalık yok + politika yok + tetikleyici); bu koşum **en
+dıştakinin tuttuğunu** ölçer. İç katmanları görmek ayrıcalık vermeyi
+gerektirir, **verilmedi**. Bu, izole provadaki tahminle birebir aynı çıktı.
+
+**Ölçülmedi — PostgREST/HTTP davranışı.** Sonda veritabanı oturumunda koşar;
+aynı reddin REST katmanında 4xx'e çevrildiği ayrıca ölçülmedi.
+
+#### Kalıcı iz
+
+Koşum hedef otelde geçici olarak 1 rezervasyon + 1 folyo + 1 hareket + 1 ödeme
+yazdı ve **hepsini geri aldı**. Kalıcı tek iz dizilerdeki numara boşluğudur;
+koşum sonunda ölçülen değerler: `pms_rezervasyon_no_seq` = **6**,
+`pms_folio_no_seq` = **6**. Yani birer numara tüketildi ve atlanmış görünecek.
+Başka kalıcı etki yoktur.
