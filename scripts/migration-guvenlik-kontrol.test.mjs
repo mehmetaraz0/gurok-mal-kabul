@@ -280,6 +280,12 @@ test('N: @append-only, @erisim-yok ve gerekceli @acl-istisna okunur', () => {
 const ADIM1 = path.join(kok, 'docs', 'kurulum', '2026-09-09-pms-faz2-adim1-housekeeping.sql');
 const ADIM2 = path.join(kok, 'docs', 'kurulum', '2026-09-10-pms-faz2-adim2-housekeeping-ui-destek.sql');
 
+// Sabotaj capalari ";\n" ile yazilidir; calisma kopyasi CRLF olabilir.
+// Fiksturu LF'e normalize ederek okuruz, yoksa boz() hicbir eslesme
+// bulamaz ve test "SABOTAJ KURULAMADI" ile durur. Denetleyicinin CRLF
+// davranisi test N ve O-b (gercek yol) ile ayrica olculur.
+const okuLF = (yol) => fs.readFileSync(yol, 'utf8').replace(/\r\n/g, '\n');
+
 function denetleYol(yol, ...ekArgumanlar) {
   const r = spawnSync(process.execPath, [KONTROL, yol, ...ekArgumanlar], { encoding: 'utf8', cwd: kok });
   return { kod: r.status, cikti: (r.stdout || '') + (r.stderr || '') };
@@ -288,7 +294,7 @@ function denetleYol(yol, ...ekArgumanlar) {
 const r11Adedi = cikti => (cikti.match(/R11-SERVICE-ROLE-KARARI-YOK/g) || []).length;
 
 function adim2OlayOncesi() {
-  let m = fs.readFileSync(ADIM2, 'utf8');
+  let m = okuLF(ADIM2);
   m = boz(m, 'revoke all on function public.pms_housekeeping_odalar(text, integer) from authenticated;\n', '');
   m = boz(m, 'revoke all on function public.pms_housekeeping_odalar(text, integer) from service_role;\n', '');
   m = boz(m,
@@ -337,7 +343,7 @@ test('P: adim 1 LIKE supurgesi service_role icermezse -> R11 (yalniz cagrilabili
   assert.equal(temiz.kod, 0, temiz.cikti);
   assert.equal(r11Adedi(temiz.cikti), 0, temiz.cikti);
 
-  const bozuk = boz(fs.readFileSync(ADIM1, 'utf8'),
+  const bozuk = boz(okuLF(ADIM1),
     "    execute format('revoke all on function %s from public, anon, authenticated, service_role', v.f);\n" +
     "    execute format('grant execute on function %s to authenticated', v.f);",
     "    execute format('revoke all on function %s from public, anon, authenticated', v.f);\n" +
