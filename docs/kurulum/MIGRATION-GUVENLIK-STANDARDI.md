@@ -411,7 +411,7 @@ için vardır: tarihî dosyalar varsayılan kapsamda değildir ve CI'ı kırmazl
 
 | Bulgu | Dosya | Durum |
 |---|---|---|
-| `R11-SERVICE-ROLE-KARARI-YOK` · `pms_oda_tipi_kilitle` | [`2026-10-06-pms-rol-entegrasyon-kilit.sql`](2026-10-06-pms-rol-entegrasyon-kilit.sql):47 | **düzeltme migration'ı yazıldı**, uygulanmadı |
+| `R11-SERVICE-ROLE-KARARI-YOK` · `pms_oda_tipi_kilitle` | [`2026-10-06-pms-rol-entegrasyon-kilit.sql`](2026-10-06-pms-rol-entegrasyon-kilit.sql):47 | **ÜRETİMDE DÜZELTİLDİ — 2026-10-10** |
 
 MY-4 migration'ı **yeni** bir `security definer` fonksiyon yarattı ve ACL
 kararını yalnız `public, anon` için verdi (satır 72–73). `service_role` için
@@ -431,10 +431,31 @@ içinden geçen çağrı tanımlayıcının haklarıyla koşar. İzole ölçüm:
 sonra `service_role=false`, `authenticated=true`, `anon=false`; dosya
 idempotent (11/0).
 
-> **Kapı durumu:** düzeltme uygulanana ve kapının uygulanmış dosyalara
-> bakışı kararlaştırılana kadar `node --test` içindeki **L testi kırmızıdır**
-> (varsayılan kapsamın temiz olmasını bekler). Bu kırmızı, bastırılmamış bir
-> **canlı boşluğun** işaretidir; test zayıflatılmadı.
+**Üretime uygulandı — 2026-10-10.** Kaynak: **kullanıcının paylaştığı komut
+çıktısı** (ajan ölçümü değil; üretim parolası yalnız kullanıcıdadır). Ölçülen:
+
+| Satır | Değer |
+|---|---|
+| Uygulanan dosyanın SHA-256'sı | `2897D7D0…FF88BB1A` (adayla birebir) |
+| Önkoşul bloğu | geçti; "zaten yok" bildirimi **çıkmadı** → hak uygulama anında **vardı** |
+| İşlem | `REVOKE` · `GRANT` · `COMMIT` |
+| Dosyanın kendi doğrulaması | `authenticated=true, anon=false, service_role=false. R11 karari verildi.` |
+| Çıkış kodu | **0** |
+
+`WARNING: there is already a transaction in progress` / `there is no transaction
+in progress` beklenen davranıştır: dosyanın kendi `begin;`/`commit;` çifti
+`--single-transaction` sarmalayıcısıyla üst üste biner. Commit'ten **sonra**
+ayrı bir salt-okuma teyidi (SQL Editor'de `has_function_privilege` sorgusu)
+**yapılmadı**; yukarıdaki değerler commit edilen işlemin içinden gelir.
+
+> **Kapı durumu — kırmızının anlamı DEĞİŞTİ.** Canlı boşluk **kapandı**; ama
+> `node --test` içindeki **L testi hâlâ kırmızıdır**, çünkü uygulanmış
+> 2026-10-06 dosyası bulguyu taşımaya devam eder (bölüm 5 gereği yeniden
+> yazılmaz) ve L varsayılan kapsamın temiz olmasını bekler. Yani kırmızı artık
+> **canlı bir açığı değil**, kapının uygulanmış dosyalara bakışının
+> kararlaştırılmamış olduğunu gösterir. Açık karar: `TABAN_TARIH`'i ilerletmek
+> (bölüm 5'in mantığı) ya da denetleyiciye dosyalar arası "şu migration'da
+> düzeltildi" yönergesi eklemek. Test zayıflatılmadı, bulgu bastırılmadı.
 
 ---
 
