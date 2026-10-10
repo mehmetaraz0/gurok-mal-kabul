@@ -103,36 +103,79 @@ recovery cannot be established, keep affected writes disabled and forward-fix.
    Bölge ve güçlü bir DB şifresi seçin.
 
 2. **Şemayı kur.** Supabase SQL Editor'de
-   `docs/kurulum/2026-09-06-sema-dokumu.sql` dosyasının tamamını çalıştırın
-   (tablolar, RLS politikaları, fonksiyonlar, izinler, Phase 0 sertleştirmesi).
+   `docs/kurulum/2026-09-07-post-pms-faz1-sema-dokumu.sql` dosyasının tamamını
+   çalıştırın (tablolar, RLS politikaları, fonksiyonlar, izinler, Phase 0
+   sertleştirmesi).
+
+   > **DÜZELTME (2026-10-10).** Bu adım daha önce `2026-09-06-sema-dokumu.sql`
+   > diyordu; o dosya aynı rehberin *Taban dökümleri* tablosunda **"yalnız
+   > arşiv/karşılaştırma"** olarak işaretlidir. Adım ile tablo çelişiyordu ve
+   > adımı izleyen yeni kurulum PMS öncesi bayat tabanı kuruyordu. Yeni
+   > kurulumun tabanı **POST-PMS-FAZ1**'dir (75 tablo · 234 politika ·
+   > 40 kısıtlayıcı · 28 kapsam fonksiyonu). Eşitlik doğrulayıcısını da
+   > eşleştirin: `2026-09-07-post-pms-faz1-esitlik-dogrulama.sql`.
+
    Eski `01-sema-dokumu.sql` dosyasını KULLANMAYIN — bayat ve güvenlik
    açısından eksiktir; yukarıdaki Phase 0 Security Gate bölümüne bakın.
 
 3. **Referans veriyi yükle.** Aynı editörde `docs/kurulum/02-referans-veri.sql`
    dosyasını çalıştırın (roller, modüller, yetki matrisi — müşteri verisi içermez).
 
-4. **Repoyu klonlayın** (veya fork'layın) ve yerel bir kopyada çalışın.
+4. **Taban dökümünden SONRAKİ zorunlu migration'ları uygulayın.** Taban döküm
+   2026-09-07 tarihli bir anlık görüntüdür; o günden sonra üretimde yapılan
+   düzeltmeler dökümün içinde **yoktur**. Sırayla, aynı SQL Editor'de:
 
-5. **`supabase-config.js`'i güncelleyin.** Yeni projenin URL'i ve anon (public)
+   | # | Dosya | Neyi kapatır |
+   |---|---|---|
+   | 4a | `docs/kurulum/2026-09-08-pms-fonksiyon-acl-temizligi.sql` | Fonksiyonlarda `public`/`anon` EXECUTE mirası. Döküm 2026-09-07'de alındı, bu temizlik 2026-09-08'de yapıldı → **dökümde yok.** Örnek: `pms_bar_folio_koprusu` için dökümde `REVOKE … FROM PUBLIC` satırı yoktur, yalnız `GRANT … TO authenticated, service_role` vardır; temizlik uygulanmazsa yeni kurulumda `public`/`anon` EXECUTE **açık kalır**. Dosya kendi başlığında "yeni kurulumlarda ve staging'de normal bir migration gibi çalıştırılır" der ve **idempotenttir**. |
+   | 4b | `docs/kurulum/2026-08-04-stok-tablo-viewlar.sql` | `stok_acik_siparis` · `stok_acik_talep` · `stok_son_hareket`. Bu üç görünüm **taban dökümünde yok** (ölçüldü: 0 eşleşme) ve `stok-takip.html` tablo görünümünde bunlara `fetch` atar — uygulanmazsa o istekler **404** döner. Üçü de `security_invoker=true` ile tanımlıdır, yani RLS otel kapsamı ana tablolardan gelir. Denetleyiciden temiz geçer. |
+
+   Her ikisini çalıştırdıktan sonra `notify pgrst, 'reload schema';` (4b dosyası
+   bunu kendisi yapar) ve ekranları bir kez açıp doğrulayın.
+
+   **İkisini de SQL Editor'de çalıştırın (sahip `postgres` olsun).** Ölçüldü:
+   taban dökümünde `postgres` rolünün `TABLES` varsayılan izinlerinde `anon`
+   **yoktur** (2026-08-09 anon kilidi dökümde yansımış), ama `supabase_admin`
+   rolünün varsayılanında **vardır**. Yani aynı görünümler başka bir sahiple
+   oluşturulursa `anon`'a okuma hakkı **doğabilir**; SQL Editor yolu bunu
+   kendiliğinden kapatır.
+
+   **4a'nın doğrulaması:** uyguladıktan sonra
+   `docs/kurulum/2026-09-07-varsayilan-acl-uyari-kontrolu.sql` (salt-okuma)
+   çalıştırın; `D3` ölçümü **0** olmalı (`anon`'un EXECUTE hakkı olan fonksiyon
+   sayısı). 2026-09-08'de üretimde 18 → 0 ölçülmüştü.
+
+   > **Bu zincirin TAM olduğu doğrulanmadı.** Ölçüldü ki rehber, taban
+   > dökümünden sonraki şu migration'lara **hiç atıf vermiyor**: Faz 2
+   > housekeeping (`2026-09-09-…adim1`, `2026-09-10-…adim2`),
+   > `2026-09-14-stok-liste-ozet`, Ön Büro modül tohumlama (`2026-10-05-…`),
+   > mali yetki ayrımı ve rol entegrasyon kilidi (`2026-10-06-…`). Bunların
+   > yeni kurulumda gerekip gerekmediği ve hangi sırayla uygulanacağı
+   > **ayrı bir iştir, bu düzeltmenin kapsamında değildir.** Boş projede
+   > kurulum provası yapılmadan "kurulum zinciri tamam" denmez.
+
+5. **Repoyu klonlayın** (veya fork'layın) ve yerel bir kopyada çalışın.
+
+6. **`supabase-config.js`'i güncelleyin.** Yeni projenin URL'i ve anon (public)
    anahtarı ile (Settings → API). Service-role anahtarını ASLA bu dosyaya yazmayın.
 
-6. **`otel-config.js`'i üretin.** `yeni-musteri-kurulum.html`'i tarayıcıda açın,
+7. **`otel-config.js`'i üretin.** `yeni-musteri-kurulum.html`'i tarayıcıda açın,
    bölüm 2'deki formu müşterinin otel bilgileriyle doldurun, üretilen içeriği
    repo kökündeki `otel-config.js`'e yapıştırıp kaydedin ve commit edin.
 
-7. **İlk yöneticiyi oluşturun.** Aynı sayfada bölüm 1'e yeni projenin URL'i +
+8. **İlk yöneticiyi oluşturun.** Aynı sayfada bölüm 1'e yeni projenin URL'i +
    service-role anahtarını girin (yalnız bellekte tutulur), bölüm 3'ten ilk
    yönetici kullanıcısını ekleyin. PIN tam 6 hane olmalıdır (giriş ekranı
    6 haneli PIN bekler).
 
-8. **Deploy edin.** GitHub Pages (veya eşdeğeri) üzerinden yayınlayın; ilk
+9. **Deploy edin.** GitHub Pages (veya eşdeğeri) üzerinden yayınlayın; ilk
    yöneticiyle giriş yapıp portalın açıldığını doğrulayın.
 
-9. **Modülleri ayarlayın.** `yetki-yonetimi.html`'de, müşterinin satın almadığı
-   modüllerin başlığına tıklayarak pasif yapın (🔒). Pasif modül hem menülerden
-   kalkar hem RLS seviyesinde kapanır.
+10. **Modülleri ayarlayın.** `yetki-yonetimi.html`'de, müşterinin satın almadığı
+    modüllerin başlığına tıklayarak pasif yapın (🔒). Pasif modül hem menülerden
+    kalkar hem RLS seviyesinde kapanır.
 
-10. **Ürün/tedarikçi kataloğunu doldurun.** Müşterinin kendi verisiyle —
+11. **Ürün/tedarikçi kataloğunu doldurun.** Müşterinin kendi verisiyle —
     ilgili sayfalardaki Excel toplu içe aktarma özelliğini kullanın
     (`gurok_veritabani.js` içeriği de müşteri kataloğuyla değiştirilmelidir).
 
