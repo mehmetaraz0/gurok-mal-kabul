@@ -405,6 +405,37 @@ için vardır: tarihî dosyalar varsayılan kapsamda değildir ve CI'ı kırmazl
 | Adım 3 (`checkin-checkout`) | `pms_bugun` · `R9` (UYARI) — EXECUTE kararı yok | Tarih döndüren yardımcı; `anon` çağırsa bile veri sızdırmaz. |
 | Adım 4 (`folio`) | **yok** | Standarda tam uyumlu |
 
+**Bulunup DÜZELTİLEN sapma (2026-10-10) — `R11`'in ilk gerçek yakalaması:**
+
+`R11` ana dala alınırken varsayılan kapsamda tek bir hata verdi:
+
+| Bulgu | Dosya | Durum |
+|---|---|---|
+| `R11-SERVICE-ROLE-KARARI-YOK` · `pms_oda_tipi_kilitle` | [`2026-10-06-pms-rol-entegrasyon-kilit.sql`](2026-10-06-pms-rol-entegrasyon-kilit.sql):47 | **düzeltme migration'ı yazıldı**, uygulanmadı |
+
+MY-4 migration'ı **yeni** bir `security definer` fonksiyon yarattı ve ACL
+kararını yalnız `public, anon` için verdi (satır 72–73). `service_role` için
+karar yazılmadığı için varsayılan ACL'nin (P3) verdiği EXECUTE hakkı kaldı.
+Dosya 2026-10-08'de üretime uygulandı.
+
+Atıf ölçüldü: `R11` öncesi denetleyici aynı 39 dosyada **0 HATA (çıkış 0)**,
+`R11` sonrası **1 HATA (çıkış 1)** — yani bulgu `R11`'in kendisinden geliyor,
+başka bir kuralın yan etkisi değil. Boşluk izole ortamda da doğrulandı: MY-4
+uygulandıktan sonra `has_function_privilege('service_role', …)` **true**.
+
+Düzeltme: [`2026-10-10-pms-oda-tipi-kilitle-service-role-revoke.sql`](2026-10-10-pms-oda-tipi-kilitle-service-role-revoke.sql).
+Bölüm 5'in kuralı gereği **uygulanmış dosya yeniden yazılmadı**; karar yeni
+dosyada verildi. `revoke` seçildi çünkü repoda `service_role` ile çağıran yok
+ve `pms_check_in`/`pms_check_out` `security definer` olduğundan onların
+içinden geçen çağrı tanımlayıcının haklarıyla koşar. İzole ölçüm: düzeltmeden
+sonra `service_role=false`, `authenticated=true`, `anon=false`; dosya
+idempotent (11/0).
+
+> **Kapı durumu:** düzeltme uygulanana ve kapının uygulanmış dosyalara
+> bakışı kararlaştırılana kadar `node --test` içindeki **L testi kırmızıdır**
+> (varsayılan kapsamın temiz olmasını bekler). Bu kırmızı, bastırılmamış bir
+> **canlı boşluğun** işaretidir; test zayıflatılmadı.
+
 ---
 
 ## 6. Yayın öncesi zincir
