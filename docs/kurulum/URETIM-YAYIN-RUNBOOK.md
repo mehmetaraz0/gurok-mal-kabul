@@ -832,7 +832,10 @@ Sayısal parmak izi tek başına tam şema eşitliği kanıtı **değildir**.
 | Beş modül için beklenen son durum | **10 korunmuş + 15 yeni = 25** | Kabul ölçütü K7 |
 | `pms_misafir_kimlik` | **0 satır** | Bu paket yetki vermez; silinecek satır da yok |
 
-### Üç migration henüz uygulanmamış (kısmi uygulama yok)
+### Üç migration henüz uygulanmamış (kısmi uygulama yok) — 2026-10-07 DURUMU
+
+> **BAYATLADI:** bu bölüm yayın ÖNCESİ ölçümdür. Üçü de 2026-10-08'de
+> uygulandı; güncel kayıt **§15**.
 
 | Ölçüm | Değer |
 |---|---|
@@ -896,3 +899,445 @@ tablolarını düşürür) ve **bu paketin kapsamında değildir.**
 **Hata olduğu için kendiliğinden YAPILMAYACAKLAR:** tetikleyici düşürme,
 yetki silme, yedek yükleme, ödeme veya hareket silme, otomatik ACL
 düzeltmesi. Her biri ayrı kullanıcı kararıdır.
+
+---
+
+## 15. PMS Ön Büro — UYGULANDI (2026-10-08) · KAPANDI (2026-10-10)
+
+> **§14 artık YAYIN ÖNCESİ bir kayıttır ve tarihsel olarak korunur.** Oradaki
+> "üç migration henüz uygulanmamış" satırı 2026-10-07 durumudur. Üç migration
+> ve arayüz **2026-10-08'de canlıya alındı.**
+>
+> **KAPANIŞ: §15.11.** Yayın ve ölçülen canlı kullanıcı akışı **kapandı**
+> (kullanıcı kararı, 2026-10-10). **Mali sunucu ret doğrulaması ayrı açık iş
+> olarak sürüyor** ve bu kapanış **tam güvenlik kabulü değildir**.
+
+### 15.0 Kaynak sınıfları — bu bölümdeki her satır etiketlidir
+
+| Sınıf | Anlamı |
+|---|---|
+| **(A) AJAN ÖLÇÜMÜ** | Ajanın kendi çalıştırdığı komutun ya da kendi gözlediği ekranın sonucu |
+| **(B) KULLANICININ PAYLAŞTIĞI KOMUT ÇIKTISI** | Komutu kullanıcı çalıştırdı, çıktıyı paylaştı; ajan canlıya bağlanmadı. Çıktının **hangi oturumda** paylaşıldığı ayrıca yazılır (bu oturum / başka bir koordinasyon oturumu) |
+| **(C) KULLANICI BEYANI** | Komut çıktısı yok; yalnız sözlü bildirim |
+
+Üretim veritabanına ajanın erişimi **yoktur ve olmamıştır**.
+
+> **KAYIT DÜZELTMESİ (2026-10-09).** Bu bölümün önceki sürümü §15.2'yi
+> "çıktı paylaşılmadı" ve §15.4'ü "YAPILMADI" diye yazmıştı. Yanlıştı:
+> **"çıktı bu oturumda yok" ile "işlem yapılmadı" aynı şey değildir.** Her iki
+> işlem de yapılmış ve çıktıları kullanıcının **başka bir koordinasyon
+> oturumunda** paylaşılmıştır. Bölümler aşağıda o çıktılarla tamamlandı;
+> çıktılar ajanın kendi ölçümü **değildir**.
+
+---
+
+### 15.1 Yayın ÖNCESİ salt-okuma preflight — **(B, bu oturum)**
+
+| Alan | Değer |
+|---|---|
+| Komut | `docs/kurulum/sql-uygula.ps1 -SaltOkuma` (psql), **kullanıcı çalıştırdı** |
+| Dosya | `docs/kurulum/2026-10-07-pms-onburo-yayin-oncesi-preflight.sql` |
+| Çalışma kopyası SHA-256 | `8FBE6BC5375417C09CEA8BFDDE41B6C93497698043DF9AECFA004A53DEF8C58D` |
+| Yayın baytı (LF) | `4f6964aa5216bb72f44233bdc796e9b7f78e1bfcb473be161b23092c277de304` |
+| Sonuç | **SALT OKUMA, çıkış 0, SAPMA yok** |
+| Ajanın eline geçiş yolu | Kullanıcının paylaştığı tam çıktıdan türetilen değerlendirme kaydı: `2026-10-07-PMS-canli-preflight-degerlendirme.md`. **Ajan ham çıktıyı doğrudan görmedi** |
+
+**Taban parmak izi (yeni POST-FAZ2+STOK+BAR-A1):**
+
+| Ölçü | 2026-09-07 (eski kayıt) | **2026-10-07** |
+|---|---|---|
+| `public` tablo | 75 | **79** |
+| `public` politika | 234 | **240** |
+| Kısıtlayıcı politika | 40 | **41** |
+| RLS kapalı tablo · pinsiz definer · `anon` tablo hakkı | 0 · 0 · 0 | **0 · 0 · 0** |
+| `erp_islem_audit` satır | 36 (09-13) | **119** |
+
+**Ön Büro modül ve yetki durumu — YALNIZ YAYIN ÖNCESİ:**
+
+| Ölçüm | Değer |
+|---|---|
+| Beş hedef modül | **var ve AKTİF** → tohumlamanın ekleyeceği modül **0** |
+| Üç Ön Büro rolü | **var** |
+| Onaylı 15 hedef çift | uyumlu **0** · eksik **15** · çelişen **0** |
+| `it_admin` + `sistem_admin` | beş modülde `tam` = **10 satır**, korunacak |
+| `pms_misafir_kimlik` | **0 satır** |
+
+> **"15 hedef eksik" ifadesi yalnız yayın ÖNCESİ durumdur.** Yayın sonrası
+> ölçüm §15.2b'dedir: **15 uyumlu / 0 eksik / 0 çelişen.**
+
+**Üç migration uygulama öncesi yoktu:** `pms_folio_hassas_kapi` **0**,
+`pms_folio_hassas_mi` **0**, üç fonksiyonda `prosecdef` **false**,
+`pms_oda_tipi_kilitle` **yok**. (Yayın sonrası karşılığı §15.2b.)
+
+**Gövde özetleri — Adım 2 kapısı açıktı:**
+
+| Fonksiyon | `md5(prosrc)` |
+|---|---|
+| `pms_rezervasyon_kontrol` | `83da45a3c84f8e64cd414b78817e5ed2` |
+| `pms_check_in` | `3798c9461390f18f97e537bd9be07612` |
+| `pms_check_out` | `6d6bb0ecbef41ff1a13fc437857f49fa` |
+
+Üçü de beklenen Faz 1 değerleriyle **birebir** → kilit, başkasının
+değişikliğini sessizce geri almayacaktı.
+
+**Mali veri ve operasyonel etki (uygulama öncesi):** `pms_folio_odemeler`
+**3 satır**, `pms_folio_hareketleri` **6 satır**, açık folyo **0**. Folyoya
+yazabilen roller: `it_admin` (2 aktif kullanıcı) ve `sistem_admin` (1), ikisi
+de `tam`. `kayit` seviyesinde kimse yoktu; Adım 1 kimsenin normal tahsilatını
+kesmedi, bu üç kullanıcı için değişiklik **gerekçe zorunluluğudur**.
+
+---
+
+### 15.2 Migration uygulaması — **UYGULANDI (B, başka koordinasyon oturumu)**
+
+Üç migration canlıya uygulandı. Aşağıdaki satırlar kullanıcının **başka bir
+koordinasyon oturumunda paylaştığı komut çıktılarından** alınmıştır; **ajanın
+kendi ölçümü değildir** ve ajan canlıya bağlanmamıştır.
+
+| Adım | Dosya | Çıktı |
+|---|---|---|
+| 1 | `2026-10-06-pms-folio-mali-yetki-ayrimi.sql` | **COMMIT · BAŞARILI · çıkış 0** |
+| 2 | `2026-10-06-pms-rol-entegrasyon-kilit.sql` | **`MY-4 kuruldu: genel yetki genislemesi YOK`** · COMMIT · çıkış 0 |
+| 3 | `2026-10-05-pms-onburo-modul-tohumlama.sql` | **K1 = `kayit`** · **`eklenen_yetki_satiri=15/15`** · COMMIT · çıkış 0 |
+
+**GERİ ALMA UYGULAMA KİMLİĞİ — kaybedilmemesi gereken tek değer:**
+
+```
+26515bf3-0ef6-4432-881b-4c82a90a39c6
+```
+
+Tohumlamanın geri alınması bu kimliği **elle** ister
+(`set local app.pms_uygulama_id = '…';`). Kimlik kayıtsız kalsaydı damgalı 15
+satır geri alınamazdı.
+
+`eklenen_yetki_satiri=15/15`, §15.1'deki "eksik 15" ölçümüyle **tutarlıdır**:
+beklenen delta 15 idi, yazılan 15 oldu.
+
+---
+
+### 15.2b Yayın SONRASI salt-okuma ölçümü — **(B, başka koordinasyon oturumu)**
+
+| Ölçüm | Yayın öncesi (§15.1) | **Yayın sonrası** |
+|---|---|---|
+| Onaylı 15 hedef çift | uyumlu 0 · eksik 15 · çelişen 0 | **uyumlu 15 · eksik 0 · çelişen 0** |
+| `pms_folio_hassas_kapi` tetikleyici | 0 | **2** |
+| `pms_folio_hassas_mi` | 0 | **1** |
+| MY-4 | uygulanmamış | **uygulanmış** |
+| `pms_folio_hassas_mi` ACL (ACL düzeltmesi sonrası) | — | **`anon=false` · `authenticated=true` · `service_role=true`** |
+
+Son satır, `49141ac4…0efe2a` baytındaki açık ACL kararının canlıda
+yürürlükte olduğunu gösterir (izole provadaki M9–M9d ile aynı sonuç).
+
+---
+
+### 15.3 Arayüz yayını — **(A)**
+
+| Ölçüm | Değer |
+|---|---|
+| `origin/main` zinciri | `a77e6e1` → `1ee466a` → `c6eaf06` |
+| Yöntem | `git ls-remote` + `git reflog show origin/main` → **`update by push`** |
+| Push'u kim yaptı | **Kullanıcı** (`mehmetaraz0`). **Ajan hiçbir push yapmadı** |
+| Canlı `pms-oda-plani.html` | `89942b6cc525c90fb304297a78c523c7a6b9d106a209f70880f2cdfb551e000a` — `origin/main`'dekiyle birebir |
+| Canlı `pms-folio.html` | `bae4da41a3c5394e7b52152193c919ad10dff1c50175e8520656fe90ea7031be` |
+
+İlk push (`1ee466a`) `pms-oda-plani.html`'in **düzeltme öncesi** sürümünü
+yayına aldı; `doluRez` kusuru (§15.8) o sürümde ortaya çıktı. İkinci push
+(`c6eaf06`) düzeltilmiş sürümü yayına aldı.
+
+---
+
+### 15.4 Yedek ve geri yükleme provası — **YAYIN ÖNCESİNDE GEÇTİ (B, başka koordinasyon oturumu)**
+
+> **KAYIT DÜZELTMESİ:** bu bölümün önceki sürümü "YAPILMADI" ve "yayın, yedek
+> kabulü tamamlanmadan yapıldı" diyordu. **İkisi de yanlıştı.** Prova yayın
+> öncesinde koşuldu ve **geçti**; çıktısı başka bir koordinasyon oturumunda
+> paylaşıldı.
+
+**Yedek seti:** `C:\Users\USER\ERP-Yedek\yeni-anahtar-20261008-205409\veri`
+
+| # | Aşama | Çıktı |
+|---|---|---|
+| — | Çözme | **İki şifreli dosya çözüldü** |
+| **Y1** | Geri yükleme | **0 hata** |
+| **Y3** | Yabancı anahtar bütünlüğü | **72 doğrulandı · 0 ihlal** |
+| **Y4** | Satır sayıları | **79 tablo · 0 fark** |
+| **Y5** | Veri tutarlılığı | **0 sorun** |
+| **Y7 / Y2** | Auth kurtarma ve kapsam | **13/13 kimlik YEDEKTEN** |
+| **Y8** | Şema parmak izi | **6/6 · sapma 0** |
+| — | Sonuç | **`GERI YUKLEME PROVASI GECTI — yedek kanit sayilir`** |
+| — | Temizlik | **Geçici anahtar silindi, parola ortamı temizlendi** |
+
+Y6 (temel uygulama erişimi) ayrıca alıntılanmadı; provanın kendi toplu kararı
+olan **GEÇTİ**, betikte o aşamanın da sorunsuz olmasını şart koşar.
+
+Y8'in **6/6 · sapma 0** vermesi, §15.1'deki taban parmak iziyle eşleşen bir
+şema üzerinde geri yüklendiğini gösterir — bu aşama tam olarak "eski şemayla
+geri yükleme geçti sayılmasın" diye eklenmişti.
+
+**Ajanın bu konudaki tek kendi ölçümü (A):** gizli anahtarın varlığı ve
+sertifika serisinin (`565AEC41…0C31DC7F`) repodaki `yedek-anahtari.pem` ile
+eşleştiği. Anahtar/parola yönetiminin ayrıntıları bu oturumda paylaşılmadı;
+yedek setinin klasör adı yukarıda **birebir** kaydedilmiştir.
+
+**Ayrı iş olarak açık (A):** `ERP-Yedek` içinde şifrelemeden **önce** alınmış
+iki **düz metin** veri yedeği duruyor (`2026-09-13-pre-faz2-veri-yedegi.sql`,
+`2026-09-13-tam-veri-yedegi.sql`); misafir adı/telefon/folyo içerirler.
+
+---
+
+### 15.5 Canlı kabul — PMS rezervasyon / check-in / check-out: **BAŞARILI (A)**
+
+Ortam: `demo.otel.dornevi.com`, **BOZO**, rol **Ön Büro Personeli** (rolün
+saflığı kullanıcı tarafından doğrulandı), otel **810 — Club Manavgat**.
+Tamamı ajanın kendi gözlemidir.
+
+| # | Adım | Sonuç |
+|---|---|---|
+| 1 | Sentetik misafir | **Başarılı** — `QA-DORNEVI-20261008, QA` |
+| 2 | Rezervasyon | **Başarılı** — `R-2026-000005` · 2026-10-08 → 2026-10-09 · std · 1+0 · Onaylandı · **gecelik fiyat BOŞ** |
+| 3 | Oda ataması | **Başarılı** — Oda 101 |
+| 4 | Check-in | **Başarılı** — oda `dolu`, rezervasyon `giris_yapildi` |
+| 5 | **Check-out** | **Başarılı** — normal "Çıkış" düğmesinden; *"Check-out yapıldı — oda kirli olarak işaretlendi"* |
+| 6 | Son durum | Rezervasyon **Çıkış yapıldı**; oda 101 **Boş + Kirli** |
+| 7 | Otomatik görev | **`Çıkış temizliği · bekliyor · atanmamış`** doğdu |
+
+Bu akış, tohumlamanın ve MY-4 kilidinin canlıda yürürlükte olduğunu
+**davranışsal olarak** doğrular; §15.2b'deki sayısal ölçümle aynı yöne
+işaret eder.
+
+Bir ara gözlem **(A)**: ilk rezervasyon denemesi `HTTP 401` +
+`permission denied for table pms_rezervasyonlar` ile düştü; ipucu mevcut rolü
+`anon` diye adlandırıyordu. Aynı rol ve aynı formla ikinci deneme geçti →
+**oturum/token sorunu**, yetki eksikliği değil. Hatadaki `GRANT … TO anon`
+ipucu **uygulanmadı** ve uygulanmamalıdır.
+
+---
+
+### 15.6 Mali DAVRANIŞ testi — **KISMEN YAPILDI (B, başka koordinasyon oturumu)**
+
+> **KAYIT GÜNCELLEMESİ (2026-10-09).** Bu bölüm daha önce "YAPILMADI" idi.
+> Canlı mali duman testi **koşuldu**; çıktıları kullanıcının başka bir
+> koordinasyon oturumundaki **tarayıcı ölçümlerinden** gelmektedir ve ajanın
+> kendi ölçümü **değildir**. Testin **bir kısmı** yapıldı; sunucu retleri ve
+> değişmezlik **açık kaldı** (aşağıda).
+
+**Kuralın VARLIĞI** zaten §15.2b'de ölçülmüştü (tetikleyici 2, `hassas_mi` 1,
+ACL `anon=false`). Bu bölüm **davranışı** kaydeder.
+
+#### Ölçülen — akış ve kalıcı kayıtlar
+
+| Ölçüm | Sonuç |
+|---|---|
+| Rezervasyon | **`R-2026-000006` çıkış yaptı** |
+| Oda | **102 — boş / kirli**; temizlik görevi **bekliyor** |
+| Folyo | **`F-2026-000005` kapalı**, bakiye **0,00 TL** |
+| Folyo satırları | **bir borç (hareket)** + **üç ödeme: +1 / −1 / +1** |
+
+Bu delta, izole provadaki **S16** sırasıyla **birebir aynıdır** (onay paketi
+§7.3: hareket +1, ödeme +3, son bakiye 0, folyo kapalı). Yani canlı akış
+tasarlanan sırayı izledi.
+
+> **Bu bölümdeki sayılar FOLYO düzeyindedir.** `pms_folio_hareketleri` ve
+> `pms_folio_odemeler` tablolarının **genel** satır sayıları bu oturumda
+> yeniden ölçülmemiştir. (§15.1'deki yayın öncesi değerler 6 hareket / 3 ödeme
+> idi; bu teste göre beklenen 7 ve 6'dır — **ölçülmedi, beklentidir**.)
+
+#### Kanıtlanan
+
+- Normal (pozitif) tahsilat kabul ediliyor ve bakiyeyi sıfırlayabiliyor.
+- Folyo, bakiye sıfırlanınca **kapatılabiliyor**.
+- Check-out, mali satırları olan bir konaklamada çalışıyor; oda **boş/kirli**
+  oluyor ve çıkış temizliği görevi kendiliğinden doğuyor.
+
+#### AÇIK KALAN — sunucu katmanı sınanmadı
+
+> **Personel iadesi ve gerekçesiz yönetici iadesi YALNIZ ARAYÜZDE
+> engellendi.** Ekran, isteği göndermeden önce kendi kontrolüyle durdurdu
+> (`pms-folio.html` tahsilat yolundaki `tutar < 0 && !MALI_TAM()` ve
+> `tutar < 0 && !oAcik` denetimleri). Dolayısıyla istek **sunucuya hiç
+> ulaşmadı** ve aşağıdakiler canlıda **doğrulanmamıştır**:
+
+| # | Doğrulanmayan | Neden önemli |
+|---|---|---|
+| 1 | `MALI_TAM_YETKI_GEREKLI` **sunucu reddi** (negatif tahsilat, `duzeltme` hareketi) | Arayüz denetimi atlanabilir (doğrudan REST çağrısı); asıl koruma sunucudadır |
+| 2 | **Gerekçe zorunluluğu** sunucu reddi (`aciklama` boşken `tam` yetkiyle iade) | aynı |
+| 3 | Mevcut mali satırın **UPDATE / DELETE** ile değiştirilememesi | Append-only güvencesi hiç sınanmadı |
+
+Bu üçü izole provada ölçülmüştür (mali süit M1–M8, prova S16-8/9/13/18) ama
+**canlıda değil**. Kapatılmaları için, arayüzü atlayan doğrudan sunucu
+çağrıları gerekir; bu da ek kalıcı kayıt riski taşır ve **ayrı kullanıcı
+onayına bağlıdır**.
+
+##### 2026-10-09 — doğrulama planı yazıldı, koşum YAPILMADI
+
+| Öğe | Yol |
+|---|---|
+| Plan | `docs/kurulum/2026-10-09-pms-mali-sunucu-retleri-plani.md` |
+| Sonda (salt-sonda, `begin;`…`rollback;`) | `docs/kurulum/2026-10-09-pms-mali-sunucu-retleri-sondasi.sql` |
+| İzole kanıt | `scripts/pms-mali-sunucu-sonda.test.mjs` — **34/0** (kendi ölçümüm, 2026-10-09) |
+
+**Altı deneme.** Yukarıdaki 1–3 numaralı maddeye ek olarak değişmezlik **iki
+tabloda** ayrı ayrı sınanır: K1 personel negatif ödeme · K2 yönetici gerekçesiz
+iade · K3a/K3b `pms_folio_hareketleri` UPDATE/DELETE · **K4a/K4b
+`pms_folio_odemeler` UPDATE/DELETE** (`pms_folio_degismez` tetikleyicisi iki
+tabloda da kurulu). Her denemede beklenen **mesaj ve SQLSTATE birlikte**
+doğrulanır; doğru mesaj + yanlış kod `SQLSTATE YANLIS (GECERSIZ)` olur ve
+kapıdan geçmez. Kabul metni: `UYGUN: alti denemenin altisi da BEKLENEN RET`.
+
+**Hedef açık seçimle sabitlenir:** otel, personel (`kayit`), yönetici (`tam`) ve
+**sentetik** QA misafiri dosyanın başında elle doldurulur; doldurulmamış alan,
+çoklu/eksik kimlik eşleşmesi, yanlış yetki seviyesi ve misafirin yok/çoklu/
+sentetik-görünmeyen olması sondayı **durdurur**.
+
+**Geçici yazma ve dizi etkisi (açıkça):** koşum hedef otelde 1 rezervasyon +
+1 folyo + 1 hareket + 1 ödeme yazar ve `rollback` ile geri alır. Kalıcı iz
+yalnızca `pms_rezervasyon_no_seq` ve `pms_folio_no_seq` dizilerinin birer
+artmasıdır (birer numara boşluğu); sonda çıktısının son satırı bunu yazar.
+
+Kanıtlanan güvenlik özellikleri: beklenmedik **KABUL** taklit edildiğinde bile
+`rollback` kalıcı satır bırakmıyor (G2e–G2h); kapalı folyo asıl yetki hatasını
+maskelerse sonda kurulum aşamasında **duruyor** (G3); `set local role
+authenticated` etkisizleştirilince kimlik kapısı sonucu **GEÇERSİZ** sayıyor
+(G4); hedef seçimi/misafir kapıları gerçekten durduruyor (G0, G6–G9); yanlış
+SQLSTATE kabul edilmiyor (G10).
+
+**Canlı koşum yapılmadı** ve 1–3 numaralı maddeler **açık kalır**. Planın
+ölçmediği şey de kayıtlıdır: uygulama rolünde tablo ayrıcalığı olmadığı için
+istek `pms_folio_degismez` tetikleyicisine ulaşmıyor; üç katmandan yalnız en
+dıştakinin tuttuğu ölçülür (plan §11).
+
+---
+
+### 15.7 Onay penceresi — belirsizlik KORUNUYOR
+
+Check-out normal "Çıkış" düğmesinden tetiklendi. `window.confirm`
+**değiştirilmedi, atlanmadı, bastırılmadı**.
+
+**Ajan onay penceresini ekran görüntüsünde GÖRMEDİ.** İşlem tamamlandığına
+göre `confirm` `true` dönmüştür; bunun tarayıcı uzantısı tarafından mı yoksa
+kullanıcının tıklamasıyla mı olduğu **ajan tarafından ayırt edilememiştir**.
+Bu belirsizlik bilinçli olarak kayda geçirilmiştir ve "onay penceresi insan
+tıklamasıyla sınandı" diye **okunmamalıdır**.
+
+---
+
+### 15.8 Yayın sonrası bulunan ürün kusuru — `doluRez`
+
+Canlı QA akışında ölçüldü **(A)**: oda sunucuda `dolu` iken oda planında
+misafir satırı ve **"Çıkış" düğmesi çizilmiyordu**; check-out yapılamıyordu.
+
+Kök neden: `doluRez()` **ilk aktif atamada duruyordu**. Check-out'tan sonra
+atama `aktif = true` kaldığı için (Faz 1 kararı), eski bir `cikis_yapildi`
+ataması önce gelince fonksiyon `null` dönüyordu. `cikisAc()` de aynı
+fonksiyonu kullandığından çıkış yolu tamamen kapanıyordu.
+
+Düzeltme ve regresyon: `2026-10-07-pms-canliya-gecis-paketi.md` §13 —
+`scripts/pms-oda-plani-doluluk.test.mjs` **15/0**, düzeltmesiz kod **8/7**,
+mutant geri konulunca yine **8/7**. Düzeltilmiş dosya `c6eaf06` ile canlıya
+alındı; §15.5'teki check-out onunla yapıldı.
+
+---
+
+### 15.9 Üretimde kalıcı sentetik iz
+
+İki ayrı canlı QA koşumu kalıcı iz bıraktı.
+
+**Koşum 1 — PMS akış kabulü (§15.5, ajan ölçümü):**
+
+| Kayıt | Durum |
+|---|---|
+| Misafir `QA-DORNEVI-20261008, QA` | **kalıcı** |
+| `R-2026-000005` · Oda 101 · 2026-10-08 → 2026-10-09 | **Çıkış yapıldı** |
+| Oda 101 | **Boş + Kirli** |
+| `Çıkış temizliği` görevi (oda 101) | **bekliyor · atanmamış** |
+| Mali hareket | **YOK** — gecelik fiyat boş bırakılmıştı |
+
+**Koşum 2 — mali duman testi (§15.6, başka koordinasyon oturumu):**
+
+| Kayıt | Durum |
+|---|---|
+| `R-2026-000006` | **Çıkış yapıldı** |
+| Oda 102 | **Boş + Kirli** |
+| `Çıkış temizliği` görevi (oda 102) | **bekliyor** |
+| Folyo `F-2026-000005` | **kapalı**, bakiye **0,00 TL** |
+| Mali satırlar | **1 borç + 3 ödeme (+1 / −1 / +1)** — append-only, **silinemez** |
+
+**Bunlara dokunulmayacak:** QA kayıtları silinmeyecek, **iki** bekleyen
+temizlik görevi üzerinde işlem yapılmayacak. Mali satırlar zaten append-only
+olduğu için geri alınamaz; folyo net sıfır ve kapalıdır.
+
+---
+
+### 15.10 §1'in zorunlu alanları — durum
+
+| Alan | Durum |
+|---|---|
+| Migration dosyaları ve uygulama sonucu | **VAR** (§15.2) |
+| Tohumlamanın uygulama kimliği | **VAR** — `26515bf3-0ef6-4432-881b-4c82a90a39c6` |
+| Yayın öncesi preflight | **VAR** (§15.1) |
+| Yedek ve geri yükleme provası | **VAR — GEÇTİ** (§15.4) |
+| Yayın sonrası doğrulama | **VAR** (§15.2b) |
+| Arayüz yayını ve canlı özet doğrulaması | **VAR** (§15.3) |
+| Smoke test — PMS akışı | **VAR — BAŞARILI** (§15.5) |
+| Smoke test — mali davranış | **KISMEN** (§15.6) — akış ve kalıcı kayıtlar ölçüldü; **sunucu retleri ve UPDATE/DELETE değişmezliği AÇIK** |
+| Uygulama tarihi / saati, release owner, `CANLIYA UYGULA` onay kaydı | **bu oturuma aktarılmadı** — kullanıcı dolduracak |
+| Adım adım post-check çıktıları ve yayın sonrası parmak izi sayıları | **bu oturuma aktarılmadı** — kullanıcı dolduracak |
+
+Ajan bu eksik alanları **uydurmaz**.
+
+---
+
+### 15.11 KAPANIŞ — yayın ve ölçülen canlı kullanıcı akışı TAMAMLANDI (2026-10-10)
+
+**Karar kullanıcıya aittir** (2026-10-10). Bu bölüm o kararı kaydeder; ajanın
+kendi değerlendirmesi değildir.
+
+#### Kapanan kapsam — tam olarak iki şey
+
+| Kapanan | Kayıt | Kaynak |
+|---|---|---|
+| **Yayın** — üç migration (mali yetki ayrımı → MY-4 kilidi → tohumlama) ve iki arayüz dosyası üretimde | §15.2, §15.2b, §15.3 | (B) kullanıcının paylaştığı komut çıktıları + (A) arayüz özeti |
+| **Ölçülen canlı kullanıcı akışı** — rezervasyon → oda atama → check-in → check-out; oda boş/kirli, çıkış temizliği görevi kendiliğinden doğdu | §15.5 (`R-2026-000005`), §15.6 (`R-2026-000006`) | (A) ajan ölçümü + (B) başka koordinasyon oturumu |
+| **Mali akışın mutlu yolu** — `F-2026-000005` kapalı, bakiye 0,00 TL, 1 borç + 3 ödeme kalıcı | §15.6 | (B) başka koordinasyon oturumu |
+| **Yayın sonrası bulunan ürün kusuru** — `doluRez` düzeltildi, regresyon testiyle kilitlendi, canlıda doğrulandı | §15.8 | (A) ajan ölçümü |
+
+#### Bu kapanış NE DEĞİLDİR
+
+> **Tam güvenlik kabulü DEĞİLDİR.** Kapanan şey yayının kendisi ve ölçülen
+> kullanıcı akışıdır. Mali kuralların **sunucu tarafında** gerçekten reddettiği
+> bu kapanışın kapsamında **değildir** ve iddia **edilmemektedir**.
+
+Ayrıca kapanmayanlar:
+
+- §15.10'daki iki alan hâlâ **kullanıcıda**: uygulama tarihi/saati, release
+  owner, `CANLIYA UYGULA` onay kaydı; adım adım post-check çıktıları ve yayın
+  sonrası parmak izi sayıları. Ajan bunları uydurmaz.
+- §15.7'deki onay penceresi belirsizliği **korunur**.
+
+#### AÇIK İŞ (ayrı ve izlenmeye devam eder) — mali sunucu ret doğrulaması
+
+| Öğe | Durum |
+|---|---|
+| Personelin negatif ödemesinin sunucu reddi | **ÖLÇÜLMEDİ** |
+| Yöneticinin gerekçesiz iadesinin sunucu reddi | **ÖLÇÜLMEDİ** |
+| `pms_folio_hareketleri` UPDATE/DELETE reddi | **ÖLÇÜLMEDİ** |
+| `pms_folio_odemeler` UPDATE/DELETE reddi | **ÖLÇÜLMEDİ** |
+
+Üçü canlıda **yalnız arayüzde** engellendi; istek sunucuya hiç ulaşmadı (§15.6).
+Arayüz engeli kanıt sayılmaz: arayüz atlanabilir.
+
+Hazır olan ama **koşulmayan** araçlar: plan
+`docs/kurulum/2026-10-09-pms-mali-sunucu-retleri-plani.md`, sonda
+`docs/kurulum/2026-10-09-pms-mali-sunucu-retleri-sondasi.sql`, izole kanıt
+`scripts/pms-mali-sunucu-sonda.test.mjs` (**34/0**, kendi ölçümüm). Bu madde
+kapanmak için **canlı koşum** ister; koşum yapılmadıkça "doğrulandı" yazılmaz.
+
+Ayrıca kayıtlı kalan sınır: uygulama rolünde tablo UPDATE/DELETE ayrıcalığı
+olmadığı için istek `pms_folio_degismez` tetikleyicisine ulaşmıyor; üç katmandan
+yalnız en dıştakinin tuttuğu ölçülebilir (plan §11).
+
+#### Üretimdeki sentetik iz — dokunulmuyor
+
+§15.9'daki iki QA rezervasyonu, iki bekleyen temizlik görevi ve `F-2026-000005`
+mali satırları **silinmeyecek**. Mali satırlar append-only olduğu için geri
+alınamaz; folyo net sıfır ve kapalıdır.

@@ -1,5 +1,10 @@
 # PMS Ön Büro — SON ONAY PAKETİ
 
+> **DURUM GÜNCELLEMESİ (2026-10-08): bu paketteki üç migration ve arayüz
+> UYGULANDI.** Kayıt: `URETIM-YAYIN-RUNBOOK.md` §15. Belge yayın
+> öncesi karar belgesi olarak korunur; aşağıdaki "uygulanmadı" ifadeleri
+> 2026-10-07 durumudur.
+
 > **BU BELGE YAYIN İZNİ DEĞİL, ONAY TALEBİDİR.** Üretime hiçbir şey
 > uygulanmadı; push, merge, deploy ve canlı SQL yazımı yapılmadı. Canlı yayın
 > yalnız açık `CANLIYA UYGULA` onayıyla başlar (`URETIM-YAYIN-RUNBOOK.md` §0).
@@ -479,21 +484,69 @@ test kayıtları **hâlâ ayrı onay kapılarıdır**.
 |---|---|---|
 | `yedek-prova-kos.ps1` akışı | **Gerçek** betik çağrıldı, altındaki Node **yapay bir süreçle** temsil edildi → bu sondadan **OpenSSL çözmesi geçti sonucu çıkarılmaz**. Ek olarak **hata yolunda çıkış kodunun korunduğu** ölçüldü (bizim turda ölçülmemişti) | **Gerçek** betik + **gerçek** `pms-yedek-geri-yukleme-provasi.mjs` + **gerçek OpenSSL**, **sentetik** anahtar/parola/şifreli dosyayla → çözme başarılı |
 | Y8 | Karşı örnekler testlerde; modülün gerçek geri yükleme betiğinden çağrıldığı ve BOM soyulduğu **kaynak farkından** doğrulandı | Gerçek hat üzerinden koşuldu: `6/6 · sapma 0 · GECTI` ve `1/6 · sapma 5 · BASARISIZ` |
-| **Y1–Y8 gerçek güncel yedekle** | **koşulmadı** | **koşulmadı** |
+| **Y1–Y8 gerçek güncel yedekle** | koşulmadı | koşulmadı *(2026-10-08'de bu belgenin dışında koşuldu ve **GEÇTİ** — kayıt: `URETIM-YAYIN-RUNBOOK.md` §15.4)* |
 
 İkisi birlikte okunur: sarmalayıcının süreç/temizlik/çıkış-kodu sözleşmesi
 bağımsız olarak, OpenSSL çözme yolu ise bu paketin sentetik anahtarlı
 koşumuyla ölçülmüştür. **Gerçek anahtar ve gerçek yedek hiçbir turda
 okunmadı.**
 
-### 11.3 SIRADAKİ KAPI — kullanıcıda
+### 11.3 SIRADAKİ KAPI — **güncellendi (2026-10-09)**
 
-Bu kayıt hiçbirini kendiliğinden yetkilendirmez:
+> **BAYATLADI.** Aşağıdaki üç kapının ilk ikisi 2026-10-08'de tamamlandı ve
+> yayın yapıldı. Güncel kayıt: `URETIM-YAYIN-RUNBOOK.md` **§15**.
 
-1. **Gerçek güncel yedek setini al** (§5.1–5.2, beş bileşen) ve izole ortamda
-   **Y1–Y8 kabulünü tamamla** (§5.3). Parola ve anahtar yalnız kullanıcıdadır.
-2. Ardından **yayın penceresi** (§6) kararı.
-3. Ardından **canlı duman testinin tutarı ve kalıcı kayıt üretiminin kabulü**
-   (§7.3, §7.5).
+| # | Kapı | Durum |
+|---|---|---|
+| 1 | Gerçek güncel yedek seti + izole **Y1–Y8** kabulü | **TAMAMLANDI — prova GEÇTİ** (§15.4) |
+| 2 | Yayın penceresi ve uygulama | **TAMAMLANDI** — üç migration uygulandı, arayüz yayınlandı (§15.2, §15.3) |
+| 3 | **Canlı mali duman testi** | **KISMEN TAMAMLANDI** — akış koşuldu (`R-2026-000006`, `F-2026-000005` kapalı, bakiye 0,00, 1 borç + 3 ödeme); **sunucu retleri ve değişmezlik AÇIK** (§15.6) |
 
-Üçü tamamlanmadan `CANLIYA UYGULA` istenmez.
+PMS akış kabulü (rezervasyon → check-in → check-out) canlıda **başarılı**
+(§15.5). Mali akışın **mutlu yolu** da canlıda koşuldu.
+
+**Kalan açık madde — tek ve dar:** personel iadesi ile gerekçesiz yönetici
+iadesi canlıda **yalnız arayüzde** engellendi; istek sunucuya hiç ulaşmadı.
+Bu yüzden `MALI_TAM_YETKI_GEREKLI`, gerekçe zorunluluğu ve mali satırın
+**UPDATE/DELETE edilememesi** canlıda **doğrulanmadı**. Kapatılması arayüzü
+atlayan doğrudan sunucu çağrıları gerektirir; ek kalıcı kayıt riski taşır ve
+**ayrı kullanıcı onayına bağlıdır**.
+
+**2026-10-09 — plan hazır, koşum hâlâ açık:** bu üç kontrol için çalıştırılmamış
+bir doğrulama planı yazıldı: `docs/kurulum/2026-10-09-pms-mali-sunucu-retleri-plani.md`
+(sonda: `docs/kurulum/2026-10-09-pms-mali-sunucu-retleri-sondasi.sql`). Sondanın
+güvenlik özellikleri izole ortamda kanıtlandı (`scripts/pms-mali-sunucu-sonda.test.mjs`,
+**34/0**): beklenmedik kabulde bile `rollback` kalıcı satır bırakmıyor, kapalı folyo
+maskelemesi durduruluyor, `postgres` ile alınan sonuç GEÇERSİZ sayılıyor, hedef
+seçimi/sentetik misafir kapıları gerçekten durduruyor ve yanlış SQLSTATE kabul
+edilmiyor.
+
+Sonda **altı** deneme yapar: değişmezlik `pms_folio_hareketleri` **ve**
+`pms_folio_odemeler` için ayrı ayrı (K3a/K3b + K4a/K4b) sınanır; hedef otel,
+personel, yönetici ve **sentetik** misafir açık seçimle sabitlenir; her denemede
+beklenen mesaj **ve** SQLSTATE birlikte doğrulanır. Koşum hedef otelde geçici
+olarak 1 rezervasyon + 1 folyo + 1 hareket + 1 ödeme yazıp geri alır; kalıcı iz
+yalnız iki dizideki birer numara boşluğudur.
+
+**Canlı koşum yapılmadı**; madde bu yüzden açık kalır.
+
+### 11.4 KAPANIŞ — **yayın ve ölçülen canlı akış KAPANDI (2026-10-10)**
+
+**Kullanıcı kararı (2026-10-10):** Ön Büro yayın kaydı, **yayın** ve **ölçülen
+canlı kullanıcı akışı** bakımından **KAPANDI**. Bu paketin yayın-hazırlığı
+görevi de burada sona erer; güncel ve tek geçerli kapanış kaydı
+`URETIM-YAYIN-RUNBOOK.md` **§15.11**'dir.
+
+| Kapanan | Kapanmayan |
+|---|---|
+| Üç migration + iki arayüz dosyası üretimde (§15.2, §15.2b, §15.3) | **Mali sunucu ret doğrulaması** — ayrı açık iş olarak izlenmeye devam eder |
+| Rezervasyon → oda atama → check-in → check-out ölçüldü (§15.5, §15.6) | §15.10'daki release owner / `CANLIYA UYGULA` onay kaydı / post-check çıktıları — kullanıcıda |
+| Mali akışın mutlu yolu: folyo kapalı, bakiye 0,00, satırlar kalıcı (§15.6) | §15.7'deki onay penceresi belirsizliği — korunur |
+| `doluRez` kusuru düzeltildi ve canlıda doğrulandı (§15.8) | Yukarıdaki §11.3'ün üçüncü kapısı **KISMEN** olarak kalır |
+
+> **Bu kapanış TAM GÜVENLİK KABULÜ DEĞİLDİR.** Mali kuralların sunucu tarafında
+> gerçekten reddettiği ölçülmemiştir ve iddia edilmemektedir. Personelin negatif
+> ödemesi, yöneticinin gerekçesiz iadesi ve mali satırların UPDATE/DELETE reddi
+> **ÖLÇÜLMEDİ**; plan ve sonda hazır ama **koşulmadı** (§15.11).
+
+Bu kapanışla birlikte yeni sonda, yeni SQL, push veya deploy **yapılmadı**.
