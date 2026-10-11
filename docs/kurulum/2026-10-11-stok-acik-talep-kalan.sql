@@ -14,6 +14,14 @@
 -- SOZLESME DEGISIKLIGI: gorunum artik `birim` kolonu dondurur. stok-takip.html
 -- bununla BIRLIKTE yayinlanmalidir, yoksa farkli birimler toplanir.
 --
+-- UYARI — JWT'SIZ OTURUMDA BU GORUNUM "KALAN" DEGIL "TOPLAM" VERIR. Olculdu:
+-- bag toplami `talep_bag_toplam()`'dan gelir, o da `auth.uid()`'e dayanan
+-- otel + modul kontrolu yapar. psql / SQL Editor / `sql-uygula.ps1`
+-- oturumunda `auth.uid()` null oldugu icin yardimci 0 satir doner ve baglar
+-- hic dusmez (10 KOL kalem + 6 KOL bag: JWT'li 4.000, JWT'siz 10.000).
+-- Yonetici dogrulamasi bu gorunum uzerinden YAPILMAZ; dogrudan tablolardan
+-- hesaplayan sorgu `2026-10-11-talep-siparis-gecis-olcumu.sql` madde 3'tedir.
+--
 -- 2026-10-11-stok-acik-talep-durum-filtresi.sql BILINCLE asiliyor; o dosya
 -- yeniden yazilmaz (standart bolum 5).
 --
@@ -44,9 +52,23 @@ begin;
 -- iki kullanici ayni ekranda FARKLI sayi gorur.
 --
 -- ATLANAN KONTROLUN YENIDEN UYGULANMASI (MY-4 dersi): yardimci definer
--- oldugu icin RLS'i atlar, bu yuzden OTEL KAPSAMI kontrolu burada ACIKCA
--- yeniden uygulanir (`auth_otel_erisim`). Fonksiyon yalniz toplam dondurur;
--- firma, fiyat, siparis numarasi gibi siparis ayrintisi SIZDIRMAZ.
+-- oldugu icin RLS'i atlar, bu yuzden ATLANAN IKI kontrol de burada ACIKCA
+-- yeniden uygulanir:
+--   (1) OTEL KAPSAMI (`auth_otel_erisim`),
+--   (2) MODUL YETKISI. Olculdu (ikinci bagimsiz inceleme): yalniz otel
+--       kontrolu varken, HIC modul yetkisi olmayan ama oteli dogru olan bir
+--       kullanici `talep_siparis_baglari`'ni dogrudan okuyamazken (RLS 0
+--       satir) `rpc/talep_bag_toplam` cagrisindan bag toplamini aliyordu.
+--       Tablonun sozlesmesi (§3.1) siparis modulu yetkisi istiyor; yardimci
+--       onu otel kapsamina indiriyordu.
+--
+-- Yetki kumesi BILINCLI olarak AYRIK: gorunumun mesru tuketicisi stok
+-- ekranidir ve o kullanici `ic_talep:goruntule` tasir (gorunumun talep
+-- tablolarini okuyabilmesi icin zorunlu). Yalniz siparis modulunu sart
+-- kosmak C2'yi geri getirirdi — sebebi tam olarak buydu.
+--
+-- Fonksiyon yalniz toplam dondurur; firma, fiyat, siparis numarasi gibi
+-- siparis ayrintisi SIZDIRMAZ.
 create or replace function public.talep_bag_toplam()
 returns table (talep_kalem_id uuid, hedef_birim text, bagli numeric)
 language sql
@@ -59,6 +81,9 @@ as $fn$
     join public.siparisler s on s.siparis_no = b.siparis_no
    where s.durum <> 'iptal'
      and public.auth_otel_erisim(b.otel_id::text) is true
+     and (coalesce(public.auth_yetki_var('ic_talep','goruntule'), false)
+       or coalesce(public.auth_yetki_var('siparis_olustur','goruntule'), false)
+       or coalesce(public.auth_yetki_var('siparis_takip','goruntule'), false))
    group by b.talep_kalem_id, b.hedef_birim
 $fn$;
 

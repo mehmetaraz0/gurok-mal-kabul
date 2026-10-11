@@ -116,6 +116,19 @@ try {
     gorunum(`select count(*)::text from public.stok_acik_talep where urun_kodu='${f.urunKodu}';`));
   rep(`update public.satin_alma_talepleri set durum='onaylandi' where id='${f.talepId}'::uuid;`);
 
+  // K1: KOLON SOZLESMESI. Istemci `select=otel_id,urun_kodu,birim,talep_miktar`
+  // istiyor; gorunum bu adlardan BIRINI bile kaybederse PostgREST 400 doner,
+  // istemcide `if(rt.ok)` saglanmaz ve Talep sutunu BUTUN urunlerde sessizce
+  // bos kalir (ikinci bagimsiz inceleme I-7/I-11). Kolonlar burada ADLARIYLA
+  // iddia edilir; yoksa bu sessiz kirilmayi hicbir kapi yakalamaz.
+  {
+    const kolonlar = tek(`select string_agg(column_name, ',' order by column_name)
+      from information_schema.columns
+     where table_schema='public' and table_name='stok_acik_talep';`);
+    sonuc(kolonlar === 'birim,otel_id,talep_miktar,urun_kodu',
+      'K1 gorunum TAM OLARAK dort kolonu bu adlarla donduruyor', kolonlar);
+  }
+
   // D1: denetim sorgusu temiz tabanda 0 satir
   es('D1 hedef_birim ayrismasi yok', 0, tek(`select count(*) from public.talep_siparis_baglari b
     join public.satin_alma_talep_kalemleri tk on tk.id = b.talep_kalem_id

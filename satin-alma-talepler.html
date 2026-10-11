@@ -912,6 +912,10 @@ async function talepSipariseDonustur(id){
     talepKalemId:u.id||null}));
   sessionStorage.setItem('sp_devir_satirlar',JSON.stringify(satirlar));
   sessionStorage.setItem('sp_devir_talep',id);
+  // Talebin OTELİ de taşınır. Taşınmazsa sipariş ekranı 810 varsayılanında
+  // kalır ve 811 (Resort) talebi, sebebi ekranda yazmayan bir "otel uyuşmaz"
+  // hatasıyla düşer; kullanıcı yetki sorunu sanır.
+  sessionStorage.setItem('sp_devir_otel', t.otelId || '810');
   // GÜVENLİK (pentest-2 [2]): durum ARTIK istemciden yazılmıyor — sunucu
   // doğruluyor (yetki + durum='onaylandi').
   //

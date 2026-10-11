@@ -55,12 +55,42 @@ select t.durum::text as durum, count(*) as bagsiz_talep_sayisi
  order by t.durum::text;
 
 -- ---------------------------------------------------------------------------
--- 3) ETKI BUYUKLUGU: yeni gorunum toplami, birim bazinda
+-- 3) ETKI BUYUKLUGU: kalan miktar, birim bazinda
 --
--- Birimler TOPLANMAZ — farkli birimlerin toplami anlamsizdir. Satir sayisi ve
--- birim basina toplam ayri ayri okunur.
+-- Birimler TOPLANMAZ — farkli birimlerin toplami anlamsizdir.
+--
+-- DIKKAT — `stok_acik_talep` GORUNUMU BU DOSYADA KULLANILMAZ. Sebebi
+-- OLCULDU: gorunum `security_invoker=true` ve bag toplamini
+-- `talep_bag_toplam()` uzerinden alir; o yardimci `auth_otel_erisim` +
+-- modul yetkisi sorar, ikisi de `auth.uid()`'e dayanir. psql / SQL Editor /
+-- `sql-uygula.ps1` oturumunda JWT YOKTUR, dolayisiyla `auth.uid()` null,
+-- yardimci 0 satir doner ve gorunum baglari HIC dusmez: 10 KOL kalem + 6 KOL
+-- bag varken JWT'li yetkili kimlik 4.000 gorurken JWT'siz oturum 10.000
+-- gorur. Yani gorunum uzerinden alinan "etki buyuklugu" SISTEMATIK OLARAK
+-- SISIKTIR. Hesap burada tablolardan DOGRUDAN yapilir.
 -- ---------------------------------------------------------------------------
-select birim, count(*) as satir_sayisi, sum(talep_miktar) as toplam
+select tk.birim,
+       count(*)                                        as kalem_sayisi,
+       sum(tk.miktar)                                  as talep_toplami,
+       sum(coalesce(b.bagli, 0))                       as bagli_toplami,
+       sum(tk.miktar - coalesce(b.bagli, 0))           as kalan_toplami
+  from public.satin_alma_talep_kalemleri tk
+  join public.satin_alma_talepleri t on t.id = tk.talep_id
+  left join (
+    select b.talep_kalem_id, b.hedef_birim, sum(b.miktar) as bagli
+      from public.talep_siparis_baglari b
+      join public.siparisler s on s.siparis_no = b.siparis_no
+     where s.durum <> 'iptal'
+     group by b.talep_kalem_id, b.hedef_birim
+  ) b on b.talep_kalem_id = tk.id and b.hedef_birim = tk.birim
+ where t.durum not in ('iptal', 'reddedildi')
+   and tk.miktar - coalesce(b.bagli, 0) > 0
+ group by tk.birim
+ order by tk.birim;
+
+-- 3b) Gorunumun JWT'siz oturumda ne dondurdugu — KARSILASTIRMA icin, karar
+--     icin DEGIL. Madde 3 ile ayni cikmasi beklenmez; fark bag toplamidir.
+select birim, count(*) as satir_sayisi, sum(talep_miktar) as gorunum_toplami
   from public.stok_acik_talep
  group by birim
  order by birim;

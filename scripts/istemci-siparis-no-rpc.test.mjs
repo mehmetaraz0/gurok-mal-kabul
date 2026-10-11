@@ -19,7 +19,10 @@
 import { readFileSync } from 'node:fs';
 
 const KOK = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
-const DOSYALAR = ['satin-alma-iade.html', 'stok-takip.html'];
+// UC KOPYA: ucuncusu (siparis olustur) suite disinda kalirsa o dosyaya
+// hata dalindaki rastgele numara uretimi geri gelse testler yesil kalir
+// (olculdu: ikinci bagimsiz inceleme I-10).
+const DOSYALAR = ['satin-alma-iade.html', 'stok-takip.html', 'satin-alma-siparisolustur.html'];
 
 let ok = 0, fail = 0;
 const sonuc = (g, ad, ek) => {
@@ -118,10 +121,12 @@ for (const dosya of DOSYALAR) {
   // S6 — CAGIRAN YER FAIL-CLOSED: numara yoksa akis durur ve ortu kapanir.
   {
     const satirlar = kaynak.split(/\r?\n/);
-    const i = satirlar.findIndex(l => /const\s+siparisNo\s*=\s*await\s+yeniSiparisNoUret\(/.test(l));
+    // Iki cagiran bicimi: `const siparisNo = await ...` (iade, stok-takip) ve
+    // `g.siparisNo = await ...` (siparis olustur, firma grubu dongusu).
+    const i = satirlar.findIndex(l => /(?:const\s+siparisNo|g\.siparisNo)\s*=\s*await\s+yeniSiparisNoUret\(/.test(l));
     sonuc(i >= 0, 'S6a cagiran satir bulundu', i >= 0 ? 'satir ' + (i + 1) : 'yok');
     const blok = satirlar.slice(i + 1, i + 5).join('\n');
-    sonuc(/!siparisNo/.test(blok) && /\breturn\b/.test(blok),
+    sonuc(/!(?:g\.)?siparisNo/.test(blok) && /\breturn\b/.test(blok),
       'S6b numara yoksa cagiran DURUYOR', JSON.stringify(blok.trim().slice(0, 90)));
     sonuc(/hLD\(\)|hideLoading\(\)/.test(blok),
       'S6c erken cikista yukleme ortusu kapaniyor', JSON.stringify(blok.trim().slice(0, 90)));

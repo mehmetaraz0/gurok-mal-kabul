@@ -192,6 +192,71 @@ try {
       JSON.stringify(toastlar(e).slice(-1)[0] || '—'));
   }
 
+  // ---- T8 COK FIRMALI TALEP: kismi basaridan sonra TEKRAR DENEME --------
+  // Bu ekran kalemleri FIRMAYA gore gruplayip grup basina AYRI siparis yazar;
+  // talep ekranindan gelen satirlarda firma HIC yoktur, kullanici satir satir
+  // atar — yani COK GRUP normal yoldur. Grup A yazilip Grup B reddedilirse:
+  //   (a) kullanici Grup A'nin YAZILDIGINI gormeli (yoksa olani bilmez),
+  //   (b) duzeltip tekrar bastiginda Grup A MUKERRER yazilmamali.
+  // Olculdu (ikinci bagimsiz inceleme C-A): anahtar grup basarisinda hemen
+  // yenilendigi icin ikinci denemede Grup A yeni anahtarla, ayni icerikle
+  // tekrar gidiyor ve INV engellemiyorsa IKINCI siparis yaziliyordu.
+  {
+    temizle();
+    const e = ekran({ talepId: f.talepId,
+      satirlar: [
+        { ad: 'Bag Test Urunu', kod: f.urunKodu, miktar: '36', birim: 'KG',
+          not: '', talepKalemId: f.kalemId,  firmaAd: 'Firma A', firmaId: '' },
+        { ad: 'Bag Test Urunu', kod: f.urunKodu, miktar: '500', birim: 'KG',
+          not: '', talepKalemId: f.kalemId2, firmaAd: 'Firma B', firmaId: '' },
+      ] });
+    await hazirBekle(e);
+    es('T8a iki grup olustu', 2,
+      Number(oku(e, "new Set(SP_SATIRLAR.map(r=>r.firmaAd||'_bos')).size")));
+
+    // Grup A gecer (36 KG = 3 KOL, kalan 10 KOL), Grup B asim (500 > 100 KG).
+    await gonder(e);
+    es('T8b Grup A yazildi', 1, ekranSip('count(*)'));
+    es('T8c Grup A bagi 3 KOL', 3, tek(`select miktar from public.talep_siparis_baglari
+      where talep_kalem_id='${f.kalemId}'::uuid;`));
+    sonuc(toastlar(e).some(t => /C[0-9]{8}/.test(t)),
+      'T8d kismi basari kullaniciya YAZILAN siparisi bildiriyor',
+      JSON.stringify(toastlar(e)).slice(0, 170));
+
+    // Kullanici Grup B'yi duzeltip TEKRAR basiyor.
+    oku(e, `SP_SATIRLAR.forEach(function(r){ if(r.firmaAd==='Firma B') r.miktar='50'; });`);
+    await gonder(e);
+    es('T8e tekrar denemede Grup A MUKERRER yazilmadi', 2, ekranSip('count(*)'));
+    es('T8f Grup A bagi tek ve hala 3 KOL', 1,
+      tek(`select count(*) from public.talep_siparis_baglari
+            where talep_kalem_id='${f.kalemId}'::uuid;`));
+    es('T8g Grup B artik yazildi', 1,
+      tek(`select count(*) from public.talep_siparis_baglari
+            where talep_kalem_id='${f.kalemId2}'::uuid;`));
+  }
+
+  // ---- T9 TALEP SATIRINDA URUN DEGISTIRILEMEZ --------------------------
+  // Sunucu urun kodunu TALEP KALEMINDEN turetir. Ekranda urun degistirilirse
+  // ERP kaydi ile tedarikciye giden PDF/mail AYRI urunu gosterir (ikinci
+  // bagimsiz inceleme C-B). Bu yuzden talep kaynakli satirda urun alani
+  // salt-okunur isaretlenir ve degistirme denemesi REDDEDILIR.
+  {
+    temizle();
+    const e = ekran({ talepId: f.talepId,
+      satirlar: [{ ad: 'Bag Test Urunu', kod: f.urunKodu, miktar: '72', birim: 'KG',
+                   not: '', talepKalemId: f.kalemId }] });
+    await hazirBekle(e);
+    oku(e, `spUrunAta(0, {ad:'Baska Urun', kod:'BASKA-001', birim:'KG'});`);
+    sonuc(String(oku(e, 'SP_SATIRLAR[0].kod')) === f.urunKodu,
+      'T9a talep satirinda urun kodu DEGISMEDI', String(oku(e, 'SP_SATIRLAR[0].kod')));
+    sonuc(String(oku(e, 'SP_SATIRLAR[0].ad')) === 'Bag Test Urunu',
+      'T9b talep satirinda urun adi DEGISMEDI', String(oku(e, 'SP_SATIRLAR[0].ad')));
+    sonuc(toastlar(e).some(t => t.includes('değiştirilemez')),
+      'T9c kullaniciya sebep soylendi', JSON.stringify(toastlar(e).slice(-1)[0] || '—'));
+    sonuc(String(oku(e, "renderSPSatirlar(), String(document.getElementById('sp-satirlar').innerHTML).includes('readonly')")) === 'true',
+      'T9d talep satirinin urun alani salt-okunur ciziliyor');
+  }
+
   // ---- T5 TALEPSIZ YOL bozulmadi: eski REST yolu + sunucu numarasi ------
   {
     temizle();

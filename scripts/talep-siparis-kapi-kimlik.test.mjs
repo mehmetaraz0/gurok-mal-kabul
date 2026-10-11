@@ -28,7 +28,9 @@ const MIG = [
   'docs/kurulum/2026-10-11-stok-acik-talep-durum-filtresi.sql',
   'docs/kurulum/2026-10-11-siparis-no-sayac.sql',
   'docs/kurulum/2026-10-11-talep-siparis-baglari.sql',
+  'docs/kurulum/2026-10-11-siparisler-islem-anahtari.sql',
   'docs/kurulum/2026-10-11-talep-siparis-inv-kapilari.sql',
+  'docs/kurulum/2026-10-11-siparis-olustur-talepten.sql',
   'docs/kurulum/2026-10-11-stok-acik-talep-kalan.sql',
 ];
 const O = barOrtami({ ad: 'kapi-kimlik', ag: 'kapi-kimlik-net' });
@@ -126,6 +128,48 @@ try {
       g.ok ? 'KABUL EDILDI (INV bozuldu)' : hat(g));
     sonuc(tek(`select durum from public.siparisler where siparis_no='${f.siparisNo}';`) === 'iptal',
       'C3g siparis iptal kaldi');
+  }
+
+  // ---- Y1: definer YARDIMCILARIN yetki yuzeyi ----------------------------
+  // Tanimlayici baglama gecis RLS'i atlatir; atlanan kontrol ACIKCA yeniden
+  // uygulanmazsa yardimci, tablonun kendisinden daha fazlasini gosterir.
+  // Olculdu (ikinci bagimsiz inceleme I-1): sifir modul yetkili ama oteli
+  // dogru olan kullanici `talep_siparis_baglari`'ni DOGRUDAN okuyamazken
+  // `talep_bag_toplam()` cagrisindan bag toplamini aliyordu.
+  {
+    es('Y1a sifir yetkili kimlik otel kontrolunu GECIYOR', 1,
+      (O.kimlikle(f.kimlikSifir, `select (public.auth_otel_erisim('810'))::int;`).out || '')
+        .trim().split('\n').pop());
+    es('Y1b bag tablosunu DOGRUDAN okuyamiyor (RLS)', 0,
+      (O.kimlikle(f.kimlikSifir, `select count(*)::text from public.talep_siparis_baglari;`).out || '')
+        .trim().split('\n').pop());
+    const y = O.kimlikle(f.kimlikSifir, `select count(*)::text from public.talep_bag_toplam();`);
+    sonuc(!y.ok || Number((y.out || '').trim().split('\n').pop()) === 0,
+      'Y1c talep_bag_toplam() sifir yetkiliye bag SIZDIRMIYOR',
+      y.ok ? 'satir=' + (y.out || '').trim().split('\n').pop() : hat(y));
+    // Mesru tuketici ETKILENMEMELI: gorunum hala 4 KOL vermeli (C2 geri gelmesin).
+    es('Y1d mesru tuketici (ic_talep+stok) hala 4 KOL goruyor', 4,
+      (O.kimlikle(f.kimlikTalep, `select coalesce(sum(talep_miktar),0)::text
+        from public.stok_acik_talep where urun_kodu='${f.urunKodu}' and birim='KOL';`).out || '')
+        .trim().split('\n').pop());
+  }
+
+  // ---- Y2: YAZMA RPC'LERININ yetki kapisi -------------------------------
+  // Iki RPC de `security definer`; `sip_insert` RLS'ini TAMAMEN atlarlar.
+  // Yetki kontrolu o fonksiyonlarin ICINDEKI tek satirdir ve bu satir
+  // bugune kadar HICBIR testte olculmuyordu (inceleme bulgusu I-3): satir
+  // kaldirilsa sekiz suit de ayni yesil sayilari verirdi.
+  {
+    const n = O.kimlikle(f.kimlikTalep, `select public.siparis_no_uret('C');`);
+    sonuc(retti(n, 'yetkisiz'), 'Y2a siparis_no_uret yetkisiz kimligi REDDEDIYOR',
+      n.ok ? 'NUMARA VERDI: ' + (n.out || '').trim().split('\n').pop() : hat(n));
+    const r = O.kimlikle(f.kimlikTalep, `select public.siparis_olustur_talepten(
+      'yetki-kapi-01'::text, '${f.talepId}'::uuid, '810'::text, 'Firma'::text, null::uuid, current_date, null::date,
+      '[{"talep_kalem_id":"${f.kalemId}","miktar":1,"birim":"KOL"}]'::jsonb);`);
+    sonuc(retti(r, 'yetkisiz'), 'Y2b siparis_olustur_talepten yetkisiz kimligi REDDEDIYOR',
+      r.ok ? 'SIPARIS YAZDI' : hat(r));
+    es('Y2c yetkisiz denemeden sonra yeni siparis YOK', 0,
+      tek(`select count(*) from public.siparisler where islem_anahtari = 'yetki-kapi-01';`));
   }
 
   // ---- MUTANT: K5/K6 tetikleyicisi KALKARSA INV bozulur ------------------

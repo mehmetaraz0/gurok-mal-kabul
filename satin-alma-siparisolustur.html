@@ -158,16 +158,34 @@ function spGeriDon(){document.getElementById('spAdim1').style.display='block';do
 // Hata halinde NULL döner ve çağıran sipariş YAZMAZ — eskiden `catch` içinde
 // rastgele numara üretiliyordu, o sessiz uydurma kaldırıldı.
 // ============================================================
+let SIPARIS_NO_HATA = '';   // numara alinamadiysa SEBEP (kullaniciya gosterilir)
 async function yeniSiparisNoUret(prefix){
   const p = prefix === 'R' ? 'R' : 'C';
   try{
     const r = await fetch(SB_URL+'/rest/v1/rpc/siparis_no_uret',{
       method:'POST', headers:SB_HEADERS, body:JSON.stringify({p_prefix:p})
     });
-    if(!r.ok){ console.error('siparis_no_uret basarisiz:', r.status, await r.text().catch(()=>'')); return null; }
+    if(!r.ok){
+      const g = await r.text().catch(()=>'');
+      // Sebebi kullaniciya SOYLE: yetki eksikligi ile sunucu arizasi ayni
+      // mesaja dusurulurse kullanici ariza sanip tekrar tekrar dener.
+      SIPARIS_NO_HATA = /yetkisiz|42501|permission denied/.test(g)
+        ? ' (sipariş oluşturma yetkiniz yok)' : ' (sunucu hatası '+r.status+')';
+      console.error('siparis_no_uret basarisiz:', r.status, g); return null;
+    }
     const no = await r.json();
-    return (typeof no === 'string' && /^[CR][0-9]{8}$/.test(no)) ? no : null;
-  }catch(e){ console.warn('siparis_no_uret', e); return null; }
+    if(typeof no === 'string' && /^[CR][0-9]{8}$/.test(no)){ SIPARIS_NO_HATA=''; return no; }
+    SIPARIS_NO_HATA = ' (sunucu beklenmeyen yanıt verdi)';
+    return null;
+  }catch(e){ console.warn('siparis_no_uret', e); SIPARIS_NO_HATA=' (bağlantı hatası)'; return null; }
+}
+
+// Çok gruplu gönderimde kısmi başarı: ZATEN YAZILMIŞ siparişleri mesaja ekler.
+// Olmazsa kullanıcı yalnız hatayı görür ve yazılmış siparişten habersiz kalır.
+function spYazilanEk(yazilanlar){
+  return (yazilanlar && yazilanlar.length)
+    ? ' — şu siparişler YAZILDI: '+yazilanlar.join(' · ')+' (bunları tekrar göndermeyin)'
+    : '';
 }
 
 // Sunucu ret kodlarını kullanıcıya anlaşılır cümleye çevirir. Sessiz yutma YOK:
@@ -176,7 +194,14 @@ function siparisRetMesaji(durum, govde){
   const m = (govde && (govde.message || govde.hata)) || '';
   if(/hassasiyet_asimi/.test(m))  return 'Miktar en fazla 3 ondalık hane olabilir';
   if(/birim_cevrilemez/.test(m))  return 'Birim çevrilemiyor: ürünün birim dönüşümü tanımlı değil';
-  if(/miktar_asimi/.test(m))      return 'Talep miktarı aşılıyor: kalan miktardan fazlasını sipariş edemezsiniz';
+  // Sunucu KALAN miktarı bildiriyor (tasarım §6: "arayüz 'kalanı bağla'
+  // diyebilsin"). Sayıyı atmak kullanıcıyı deneme-yanılmaya zorlar.
+  if(/miktar_asimi/.test(m)){
+    const k = /kalan ([0-9.]+) ?([A-ZÇĞİÖŞÜa-z]*)/.exec(m);
+    return 'Talep miktarı aşılıyor'+(k?(' — kalan '+k[1]+(k[2]?' '+k[2]:'')):'')
+      +': kalandan fazlasını sipariş edemezsiniz';
+  }
+  if(/otel_uyusmaz/.test(m))      return 'Talebin oteli seçili otelden farklı; üstteki otel seçimini talebin oteline alın';
   if(/anahtar_celiskili/.test(m)) return 'Bu işlem anahtarı farklı bir içerikle kullanılmış; sayfayı yenileyin';
   if(/anahtar_gecersiz/.test(m))  return 'İşlem anahtarı geçersiz; sayfayı yenileyin';
   if(/tekrarli_kalem/.test(m))    return 'Aynı talep kalemi iki satırda görünüyor';
@@ -216,6 +241,9 @@ async function spGrupla(){
   // anahtarı vardır. Anahtar başarıya kadar KORUNUR: aynı gönderim tekrar
   // denenirse sunucu mükerrer siparişi engeller, başarıdan sonra yenilenir.
   if(SP_TALEP_ID){
+    // Yazılan siparişler izlenir: bir grup geçip sonraki reddedilirse kullanıcı
+    // ZATEN YAZILMIŞ siparişleri bilmeli, yoksa olanı göremez.
+    const yazilanlar = [];
     for(const g of grupListesi){
       const gkey = g.firmaAd || '_bos';
       if(!SP_ANAHTARLAR[gkey]) SP_ANAHTARLAR[gkey] = spYeniAnahtar();
@@ -226,7 +254,7 @@ async function spGrupla(){
         tahmini_fiyat: k.tahminiFiyat===''||k.tahminiFiyat==null?null:parseFloat(k.tahminiFiyat)
       }));
       if(satirlar.some(s=>!s.talep_kalem_id)){
-        hLD(); toast('❌ Talep kalemi kimliği eksik; talep ekranından tekrar deneyin'); return;
+        hLD(); toast('❌ Talep kalemi kimliği eksik; talep ekranından tekrar deneyin'+spYazilanEk(yazilanlar)); return;
       }
       let govde=null, durum=0;
       try{
@@ -250,20 +278,31 @@ async function spGrupla(){
       }catch(e){ console.warn(e); govde=null; }
       if(!govde || govde.ok!==true){
         hLD();
-        toast('❌ '+siparisRetMesaji(durum, govde));
-        return;                      // TRANSACTION geri alındı; hiçbir satır yok
+        // ANAHTARLAR YENİLENMEZ. Ölçüldü: grup başarısında anahtar hemen
+        // yenilenirse, kullanıcı hatayı düzeltip tekrar bastığında geçmiş
+        // gruplar YENİ anahtarla aynı içerikle tekrar gider ve kalan miktar
+        // yetiyorsa İKİNCİ sipariş + ikinci bağ yazılır (tedarikçiye iki
+        // sipariş). Anahtarlar ancak BÜTÜN gruplar geçince yenilenir; o zamana
+        // kadar tekrar gönderim sunucu tarafında mükerrer sayılır.
+        toast('❌ '+siparisRetMesaji(durum, govde)+spYazilanEk(yazilanlar));
+        return;                      // bu grubun TRANSACTION'ı geri alındı
       }
       g.siparisNo = govde.siparis_no;
-      if(govde.mukerrer) toast('ℹ️ Bu sipariş daha önce oluşturulmuş: '+govde.siparis_no);
-      SP_ANAHTARLAR[gkey] = spYeniAnahtar();   // başarıdan sonra YENİ anahtar
+      if(govde.mukerrer) g.mukerrer = true;
+      else yazilanlar.push((g.firmaAd||'firma atanmamış')+': '+govde.siparis_no);
     }
+    // Buraya gelindiyse HİÇBİR grup reddedilmedi: artık anahtarlar yenilenir
+    // (spec §6.1: başarıdan sonra yeni sipariş yeni anahtar ister).
+    for(const g of grupListesi) SP_ANAHTARLAR[g.firmaAd||'_bos'] = spYeniAnahtar();
+    const mukerrerler = grupListesi.filter(g=>g.mukerrer).map(g=>g.siparisNo);
+    if(mukerrerler.length) toast('ℹ️ Daha önce oluşturulmuş: '+mukerrerler.join(', '));
     hLD();
   } else {
   // TALEPSİZ YOL: her firma grubuna ayrı sipariş no ata — hemen bir yer tutucu
   // satır yazıyoruz ki aynı döngüde bir sonraki grup farklı numara alsın.
   for(const g of grupListesi){
     g.siparisNo = await yeniSiparisNoUret(sipPrefix);
-    if(!g.siparisNo){ hLD(); toast('❌ Sipariş numarası alınamadı, sipariş kaydedilmedi'); return; }
+    if(!g.siparisNo){ hLD(); toast('❌ Sipariş numarası alınamadı'+SIPARIS_NO_HATA+', sipariş kaydedilmedi'); return; }
     try{
       await sbYaz(SB_URL+'/rest/v1/siparisler',{method:'POST',headers:SB_HEADERS,body:JSON.stringify({
         siparis_no:g.siparisNo,firma_ad:g.firmaAd||'',otel_id:otelId,tarih:tarih||bugunTarih(),durum:'bekleyen'
@@ -425,6 +464,7 @@ function renderSPSatirlar(){
       <div style="position:relative;margin-bottom:8px">
         <input type="text" id="spa${i}" value="${escapeHtml(u.ad)}" placeholder="Ürün adı veya LN kodu..."
           autocomplete="off" oninput="filterSPUrun(${i},this.value)"
+          ${u.talepKalemId?'readonly title="Talep kaleminin ürünü değiştirilemez — sunucu ürünü talepten türetir"':''}
           style="width:100%;padding:9px 12px;border:1.5px solid var(--gray-300);border-radius:8px;font-size:13px;outline:none">
         <div id="spdd${i}" class="udd"></div>
       </div>
@@ -500,7 +540,29 @@ async function spFiyatDoldur(idx){
   if(f!=null){ SP_SATIRLAR[idx].tahminiFiyat=f; const el=document.getElementById('spfiyat'+idx); if(el)el.value=f; }
 }
 
+// TALEP KAYNAKLI SATIRDA ÜRÜN DEĞİŞTİRİLEMEZ.
+// Sunucu `urun_kodu`/`urun_adi`'yı TALEP KALEMİNDEN türetir (tasarım gereği,
+// istemciden alınmaz). Ekranda ürün değiştirilebilirse ERP kaydı talebin
+// ürününü, tedarikçiye giden PDF/mail ise ekrandaki ürünü gösterir — birimler
+// aynıysa sunucu da reddetmez. Tedarikçiye yanlış ürün siparişi gider, mal
+// kabul hiçbirini eşleştiremez, hata da uyarı da yoktur. Bu yüzden alan
+// salt-okunur çizilir ve atama yolu burada reddedilir.
+function spTalepSatiri(i){ return !!(SP_SATIRLAR[i] && SP_SATIRLAR[i].talepKalemId); }
+function spUrunAta(i,veri){
+  if(spTalepSatiri(i)){
+    toast('⚠️ Talep kaleminin ürünü değiştirilemez; farklı ürün için talebi düzeltin');
+    const inp=document.getElementById('spa'+i);
+    if(inp) inp.value=SP_SATIRLAR[i].ad||'';
+    return false;
+  }
+  const firma=autoFirma(veri.kod);
+  SP_SATIRLAR[i]={...SP_SATIRLAR[i],ad:veri.ad,kod:veri.kod,birim:veri.birim,
+    firmaId:firma?.id||SP_SATIRLAR[i].firmaId||'',firmaAd:firma?.ad||SP_SATIRLAR[i].firmaAd||''};
+  return true;
+}
+
 function filterSPUrun(i,val){
+  if(spTalepSatiri(i)){ return spUrunAta(i,{}) , undefined; }
   SP_SATIRLAR[i].ad=val;
   const dd=document.getElementById('spdd'+i);
   if(!val||val.length<2){dd.style.display='none';return;}
@@ -514,9 +576,10 @@ function filterSPUrun(i,val){
     el.addEventListener('pointerdown',function(e){
       e.preventDefault();
       const idx=parseInt(this.dataset.i);
+      if(!spUrunAta(idx,{ad:this.dataset.ad,kod:this.dataset.kod,birim:this.dataset.birim})){
+        dd.style.display='none';return;
+      }
       const firma=autoFirma(this.dataset.kod);
-      SP_SATIRLAR[idx]={...SP_SATIRLAR[idx],ad:this.dataset.ad,kod:this.dataset.kod,birim:this.dataset.birim,
-        firmaId:firma?.id||SP_SATIRLAR[idx].firmaId||'',firmaAd:firma?.ad||SP_SATIRLAR[idx].firmaAd||''};
       dd.style.display='none';
       const inp=document.getElementById('spa'+idx);if(inp)inp.value=this.dataset.ad;
       const sel=document.getElementById('spb'+idx);if(sel)sel.value=this.dataset.birim||'KG';
@@ -554,6 +617,14 @@ document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',e=>{if(e.
   if(devirTalep){
     sessionStorage.removeItem('sp_devir_talep');
     SP_TALEP_ID=devirTalep;
+    // Otel talepten gelir ve KİLİTLENİR: sunucu talebin oteliyle isteğin
+    // otelini karşılaştırıp uyuşmazsa reddediyor, o yüzden kullanıcının
+    // burada farklı otel seçmesinin hiçbir geçerli sonucu yok.
+    const devirOtel=sessionStorage.getItem('sp_devir_otel');
+    sessionStorage.removeItem('sp_devir_otel');
+    const sel=document.getElementById('sp-otel');
+    if(devirOtel&&sel){ sel.value=devirOtel; sel.disabled=true;
+      sel.title='Otel talepten geliyor ve değiştirilemez'; }
   }
   const devir=sessionStorage.getItem('sp_devir_satirlar');
   if(devir){

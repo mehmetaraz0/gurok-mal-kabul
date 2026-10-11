@@ -162,16 +162,26 @@ function fmt(n){return(parseFloat(n)||0).toLocaleString('tr-TR',{minimumFraction
 // alabiliyordu ve siparis_no PRIMARY KEY oldugu icin biri sessizce kaybolur.
 // Hata halinde NULL doner ve cagiran siparis YAZMAZ — eskiden `catch` icinde
 // rastgele numara uretiliyordu, o sessiz uydurma kaldirildi.
+let SIPARIS_NO_HATA = '';   // numara alinamadiysa SEBEP (kullaniciya gosterilir)
 async function yeniSiparisNoUret(prefix){
   const p = prefix === 'R' ? 'R' : 'C';
   try{
     const r = await fetch(SB_URL+'/rest/v1/rpc/siparis_no_uret',{
       method:'POST', headers:SB_HEADERS, body:JSON.stringify({p_prefix:p})
     });
-    if(!r.ok){ console.error('siparis_no_uret basarisiz:', r.status, await r.text().catch(()=>'')); return null; }
+    if(!r.ok){
+      const g = await r.text().catch(()=>'');
+      // Sebebi kullaniciya SOYLE: yetki eksikligi ile sunucu arizasi ayni
+      // mesaja dusurulurse kullanici ariza sanip tekrar tekrar dener.
+      SIPARIS_NO_HATA = /yetkisiz|42501|permission denied/.test(g)
+        ? ' (sipariş oluşturma yetkiniz yok)' : ' (sunucu hatası '+r.status+')';
+      console.error('siparis_no_uret basarisiz:', r.status, g); return null;
+    }
     const no = await r.json();
-    return (typeof no === 'string' && /^[CR][0-9]{8}$/.test(no)) ? no : null;
-  }catch(e){ console.warn('siparis_no_uret', e); return null; }
+    if(typeof no === 'string' && /^[CR][0-9]{8}$/.test(no)){ SIPARIS_NO_HATA=''; return no; }
+    SIPARIS_NO_HATA = ' (sunucu beklenmeyen yanıt verdi)';
+    return null;
+  }catch(e){ console.warn('siparis_no_uret', e); SIPARIS_NO_HATA=' (bağlantı hatası)'; return null; }
 }
 
 // ============================================================
@@ -288,7 +298,7 @@ async function iadeOlustur(){
   const siparisNo=await yeniSiparisNoUret(prefix);
   // Fail-closed: numara alinamazsa siparis YAZILMAZ. hLD() sart — ortu
   // sLD() ile acilmisti, erken cikista kapanmazsa ekran kilitli kalir.
-  if(!siparisNo){ hLD(); toast('❌ Sipariş numarası alınamadı, iade kaydedilmedi'); return; }
+  if(!siparisNo){ hLD(); toast('❌ Sipariş numarası alınamadı'+SIPARIS_NO_HATA+', iade kaydedilmedi'); return; }
 
   const kalemler=dolu.map(k=>({ad:k.ad,kod:k.kod||'',miktar:parseFloat(k.miktar)||0,birim:k.birim,
     gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));

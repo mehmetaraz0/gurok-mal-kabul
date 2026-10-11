@@ -161,7 +161,27 @@ try {
   ]);
   es('I3a eszamanli ayni anahtar -> tek siparis', 1,
     tek(`select count(*) from public.siparisler where islem_anahtari='${anahtar2}';`));
-  sonuc(e1.ok || e2.ok, 'I3b en az biri basarili');
+  // SOZLESME (spec §6.1 son satir): kaybeden ham `duplicate key` DEGIL
+  // `{ok:true, mukerrer:true}` alir — idempotency'nin varlik sebebi tam bu
+  // durumdur. "En az biri basarili" iddiasi DISSIZ: kisit adi degisip
+  // `exception when unique_violation` dali bozulsa kaybeden ham hata alir,
+  // istemci "Siparis olusturulamadi (400)" yazar ve bu suit YESIL kalirdi.
+  sonuc(e1.ok && e2.ok, 'I3b IKISI DE basarili (kaybeden ham hata almaz)',
+    'e1=' + e1.ok + ' e2=' + e2.ok + ' | ' + (hata(e1) || hata(e2) || ''));
+  const cikti = String(e1.out || '') + String(e2.out || '');
+  sonuc(/"mukerrer"\s*:\s*true/.test(cikti),
+    'I3c kaybeden mukerrer:true aldi', cikti.replace(/\s+/g, ' ').slice(0, 130));
+
+  // Ayni anahtar + ayni icerik + BASKA KULLANICI -> siparis numarasi SIZMAZ.
+  // Kimlik parmak izinin parcasi oldugu icin iz tutmaz; ustelik o kimligin
+  // siparis yetkisi de yok, yani iki katman birden kapatir.
+  const i3d = O.kimlikle(f.kimlikTalep, `select public.siparis_olustur_talepten(
+      '${anahtar2}'::text, '${f.talepId}'::uuid, '810'::text, 'Es Firma'::text, null::uuid,
+      current_date, null::date,
+      '${JSON.stringify([{ talep_kalem_id: f.kalemId, miktar: 1, birim: 'KOL' }])}'::jsonb)::text;`);
+  sonuc(!i3d.ok && !/C[0-9]{8}/.test(String(i3d.out)),
+    'I3d baska kullanici ayni anahtarla siparis numarasi SIZDIRAMIYOR',
+    i3d.ok ? 'YANIT VERDI: ' + String(i3d.out).slice(0, 80) : hata(i3d));
 
   // I4: PK ihlali mukerrer SAYILMAZ — parmak izi bozulursa celiski yakalanir
   const i4 = cagir({ anahtar: 'mutant-anahtar-01',

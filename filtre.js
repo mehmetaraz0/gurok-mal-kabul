@@ -129,8 +129,23 @@ function boolGec(h, op){ const b=(h===true||h==='true'||h===1); return op==='tru
 
 function hucre(row, alan){ return alan && alan.getValue ? alan.getValue(row) : (row ? row[alan ? alan.field : undefined] : undefined); }
 
+// KAYITLI FİLTRE TİP GÖÇÜ: kayıtlı koşul kendi `type`'ını taşır. Bir alanın
+// tipi sonradan değişirse (ör. sayısal "talep" sütunu birim bazlı metne
+// geçti) eski koşul yanlış dala girer ve SESSİZCE yanlış sonuç verir:
+// "talep sıfırdır" hiçbir satır döndürmez, "talep ≥ 50" ise toplam yerine
+// en büyük tek birimi karşılaştırır. Bu yüzden alan tanımının tipi kayıtlı
+// tipten FARKLIYSA koşul UYGULANMAZ (satır elenmez) ve bir kez uyarılır.
+const _tipUyumsuzUyarildi = {};
 function filtreGecer(row, f, alan){
   const h=hucre(row, alan||{field:f.field});
+  if(alan && alan.type && f.type && alan.type !== f.type){
+    if(!_tipUyumsuzUyarildi[f.field]){
+      _tipUyumsuzUyarildi[f.field]=true;
+      console.warn('Kayitli filtre tipi degismis, kosul uygulanmiyor:',
+        f.field, 'kayitli=', f.type, 'guncel=', alan.type);
+    }
+    return true;
+  }
   switch(f.type){
     case 'text': return textGec(h, f.operator, f.value);
     case 'number': return numGec(h, f.operator, f.value);

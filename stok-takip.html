@@ -784,10 +784,15 @@ let aktifStokFiltreleri = [];
 let stokGorunum = 'kart';                 // 'kart' | 'tablo'
 let siparisMap = {}, talepMap = {}, sonHareketMap = {};
 
+// Okuma başarısız olduysa sütun "—" değil "ölçülemedi" göstermeli: boş hücre
+// "açık talep yok" diye okunur, oysa veri hiç gelmemiştir.
+let TALEP_OKUNAMADI = false;
+
 // talepMap artık ürün başına BİRİM HARİTASI: {AAA001:{KOL:10, KG:100}}.
 // "10 KOL + 100 KG" gibi gösterir, TOPLAMA YAPMAZ — farklı birimlerin toplamı
 // kullanıcıya yanlış bir büyüklük sunar. Sıfır/boş değerler gösterilmez.
 function talepBirimliMetin(birimler){
+  if(TALEP_OKUNAMADI) return 'ölçülemedi';
   if(!birimler||typeof birimler!=='object') return '';
   const p=Object.keys(birimler).filter(b=>(parseFloat(birimler[b])||0)>0)
     .sort((a,b)=>(parseFloat(birimler[b])||0)-(parseFloat(birimler[a])||0))
@@ -842,6 +847,15 @@ async function stokEkVeriYukle(){
       if(!talepMap[k]) talepMap[k]={};
       talepMap[k][b]=(talepMap[k][b]||0)+(parseFloat(r.talep_miktar)||0);
     });
+    // İstek `birim` kolonunu istiyor. Görünüm henüz yükseltilmediyse sunucu
+    // 400 döner, `rt.ok` sağlanmaz ve `catch` de çalışmaz: Talep sütunu
+    // BÜTÜN ürünlerde sessizce boş kalır, kullanıcı "hiç açık talep yok"
+    // diye okur. Sessiz kalmıyoruz.
+    else {
+      console.error('stok_acik_talep okunamadi:', rt.status, await rt.text().catch(()=>''));
+      TALEP_OKUNAMADI = true;
+      if(typeof showToast==='function') showToast('⚠️ Açık talep okunamadı; Talep sütunu eksik gösteriliyor');
+    }
     if(rh.ok)(await rh.json()).forEach(r=>{ if(!otel||String(r.otel_id)===String(otel)){ if(!sonHareketMap[r.urun_kodu]||r.son_tarih>sonHareketMap[r.urun_kodu]) sonHareketMap[r.urun_kodu]=r.son_tarih; } });
   }catch(e){ console.warn('stokEkVeriYukle',e); }
 }
@@ -1997,16 +2011,26 @@ function iadeKalemGuncelle(i){
 // alabiliyordu ve siparis_no PRIMARY KEY oldugu icin biri sessizce kaybolur.
 // Hata halinde NULL doner ve cagiran siparis YAZMAZ — eskiden `catch` icinde
 // rastgele numara uretiliyordu, o sessiz uydurma kaldirildi.
+let SIPARIS_NO_HATA = '';   // numara alinamadiysa SEBEP (kullaniciya gosterilir)
 async function yeniSiparisNoUret(prefix){
   const p = prefix === 'R' ? 'R' : 'C';
   try{
     const r = await fetch(SB_URL+'/rest/v1/rpc/siparis_no_uret',{
       method:'POST', headers:SB_HEADERS, body:JSON.stringify({p_prefix:p})
     });
-    if(!r.ok){ console.error('siparis_no_uret basarisiz:', r.status, await r.text().catch(()=>'')); return null; }
+    if(!r.ok){
+      const g = await r.text().catch(()=>'');
+      // Sebebi kullaniciya SOYLE: yetki eksikligi ile sunucu arizasi ayni
+      // mesaja dusurulurse kullanici ariza sanip tekrar tekrar dener.
+      SIPARIS_NO_HATA = /yetkisiz|42501|permission denied/.test(g)
+        ? ' (sipariş oluşturma yetkiniz yok)' : ' (sunucu hatası '+r.status+')';
+      console.error('siparis_no_uret basarisiz:', r.status, g); return null;
+    }
     const no = await r.json();
-    return (typeof no === 'string' && /^[CR][0-9]{8}$/.test(no)) ? no : null;
-  }catch(e){ console.warn('siparis_no_uret', e); return null; }
+    if(typeof no === 'string' && /^[CR][0-9]{8}$/.test(no)){ SIPARIS_NO_HATA=''; return no; }
+    SIPARIS_NO_HATA = ' (sunucu beklenmeyen yanıt verdi)';
+    return null;
+  }catch(e){ console.warn('siparis_no_uret', e); SIPARIS_NO_HATA=' (bağlantı hatası)'; return null; }
 }
 
 async function iadeSiparisiOlustur(){
@@ -2039,7 +2063,7 @@ async function iadeSiparisiOlustur(){
   const siparisNo=await yeniSiparisNoUret(prefix);
   // Fail-closed: numara alinamazsa siparis YAZILMAZ. hideLoading() sart —
   // ortu showLoading() ile acilmisti, erken cikista kapanmazsa ekran kilitlenir.
-  if(!siparisNo){ hideLoading(); showToast('❌ Sipariş numarası alınamadı, sipariş kaydedilmedi'); return; }
+  if(!siparisNo){ hideLoading(); showToast('❌ Sipariş numarası alınamadı'+SIPARIS_NO_HATA+', sipariş kaydedilmedi'); return; }
 
   const kalemler=dolu.map(k=>({ad:k.ad,kod:k.kod,miktar:parseFloat(k.miktar)||0,birim:k.birim,
     gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));
@@ -2731,7 +2755,12 @@ function hideLoading(){document.getElementById('loading').classList.remove('show
   // yazmak (or. yalniz 'tam') uretimde tek uygun onaycinin dugmesini kapatir
   // ve sayim oturumu ne onaylanabilir ne reddedilebilir hale gelir.
   const sayimOnaycisi = currentUser?.rol === 'cost_control' && stokYaziYetkisi;
-  document.getElementById('iade-olustur-btn').disabled = !stokYaziYetkisi;
+  // İade bir SİPARİŞ yazar: hem numara üreteci hem `sip_insert` RLS'i
+  // `siparis_olustur:kayit` istiyor. Düğmeyi yalnız `stok_takip`'e bağlamak,
+  // yetkisi olmayan kullanıcıya etkin düğme gösterip sonra anlamı belirsiz
+  // bir "Sipariş numarası alınamadı" hatası veriyordu.
+  const siparisYaziYetkisi = ['kayit','tam'].includes(YETKI_HARITASI['siparis_olustur']);
+  document.getElementById('iade-olustur-btn').disabled = !(stokYaziYetkisi && siparisYaziYetkisi);
   document.getElementById('sayim-tamamla-btn').disabled = !stokYaziYetkisi;
   document.getElementById('cikis-kaydet-btn').disabled = !stokYaziYetkisi;
   document.getElementById('transfer-kaydet-btn').disabled = !stokYaziYetkisi;

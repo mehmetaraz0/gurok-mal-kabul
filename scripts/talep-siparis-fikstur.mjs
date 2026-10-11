@@ -9,6 +9,10 @@ export const U_TEST = '11111111-0000-0000-0000-00000000b001';
 // Varlik sebebi olculdu: kapi testleri postgres superuser olarak kostugu icin
 // RLS'i atliyordu ve RLS altinda SESSIZCE atlanan kapilar gorunmuyordu.
 export const U_TALEP = '11111111-0000-0000-0000-00000000b002';
+// UCUNCU KIMLIK: otel 810'a ait, aktif, ama HIC modul yetkisi yok. Definer
+// yardimcilarin yetki yuzeyini olcmek icin: otel kontrolu gecen ama hicbir
+// modulu olmayan kullanici neyi gorebiliyor?
+export const U_SIFIR = '11111111-0000-0000-0000-00000000b003';
 
 export function kurFikstur(O, { otel = '810', talepDurum = 'onaylandi' } = {}) {
   const TALEP = 'bbbbbbbb-0000-0000-0000-00000000b001';
@@ -53,6 +57,16 @@ export function kurFikstur(O, { otel = '810', talepDurum = 'onaylandi' } = {}) {
       from public.roller r where r.kod='talep_test'
       on conflict do nothing;
 
+    insert into public.roller (id, ad, seviye, kod, sira)
+      values ('00000000-0000-0000-0000-00000000f003','Yetkisiz','otel','sifir_test',32)
+      on conflict do nothing;
+    insert into auth.users (id, email) values ('${U_SIFIR}','sifir@test.local')
+      on conflict (id) do nothing;
+    insert into public.kullanicilar (id, auth_user_id, ad, rol, otel_id, aktif, rol_id)
+    select gen_random_uuid(), '${U_SIFIR}'::uuid, 'Sifir Test', 'depo', '${otel}', true, r.id
+      from public.roller r where r.kod='sifir_test'
+      on conflict do nothing;
+
     insert into public.urunler (kod, ad, birim) values ('${URUN}','Bag Test Urunu','KG')
       on conflict (kod) do nothing;
     insert into public.urun_birim_donusum (urun_kodu, buyuk_birim, carpan, silindi)
@@ -78,6 +92,7 @@ export function kurFikstur(O, { otel = '810', talepDurum = 'onaylandi' } = {}) {
     siparisNo: 'C00000001', siparisNo2: 'C00000002',
     kimlik: { rol: 'authenticated', sub: U_TEST },
     kimlikTalep: { rol: 'authenticated', sub: U_TALEP },
+    kimlikSifir: { rol: 'authenticated', sub: U_SIFIR },
   };
 }
 

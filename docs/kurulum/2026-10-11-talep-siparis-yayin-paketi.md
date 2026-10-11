@@ -74,11 +74,11 @@ görünmez. 1 geri alınırsa istemciler numara alamaz; 7 de geri alınmalıdır
 |---|---|
 | `node scripts/siparis-no-uret.test.mjs` | **12 / 0** |
 | `node scripts/talep-siparis-bagi-kapilari.test.mjs` | **45 / 0** |
-| `node scripts/talep-siparis-kapi-kimlik.test.mjs` | **23 / 0** |
-| `node scripts/siparis-olustur-talepten.test.mjs` | **47 / 0** |
-| `node scripts/stok-acik-talep-kalan.test.mjs` | **22 / 0** |
-| `node scripts/talepten-siparis-istemci.test.mjs` | **43 / 0** |
-| `node scripts/istemci-siparis-no-rpc.test.mjs` | **34 / 0** |
+| `node scripts/talep-siparis-kapi-kimlik.test.mjs` | **32 / 0** |
+| `node scripts/siparis-olustur-talepten.test.mjs` | **49 / 0** |
+| `node scripts/stok-acik-talep-kalan.test.mjs` | **23 / 0** |
+| `node scripts/talepten-siparis-istemci.test.mjs` | **54 / 0** |
+| `node scripts/istemci-siparis-no-rpc.test.mjs` | **51 / 0** |
 | `node scripts/stok-ekran.test.mjs` | **30 OK / 0 FAIL** |
 | `node scripts/migration-guvenlik-kontrol.mjs` | **0 HATA / 0 UYARI** |
 | `node scripts/check.mjs` | **çıkış 0** |
