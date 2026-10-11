@@ -104,6 +104,8 @@ declare
   v_tam        boolean;
   v_kalan      numeric;
   v_kimlik     text := coalesce(current_setting('request.jwt.claims', true)::jsonb->>'sub', 'rpc');
+  v_ad         text;
+  v_hazir      jsonb := '[]'::jsonb;
 begin
   -- 1) YETKI — SECURITY DEFINER RLS'i atlar, kontrol burada yeniden uygulanir.
   if public.auth_yetki_var('siparis_olustur','kayit') is not true then
@@ -115,10 +117,27 @@ begin
     raise exception 'otel_kapsami_disi: %', p_otel_id using errcode='42501';
   end if;
 
+  -- `olusturan_ad` INSAN ADIDIR: siparis takip ekrani bu kolonu gosteriyor ve
+  -- diger uc siparis yolu oraya `CU.ad` yaziyor. Eskiden buraya JWT `sub`
+  -- UUID'si yaziliyordu; ekranda `3f2a...b901` gorunuyordu. Kimlik ise
+  -- parmak izinin PARCASIDIR (bkz. 4. adim) — kullanici tarafindan
+  -- guncellenebilen bir goruntuleme kolonunda tutulmaz.
+  select k.ad into v_ad
+    from public.kullanicilar k
+   where k.auth_user_id = auth.uid() and k.aktif is true
+   limit 1;
+  v_ad := coalesce(nullif(btrim(coalesce(v_ad,'')), ''), 'rpc');
+
   -- 3) GIRDI DOGRULAMA (Review Focus 1, 4, 5)
-  if p_islem_anahtari is null or length(btrim(p_islem_anahtari)) < 8
-     or length(p_islem_anahtari) > 100 then
-    raise exception 'anahtar_gecersiz: islem anahtari 8-100 karakter olmali'
+  -- Anahtar dogrulamasi CHECK KISITIYLA BIREBIR ayni olmali. Eski hal alt
+  -- siniri `btrim` uzerinden, ust siniri ham uzunluk uzerinden olcuyor ve
+  -- `= btrim(...)` esitligini HIC kontrol etmiyordu: `' anahtar1 '` RPC'den
+  -- geciyor, bir siparis numarasi TUKETILIYOR, sonra insert
+  -- `siparisler_islem_anahtari_bicim` CHECK ihlaliyle dusuyordu (OLCULDU).
+  if p_islem_anahtari is null
+     or p_islem_anahtari <> btrim(p_islem_anahtari)
+     or length(p_islem_anahtari) not between 8 and 100 then
+    raise exception 'anahtar_gecersiz: islem anahtari bastan/sondan bosluksuz 8-100 karakter olmali'
       using errcode='22023';
   end if;
   if p_tarih is null then
@@ -143,6 +162,15 @@ begin
                  or (e->>'miktar') !~ '^[0-9]+(\.[0-9]+)?$') then
     raise exception 'miktar_gecersiz: miktar pozitif sayi olmali' using errcode='22023';
   end if;
+  -- HASSASIYET (spec §6 kontrol 5): hedef kolonlar `numeric(12,3)`. Olculdu:
+  -- kapi olmadan `10.0004` sessizce `10.000` yaziliyordu — kullanicinin
+  -- girdigi sayi ne siparis kaleminde ne denetim izinde kaliyor. Sessiz
+  -- yuvarlama yerine RET.
+  if exists (select 1 from jsonb_array_elements(p_satirlar) e
+              where (e->>'miktar') ~ '\.[0-9]{4,}$') then
+    raise exception 'hassasiyet_asimi: miktar en fazla 3 ondalik hane olabilir'
+      using errcode='22023';
+  end if;
   if (select count(*) from (select distinct e->>'talep_kalem_id' k
                               from jsonb_array_elements(p_satirlar) e) d)
      <> jsonb_array_length(p_satirlar) then
@@ -151,7 +179,12 @@ begin
   end if;
 
   -- 4) ICERIK PARMAK IZI (tekrar gonderme sozlesmesi)
+  -- KIMLIK parmak izinin PARCASI: ayni anahtari baska bir kullanici ayni
+  -- icerikle gonderirse parmak izi tutmaz ve `anahtar_celiskili` alir.
+  -- Boylece "anahtar baskasina ait" kontrolu, kullanicinin
+  -- degistirebilecegi `olusturan_ad` kolonuna bagimli olmaktan cikar.
   select md5(
+    coalesce(v_kimlik,'') || '|' ||
     coalesce(p_talep_id::text,'') || '|' || coalesce(p_otel_id,'') || '|' ||
     coalesce(p_firma_ad,'') || '|' || coalesce(p_cari_id::text,'') || '|' ||
     coalesce(p_tarih::text,'') || '|' || coalesce(p_termin::text,'') || '|' ||
@@ -175,10 +208,10 @@ begin
     if public.auth_otel_erisim(v_mevcut.otel_id) is not true then
       raise exception 'anahtar_celiskili: anahtar kapsam disinda' using errcode='23505';
     end if;
-    if v_mevcut.olusturan_ad is distinct from v_kimlik then
-      raise exception 'anahtar_celiskili: anahtar baska kullaniciya ait'
-        using errcode='23505';
-    end if;
+    -- "Baska kullaniciya ait" kontrolu artik parmak izinin icinde (4. adim):
+    -- kimlik parmak izine giriyor, farkli kullanici farkli izdir ve yukaridaki
+    -- celiski kapisi devreye girer. `olusturan_ad` kolonuna bakmak yanlisti —
+    -- o kolon insan adi tasir ve sonradan degistirilebilir.
     return jsonb_build_object('ok', true, 'mukerrer', true,
                               'siparis_no', v_mevcut.siparis_no);
   end if;
@@ -200,21 +233,20 @@ begin
     raise exception 'onaylanmamis: talep durumu %', v_talep.durum using errcode='23514';
   end if;
 
-  -- 7) NUMARA — otel onekinden (Club/Resort)
-  v_onek := case when p_otel_id = '810' then 'C' else 'R' end;
-  v_siparis_no := public.siparis_no_uret(v_onek);
-
-  -- 8) BASLIK
-  insert into public.siparisler
-    (siparis_no, cari_id, firma_ad, otel_id, tarih, termin_tarihi, durum, tip,
-     kaynak, olusturan_ad, islem_anahtari, islem_parmak_izi)
-  values (v_siparis_no, p_cari_id, coalesce(p_firma_ad,''), p_otel_id::public.otel_id,
-          p_tarih, p_termin, 'bekleyen', 'normal', 'talep',
-          v_kimlik, p_islem_anahtari, v_parmak);
-
-  -- 9) KALEMLER + BAGLAR  (kilit sirasi SABIT: kalem id'ye gore artan)
+  -- 7) DOGRULAMA + KILIT TURU — HENUZ HICBIR SEY YAZILMAZ.
+  --
+  -- SIRA BILINCLI (spec §6 kontrol 9): numara ureteci `siparis_no_sayac`
+  -- satir kilidini transaction SONUNA kadar tutar. Numara ONCE uretilirse bu
+  -- RPC bir talep kalemi kilidinde beklerken SISTEMDEKI TUM siparis numarasi
+  -- uretimi (dort yolun hepsi) o sure boyunca bloke olur. Bu yuzden butun
+  -- kalem kilitleri ve dogrulamalar once alinir, numara en sonda uretilir.
+  --
+  -- Kilit sirasi UUID sirasina gore SABIT. Metin siralamasi yeterli DEGIL:
+  -- `talep_kalem_id` buyuk/kucuk harf karisik gelebilir ve metinde
+  -- 'C' (0x43) < 'a' (0x61) oldugu icin iki oturum ayni iki kalemi TERS
+  -- sirada kilitleyip deadlock uretebilir.
   for v_satir in select e from jsonb_array_elements(p_satirlar) e
-                  order by (e->>'talep_kalem_id') loop
+                  order by (e->>'talep_kalem_id')::uuid loop
     select tk.id, tk.miktar, tk.birim, tk.urun_kodu, tk.urun_adi
       into v_kalem
       from public.satin_alma_talep_kalemleri tk
@@ -253,26 +285,79 @@ begin
         using errcode='23514';
     end if;
 
+    v_hazir := v_hazir || jsonb_build_object(
+      'kalem_id',     v_kalem.id,
+      'urun_kodu',    v_kalem.urun_kodu,
+      'urun_adi',     v_kalem.urun_adi,
+      'hedef',        v_hedef,
+      'hedef_birim',  v_kalem.birim,
+      'kaynak',       (v_satir->>'miktar')::numeric,
+      'kaynak_birim', coalesce(v_satir->>'birim', v_kalem.birim),
+      'carpan',       nullif(v_kat, 1),
+      'fiyat',        nullif(v_satir->>'tahmini_fiyat',''));
+    v_sayi := v_sayi + 1;
+  end loop;
+
+  -- 8) NUMARA — otel onekinden (Club/Resort). Tum kalem kilitleri ALINDIKTAN
+  -- sonra: kuresel sayac kilidi mumkun olan en kisa sure tutulur.
+  v_onek := case when p_otel_id = '810' then 'C' else 'R' end;
+  v_siparis_no := public.siparis_no_uret(v_onek);
+
+  -- 9) BASLIK — eszamanli ayni anahtar sozlesmesi (spec §6.1 son satir).
+  -- Iki istek ayni anahtarla paralel gelirse ikisi de 5. adimda anahtari
+  -- bulamaz; kaybeden `unique_violation` alir. Sozlesme ham "duplicate key"
+  -- hatasi DEGIL `{ok:true, mukerrer:true}` gerektirir — idempotency'nin
+  -- varlik sebebi tam olarak bu durumdur. YALNIZ
+  -- `siparisler_islem_anahtari_key` ihlali mukerrer sayilir; PK veya baska
+  -- kisit ihlali oldugu gibi yukselir.
+  begin
+    insert into public.siparisler
+      (siparis_no, cari_id, firma_ad, otel_id, tarih, termin_tarihi, durum, tip,
+       kaynak, olusturan_ad, islem_anahtari, islem_parmak_izi)
+    values (v_siparis_no, p_cari_id, coalesce(p_firma_ad,''), p_otel_id::public.otel_id,
+            p_tarih, p_termin, 'bekleyen', 'normal', 'talep',
+            v_ad, p_islem_anahtari, v_parmak);
+  exception when unique_violation then
+    if sqlerrm not like '%siparisler_islem_anahtari_key%' then
+      raise;
+    end if;
+    select s.siparis_no, s.otel_id::text as otel_id, s.islem_parmak_izi
+      into v_mevcut
+      from public.siparisler s
+     where s.islem_anahtari = p_islem_anahtari;
+    if not found then
+      raise;                      -- ihlal bizim anahtarimizdan degil: yukselt
+    end if;
+    if v_mevcut.islem_parmak_izi is distinct from v_parmak
+       or public.auth_otel_erisim(v_mevcut.otel_id) is not true then
+      raise exception 'anahtar_celiskili: ayni anahtar farkli icerikle kullanilamaz'
+        using errcode='23505';
+    end if;
+    return jsonb_build_object('ok', true, 'mukerrer', true,
+                              'siparis_no', v_mevcut.siparis_no);
+  end;
+
+  -- 10) KALEMLER + BAGLAR — dogrulanmis satirlar, dogrulama turundaki sirada.
+  for v_satir in select e from jsonb_array_elements(v_hazir) e loop
     insert into public.siparis_kalemleri
       (siparis_no, urun_kodu, urun_adi, birim, miktar, gelen_miktar, kalan_miktar,
        tahmini_fiyat)
-    values (v_siparis_no, v_kalem.urun_kodu, v_kalem.urun_adi,
-            coalesce(v_satir->>'birim', v_kalem.birim),
-            (v_satir->>'miktar')::numeric, 0, (v_satir->>'miktar')::numeric,
-            nullif(v_satir->>'tahmini_fiyat','')::numeric);
+    values (v_siparis_no, v_satir->>'urun_kodu', v_satir->>'urun_adi',
+            v_satir->>'kaynak_birim',
+            (v_satir->>'kaynak')::numeric, 0, (v_satir->>'kaynak')::numeric,
+            (v_satir->>'fiyat')::numeric);
 
     insert into public.talep_siparis_baglari
       (otel_id, talep_id, talep_kalem_id, siparis_no, urun_kodu, miktar, hedef_birim,
        kaynak_miktar, kaynak_birim, carpan, olusturan_ad)
-    values (p_otel_id::public.otel_id, p_talep_id, v_kalem.id, v_siparis_no,
-            v_kalem.urun_kodu, v_hedef, v_kalem.birim,
-            (v_satir->>'miktar')::numeric, coalesce(v_satir->>'birim', v_kalem.birim),
-            nullif(v_kat, 1), v_kimlik);
-
-    v_sayi := v_sayi + 1;
+    values (p_otel_id::public.otel_id, p_talep_id, (v_satir->>'kalem_id')::uuid,
+            v_siparis_no, v_satir->>'urun_kodu',
+            (v_satir->>'hedef')::numeric, v_satir->>'hedef_birim',
+            (v_satir->>'kaynak')::numeric, v_satir->>'kaynak_birim',
+            (v_satir->>'carpan')::numeric, v_ad);
   end loop;
 
-  -- 10) TAM KARSILAMA -> talep durumu
+  -- 11) TAM KARSILAMA -> talep durumu
   select not exists (
     select 1 from public.satin_alma_talep_kalemleri tk
      where tk.talep_id = p_talep_id

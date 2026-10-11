@@ -128,6 +128,33 @@ try {
       'C3g siparis iptal kaldi');
   }
 
+  // ---- MUTANT: K5/K6 tetikleyicisi KALKARSA INV bozulur ------------------
+  // Bu mutant yazilmis olsaydi C1 yakalanirdi: kapi varken reddedilen ayni
+  // islem, kapi dusurulunce KABUL EDILMELI — aksi halde yukaridaki C1a/C1c
+  // iddialari kapiyi degil baska bir katmani olcuyor demektir.
+  {
+    // Durumu sifirla: kalem 10 KOL, tek bag 6 KOL, siparis bekleyen.
+    O.sql(`set session_replication_role = replica;
+           delete from public.talep_siparis_baglari;
+           update public.satin_alma_talep_kalemleri set miktar=10, birim='KOL'
+             where id='${f.kalemId}'::uuid;
+           update public.siparisler set durum='bekleyen'
+             where siparis_no in ('${f.siparisNo}','${f.siparisNo2}');
+           set session_replication_role = origin;`);
+    bagYaz(O, f, { kalemId: f.kalemId, siparisNo: f.siparisNo, miktar: 6,
+                   hedefBirim: 'KOL', kaynakMiktar: 72, kaynakBirim: 'KG', carpan: 12 });
+    const dus = O.sql(`drop trigger talep_kalem_miktar_inv on public.satin_alma_talep_kalemleri;`);
+    sonuc(dus.ok, 'M-C1haz tetikleyici dusuruldu', dus.ok ? '' : hat(dus));
+    const m = O.kimlikle(f.kimlikTalep,
+      `update public.satin_alma_talep_kalemleri set miktar = 1 where id = '${f.kalemId}'::uuid;`);
+    const mik = tek(`select miktar::text from public.satin_alma_talep_kalemleri where id='${f.kalemId}'::uuid;`);
+    sonuc(m.ok && Number(mik) === 1,
+      'M-C1 MUTANT: kapi kalkinca INV bozuluyor (iddia dis tasiyor)',
+      'miktar=' + mik + ' | bagli 6 KOL');
+    const geri = O.uygulaTekIslem('docs/kurulum/2026-10-11-talep-siparis-inv-kapilari.sql');
+    sonuc(geri.ok, 'M-C1geri kapi yeniden kuruldu', geri.ok ? '' : hat(geri));
+  }
+
   console.log(`\nSONUC: ${ok} gecti, ${fail} kaldi`);
 } catch (e) { console.error('DUR: ' + (e && e.message)); fail++; }
 finally { try { O.temizle(); } catch { /* yoksay */ } }

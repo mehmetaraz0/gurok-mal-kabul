@@ -73,24 +73,60 @@ try {
 
   // S2: TEK TRANSACTION — her ret yolunda HIC satir kalmiyor
   const once = sayac();
+  // BEKLENEN RET KODU DA DOGRULANIR. Sebebi olculdu: yalniz `!r.ok`
+  // iddiasi, her cagriyi `yetkisiz` yapan bir bozulmada da yesil kalirdi —
+  // yani dokuz testin hicbiri dis tasimaz. Spec §9 bu kodlarin kullaniciya
+  // ulasmasini sart kosuyor.
   const retler = [
-    ['R-J1 eksik talep_kalem_id', { satirlar: [{ miktar: 1, birim: 'KOL' }] }],
-    ['R-J2 null talep_kalem_id', { satirlar: [{ talep_kalem_id: null, miktar: 1, birim: 'KOL' }] }],
-    ['R-J3 metin miktar', { satirlar: [{ talep_kalem_id: f.kalemId, miktar: 'bir', birim: 'KOL' }] }],
-    ['R-T1 null tarih', { tarih: 'null' }],
-    ['R-T2 termin tarihten once', { tarih: 'current_date', termin: 'current_date - 1' }],
+    ['R-J1 eksik talep_kalem_id', { satirlar: [{ miktar: 1, birim: 'KOL' }] }, 'kalem_kimligi_gecersiz'],
+    ['R-J2 null talep_kalem_id', { satirlar: [{ talep_kalem_id: null, miktar: 1, birim: 'KOL' }] }, 'kalem_kimligi_gecersiz'],
+    ['R-J3 metin miktar', { satirlar: [{ talep_kalem_id: f.kalemId, miktar: 'bir', birim: 'KOL' }] }, 'miktar_gecersiz'],
+    ['R-T1 null tarih', { tarih: 'null' }, 'tarih_gecersiz'],
+    ['R-T2 termin tarihten once', { tarih: 'current_date', termin: 'current_date - 1' }, 'termin_gecersiz'],
     ['R-D1 tekrarli kalem', { satirlar: [
       { talep_kalem_id: f.kalemId, miktar: 1, birim: 'KOL' },
-      { talep_kalem_id: f.kalemId, miktar: 1, birim: 'KOL' }] }],
-    ['R-B1 cevrilemez birim', { satirlar: [{ talep_kalem_id: f.kalemId, miktar: 1, birim: 'LT' }] }],
-    ['R-M1 asim', { satirlar: [{ talep_kalem_id: f.kalemId, miktar: 99, birim: 'KOL' }] }],
-    ['R-A1 kisa anahtar', { anahtar: 'abc' }],
+      { talep_kalem_id: f.kalemId, miktar: 1, birim: 'KOL' }] }, 'tekrarli_kalem'],
+    ['R-B1 cevrilemez birim', { satirlar: [{ talep_kalem_id: f.kalemId, miktar: 1, birim: 'LT' }] }, 'birim_cevrilemez'],
+    ['R-M1 asim', { satirlar: [{ talep_kalem_id: f.kalemId, miktar: 99, birim: 'KOL' }] }, 'miktar_asimi'],
+    ['R-A1 kisa anahtar', { anahtar: 'abc' }, 'anahtar_gecersiz'],
+    // --- spec'in sart kostugu ama uygulanmamis kodlar (bagimsiz inceleme) ---
+    ['R-H1 4 ondalikli miktar', { satirlar: [{ talep_kalem_id: f.kalemId2, miktar: '10.0004', birim: 'KG' }] }, 'hassasiyet_asimi'],
+    ['R-A2 bosluklu anahtar (CHECK ile tutarsiz)', { anahtar: ' anahtar1 ' }, 'anahtar_gecersiz'],
+    ['R-A3 101 karakter anahtar', { anahtar: 'a'.repeat(101) }, 'anahtar_gecersiz'],
+    ['R-A4 bos anahtar', { anahtar: '' }, 'anahtar_gecersiz'],
   ];
-  for (const [ad, ozel] of retler) {
+  for (const [ad, ozel, kod] of retler) {
     const r = cagir(ozel);
-    sonuc(!r.ok, ad + ' reddedildi', hata(r));
+    sonuc(!r.ok && new RegExp(kod).test(String(r.err)),
+      ad + ' -> ' + kod, r.ok ? 'KABUL EDILDI' : hata(r));
   }
   esSayac('S2 tum retlerden sonra satir sayilari DEGISMEDI', once);
+
+  // R-C1: spec §5 `carpan_gecersiz` ret kodu ISTIYOR; UYGULANMADI ve
+  // uygulanmamasi DOGRU. Sebep olculdu: `urun_birim_donusum.carpan` kolonu
+  // `numeric NOT NULL CHECK (carpan > 0)`. Yani gecersiz carpan VERI
+  // KATMANINDA imkansiz; RPC'ye o dal eklenirse olu kod olur. Burada
+  // dayanagin KENDISI sinanir: carpan 0 yazma denemesi REDDEDILMELI.
+  const rc1 = O.sql(`update public.urun_birim_donusum set carpan = 0
+                      where urun_kodu='${f.urunKodu}';`);
+  sonuc(!rc1.ok && /urun_birim_donusum_carpan_check|violates check constraint/.test(String(rc1.err)),
+    'R-C1 carpan<=0 veri katmaninda imkansiz (carpan_gecersiz olu kod olurdu)',
+    rc1.ok ? 'KABUL EDILDI — spec §5 dali gerekli' : hata(rc1));
+  es('R-C1b carpan 12 olarak kaldi', 12,
+    tek(`select carpan from public.urun_birim_donusum where urun_kodu='${f.urunKodu}';`));
+
+  // R-K1: kilit sirasi UUID sirasina gore olmali, metin sirasina gore DEGIL.
+  // Buyuk/kucuk harf karisimi metin siralamasinda ters sira uretir ve iki
+  // oturum kalemleri ters kilitleyip deadlock'a girer.
+  sonuc(/order by \(e->>'talep_kalem_id'\)::uuid/.test(
+    readFileSync(KOK + 'docs/kurulum/2026-10-11-siparis-olustur-talepten.sql', 'utf8')),
+    'R-K1 kilit sirasi uuid cast ile sabitlendi');
+
+  // R-N1: olusturan_ad INSAN ADI olmali; siparis takip ekrani bu kolonu
+  // gosteriyor ve diger uc yol oraya `CU.ad` yaziyor.
+  sonuc(tek("select olusturan_ad from public.siparisler where islem_anahtari is not null limit 1;") === 'Bag Test',
+    'R-N1 olusturan_ad insan adi (JWT sub degil)',
+    'olculen=' + tek("select olusturan_ad from public.siparisler where islem_anahtari is not null limit 1;"));
 
   // R-O1 (Review Focus 2): capraz otel — talep baska otelin
   rep(`update public.satin_alma_talepleri set otel_id='811' where id='${f.talepId}'::uuid;`);
