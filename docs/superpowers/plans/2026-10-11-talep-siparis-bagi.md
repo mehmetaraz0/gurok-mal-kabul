@@ -1784,7 +1784,7 @@ git commit -m "feat(siparis): talepten tek transaction'li siparis RPC'si, izole 
 
 **Interfaces:**
 - Consumes: `talep_siparis_baglari` (Task 2), `kurFikstur` (Task 2)
-- Produces: `public.stok_acik_talep(otel_id, urun_kodu, birim, talep_miktar)` — **`birim` kolonu yeni**
+- Produces: `public.stok_acik_talep(otel_id, urun_kodu, talep_miktar, birim)` — **`birim` kolonu yeni**
 
 - [ ] **Step 1: Testi yaz — B1–B6 (birim dondurma kanıtı)**
 
@@ -1927,8 +1927,8 @@ begin;
 create or replace view public.stok_acik_talep with (security_invoker=true) as
 select t.otel_id,
        tk.urun_kodu,
-       tk.birim,
-       sum(tk.miktar - coalesce(b.bagli, 0)) as talep_miktar
+       sum(tk.miktar - coalesce(b.bagli, 0)) as talep_miktar,
+       tk.birim   -- SONA: create or replace view kolonu ortaya ekleyemez
   from public.satin_alma_talep_kalemleri tk
   join public.satin_alma_talepleri t on t.id = tk.talep_id
   left join (
@@ -2219,7 +2219,7 @@ git commit -m "feat(talep): talepten siparis tek RPC ile; erken durum damgasi ka
 - Modify: `stok-takip.html:813-826` (`stokEkVeriYukle`) ve Talep sütunu tanımı
 
 **Interfaces:**
-- Consumes: `stok_acik_talep(otel_id, urun_kodu, birim, talep_miktar)` (Task 6)
+- Consumes: `stok_acik_talep(otel_id, urun_kodu, talep_miktar, birim)` (Task 6)
 
 - [ ] **Step 1: Talep verisini birimle oku**
 

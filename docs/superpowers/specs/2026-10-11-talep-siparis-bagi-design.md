@@ -269,8 +269,8 @@ birimdeki bağ toplamı çıkarılır; sonuç birime göre gruplanır.
 create or replace view public.stok_acik_talep with (security_invoker=true) as
 select t.otel_id,
        tk.urun_kodu,
-       tk.birim,
-       sum(tk.miktar - coalesce(b.bagli, 0)) as talep_miktar
+       sum(tk.miktar - coalesce(b.bagli, 0)) as talep_miktar,
+       tk.birim   -- SONA: create or replace view kolonu ortaya ekleyemez
   from public.satin_alma_talep_kalemleri tk
   join public.satin_alma_talepleri t on t.id = tk.talep_id
   left join (
