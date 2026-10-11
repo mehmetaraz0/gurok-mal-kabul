@@ -526,7 +526,8 @@ Sonda **altı** deneme yapar: değişmezlik `pms_folio_hareketleri` **ve**
 personel, yönetici ve **sentetik** misafir açık seçimle sabitlenir; her denemede
 beklenen mesaj **ve** SQLSTATE birlikte doğrulanır. Koşum hedef otelde geçici
 olarak 1 rezervasyon + 1 folyo + 1 hareket + 1 ödeme yazıp geri alır; kalıcı iz
-yalnız iki dizideki birer numara boşluğudur.
+dizilerde numara boşluğudur (iki dizinin birer artması **tasarım
+beklentisidir**, ölçüm değildir).
 
 ~~**Canlı koşum yapılmadı**; madde bu yüzden açık kalır.~~
 
@@ -534,8 +535,10 @@ yalnız iki dizideki birer numara boşluğudur.
 > `UYGUN: alti denemenin altisi da BEKLENEN RET`. Altı denemenin hepsi
 > `authenticated` rolüyle, `super = f` / `bypassrls = f` koştu; K1 `42501`,
 > K2 `23514`, K3a/K3b/K4a/K4b `42501` (ayrıcalık katmanı). Koşum `ROLLBACK`
-> ile bitti. Tam kayıt, sınırları ve kalıcı izi (iki dizide birer numara)
-> ile `URETIM-YAYIN-RUNBOOK.md` **§15.12**'de. Ölçüm **kullanıcının komut
+> ile bitti. Tam kayıt ve sınırları `URETIM-YAYIN-RUNBOOK.md` **§15.12**'de.
+> Kalıcı iz hakkında ölçülen tek şey dizilerin **son değerleridir**
+> (`pms_rezervasyon_no_seq` = 6, `pms_folio_no_seq` = 6); **artış miktarı ve
+> diğer diziler bu çıktıyla doğrulanmadı**. Ölçüm **kullanıcının komut
 > çıktısıdır**. Değişmezliğin iç katmanları hâlâ **ölçülmedi** — istek
 > ayrıcalık katmanında durduğu için `pms_folio_degismez` tetikleyicisine
 > ulaşmıyor.

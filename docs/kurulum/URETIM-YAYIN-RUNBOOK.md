@@ -1195,8 +1195,10 @@ sentetik-görünmeyen olması sondayı **durdurur**.
 
 **Geçici yazma ve dizi etkisi (açıkça):** koşum hedef otelde 1 rezervasyon +
 1 folyo + 1 hareket + 1 ödeme yazar ve `rollback` ile geri alır. Kalıcı iz
-yalnızca `pms_rezervasyon_no_seq` ve `pms_folio_no_seq` dizilerinin birer
-artmasıdır (birer numara boşluğu); sonda çıktısının son satırı bunu yazar.
+dizilerde numara boşluğudur; sonda çıktısının son satırı `pms_rezervasyon_no_seq`
+ve `pms_folio_no_seq` **son değerlerini** yazar. Dizilerin birer arttığı ve
+başka dizinin etkilenmediği **sondanın tasarım beklentisidir**; bu çıktı
+artış miktarını ölçmez (bkz. §15.12 "Kalıcı iz").
 
 Kanıtlanan güvenlik özellikleri: beklenmedik **KABUL** taklit edildiğinde bile
 `rollback` kalıcı satır bırakmıyor (G2e–G2h); kapalı folyo asıl yetki hatasını
@@ -1425,7 +1427,15 @@ aynı reddin REST katmanında 4xx'e çevrildiği ayrıca ölçülmedi.
 #### Kalıcı iz
 
 Koşum hedef otelde geçici olarak 1 rezervasyon + 1 folyo + 1 hareket + 1 ödeme
-yazdı ve **hepsini geri aldı**. Kalıcı tek iz dizilerdeki numara boşluğudur;
-koşum sonunda ölçülen değerler: `pms_rezervasyon_no_seq` = **6**,
-`pms_folio_no_seq` = **6**. Yani birer numara tüketildi ve atlanmış görünecek.
-Başka kalıcı etki yoktur.
+yazdı ve **hepsini geri aldı**. Kalıcı iz dizilerde numara boşluğu bırakmaktır.
+
+| Dizi | Ölçülen |
+|---|---|
+| `pms_rezervasyon_no_seq` | koşum sonundaki **son değer = 6** |
+| `pms_folio_no_seq` | koşum sonundaki **son değer = 6** |
+
+> **Bu çıktının kanıtladığı şey yalnızca son değerlerdir.** **Artış miktarı**
+> (koşum başına kaç numara tüketildiği) ve **diğer diziler** bu çıktıyla
+> **doğrulanmadı** — koşum öncesi değer ölçülmediği için delta hesaplanamaz ve
+> sorgu başka dizilere bakmadı. "Birer numara tüketildi" **iddia edilmez**;
+> sondanın tasarım beklentisidir, ölçümü değildir.
