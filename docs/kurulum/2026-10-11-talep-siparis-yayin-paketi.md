@@ -1,4 +1,4 @@
-# Talep → Sipariş Bağı — Yayın Paketi (ÜRETİME UYGULANDI 2026-10-11)
+# Talep → Sipariş Bağı — Yayın Paketi (UYGULANDI + EKRAN KABULÜ 2026-10-11)
 
 **Tasarım:** `docs/superpowers/specs/2026-10-11-talep-siparis-bagi-design.md`
 **Plan:** `docs/superpowers/plans/2026-10-11-talep-siparis-bagi.md`
@@ -52,9 +52,39 @@ Tutarlılık kontrolü: görünümün JWT'siz toplamı ile tablolardan doğrudan
 hesaplanan kalan arasındaki fark, yazılan 12 bağa **her birimde birebir** eşit
 çıktı — KG 4280−2154 = 2126 · TNK 1007−1000 = 7 · KTU, AD, KOL = 0.
 
-**EKRAN KABULÜ HENÜZ YAPILMADI.** Canlı ekranda Talep sütununun birim bazlı
-değer gösterdiği ve talep→sipariş akışının uçtan uca çalıştığı ölçülmedi.
-Bu ölçülmeden **"yayın tamamlandı" denmez**.
+### Ekran kabulü — ÖLÇÜLDÜ (2026-10-11, `demo.otel.dornevi.com`)
+
+Kullanıcı giriş yaptı, ölçümler tarayıcıda koşuldu. **Ortam bir demo
+örneğidir** (kullanıcı beyanı); bu yüzden uçtan uca yazma denemesi yapılabildi.
+
+**Arayüzün gerçekten yayınlandığı** kimlik gerektirmeden doğrulandı — altı
+dosyanın canlı sürümü yeni izleri taşıyor: `stok-takip.html`
+(`talepBirimliMetin`, `TALEP_OKUNAMADI`, `rpc/siparis_no_uret`,
+`birim,talep_miktar`, `SIPARIS_NO_HATA`) · `satin-alma-siparisolustur.html`
+(`siparis_olustur_talepten`, `SP_ANAHTARLAR`, `spUrunAta`,
+`siparisRetMesaji`, `spYazilanEk`, `sp_devir_otel`) ·
+`satin-alma-talepler.html` (`sp_devir_talep`, `sp_devir_otel`,
+`talepKalemId`) · `satin-alma-iade.html` · `filtre.js`
+(`_tipUyumsuzUyarildi`) · `onay-motoru.js`. Pages'in `main` kökünden
+yayınladığı böylece kanıtlandı.
+
+| # | Kontrol | Ölçülen |
+|---|---|---|
+| 1 | Talep sütunu | `TALEP_OKUNAMADI=false`; kolon ve filtre tipi **`text`**; `talepMap` birim haritası (`{KG:1000}`); dokuz ürünün hepsi birim ekli (`10 KG`, `21 KTU`, `1 AD`, `1 KOL`…); **çıplak sayı dönen ürün yok** |
+| 1b | Veritabanıyla tutarlılık | Ekrandaki KG toplamı **2154** — Faz E'nin tablolardan hesapladığı değerle aynı; TNK 1000, KTU 21, AD 1, KOL 1 de birebir |
+| 2 | Uçtan uca dönüştürme | Sipariş **C00091149** (sayaçtan) · `kaynak='talep'` · `olusturan_ad='Sistem Test'` (**insan adı**, JWT `sub` değil) · `islem_anahtari`+parmak izi yazıldı · 1 kalem (1 AD, fiyat 444) · 1 bağ (miktar 1, `hedef_birim='AD'`, `carpan=null`) · talep durumu **`siparis`** (tam karşılama) · `satin_alma_talepleri.siparis_no` hâlâ `null` (ölü kolon, tasarım gereği) |
+| 2b | İkinci basış | **Mükerrer yazılmadı** (sipariş 1→1, bağ 13→13) ve kullanıcı sunucunun bildirdiği değeri gördü: *"Talep miktarı aşılıyor — kalan 0.000 AD"* |
+| 2c | İşlem anahtarı | Başarıdan sonra **yenilendi** (yeni uuid) — spec §6.1 |
+| 3 | Ürün kilidi | Talep satırında alan **`readOnly`** + açıklayıcı başlık; `spUrunAta` değiştirmeyi **reddetti**, kod ve ad değişmedi. Talepsiz satırda **izinli** (negatif kontrol) |
+| 3b | Otel | `810`, **kilitli**, "Otel talepten geliyor ve değiştirilemez" |
+| 4 | Erken durum damgası | Dönüştürme sonrası talep durumu **`onaylandi` kaldı** — eski kod burada `siparis` damgalıyordu |
+| 5 | Kasıtlı açık bırakılanlar | CARTE DOR **21 KTU** · dept 100 **22** ve **122 KG** · PARMESAN **10 KG** — dördü de ekranda görünüyor |
+| 6 | Tam döngü | Sipariş → bağ → kalan 0 → kalem Talep sütunundan **düştü** (9 ürün → 8) |
+
+Bağ sayısı 13 = geri yazılan 12 + canlı akışta oluşan 1.
+
+**Yayın tamamlandı.** Kalan açık maddeler aşağıdaki "Açık kalan maddeler"
+bölümünde; hiçbiri bu özelliğin çalışmasını engellemiyor.
 
 ## Ne çözülüyor
 
