@@ -112,6 +112,12 @@ async function talepAsamaIlerlet(talepId, kullanici, karar, opts){
 
 // Onaylı talebi siparişe dönüştür — istemci PATCH'inin yerine (sunucu doğrular:
 // yetki + durum='onaylandi' + atomik geçiş).
+//
+// ARTIK ÇAĞRILMIYOR. Bu RPC yalnız durumu damgalıyor, sipariş numarasını
+// YAZMIYORDU; talep "siparişe dönüştü" görünürken sipariş hiç oluşmayabiliyordu.
+// Talepten sipariş yolu artık `siparis_olustur_talepten` ile tek transaction'da
+// yürüyor (başlık + kalemler + bağlar + talep durumu). YENİ KULLANIM EKLEME.
+// RPC'nin sunucudan düşürülmesi ayrı iş (tasarım §13).
 async function talepSiparisRpc(talepId){
   try{
     const r = await fetch(SB_URL+'/rest/v1/rpc/talep_siparise_donustur', {
