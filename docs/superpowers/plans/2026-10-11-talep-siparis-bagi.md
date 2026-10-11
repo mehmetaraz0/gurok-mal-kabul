@@ -1822,31 +1822,33 @@ try {
     sonuc(r.ok, 'F ' + m.split('/').pop(), r.ok ? '' : hata(r));
   }
   f = kurFikstur(O);
-  // Kalem1: 10 KOL. Kalem2: 100 KG. 6 KOL baglanir -> KOL kalan 4, KG kalan 100.
-  bagYaz(O, f, { kalemId: f.kalemId, siparisNo: f.siparisNo, miktar: 6, hedefBirim: 'KOL' });
+  // REFERANS ORNEK (spec §1.1): kalem 10 KOL, siparis satiri 72 KG,
+  // yazma aninda 12 KG/KOL -> bag 6 KOL. Kalem2: 100 KG (ayri birim satiri).
+  bagYaz(O, f, { kalemId: f.kalemId, siparisNo: f.siparisNo, miktar: 6,
+                 hedefBirim: 'KOL', kaynakMiktar: 72, kaynakBirim: 'KG', carpan: 12 });
 
-  // B1 TABAN
-  es('B1a KOL kalan 4', 4, kalan('KOL'));
+  // B1 TABAN — 10 KOL - 6 KOL = 4 KOL
+  es('B1a KOL kalan 4 KOL', 4, kalan('KOL'));
   es('B1b KG kalan 100 (ayri satir)', 100, kalan('KG'));
   es('B1c birim bazinda IKI satir var', 2,
     tek(`select count(*) from public.stok_acik_talep where urun_kodu='${f.urunKodu}';`));
 
   // B2 CARPAN DEGISTI 12 -> 24: eski kalan DEGISMEZ
   O.sql(`update public.urun_birim_donusum set carpan = 24 where urun_kodu='${f.urunKodu}';`);
-  es('B2 carpan 24 olunca KOL kalan hala 4', 4, kalan('KOL'));
+  es('B2 carpan 24 olunca KOL kalan hala 4 KOL', 4, kalan('KOL'));
 
   // B3 KATALOG BIRIMI DEGISTI KG -> LT
   O.sql(`update public.urunler set birim='LT' where kod='${f.urunKodu}';`);
-  es('B3 katalog birimi LT olunca KOL kalan hala 4', 4, kalan('KOL'));
+  es('B3 katalog birimi LT olunca KOL kalan hala 4 KOL', 4, kalan('KOL'));
   O.sql(`update public.urunler set birim='KG' where kod='${f.urunKodu}';`);
 
   // B4 DONUSUM PASIFLESTI
   O.sql(`update public.urun_birim_donusum set silindi = true where urun_kodu='${f.urunKodu}';`);
-  es('B4 donusum pasif olunca KOL kalan hala 4', 4, kalan('KOL'));
+  es('B4 donusum pasif olunca KOL kalan hala 4 KOL', 4, kalan('KOL'));
 
   // B5 DONUSUM SATIRI SILINDI
   O.sql(`delete from public.urun_birim_donusum where urun_kodu='${f.urunKodu}';`);
-  es('B5 donusum silinince KOL kalan hala 4', 4, kalan('KOL'));
+  es('B5 donusum silinince KOL kalan hala 4 KOL', 4, kalan('KOL'));
 
   // B6 MUTANT: gorunum guncel carpanla yeniden hesaplarsa B2 bozulur
   O.sql(`insert into public.urun_birim_donusum (urun_kodu, buyuk_birim, carpan, silindi)
@@ -1866,10 +1868,11 @@ try {
   O.sql(mutant);
   const mutantKalan = Number(tek(`select coalesce(sum(talep_miktar),0)
     from public.stok_acik_talep where urun_kodu='${f.urunKodu}';`));
+  // Mutant beklentisi: 10 × 24 − 6 = 234 (dogrusu 4 KOL)
   sonuc(mutantKalan !== 4, 'B6 MUTANT: guncel carpanla hesap eski kalani BOZUYOR',
-    'mutant kalan=' + mutantKalan);
+    'mutant kalan=' + mutantKalan + ' (beklenen dogru deger 4)');
   O.uygulaTekIslem('docs/kurulum/2026-10-11-stok-acik-talep-kalan.sql');
-  es('B6b orijinal gorunum geri geldi, kalan 4', 4, kalan('KOL'));
+  es('B6b orijinal gorunum geri geldi, kalan 4 KOL', 4, kalan('KOL'));
 
   console.log(`\nSONUC: ${ok} gecti, ${fail} kaldi`);
 } catch (e) { console.error('DUR: ' + (e && e.message)); fail++; }
@@ -1893,8 +1896,9 @@ Expected: `F 2026-10-11-stok-acik-talep-kalan.sql` FAIL (dosya yok)
 --
 -- BU GORUNUM KATALOG TABLOLARINA KATILMAZ. Sebebi olculdu: talep miktarini
 -- GUNCEL carpanla yeniden hesaplayan bir formul eski kalani bozar.
---   10 KOL talep · 12 KG/KOL · 72 KG bag -> kalan 48 KG
---   carpan 24 olunca "miktar × guncel carpan − bagli" = 240 − 72 = 168 (YANLIS)
+--   Referans ornek: 10 KOL talep · siparis satiri 72 KG · yazma aninda
+--   12 KG/KOL -> bag 6 KOL (hedef_birim=KOL, dondurulur) -> kalan 4 KOL.
+--   Carpan 24 olunca "miktar × guncel carpan − bagli" = 10×24 − 6 = 234 (YANLIS)
 -- Bag yazilirken `hedef_birim` DONDURULUR; burada yalniz ayni birimdeki bag
 -- toplami cikarilir ve sonuclar birime gore gruplanir.
 --
@@ -2368,9 +2372,12 @@ yeni görünümde yeniden açık görünecektir.
 **Geçiş adımı migration'ın parçası değildir.** Otomatik iptal ve otomatik
 bağlama **yapılmaz**.
 
-## Kabul ölçütleri
+## Kabul ölçütleri — PLANLANAN (henüz koşulmadı)
 
-| Ölçüm | Beklenen |
+> Aşağıdaki sayılar **planlanan test adetleridir**, ölçülmüş sonuç değildir.
+> Gerçek koşum sonucu buraya ancak koşulduktan sonra yazılır.
+
+| Ölçüm | Planlanan |
 |---|---|
 | `node scripts/siparis-no-uret.test.mjs` | 10/0 |
 | `node scripts/talep-siparis-bagi-kapilari.test.mjs` | 43/0 |

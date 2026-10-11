@@ -23,9 +23,21 @@ birimine** çevrilir ve öyle saklanır. Kalan hesabı **hiçbir zaman** güncel
 katalog dönüşümünü kullanmaz.
 
 **Neden:** katalog çarpanı sonradan değişirse, talep miktarını güncel çarpanla
-yeniden hesaplayan bir formül eski kalanı bozar. Ölçülmüş örnek: 10 KOL talep ·
-12 KG/KOL · 72 KG bağ → kalan 48 KG. Çarpan 24'e çıktığında "miktar × güncel
-çarpan − bağlı" formülü 240 − 72 = **168 KG** verir; doğrusu **48 KG**'dir.
+yeniden hesaplayan bir formül eski kalanı bozar.
+
+**Referans örnek (bu belgenin ve planın tamamında aynı sözleşme):**
+
+| Öğe | Değer |
+|---|---|
+| Talep kalemi | **10 KOL** |
+| Sipariş satırında girilen | **72 KG** |
+| Yazma anındaki dönüşüm | **12 KG/KOL** |
+| Yazılan bağ (`miktar` / `hedef_birim`) | **6 KOL** — talep kaleminin biriminde dondurulur |
+| Denetim izi (`kaynak_miktar` / `kaynak_birim` / `carpan`) | 72 / KG / 12 |
+| **Kalan** | **4 KOL** |
+
+Çarpan sonradan 24'e çıkarsa "miktar × güncel çarpan − bağlı" formülü
+10 × 24 − 6 = **234** verir; doğrusu **4 KOL**'dur ve değişmemelidir.
 Bu yüzden görünüm katalog tablolarına **hiç katılmaz**.
 
 ---
@@ -374,17 +386,17 @@ sipariş silinebiliyor · `durum='iptal'` bağ satırını **koruyor** ama kalan
 hesabından düşüyor · mutant: FK `cascade`'e çevrilirse bağ geçmişi siliniyor.
 
 ### 12.3 Birim dondurma — **çarpan/katalog değişikliği eski kalanı bozmuyor**
-Kurulum: 10 KOL talep kalemi · `urun_birim_donusum` 12 KG/KOL · 72 KG bağ ·
-beklenen kalan **48**.
+Kurulum (§1.1 referans örneği): 10 KOL talep kalemi · sipariş satırı **72 KG** ·
+yazma anında 12 KG/KOL → bağ **6 KOL** · beklenen kalan **4 KOL**.
 
 | Test | Değişiklik | Beklenen kalan |
 |---|---|---|
-| B1 | — (taban ölçüm) | **48** |
-| B2 | `carpan` 12 → **24** | **48** (değişmedi) |
-| B3 | `urunler.birim` KG → **LT** | **48** (değişmedi) |
-| B4 | Dönüşüm `silindi = true` | **48** (değişmedi) |
-| B5 | Dönüşüm satırı **silindi** | **48** (değişmedi) |
-| B6 | mutant: görünüm katalog çarpanıyla yeniden hesaplarsa | B2'de **168** çıkar → test kırmızı |
+| B1 | — (taban ölçüm) | **4 KOL** |
+| B2 | `carpan` 12 → **24** | **4 KOL** (değişmedi) |
+| B3 | `urunler.birim` KG → **LT** | **4 KOL** (değişmedi) |
+| B4 | Dönüşüm `silindi = true` | **4 KOL** (değişmedi) |
+| B5 | Dönüşüm satırı **silindi** | **4 KOL** (değişmedi) |
+| B6 | mutant: görünüm katalog çarpanıyla yeniden hesaplarsa | B2'de 10 × 24 − 6 = **234** çıkar → test kırmızı |
 
 ### 12.4 Birim doğrulaması (yazma anı)
 Aynı birim → katsayı 1 · `buyuk_birim` → `carpan` ile normalize, `carpan` ve
