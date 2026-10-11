@@ -1,11 +1,60 @@
-# Talep → Sipariş Bağı — Yayın Paketi (ÜRETİME UYGULANMADI)
+# Talep → Sipariş Bağı — Yayın Paketi (ÜRETİME UYGULANDI 2026-10-11)
 
 **Tasarım:** `docs/superpowers/specs/2026-10-11-talep-siparis-bagi-design.md`
 **Plan:** `docs/superpowers/plans/2026-10-11-talep-siparis-bagi.md`
-**Dal:** `feat/talep-siparis-bagi` (push edilmedi)
+**Dal:** `feat/talep-siparis-bagi` -> `main` (birlestirildi, origin/main = `11af7c5`)
 
-Bu paket **üretime uygulanmadı**. Uygulama yalnız kullanıcı açıkça
-`CANLIYA UYGULA` dediğinde yapılır.
+Bu paket **2026-10-11'de üretime uygulandı** (kullanıcı `CANLIYA UYGULA` dedi).
+Uygulanan dosyalar bir daha **yeniden yazılmaz** (migration güvenlik
+standardı §5).
+
+## Yayın kaydı — 2026-10-11
+
+| Adım | Dosya / iş | Sonuç |
+|---|---|---|
+| 1 | `siparis-no-sayac` | ✅ tablo + `siparis_no_uret`; `INSERT 0 2` (C/R sayaç satırları) |
+| 2 | `talep-siparis-baglari` | ✅ tablo + 3 indeks + RLS + 2 politika |
+| 3 | `siparisler-islem-anahtari` | ✅ 2 nullable kolon + kısmi unique indeks |
+| 4 | `talep-siparis-inv-kapilari` | ✅ 6 fonksiyon + 6 tetikleyici + 6 `ENABLE ALWAYS` |
+| 5 | `siparis-olustur-talepten` | ✅ 2 fonksiyon + ACL |
+| 7 | **Arayüz** — `origin/main` = `11af7c5` | ✅ 20 commit, ileri sarma |
+| 6 | `stok-acik-talep-kalan` | ✅ `talep_bag_toplam()` + görünüm |
+| 8 | `talep-siparis-bag-geri-yazma` | ✅ iki kez `INSERT 0 12`, üç `DO` geçti |
+
+### Yayın sırasında ölçülen gerçek bir arıza
+
+Arayüz, migration 1–5 uygulanmadan **önce** yayınlandı. Sonuç: yeni ekran
+`siparis_no_uret`'i çağırdı, fonksiyon yoktu ve **dört sipariş oluşturma
+yolu da durdu**. Faz C'nin önkoşul kapısı (`ONKOSUL: talep_siparis_baglari
+yok`) bunu yakaladı; migration 1 uygulanınca sipariş oluşturma geri geldi.
+
+**Veri hasarı olmadı ve bunun sebebi tasarımdı:** numara alınamadığında
+istemci fail-closed durur — eski kod burada `catch` dalında rastgele numara
+uyduruyordu ve `siparis_no` birincil anahtar olduğu için sonuç mükerrer
+değil **kaybolan sipariş** olurdu. Yarım kalan hâlde bağ yazılması da mümkün
+değildi: `authenticated`'a bağ tablosunda yazma yetkisi hiç verilmedi, tek
+yazıcı olan RPC ise henüz yoktu.
+
+**Ders:** sıra revizyonu (arayüz görünümden önce) doğruydu ama **1–5'in
+arayüzden önce gitmesi** şartı atlandı. Bundan sonra arayüz push'u, SQL
+adımlarının çıktısı ÖLÇÜLMEDEN yapılmaz — teyit yeterli değil.
+
+### Uygulama sonrası ölçüm (`...-gecis-olcumu.sql`, salt okuma)
+
+| Ölçüm | Sonuç |
+|---|---|
+| Bağsız kalan talep | **4** (CARTE DOR ×2 · dept 100 ×2) — geçiş kararı gereği |
+| `hedef_birim` ayrışması | **0 satır** |
+| INV ihlali | **0 satır** |
+| Altı tetikleyici `security definer` | **6/6 `t`** — C1 ve C3 üretimde kapandı |
+
+Tutarlılık kontrolü: görünümün JWT'siz toplamı ile tablolardan doğrudan
+hesaplanan kalan arasındaki fark, yazılan 12 bağa **her birimde birebir** eşit
+çıktı — KG 4280−2154 = 2126 · TNK 1007−1000 = 7 · KTU, AD, KOL = 0.
+
+**EKRAN KABULÜ HENÜZ YAPILMADI.** Canlı ekranda Talep sütununun birim bazlı
+değer gösterdiği ve talep→sipariş akışının uçtan uca çalıştığı ölçülmedi.
+Bu ölçülmeden **"yayın tamamlandı" denmez**.
 
 ## Ne çözülüyor
 
@@ -19,7 +68,7 @@ oluşmayabiliyordu ve o talep açık talep listesinden sessizce düşüyordu
 Artık izlenebilir bir bağ tablosu var: **(talep kalemi, sipariş, miktar)** —
 kısmi karşılama taneliliğinde. Açık talep = **kalan** miktar.
 
-## Uygulama sırası (zorunlu)
+## Uygulama sırası (UYGULANDI 2026-10-11 — kayıt ve geri alma için korunuyor)
 
 | # | Dosya | Neden bu sırada |
 |---|---|---|
