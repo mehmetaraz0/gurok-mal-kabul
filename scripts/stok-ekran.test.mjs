@@ -42,6 +42,15 @@ const EK_SEMA = `
   grant select, insert, update on public.urun_birim_donusum, public.cariler,
     public.kullanicilar_genel, public.siparisler, public.siparis_kalemleri to authenticated;
 
+  -- Acik talep: gorunumun SOZLESMESI (otel_id, urun_kodu, talep_miktar, birim).
+  -- Burada tablo olarak kurulur, cunku bu suitin konusu ISTEMCININ bu
+  -- sozlesmeyi nasil isledigidir. Gorunumun KENDISI (kalan miktar, birim
+  -- dondurma, RLS) scripts/stok-acik-talep-kalan.test.mjs icinde uretim sema
+  -- dokumu uzerinde olculur.
+  create table public.stok_acik_talep (
+    otel_id text, urun_kodu text, talep_miktar numeric, birim text);
+  grant select on public.stok_acik_talep to authenticated;
+
   -- Siparis numarasi artik SUNUCUDAN geliyor (siparis_no_uret). Bu suit
   -- EKRANI sinar, yetkilendirmeyi sinamaz: yetki kapisinin kendisi uretim
   -- sema dokumu uzerinde scripts/siparis-no-uret.test.mjs icinde olculur.
@@ -499,6 +508,39 @@ const utc = (v) => (v == null ? null : new Date(v).toISOString().slice(0, 23));
   sonuc(onbellek === null && kart === '—' && kalan === 40,
     'tarih okunamazsa BILINMIYOR gosterilir, yerel saat gercek tarih gibi sunulmaz',
     'onbellek=' + JSON.stringify(onbellek) + ', kartta "' + kart + '", stok 50 -> ' + kalan);
+}
+
+// --- 8) TALEP SUTUNU: farkli birimler TOPLANMAZ -----------------------------
+// Gorunum artik birim bazinda satir donuyor. 10 KOL + 100 KG'yi toplayip 110
+// yazmak, kullanicinin hicbir yerde karsiligi olmayan bir sayi uretir.
+{
+  seedDepolar();
+  ortam.psql(`truncate public.stok_acik_talep;
+    insert into public.stok_acik_talep (otel_id, urun_kodu, talep_miktar, birim) values
+      ('810','AAA001',10,'KOL'),
+      ('810','AAA001',100,'KG'),
+      ('810','AAA002',4,'KG'),
+      ('811','AAA003',99,'KG');`);
+  const e = await ekran('D1');
+  await e.calistir('stokListesiYenile()');
+  await e.calistir('stokEkVeriYukle()');
+  await new Promise(r => setTimeout(r, 1500));
+  const metin = (kod) => String(e.calistir(
+    `(function(){var k=STOK_TABLO_KOLONLARI.filter(function(c){return c.key==='talep'})[0];
+       return k ? String(k.get({lnKod:${JSON.stringify(kod)}})) : '(kolon yok)';})()`));
+  sonuc(metin('AAA001') === '10 KOL + 100 KG' || metin('AAA001') === '100 KG + 10 KOL',
+    'talep: iki birim AYRI gosteriliyor, toplanmiyor', JSON.stringify(metin('AAA001')));
+  sonuc(metin('AAA001') !== '110', 'talep: 110 gibi anlamsiz toplam URETILMIYOR',
+    JSON.stringify(metin('AAA001')));
+  sonuc(metin('AAA002') === '4 KG', 'talep: tek birimde sade gosterim', JSON.stringify(metin('AAA002')));
+  sonuc(metin('AAA003') === '', 'talep: baska otelin satiri sizmiyor', JSON.stringify(metin('AAA003')));
+  sonuc(metin('BBB001') === '', 'talep: talebi olmayan urun bos', JSON.stringify(metin('BBB001')));
+  // Filtre alani da ayni metni kullanmali; sayisal alan birimli degeri
+  // karsilastiramaz ve sessizce 0 doner.
+  const filtreTur = String(e.calistir(
+    `(function(){var a=STOK_FILTRE_ALANLARI.filter(function(x){return x.field==='talep'})[0];
+       return a ? a.type : '(yok)';})()`));
+  sonuc(filtreTur === 'text', 'talep: filtre alani metin tipine gecti', filtreTur);
 }
 
 console.log('\nSTOK EKRANI SONUC: ' + ok + ' OK / ' + fail + ' FAIL');

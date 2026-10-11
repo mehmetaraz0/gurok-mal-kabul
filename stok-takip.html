@@ -783,6 +783,17 @@ let aktifStokFiltreleri = [];
 // ===== Tablo (grid) görünümü =====
 let stokGorunum = 'kart';                 // 'kart' | 'tablo'
 let siparisMap = {}, talepMap = {}, sonHareketMap = {};
+
+// talepMap artık ürün başına BİRİM HARİTASI: {AAA001:{KOL:10, KG:100}}.
+// "10 KOL + 100 KG" gibi gösterir, TOPLAMA YAPMAZ — farklı birimlerin toplamı
+// kullanıcıya yanlış bir büyüklük sunar. Sıfır/boş değerler gösterilmez.
+function talepBirimliMetin(birimler){
+  if(!birimler||typeof birimler!=='object') return '';
+  const p=Object.keys(birimler).filter(b=>(parseFloat(birimler[b])||0)>0)
+    .sort((a,b)=>(parseFloat(birimler[b])||0)-(parseFloat(birimler[a])||0))
+    .map(b=>(Math.round((parseFloat(birimler[b])||0)*1000)/1000)+' '+b);
+  return p.length?p.join(' + '):'';
+}
 // Sütun-altı filtre: kolay operatör sembolleri (filtre.js OPS anahtarlarına eşlenir)
 const SUTUN_OPS = {
   text:   [['contains','içerir'],['equals','='],['not_equals','≠'],['starts','başlar']],
@@ -794,7 +805,9 @@ STOK_FILTRE_ALANLARI.push(
   { field:'birim',     label:'Birim',              type:'text',   getValue:s=>s.birim||'' },
   { field:'min',       label:'Min',                type:'number', getValue:s=>db.minimumlar[s.lnKod]||0 },
   { field:'siparis',   label:'Sipariş (bekleyen)', type:'number', getValue:s=>siparisMap[s.lnKod]||0 },
-  { field:'talep',     label:'Talep (bekleyen)',   type:'number', getValue:s=>talepMap[s.lnKod]||0 },
+  // Talep artık BİRİM bazında ("10 KOL + 100 KG"): sayısal filtre birimli
+  // değeri karşılaştıramaz ve sessizce 0 döner, bu yüzden metin tipinde.
+  { field:'talep',     label:'Talep (bekleyen)',   type:'text',   getValue:s=>talepBirimliMetin(talepMap[s.lnKod]) },
   { field:'sonHareket',label:'Son Hareket',        type:'date',   getValue:s=>sonHareketMap[s.lnKod]||null },
 );
 const STOK_TABLO_KOLONLARI = [
@@ -807,7 +820,7 @@ const STOK_TABLO_KOLONLARI = [
   { key:'abc',       label:'ABC',         type:'text',   get:s=>db.abcSiniflari[s.lnKod]||'C' },
   { key:'durum',     label:'Durum',       type:'text',   get:s=>getStokDurum(s.lnKod,s.miktar) },
   { key:'siparis',   label:'Sipariş',     type:'number', get:s=>siparisMap[s.lnKod]||0 },
-  { key:'talep',     label:'Talep',       type:'number', get:s=>talepMap[s.lnKod]||0 },
+  { key:'talep',     label:'Talep',       type:'text',   get:s=>talepBirimliMetin(talepMap[s.lnKod]) },
   { key:'sonHareket',label:'Son Hareket', type:'date',   get:s=>sonHareketMap[s.lnKod]||'' },
 ];
 async function stokEkVeriYukle(){
@@ -816,11 +829,19 @@ async function stokEkVeriYukle(){
   try{
     const [rs,rt,rh]=await Promise.all([
       fetch(SB_URL+'/rest/v1/stok_acik_siparis?select=otel_id,urun_kodu,bekleyen_miktar',{headers:SB_HEADERS}),
-      fetch(SB_URL+'/rest/v1/stok_acik_talep?select=otel_id,urun_kodu,talep_miktar',{headers:SB_HEADERS}),
+      fetch(SB_URL+'/rest/v1/stok_acik_talep?select=otel_id,urun_kodu,birim,talep_miktar',{headers:SB_HEADERS}),
       fetch(SB_URL+'/rest/v1/stok_son_hareket?select=otel_id,urun_kodu,son_tarih',{headers:SB_HEADERS}),
     ]);
     if(rs.ok)(await rs.json()).forEach(r=>{ if(!otel||String(r.otel_id)===String(otel)) siparisMap[r.urun_kodu]=(siparisMap[r.urun_kodu]||0)+(parseFloat(r.bekleyen_miktar)||0); });
-    if(rt.ok)(await rt.json()).forEach(r=>{ if(!otel||String(r.otel_id)===String(otel)) talepMap[r.urun_kodu]=(talepMap[r.urun_kodu]||0)+(parseFloat(r.talep_miktar)||0); });
+    // Görünüm artık BİRİM bazında satır döndürüyor ve bu satırlar KALAN
+    // miktardır. Farklı birimler TOPLANMAZ: 10 KOL + 100 KG'yi 110 yazmak,
+    // kullanıcının hiçbir yerde karşılığı olmayan bir sayı üretir.
+    if(rt.ok)(await rt.json()).forEach(r=>{
+      if(otel && String(r.otel_id)!==String(otel)) return;
+      const k=r.urun_kodu, b=r.birim||'';
+      if(!talepMap[k]) talepMap[k]={};
+      talepMap[k][b]=(talepMap[k][b]||0)+(parseFloat(r.talep_miktar)||0);
+    });
     if(rh.ok)(await rh.json()).forEach(r=>{ if(!otel||String(r.otel_id)===String(otel)){ if(!sonHareketMap[r.urun_kodu]||r.son_tarih>sonHareketMap[r.urun_kodu]) sonHareketMap[r.urun_kodu]=r.son_tarih; } });
   }catch(e){ console.warn('stokEkVeriYukle',e); }
 }
