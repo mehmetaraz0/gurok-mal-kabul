@@ -8,6 +8,28 @@
 -- RPC'deki kontrol kullaniciya anlasilir mesaj icin; BU TETIKLEYICILER
 -- degismez guvence icin. Bag hangi yoldan gelirse gelsin INV bozulamaz.
 --
+-- NEDEN TETIKLEYICI FONKSIYONLARI `security definer` (bagimsiz inceleme
+-- bulgusu C1/C3; izole ortamda OLCULDU, tahmin degil):
+--   * `security invoker` olduklarinda `talep_siparis_baglari` sorgusu
+--     CAGIRANIN RLS'i altinda kosuyordu. `tsb_select` politikasi siparis
+--     modulu yetkisi ister; `satk_update` politikasi ise yalniz
+--     `ic_talep:kayit` ister. Yani `ic_talep:kayit` yetkili bir depo
+--     kullanicisi icin bag sorgusu 0 SATIR donuyor, K5/K6 kapilari
+--     SESSIZCE atlaniyordu. OLCULEN: 10 KOL'luk kalemin 6 KOL bagi varken
+--     miktar 1.000'e dusurulebildi — korunan INV bozuldu.
+--   * K3 ise EXECUTE'u her rolden alinmis `talep_bag_inv_kontrol`'u
+--     cagirdigi icin kalici `permission denied for function
+--     talep_bag_inv_kontrol` veriyordu: MESRU iptalden geri alma bile
+--     imkansizdi (olculdu). Cozum EXECUTE vermek DEGILDIR — o fonksiyon
+--     definer ve icinde yetki kontrolu yok; tetikleyiciyi definer yapmaktir.
+--
+-- ATLANAN KONTROLUN YENIDEN UYGULANMASI (MY-4 dersi): bu fonksiyonlar
+-- yetki genisletmez, cunku (a) hicbiri YAZMAZ — yalniz `raise exception`
+-- eder, (b) tetikleyen yazma kendi RLS politikasindan ZATEN gecmistir,
+-- (c) okunan tek sey o yazmanin dogrudan ilgili oldugu bag satirlaridir.
+-- Bilincli ve sinirli acilim: ret mesajlari bagli miktari ve birimi yazar;
+-- cagiran o satir uzerinde zaten islem yapiyordur.
+--
 -- BU DOSYA YAZILDI, URETIME UYGULANMADI.
 -- ============================================================================
 
@@ -75,6 +97,7 @@ revoke all on function public.talep_bag_inv_kontrol(uuid, numeric, uuid) from se
 create or replace function public.tsb_inv_tetik()
 returns trigger
 language plpgsql
+security definer
 set search_path = pg_catalog, public, pg_temp
 as $fn$
 begin
@@ -103,6 +126,7 @@ create trigger tsb_inv_guncelle before update of miktar, talep_kalem_id
 create or replace function public.sip_iptal_geri_al_inv_tetik()
 returns trigger
 language plpgsql
+security definer
 set search_path = pg_catalog, public, pg_temp
 as $fn$
 declare r record;
@@ -131,6 +155,7 @@ create trigger sip_iptal_geri_al_inv before update of durum on public.siparisler
 create or replace function public.sipk_miktar_inv_tetik()
 returns trigger
 language plpgsql
+security definer
 set search_path = pg_catalog, public, pg_temp
 as $fn$
 declare v_bagli numeric;
@@ -164,6 +189,7 @@ create trigger sipk_miktar_inv before update of miktar on public.siparis_kalemle
 create or replace function public.talep_kalem_inv_tetik()
 returns trigger
 language plpgsql
+security definer
 set search_path = pg_catalog, public, pg_temp
 as $fn$
 declare v_bagli numeric; v_var boolean;
@@ -210,6 +236,7 @@ create trigger talep_kalem_miktar_inv
 create or replace function public.sip_bagli_silinemez_tetik()
 returns trigger
 language plpgsql
+security definer
 set search_path = pg_catalog, public, pg_temp
 as $fn$
 begin

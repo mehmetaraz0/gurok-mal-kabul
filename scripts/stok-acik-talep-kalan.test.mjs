@@ -29,7 +29,12 @@ const es = (ad, bek, olc) => sonuc(Number(bek) === Number(olc), ad, Number(bek) 
 const tek = (q) => O.sql(q).out.trim();
 const hata = (r) => (String(r.err).split('\n').filter(l => /ERROR/.test(l))[0] || '(mesaj yok)').slice(0, 110);
 let f;
-const kalan = (birim) => tek(`select coalesce(sum(talep_miktar),0) from public.stok_acik_talep
+// GORUNUM KIMLIKLE OKUNUR. Sebep olculdu: superuser RLS'i atlar ve bag
+// toplaminin cagiran yetkisine bagli oldugu durumu GOREMEZ (bagimsiz
+// inceleme bulgusu C2). Okuyan kimlik `ic_talep` + `stok_takip` yetkili,
+// SIPARIS modulunde yetkisiz — gorunumun gercek tuketici profili.
+const gorunum = (q) => ((O.kimlikle(f.kimlikTalep, q).out || '').trim().split('\n').pop() || '').trim();
+const kalan = (birim) => gorunum(`select coalesce(sum(talep_miktar),0)::text from public.stok_acik_talep
   where urun_kodu='${f.urunKodu}' and birim='${birim}';`);
 const rep = (q) => O.sql(`set session_replication_role = replica;\n${q}\nset session_replication_role = origin;`);
 
@@ -49,7 +54,7 @@ try {
   es('B1a KOL kalan 4 KOL', 4, kalan('KOL'));
   es('B1b KG kalan 100 (ayri satir)', 100, kalan('KG'));
   es('B1c birim bazinda IKI satir var', 2,
-    tek(`select count(*) from public.stok_acik_talep where urun_kodu='${f.urunKodu}';`));
+    gorunum(`select count(*)::text from public.stok_acik_talep where urun_kodu='${f.urunKodu}';`));
 
   // B2 CARPAN DEGISTI 12 -> 24: eski kalan DEGISMEZ
   O.sql(`update public.urun_birim_donusum set carpan = 24 where urun_kodu='${f.urunKodu}';`);
@@ -83,14 +88,14 @@ try {
       join public.satin_alma_talepleri t on t.id = tk.talep_id
       left join public.urunler u on u.kod = tk.urun_kodu
       left join public.urun_birim_donusum d on d.urun_kodu = tk.urun_kodu and d.silindi = false
-      left join (select talep_kalem_id, sum(miktar) bagli
-                   from public.talep_siparis_baglari group by talep_kalem_id) b
+      left join (select talep_kalem_id, sum(bagli) bagli
+                   from public.talep_bag_toplam() group by talep_kalem_id) b
              on b.talep_kalem_id = tk.id
      where t.durum not in ('iptal','reddedildi')
      group by t.otel_id, tk.urun_kodu, u.birim;`);
   sonuc(mv.ok, 'B6-haz mutant gorunum kuruldu (kolon sirasi uyumlu)',
     mv.ok ? '' : hata(mv));
-  const mutantKalan = Number(tek(`select coalesce(sum(talep_miktar),0)
+  const mutantKalan = Number(gorunum(`select coalesce(sum(talep_miktar),0)::text
     from public.stok_acik_talep where urun_kodu='${f.urunKodu}';`));
   sonuc(mutantKalan !== 4, 'B6 MUTANT: guncel carpanla hesap eski kalani BOZUYOR',
     'mutant kalan=' + mutantKalan + ' (dogru deger 4)');
@@ -108,7 +113,7 @@ try {
   // IP2: talep iptal/reddedildi ise gorunumde yok
   rep(`update public.satin_alma_talepleri set durum='iptal' where id='${f.talepId}'::uuid;`);
   es('IP2 iptal talep gorunumde yok', 0,
-    tek(`select count(*) from public.stok_acik_talep where urun_kodu='${f.urunKodu}';`));
+    gorunum(`select count(*)::text from public.stok_acik_talep where urun_kodu='${f.urunKodu}';`));
   rep(`update public.satin_alma_talepleri set durum='onaylandi' where id='${f.talepId}'::uuid;`);
 
   // D1: denetim sorgusu temiz tabanda 0 satir
@@ -119,7 +124,7 @@ try {
   // S1: kalan sifirsa satir yok
   bagYaz(O, f, { kalemId: f.kalemId, siparisNo: f.siparisNo2, miktar: 4, hedefBirim: 'KOL' });
   es('S1 kalan sifir olunca KOL satiri yok', 0,
-    tek(`select count(*) from public.stok_acik_talep
+    gorunum(`select count(*)::text from public.stok_acik_talep
           where urun_kodu='${f.urunKodu}' and birim='KOL';`));
 
   console.log(`\nSONUC: ${ok} gecti, ${fail} kaldi`);

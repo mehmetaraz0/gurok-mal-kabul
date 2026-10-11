@@ -33,6 +33,40 @@ $$;
 
 begin;
 
+-- BAG TOPLAMI `security definer` YARDIMCIDAN OKUNUR (bagimsiz inceleme
+-- bulgusu C2; izole ortamda OLCULDU). Gorunum `security_invoker=true`
+-- oldugu icin bag alt sorgusu CAGIRANIN RLS'i altinda kosuyordu:
+-- `tsb_select` ve `sip_select` politikalari siparis modulu yetkisi ister,
+-- gorunumun tuketicisi olan stok ekrani ise `stok_takip` + `ic_talep`
+-- yetkisiyle kapilidir. Iki yetki kumesi AYNI DEGIL: siparis modulunde
+-- yetkisi olmayan bir depo kullanicisi icin `bagli` daima 0 doner ve
+-- "kalan miktar" sessizce "tum talep miktari"na dondu. Hata yok, uyari yok,
+-- iki kullanici ayni ekranda FARKLI sayi gorur.
+--
+-- ATLANAN KONTROLUN YENIDEN UYGULANMASI (MY-4 dersi): yardimci definer
+-- oldugu icin RLS'i atlar, bu yuzden OTEL KAPSAMI kontrolu burada ACIKCA
+-- yeniden uygulanir (`auth_otel_erisim`). Fonksiyon yalniz toplam dondurur;
+-- firma, fiyat, siparis numarasi gibi siparis ayrintisi SIZDIRMAZ.
+create or replace function public.talep_bag_toplam()
+returns table (talep_kalem_id uuid, hedef_birim text, bagli numeric)
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, pg_temp
+as $fn$
+  select b.talep_kalem_id, b.hedef_birim, sum(b.miktar)
+    from public.talep_siparis_baglari b
+    join public.siparisler s on s.siparis_no = b.siparis_no
+   where s.durum <> 'iptal'
+     and public.auth_otel_erisim(b.otel_id::text) is true
+   group by b.talep_kalem_id, b.hedef_birim
+$fn$;
+
+-- ACL KARARI ACIKCA (standart R9 + R11)
+revoke all on function public.talep_bag_toplam() from public, anon;
+revoke all on function public.talep_bag_toplam() from service_role;
+grant execute on function public.talep_bag_toplam() to authenticated;
+
 -- KOLON SIRASI BILINCLI: `birim` EN SONA eklenir.
 -- Olculdu: `create or replace view` kolonu ORTAYA ekleyemiyor —
 --   ERROR: cannot change name of view column "talep_miktar" to "birim"
@@ -46,13 +80,8 @@ select t.otel_id,
        tk.birim
   from public.satin_alma_talep_kalemleri tk
   join public.satin_alma_talepleri t on t.id = tk.talep_id
-  left join (
-    select b.talep_kalem_id, b.hedef_birim, sum(b.miktar) as bagli
-      from public.talep_siparis_baglari b
-      join public.siparisler s on s.siparis_no = b.siparis_no
-     where s.durum <> 'iptal'
-     group by b.talep_kalem_id, b.hedef_birim
-  ) b on b.talep_kalem_id = tk.id and b.hedef_birim = tk.birim
+  left join public.talep_bag_toplam() b
+         on b.talep_kalem_id = tk.id and b.hedef_birim = tk.birim
  where t.durum not in ('iptal', 'reddedildi')
  group by t.otel_id, tk.urun_kodu, tk.birim
 having sum(tk.miktar - coalesce(b.bagli, 0)) > 0;

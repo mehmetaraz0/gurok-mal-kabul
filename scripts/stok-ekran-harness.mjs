@@ -32,7 +32,15 @@ function sahteEleman(id) {
 
 // kaynakKok: ekran dosyalarinin okunacagi kok (varsayilan: bu calisma kopyasi). Yayin gecis
 // provasi eski surumu (origin/main) ayri bir dizinden calistirir.
-export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_control', yetkiler = {}, kaynakKok = kok }) {
+//
+// dosya/yardimcilar/baslangic/hazirKosul: VARSAYILANLAR stok-takip.html'dir,
+// boylece mevcut cagrilar degismez. Satin alma ekranlari ayni DOM taklidini
+// kullanabilsin diye parametre haline getirildi — ikinci bir kopya harness
+// yazmak, degisince testle birlikte yalan soyleyen ikinci bir mantik olurdu.
+const STOK_YARDIMCILAR = ['otel-config.js', 'ortak.js', 'filtre.js', 'stok-veri.js', 'hata-kodlari.js'];
+export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_control', yetkiler = {}, kaynakKok = kok,
+                           dosya = 'stok-takip.html', yardimcilar = STOK_YARDIMCILAR,
+                           baslangic = null, hazirKosul = null, oturumVerisi = null }) {
   const elemanlar = new Map();
   const el = (id) => {
     if (!elemanlar.has(id)) elemanlar.set(id, sahteEleman(id));
@@ -76,7 +84,8 @@ export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_
     Buffer, TextEncoder, TextDecoder, Headers, Request, Response, AbortController,
     document: belge,
     navigator: { userAgent: 'node-test' },
-    location: { href: 'http://localhost/stok-takip.html', search: '', hash: '', pathname: '/stok-takip.html', reload() {} },
+    location: { href: 'http://localhost/' + dosya, search: '', hash: '', pathname: '/' + dosya, reload() {} },
+    crypto: globalThis.crypto,
     localStorage: (() => { const m = new Map(); return {
       getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)),
       removeItem: (k) => m.delete(k), clear: () => m.clear() }; })(),
@@ -120,28 +129,40 @@ export function ekranKur({ restUrl, jwt, depo = 'D1', otel = '810', rol = 'cost_
      var kullaniciYetkileriGetir=async function(){return ${JSON.stringify(yetkiler)};};
      var oturumAccessTokenGetir=function(){return 'test';};`, baglam, { filename: 'test-config.js' });
 
-  for (const dosya of ['otel-config.js', 'ortak.js', 'filtre.js', 'stok-veri.js', 'hata-kodlari.js']) {
+  for (const yd of yardimcilar) {
     // Eski surumde olmayan yardimci dosya (or. hata-kodlari.js) atlanir.
-    let icerik; try { icerik = readFileSync(kaynakKok + dosya, 'utf8'); } catch { continue; }
-    vm.runInContext(icerik, baglam, { filename: dosya });
+    let icerik; try { icerik = readFileSync(kaynakKok + yd, 'utf8'); } catch { continue; }
+    vm.runInContext(icerik, baglam, { filename: yd });
   }
+  if (oturumVerisi) vm.runInContext(oturumVerisi, baglam, { filename: 'test-oturum.js' });
 
-  const html = readFileSync(kaynakKok + 'stok-takip.html', 'utf8');
-  const m = html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/);
-  if (!m) throw new Error('stok-takip.html icinde satir ici betik bulunamadi');
-  vm.runInContext(m[1], baglam, { filename: 'stok-takip.html' });
+  const html = readFileSync(kaynakKok + dosya, 'utf8');
+  // Satir ici betiklerin TAMAMI, dosyadaki sirayla kosar: bazi ekranlar
+  // oturumu (`CU = requireLogin()`) head'deki ayri bir betikte kurar.
+  // Acilis ve kapanis etiketleri SATIR BASINDA olmali — bunu istemeyen tek
+  // sey, PDF sablonu icindeki kacisli `<\/script>` metnidir; o metin satir
+  // basinda olmadigi icin disarida kalir. (Olculdu: kolon kisiti olmadan o
+  // sablon acilis etiketi sayiliyor ve ana betigin bir parcasi IKI KEZ
+  // kosuyordu.)
+  const betikler = [...html.matchAll(/^<script(?![^>]*src=)[^>]*>\r?\n([\s\S]*?)^<\/script>/gm)];
+  if (!betikler.length) throw new Error(dosya + ' icinde satir ici betik bulunamadi');
+  betikler.forEach((m, i) => vm.runInContext(m[1], baglam, { filename: dosya + '#' + (i + 1) }));
 
   // Ekranin baslangic durumu: depo secili, katalog bos (bilerek — artik
   // acilista indirilmiyor).
-  vm.runInContext(`aktifDepoId=${JSON.stringify(depo)};
-     currentUser={id:'test-kullanici',ad:'Test Kullanici',rol:${JSON.stringify(rol)},otel_id:${JSON.stringify(otel)}};`, baglam, { filename: 'test-durum.js' });
+  vm.runInContext(baslangic !== null ? baslangic
+    : `aktifDepoId=${JSON.stringify(depo)};
+     currentUser={id:'test-kullanici',ad:'Test Kullanici',rol:${JSON.stringify(rol)},otel_id:${JSON.stringify(otel)}};`,
+    baglam, { filename: 'test-durum.js' });
 
   // init() ekran yuklenirken kendiliginden baslar ve async'tir. Testler onun
   // BITMESINI bekler; yarim yuklu durumda olcum yapmak yanlis sonuc uretir.
+  const varsayilanHazir = (b) => b.db && b.db.abcSiniflari && b.db.urunler;
   async function hazir(sureMs = 15000) {
+    const kosul = hazirKosul || varsayilanHazir;
     const bitis = Date.now() + sureMs;
     while (Date.now() < bitis) {
-      if (baglam.db && baglam.db.abcSiniflari && baglam.db.urunler) return true;
+      if (kosul(baglam)) return true;
       await new Promise(r => setTimeout(r, 50));
     }
     return false;
