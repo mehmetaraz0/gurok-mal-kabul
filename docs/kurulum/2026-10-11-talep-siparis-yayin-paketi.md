@@ -32,10 +32,27 @@ kısmi karşılama taneliliğinde. Açık talep = **kalan** miktar.
 | 7 | **Arayüz push** (`satin-alma-talepler.html`, `satin-alma-siparisolustur.html`, `satin-alma-iade.html`, `stok-takip.html`, `onay-motoru.js`) | Görünümün `birim` kolonu ile **birlikte** gider |
 | 8 | `2026-10-11-talep-siparis-bag-geri-yazma.sql` | Bağ tablosu ve INV kapıları kurulu olmalı; **geçiş kararının uygulaması** (aşağıya bak) |
 
-**Kritik — 6 ve 7 birlikte gider.** Görünüm `birim` kolonu döndürmeye
-başladığında eski ekran bütün satırları ürün kodunda toplar: ölçüldü,
-10 KOL + 100 KG ekranda **110** görünür — kullanıcının hiçbir yerde karşılığı
-olmayan bir sayı.
+**SIRA REVİZYONU (2026-10-11): 7, 6'dan ÖNCE gider.** Tablodaki numaralar
+bağımlılık sırasıdır; **koşum sırası 1→5, sonra 7, sonra 6, sonra 8.**
+
+Sebep: iki yarım-yayın yönünün bedeli eşit değil.
+
+| Yön | Penceredeki davranış |
+|---|---|
+| Görünüm önce (6→7) | Eski ekran bütün satırları ürün kodunda toplar: ölçüldü, 10 KOL + 100 KG ekranda **110** görünür — **sessizce yanlış sayı**, kullanıcı ona göre karar verir |
+| **Arayüz önce (7→6)** | Yeni ekran `birim` ister, görünüm yoktur → PostgREST 400 → sütun **"ölçülemedi"** gösterir ve kullanıcı uyarılır (I-7 düzeltmesi). **Görünür ve dürüst**, yanlış sayı yok |
+
+İkinci yön kesinlikle daha iyi: sessiz yanlışlık yerine görünür eksiklik.
+
+**Ancak 1–5 arayüzden ÖNCE gitmek zorunda.** Yeni ekran numarayı
+`siparis_no_uret`'ten, talep yolunu `siparis_olustur_talepten`'den alıyor;
+bunlar yoksa fail-closed devreye girer ve **dört sipariş oluşturma yolunun
+tamamı durur** — yanlış Talep sayısından çok daha kötü.
+
+1–5 uygulanmış + **eski** arayüz hâlâ canlı penceresi güvenlidir: 3 yalnız
+nullable kolon ekler; 4'ün tetikleyicileri hiç bağ yokken boş geçer; 1'in
+sayacı `greatest(son_no, max(...))` ile eski `max+1` yazmalarının arkasından
+kendini toparlar.
 
 **Kritik — 1 ve 7 birlikte gider.** İstemciler numarayı artık
 `siparis_no_uret` RPC'sinden alıyor; 1 uygulanmadan 7 yayınlanırsa dört
