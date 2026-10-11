@@ -1970,23 +1970,22 @@ function iadeKalemGuncelle(i){
   k.birim=document.getElementById('iade-birim-'+i)?.value||'KG';
 }
 
-// C00091112 / R00091112 formatı — satın alma ile aynı havuzdan, çakışma önlenir
+// C00091112 / R00091112 formatı — satın alma ile aynı havuzdan, çakışma önlenir.
+// Numara artik SUNUCUDA, tek seri kaynaktan uretilir (siparis_no_sayac).
+// Istemcide `max+1` YOK: iki kullanici ayni maksimumu okuyup ayni numarayi
+// alabiliyordu ve siparis_no PRIMARY KEY oldugu icin biri sessizce kaybolur.
+// Hata halinde NULL doner ve cagiran siparis YAZMAZ — eskiden `catch` icinde
+// rastgele numara uretiliyordu, o sessiz uydurma kaldirildi.
 async function yeniSiparisNoUret(prefix){
-  const p=prefix==='R'?'R':'C';
+  const p = prefix === 'R' ? 'R' : 'C';
   try{
-    const r=await fetch(SB_URL+`/rest/v1/siparisler?siparis_no=like.${p}*&select=siparis_no&order=siparis_no.desc&limit=1`,{headers:SB_HEADERS});
-    let maxNo=91110;
-    if(r.ok){
-      const d=await r.json();
-      if(d&&d.length){
-        const m=d[0].siparis_no.match(new RegExp('^'+p+'(\\d+)$'));
-        if(m)maxNo=parseInt(m[1]);
-      }
-    }
-    return p+String(maxNo+1).padStart(8,'0');
-  }catch(e){
-    return p+String(91111+Math.floor(Math.random()*1000)).padStart(8,'0');
-  }
+    const r = await fetch(SB_URL+'/rest/v1/rpc/siparis_no_uret',{
+      method:'POST', headers:SB_HEADERS, body:JSON.stringify({p_prefix:p})
+    });
+    if(!r.ok){ console.error('siparis_no_uret basarisiz:', r.status, await r.text().catch(()=>'')); return null; }
+    const no = await r.json();
+    return (typeof no === 'string' && /^[CR][0-9]{8}$/.test(no)) ? no : null;
+  }catch(e){ console.warn('siparis_no_uret', e); return null; }
 }
 
 async function iadeSiparisiOlustur(){
@@ -2017,6 +2016,9 @@ async function iadeSiparisiOlustur(){
   showLoading();
   const prefix=otelId==='811'?'R':'C';
   const siparisNo=await yeniSiparisNoUret(prefix);
+  // Fail-closed: numara alinamazsa siparis YAZILMAZ. hideLoading() sart —
+  // ortu showLoading() ile acilmisti, erken cikista kapanmazsa ekran kilitlenir.
+  if(!siparisNo){ hideLoading(); showToast('❌ Sipariş numarası alınamadı, sipariş kaydedilmedi'); return; }
 
   const kalemler=dolu.map(k=>({ad:k.ad,kod:k.kod,miktar:parseFloat(k.miktar)||0,birim:k.birim,
     gelenMiktar:0,kalanMiktar:parseFloat(k.miktar)||0}));

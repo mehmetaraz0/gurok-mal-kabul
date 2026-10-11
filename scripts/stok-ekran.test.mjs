@@ -13,9 +13,11 @@
 //
 // Sunucu satir tavani 100: 300 urunlu bir depo tek sayfaya SIGMAZ.
 // ===========================================================================
+import { readFileSync } from 'node:fs';
 import { ortamOlustur } from './stok-test-ortam.mjs';
 import { ekranKur } from './stok-ekran-harness.mjs';
 
+const KOK = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const ortam = ortamOlustur({ onek: 'stok-ekran', port: 3098, maxRows: 100 });
 
 let ok = 0, fail = 0;
@@ -39,6 +41,13 @@ const EK_SEMA = `
     miktar numeric, birim text);
   grant select, insert, update on public.urun_birim_donusum, public.cariler,
     public.kullanicilar_genel, public.siparisler, public.siparis_kalemleri to authenticated;
+
+  -- Siparis numarasi artik SUNUCUDAN geliyor (siparis_no_uret). Bu suit
+  -- EKRANI sinar, yetkilendirmeyi sinamaz: yetki kapisinin kendisi uretim
+  -- sema dokumu uzerinde scripts/siparis-no-uret.test.mjs icinde olculur.
+  -- Burada yalniz onkosulu karsilayan asgari bir karsilik konur.
+  create or replace function public.auth_yetki_var(p_modul text, p_eylem text)
+  returns boolean language sql stable as $$ select true $$;
 `;
 
 function seedDepolar() {
@@ -60,6 +69,20 @@ const miktarOku = (kod, depo) =>
                          where urun_kodu='${kod}' and depo_kodu='${depo}'`));
 
 await ortam.kur({ ekSema: EK_SEMA, rpc: true });
+
+// Ortak numara ureteci: GERCEK migration dosyasi aynen uygulanir, boylece
+// iade akisi ekranda numarayi sunucudan alir. Uygulanamazsa akis sessizce
+// "numara alinamadi" ile durur ve iade testi anlamini yitirir — bu yuzden
+// kurulum basarisi ACIKCA kontrol edilir.
+{
+  const r = ortam.psql(readFileSync(KOK + 'docs/kurulum/2026-10-11-siparis-no-sayac.sql', 'utf8'));
+  if (r.status !== 0) {
+    console.error('siparis_no_sayac migration uygulanamadi:\n' +
+      (r.stderr || '').split('\n').slice(-6).join('\n'));
+    ortam.temizle();
+    process.exit(1);
+  }
+}
 console.log('ortam hazir — postgrest satir tavani: ' + ortam.maxRows + '\n');
 seedDepolar();
 
@@ -235,6 +258,39 @@ const toastVar = (e, parca) => toastlar(e).some(t => t.includes(parca));
   sonuc(siparisAdet === 1 && !toastVar(e, 'stok yetersiz'),
     'iade: sayfada olmayan urun icin stok kontrolu SUNUCUDAN gecti',
     siparisAdet + ' iade siparisi olustu');
+
+  // Numara SAYACTAN mi geldi? Bos siparisler tablosunda tohum 91110'dur,
+  // dolayisiyla ilk numara C00091111 olmak ZORUNDA. Istemci bir sey
+  // uydurursa bu esitlik tutmaz.
+  const yeniNo = ortam.psqlTek("select coalesce(max(siparis_no),'yok') from public.siparisler");
+  sonuc(yeniNo === 'C00091111', 'iade: numara sayactan geldi (istemci uretmedi)', 'numara=' + yeniNo);
+  const sayac = ortam.psqlTek("select son_no::text from public.siparis_no_sayac where prefix='C'");
+  sonuc(sayac === '91111', 'iade: sayac ilerledi', 'son_no=' + sayac);
+
+  // FAIL-CLOSED: uretec cagrilamazsa iade YAZILMAMALI. Eski kod bu durumda
+  // rastgele numara uydurup siparisi yaziyordu.
+  ortam.psql(`truncate public.siparisler, public.siparis_kalemleri;
+              revoke execute on function public.siparis_no_uret(text) from authenticated;
+              notify pgrst, 'reload schema';`);
+  const e3 = await ekran('D1');
+  await e3.calistir('stokListesiYenile()');
+  const f3 = e3.el('iade-firma');
+  f3.value = '00000000-0000-0000-0000-000000000001';
+  f3.selectedIndex = 0;
+  f3.options = [{ dataset: { ad: 'Test Firma' } }];
+  e3.el('iade-otel').value = '810';
+  e3.el('iade-depo').value = 'D1';
+  e3.el('iade-neden').value = 'bozuk';
+  e3.el('iade-fatura-no').value = '';
+  e3.el('iade-not').value = '';
+  e3.calistir(`IADE_KALEMLER=[{id:'t1',kod:'AAA300',ad:'A urunu 300',birim:'KG',miktar:'5'}];`);
+  await e3.calistir('iadeSiparisiOlustur()');
+  const adet3 = Number(ortam.psqlTek("select count(*)::text from public.siparisler"));
+  sonuc(adet3 === 0 && toastVar(e3, 'numarası alınamadı'),
+    'iade: numara uretilemezse siparis HIC yazilmiyor (fail-closed)',
+    adet3 + ' siparis | mesaj: ' + (toastlar(e3).slice(-1)[0] || '—').slice(0, 60));
+  ortam.psql(`grant execute on function public.siparis_no_uret(text) to authenticated;
+              notify pgrst, 'reload schema';`);
 
   // Simdi okuma bozuk: iade hic baslamamali.
   ortam.psql(`truncate public.siparisler, public.siparis_kalemleri;`);
